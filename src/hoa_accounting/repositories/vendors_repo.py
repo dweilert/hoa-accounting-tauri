@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from .base import BaseRepository
 
 
 class VendorsRepository(BaseRepository):
     """Database access for vendor bills and bill payments."""
+
+    def list_vendors(self, *, active_only: bool = True) -> list[sqlite3.Row]:
+        """Return vendors for a master-data list page."""
+        predicates = []
+        if active_only:
+            predicates.append("active_flag = 1")
+        where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT id, vendor_name, contact_name, email, phone,
+                       city, state, postal_code, active_flag
+                FROM vendors
+                {where_sql}
+                ORDER BY vendor_name COLLATE NOCASE
+                """
+            ).fetchall()
+        )
 
     def insert_vendor_bill(
         self,

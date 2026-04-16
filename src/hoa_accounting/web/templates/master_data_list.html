@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ rows|length }} record{% if rows|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">{{ heading }}</div>
+        <div class="panel__description">{{ description }}</div>
+      </div>
+    </div>
+
+    {% if rows %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {% for col in columns %}
+                <th {% if col.numeric %}class="num"{% endif %}>{{ col.label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                {% for col in columns %}
+                  <td
+                    {%- if col.numeric %} class="num"
+                    {%- elif col.mono %} class="mono"
+                    {%- endif -%}
+                  >{{ row[col.key] }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">{{ empty_message }}</div>
+    {% endif %}
+  </div>
+{% endblock %}
