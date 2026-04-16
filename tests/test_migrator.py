@@ -109,12 +109,17 @@ def test_failed_migration_is_not_recorded(tmp_path: Path) -> None:
     assert applied_after_fix == ["0002_broken.sql"]
 
 
-def test_default_migrations_dir_applies_initial_schema() -> None:
-    """With the packaged migrations dir, 0001_initial.sql creates core tables."""
+def test_default_migrations_dir_applies_all_packaged_migrations() -> None:
+    """With the packaged migrations dir, all .sql files apply in order."""
     conn = _conn()
     applied = Migrator().apply_all(conn)
 
-    assert applied == ["0001_initial.sql"]
+    # Must at least include the initial schema and the first follow-up.
+    assert applied[0] == "0001_initial.sql"
+    assert "0002_expense_classification_and_groups.sql" in applied
+    # Applied in lexical order.
+    assert applied == sorted(applied)
+
     tables = {
         r["name"]
         for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -123,17 +128,33 @@ def test_default_migrations_dir_applies_initial_schema() -> None:
     assert "accounts" in tables
     assert "schema_version" in tables
 
+    # 0002 adds the new columns and seeds fine-grained expense accounts.
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(accounts)")}
+    assert "group_code" in cols
+    line_cols = {r["name"] for r in conn.execute("PRAGMA table_info(journal_entry_lines)")}
+    assert "expense_classification" in line_cols
+    landscape = conn.execute(
+        "SELECT COUNT(*) AS c FROM accounts WHERE group_code = 'LANDSCAPE' AND is_active = 1"
+    ).fetchone()
+    assert landscape["c"] >= 9  # nine Landscape categories seeded
+
 
 def test_migrator_is_safe_on_existing_database() -> None:
-    """Running against a DB that already has the 0001 tables doesn't error."""
+    """Running against a DB that already has the 0001 tables doesn't error.
+
+    Simulates a pre-existing install that was created by the old
+    executescript(base_schema_sql()) path. The migrator must catch up by
+    recording 0001 as applied (its statements are re-run but every
+    CREATE uses IF NOT EXISTS and INSERT OR IGNORE so they no-op).
+    """
     conn = _conn()
-    # Simulate a pre-existing install: apply the initial schema directly.
     from hoa_accounting.bootstrap.schema import base_schema_sql
     conn.executescript(base_schema_sql())
-    # schema_version does not yet exist. Running the migrator should create it
-    # and record 0001 as applied (the IF NOT EXISTS guards make re-running safe).
+
     applied = Migrator().apply_all(conn)
-    assert applied == ["0001_initial.sql"]
+    # All packaged migrations land; 0001 is first.
+    assert applied[0] == "0001_initial.sql"
+    assert "0002_expense_classification_and_groups.sql" in applied
 
     # Second run is a no-op.
     assert Migrator().apply_all(conn) == []

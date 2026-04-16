@@ -107,6 +107,13 @@ class ReversalService:
                         if line["vendor_id"] is not None
                         else None
                     ),
+                    # Preserve the original tag so a reversed expense line
+                    # reports under the same classification bucket.
+                    expense_classification=(
+                        str(line["expense_classification"])
+                        if line["expense_classification"] is not None
+                        else None
+                    ),
                 )
                 for line in original_lines
             ]

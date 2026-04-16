@@ -65,6 +65,7 @@ CREATE TABLE accounts (
     is_bank_account INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     description TEXT,
+    group_code TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -104,7 +105,8 @@ CREATE TABLE journal_entry_lines (
     vendor_id INTEGER,
     description TEXT,
     debit_amount NUMERIC NOT NULL DEFAULT 0,
-    credit_amount NUMERIC NOT NULL DEFAULT 0
+    credit_amount NUMERIC NOT NULL DEFAULT 0,
+    expense_classification TEXT
 );
 CREATE TABLE assessments (
     id INTEGER PRIMARY KEY,

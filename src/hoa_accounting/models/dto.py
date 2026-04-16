@@ -9,7 +9,16 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class JournalLineInput:
-    """One debit or credit line for a journal entry."""
+    """One debit or credit line for a journal entry.
+
+    ``expense_classification`` carries the per-transaction operating-vs-
+    improvement tag used by expense reporting. It is optional on the input
+    — lines targeting non-expense accounts (asset, liability, income,
+    equity) leave it ``None``, which stores as SQL NULL. Expense-account
+    lines should supply either ``"OPERATING"`` or ``"IMPROVEMENT"``;
+    callers that omit it on an expense line get ``"OPERATING"`` as a safe
+    default applied at the validator layer.
+    """
     account_id: int
     description: str
     debit_amount: Decimal = Decimal("0.00")
@@ -17,6 +26,7 @@ class JournalLineInput:
     lot_id: Optional[int] = None
     owner_id: Optional[int] = None
     vendor_id: Optional[int] = None
+    expense_classification: Optional[str] = None
 
 
 @dataclass(frozen=True)
