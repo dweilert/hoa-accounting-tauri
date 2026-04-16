@@ -1,86 +1,108 @@
-<div class="summary-card">
-  <h3>Formatted Summary</h3>
-  <div><strong>As Of Date:</strong> {{ summary.as_of_date }}</div>
-  <div><strong>Total Assets:</strong> {{ summary.total_assets }}</div>
-  <div><strong>Total Liabilities:</strong> {{ summary.total_liabilities }}</div>
-  <div><strong>Total Equity:</strong> {{ summary.total_equity }}</div>
-  <div><strong>Balancing Difference:</strong> {{ summary.balancing_difference }}</div>
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">As of</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.as_of_date }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Assets</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_assets }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Liabilities</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_liabilities }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Equity</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_equity }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Balancing Difference</span>
+    <span class="summary-totals__value {% if summary.balancing_difference in ['0.00', 0, '0'] %}summary-totals__value--accent{% else %}summary-totals__value--danger{% endif %}">
+      {{ summary.balancing_difference }}
+    </span>
+  </div>
+</div>
 
-  <h4>Assets</h4>
-  {% if summary.assets.rows %}
+<div class="section-heading">Assets</div>
+{% if summary.assets.rows %}
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Account</th>
           <th>Name</th>
           <th>Fund</th>
-          <th>Amount</th>
+          <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary.assets.rows %}
           <tr>
-            <td>{{ row.account_number }}</td>
+            <td class="mono">{{ row.account_number }}</td>
             <td>{{ row.account_name }}</td>
-            <td>{{ row.fund_code }}</td>
+            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <p>No rows.</p>
-  {% endif %}
+  </div>
+{% else %}
+  <div class="empty">No asset rows.</div>
+{% endif %}
 
-  <h4>Liabilities</h4>
-  {% if summary.liabilities.rows %}
+<div class="section-heading">Liabilities</div>
+{% if summary.liabilities.rows %}
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Account</th>
           <th>Name</th>
           <th>Fund</th>
-          <th>Amount</th>
+          <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary.liabilities.rows %}
           <tr>
-            <td>{{ row.account_number }}</td>
+            <td class="mono">{{ row.account_number }}</td>
             <td>{{ row.account_name }}</td>
-            <td>{{ row.fund_code }}</td>
+            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <p>No rows.</p>
-  {% endif %}
+  </div>
+{% else %}
+  <div class="empty">No liability rows.</div>
+{% endif %}
 
-  <h4>Equity</h4>
-  {% if summary.equity.rows %}
+<div class="section-heading">Equity</div>
+{% if summary.equity.rows %}
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Account</th>
           <th>Name</th>
           <th>Fund</th>
-          <th>Amount</th>
+          <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary.equity.rows %}
           <tr>
-            <td>{{ row.account_number }}</td>
+            <td class="mono">{{ row.account_number or '' }}</td>
             <td>{{ row.account_name }}</td>
-            <td>{{ row.fund_code }}</td>
+            <td>{% if row.fund_code %}<span class="pill pill--muted">{{ row.fund_code }}</span>{% endif %}</td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <p>No rows.</p>
-  {% endif %}
-</div>
+  </div>
+{% else %}
+  <div class="empty">No equity rows.</div>
+{% endif %}

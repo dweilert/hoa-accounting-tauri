@@ -53,6 +53,10 @@ class HomePageContext:
 
     api_status: str
     report_cards: list[ReportCardVM]
+    org: dict[str, object]
+    active_nav: str
+    breadcrumb: str
+    selected_report: str
 
 
 @dataclass(frozen=True)
@@ -68,9 +72,25 @@ class ReportConsoleContext:
     summary: dict[str, object]
     error_message: str
     raw_json: str
+    org: dict[str, object]
+    active_nav: str
+    breadcrumb: str
+    selected_report: str
 
 
-def build_home_page_context(*, api_status: str) -> HomePageContext:
+_DEFAULT_ORG: dict[str, object] = {
+    "name": "HOA Accounting",
+    "legal_name": "",
+    "environment": "local",
+    "fiscal_year_start_month": 1,
+}
+
+
+def build_home_page_context(
+    *,
+    api_status: str,
+    org: dict[str, object] | None = None,
+) -> HomePageContext:
     """Build the context for the dashboard home page."""
     return HomePageContext(
         api_status=api_status,
@@ -83,6 +103,10 @@ def build_home_page_context(*, api_status: str) -> HomePageContext:
             )
             for report_def in REPORT_DEFINITIONS
         ],
+        org=org or dict(_DEFAULT_ORG),
+        active_nav="home",
+        breadcrumb="Overview",
+        selected_report="",
     )
 
 
@@ -94,6 +118,7 @@ def build_report_console_context(
     summary: dict[str, object],
     error_message: str,
     api_payload: dict[str, object] | None,
+    org: dict[str, object] | None = None,
 ) -> ReportConsoleContext:
     """Build the template context for the report console page."""
     report_def = get_report_definition(selected_report)
@@ -111,6 +136,10 @@ def build_report_console_context(
         summary=summary,
         error_message=error_message,
         raw_json=_build_raw_json(api_payload),
+        org=org or dict(_DEFAULT_ORG),
+        active_nav="reports",
+        breadcrumb="Reports",
+        selected_report=selected_report,
     )
 
 

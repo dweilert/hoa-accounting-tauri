@@ -1,37 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}HOA Accounting Report Console{% endblock %}
+{% block title %}Reports · {{ org.name }}{% endblock %}
+{% block heading %}{{ report_title }}{% endblock %}
+
+{% block topbar_meta %}
+  {% if selected_report %}
+    <span class="pill pill--muted">{{ selected_report }}</span>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-  <h1>HOA Accounting Report Console</h1>
-  <div class="subtext">
-    Read-only UI. The page gathers parameters, calls the API, and renders returned data.
-  </div>
-
   <div class="panel">
-    <h2>Available Reports</h2>
-    <div class="catalog-grid">
-      {% for report in report_catalog_cards %}
-        <div class="catalog-card{% if report.selected %} selected-card{% endif %}">
-          <h3>{{ report.title }}</h3>
-          <p>{{ report.description }}</p>
-          <div class="catalog-fields">
-            <strong>Inputs:</strong> {{ report.field_list }}
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="report-summary">
-      <h2>{{ report_title }}</h2>
-      <div>{{ report_description }}</div>
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">{{ report_title }}</div>
+        <div class="panel__description">{{ report_description }}</div>
+      </div>
     </div>
 
-    <form method="get" action="/run-report">
-      <label class="full-width">
-        Report Name
+    <form method="get" action="/run-report" class="form">
+      <label class="field form__row--full">
+        <span class="field__label">Report</span>
         <select name="report_name">
           {% for option in report_options %}
             <option value="{{ option.name }}"{% if option.selected %} selected{% endif %}>
@@ -42,8 +31,8 @@
       </label>
 
       {% for field in parameter_fields %}
-        <label>
-          {{ field.label }}
+        <label class="field">
+          <span class="field__label">{{ field.label }}</span>
           <input
             type="text"
             name="{{ field.name }}"
@@ -53,27 +42,50 @@
         </label>
       {% endfor %}
 
-      <div class="full-width">
-        <button type="submit">Run Report</button>
+      <div class="form__row--full row">
+        <button type="submit" class="btn btn--primary">Run report</button>
+        <a href="/reports?report_name={{ selected_report }}" class="btn btn--ghost">Clear</a>
       </div>
     </form>
   </div>
 
   <div class="panel">
-    <h2>Formatted Output</h2>
+    <div class="panel__header">
+      <div class="panel__title">Formatted Output</div>
+    </div>
     {% if error_message %}
-      <div class="error">{{ error_message }}</div>
+      <div class="alert alert--error">{{ error_message }}</div>
     {% endif %}
 
     {% include summary_template %}
   </div>
 
   <div class="panel">
-    <h2>Raw API Response</h2>
-    {% if raw_json %}
-      <pre>{{ raw_json }}</pre>
-    {% else %}
-      <p>No report run yet.</p>
-    {% endif %}
+    <div class="panel__header">
+      <div class="panel__title">Available Reports</div>
+      <div class="panel__description">Browse and pick a report; the form above reflects the selection.</div>
+    </div>
+    <div class="card-grid">
+      {% for report in report_catalog_cards %}
+        <div class="card{% if report.selected %} card--selected{% endif %}">
+          <div class="card__title">{{ report.title }}</div>
+          <div class="card__description">{{ report.description }}</div>
+          <div class="card__meta">
+            <span class="card__meta-label">Inputs:</span> {{ report.field_list }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
   </div>
+
+  <details class="panel">
+    <summary class="panel__title" style="cursor: pointer;">Raw API response</summary>
+    <div style="margin-top: var(--sp-3);">
+      {% if raw_json %}
+        <pre class="raw-json">{{ raw_json }}</pre>
+      {% else %}
+        <div class="empty">No report has been run yet.</div>
+      {% endif %}
+    </div>
+  </details>
 {% endblock %}

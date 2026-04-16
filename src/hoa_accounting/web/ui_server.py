@@ -29,12 +29,12 @@ class HomePageService:
         self.api_service = api_service
         self.template_name = "home.html"
 
-    def render_page(self) -> UIResponse:
+    def render_page(self, *, org: dict[str, object] | None = None) -> UIResponse:
         """Render the home dashboard."""
         health = self.api_service.get_health()
         api_status = "READY" if health.body.get("ok") is True else "ERROR"
 
-        context = build_home_page_context(api_status=api_status)
+        context = build_home_page_context(api_status=api_status, org=org)
 
         return UIResponse(
             status_code=HTTPStatus.OK,
@@ -49,7 +49,12 @@ class ReportConsolePageService:
         self.api_service = api_service
         self.template_name = "report_console.html"
 
-    def render_page(self, *, selected_report: str = "trial-balance") -> UIResponse:
+    def render_page(
+        self,
+        *,
+        selected_report: str = "trial-balance",
+        org: dict[str, object] | None = None,
+    ) -> UIResponse:
         """Render the default console page without report output."""
         return UIResponse(
             status_code=HTTPStatus.OK,
@@ -58,6 +63,7 @@ class ReportConsolePageService:
                 form_values={},
                 api_payload=None,
                 error_message="",
+                org=org,
             ),
         )
 
@@ -66,6 +72,7 @@ class ReportConsolePageService:
         *,
         report_name: str,
         query_params: dict[str, str],
+        org: dict[str, object] | None = None,
     ) -> UIResponse:
         """Render the page with report results."""
         api_response = self.api_service.get_report(
@@ -86,6 +93,7 @@ class ReportConsolePageService:
                 form_values=query_params,
                 api_payload=api_response.body,
                 error_message=error_message,
+                org=org,
             ),
         )
 
@@ -96,6 +104,7 @@ class ReportConsolePageService:
         form_values: dict[str, str],
         api_payload: dict[str, object] | None,
         error_message: str,
+        org: dict[str, object] | None = None,
     ) -> str:
         summary_vm = build_summary_view_model(
             selected_report=selected_report,
@@ -109,6 +118,7 @@ class ReportConsolePageService:
             summary=summary_vm["summary"],
             error_message=error_message,
             api_payload=api_payload,
+            org=org,
         )
 
         return render_template(self.template_name, asdict(page_context))

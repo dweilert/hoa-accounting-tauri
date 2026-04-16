@@ -1,26 +1,41 @@
 {% extends "base.html" %}
 
-{% block title %}HOA Accounting Dashboard{% endblock %}
+{% block title %}Dashboard · {{ org.name }}{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--{% if api_status == 'READY' %}ok{% else %}error{% endif %}">
+    API {{ api_status }}
+  </span>
+{% endblock %}
 
 {% block content %}
-  <h1>HOA Accounting Dashboard</h1>
-  <div class="subtext">
-    Read-only operator shell for reports and financial review.
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">{{ org.name }}</div>
+        {% if org.legal_name and org.legal_name != org.name %}
+          <div class="panel__description">{{ org.legal_name }}</div>
+        {% endif %}
+      </div>
+    </div>
+    <p class="muted" style="margin: 0;">
+      Read-only operator shell. Reports are executed against the posted
+      general ledger. Transaction entry forms will appear as each is added.
+    </p>
   </div>
 
   <div class="panel">
-    <h2>System Status</h2>
-    <div>API Health: <span class="status-ok">{{ api_status }}</span></div>
-  </div>
-
-  <div class="panel">
-    <h2>Quick Reports</h2>
-    <div class="grid">
+    <div class="panel__header">
+      <div class="panel__title">Quick Reports</div>
+      <a href="/reports" class="muted">Open report console →</a>
+    </div>
+    <div class="card-grid">
       {% for card in report_cards %}
         <div class="card">
-          <h3>{{ card.title }}</h3>
-          <p>{{ card.description }}</p>
-          <div class="links">
+          <div class="card__title">{{ card.title }}</div>
+          <div class="card__description">{{ card.description }}</div>
+          <div class="card__footer">
             <a href="/reports?report_name={{ card.name }}">Open in console</a>
             <a href="/run-report?report_name={{ card.name }}{{ card.example_query }}">Run example</a>
           </div>

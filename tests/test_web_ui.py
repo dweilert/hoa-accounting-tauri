@@ -221,10 +221,12 @@ def test_home_page_renders_dashboard() -> None:
     response = home_service.render_page()
 
     assert response.status_code == 200
-    assert "HOA Accounting Dashboard" in response.body_html
-    assert "System Status" in response.body_html
+    # New shell: sidebar, topbar heading, status pill, quick reports panel.
+    assert "Dashboard" in response.body_html
     assert "Quick Reports" in response.body_html
     assert "READY" in response.body_html
+    assert 'class="sidebar' in response.body_html
+    assert 'class="pill' in response.body_html
 
 
 def test_render_trial_balance_summary_table() -> None:
@@ -236,8 +238,8 @@ def test_render_trial_balance_summary_table() -> None:
     )
 
     assert response.status_code == 200
-    assert "Formatted Summary" in response.body_html
-    assert "Total Debits:" in response.body_html
+    assert "Total Debits" in response.body_html
+    assert "Total Credits" in response.body_html
     assert "Assessment Income" in response.body_html
 
 
@@ -250,8 +252,10 @@ def test_render_balance_sheet_summary_table() -> None:
     )
 
     assert response.status_code == 200
-    assert "Total Assets:" in response.body_html
-    assert "Total Equity:" in response.body_html
+    # Section headings from the redesign; totals-block labels; cumulative line.
+    assert "Assets" in response.body_html
+    assert "Liabilities" in response.body_html
+    assert "Equity" in response.body_html
     assert "Cumulative Earnings" in response.body_html
 
 
@@ -267,8 +271,9 @@ def test_render_income_statement_summary_table() -> None:
     )
 
     assert response.status_code == 200
-    assert "Total Income:" in response.body_html
-    assert "Net Income:" in response.body_html
+    assert "Income" in response.body_html
+    assert "Expenses" in response.body_html
+    assert "Net Income" in response.body_html
     assert "Assessment Income" in response.body_html
 
 
@@ -286,11 +291,11 @@ def test_render_owner_ledger_summary_table() -> None:
     )
 
     assert response.status_code == 200
-    assert "Opening Balance:" in response.body_html
-    assert "Closing Balance:" in response.body_html
+    assert "Opening Balance" in response.body_html
+    assert "Closing Balance" in response.body_html
     assert "Owner 1" in response.body_html
     assert "UI-1" in response.body_html
-    assert "Running Balance" in response.body_html
+    assert "Running" in response.body_html
 
 
 def test_render_ar_aging_summary_table() -> None:
@@ -307,9 +312,10 @@ def test_render_ar_aging_summary_table() -> None:
     assert response.status_code == 200
     assert "Owner Summaries" in response.body_html
     assert "Open Items" in response.body_html
-    assert "Total Open Amount:" in response.body_html
+    assert "Total Open" in response.body_html
     assert "Owner 1" in response.body_html
-    assert "1-30" in response.body_html or "CURRENT" in response.body_html
+    # AR aging uses an en-dash in the redesign ("1–30"); accept either form.
+    assert "1-30" in response.body_html or "1&#8211;30" in response.body_html or "CURRENT" in response.body_html
 
 def test_build_home_page_context_contains_report_cards() -> None:
     context = build_home_page_context(api_status="READY")
