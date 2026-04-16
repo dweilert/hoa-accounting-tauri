@@ -175,3 +175,47 @@ class JournalRepository(BaseRepository):
             "UPDATE journal_entries SET source_id = ? WHERE id = ?",
             (source_id, journal_entry_id),
         )
+
+    def get_journal_entry(self, journal_entry_id: int) -> sqlite3.Row | None:
+        """Return the journal entry row, or None if missing."""
+        return self.conn.execute(
+            """
+            SELECT id, entry_number, entry_date, accounting_period_id,
+                   source_type, source_id, memo, status, reversal_entry_id
+            FROM journal_entries
+            WHERE id = ?
+            """,
+            (journal_entry_id,),
+        ).fetchone()
+
+    def get_journal_lines(self, journal_entry_id: int) -> list[sqlite3.Row]:
+        """Return the lines of a journal entry, in line order."""
+        return list(
+            self.conn.execute(
+                """
+                SELECT line_number, account_id, lot_id, owner_id, vendor_id,
+                       description, debit_amount, credit_amount
+                FROM journal_entry_lines
+                WHERE journal_entry_id = ?
+                ORDER BY line_number
+                """,
+                (journal_entry_id,),
+            ).fetchall()
+        )
+
+    def mark_reversed(
+        self,
+        *,
+        journal_entry_id: int,
+        reversal_entry_id: int,
+    ) -> None:
+        """Flip an original entry to REVERSED and link its reversal."""
+        self.conn.execute(
+            """
+            UPDATE journal_entries
+            SET status = 'REVERSED',
+                reversal_entry_id = ?
+            WHERE id = ?
+            """,
+            (reversal_entry_id, journal_entry_id),
+        )

@@ -17,6 +17,7 @@ from hoa_accounting.services.assessment_service import AssessmentService
 from hoa_accounting.services.journal_service import JournalService
 from hoa_accounting.services.payment_service import PaymentService
 from hoa_accounting.services.reserve_transfer_service import ReserveTransferService
+from hoa_accounting.services.reversal_service import ReversalService
 from hoa_accounting.services.vendor_bill_service import VendorBillService
 from hoa_accounting.services.vendor_payment_service import VendorPaymentService
 from hoa_accounting.validators.account_role_validator import AccountRoleValidator
@@ -109,6 +110,15 @@ class ServiceFactory:
             entity_validator=self.entity_validator,
             account_validator=self.account_validator,
             account_role_validator=self.account_role_validator,
+        )
+
+    def reversal_service(self) -> ReversalService:
+        """Return a configured reversal service."""
+        return ReversalService(
+            self.conn,
+            journal_repo=self.journal_repo,
+            audit_repo=self.audit_repo,
+            journal_service=self.journal_service(),
         )
 
     def reserve_transfer_service(self) -> ReserveTransferService:

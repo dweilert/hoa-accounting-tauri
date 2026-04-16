@@ -65,3 +65,16 @@ class ReserveTransferResult:
     reserve_transfer_id: int
     journal_entry_id: int
     entry_number: str
+
+
+@dataclass(frozen=True)
+class ReversalResult:
+    """Return information for a posted reversal.
+
+    ``original_journal_entry_id`` is the entry being reversed (now marked
+    REVERSED). ``reversal_journal_entry_id`` is the new entry that swaps
+    the original's debits and credits.
+    """
+    original_journal_entry_id: int
+    reversal_journal_entry_id: int
+    reversal_entry_number: str
