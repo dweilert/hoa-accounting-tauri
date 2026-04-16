@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -118,16 +119,29 @@ class ReportRunner:
 
         raise ValidationError(f"Unsupported report: {report_name}")
 
-    def _open_connection(self):
+    @contextmanager
+    def _open_connection(self) -> Iterator[sqlite3.Connection]:
+        """Yield a connection for one report run.
+
+        A caller-supplied ``connection_factory`` is borrowed — the caller
+        owns its lifecycle (tests reuse shared in-memory databases). When
+        we opened the connection ourselves we close it on exit so the
+        server doesn't leak a file descriptor per report.
+        """
         if self._connection_factory is not None:
-            return self._connection_factory()
+            yield self._connection_factory()
+            return
 
         config = load_config(self.config_path)
         if config.database.type.lower() != "sqlite":
             raise ValidationError(
                 f"Unsupported database type for report runner: {config.database.type}"
             )
-        return connect_sqlite(config.database.path)
+        conn = connect_sqlite(config.database.path)
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def _require_param(self, params: dict[str, Any], name: str) -> str:
         value = params.get(name)
