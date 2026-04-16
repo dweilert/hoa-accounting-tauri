@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Non-Dues Income · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/income/new" class="btn btn--primary">Post income</a>
+{% endblock %}
+
+{% block content %}
+  {% if created_entry_number %}
+    <div class="alert alert--info" style="background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border);">
+      Posted non-dues income — journal entry <span class="mono">{{ created_entry_number }}</span>.
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Non-Dues Income</div>
+        <div class="panel__description">{{ description }}</div>
+      </div>
+    </div>
+
+    {% if batches %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Income Account</th>
+              <th>Bank</th>
+              <th class="num">Total</th>
+              <th>Entry #</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in batches %}
+              <tr>
+                <td>{{ b.posting_date }}</td>
+                <td>{{ b.description }}</td>
+                <td class="mono">{{ b.income_account }}</td>
+                <td>{{ b.bank_account }}</td>
+                <td class="num">{{ b.total_amount }}</td>
+                <td class="mono">{{ b.entry_number }}</td>
+                <td>{{ b.notes }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No non-dues income posted yet. Click <strong>Post income</strong> to
+        record bank interest, one-off fees, or similar.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

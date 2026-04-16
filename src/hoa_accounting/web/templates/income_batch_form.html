@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Post Non-Dues Income · {{ org.name }}{% endblock %}
+{% block heading %}Post Non-Dues Income{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/income" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">{{ error_message }}</div>
+  {% endif %}
+
+  <form method="post" action="/income/new" id="income-batch-form">
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Income details</div>
+          <div class="panel__description">
+            Income that is not owner dues or a pre-billed assessment.
+            One income account per batch. The most common use is bank
+            interest; owners can also appear for ad-hoc fees like gate
+            remotes.
+          </div>
+        </div>
+        <div class="summary-totals" style="margin: 0; padding: 10px var(--sp-3); min-width: 220px;">
+          <div class="summary-totals__item">
+            <span class="summary-totals__label">Batch total</span>
+            <span class="summary-totals__value summary-totals__value--accent mono" id="batch-total">0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form" style="grid-template-columns: repeat(3, minmax(200px, 1fr));">
+        <label class="field">
+          <span class="field__label">Posting Date *</span>
+          <input type="date" name="posting_date" value="{{ values.posting_date }}" required />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Bank Account *</span>
+          <select name="bank_account_id" required>
+            <option value="">— Select a bank account —</option>
+            {% for b in banks %}
+              <option value="{{ b.id }}"
+                {% if values.bank_account_id|string == b.id|string %}selected{% endif %}>
+                {{ b.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Income Account *</span>
+          <select name="income_account_id" required>
+            <option value="">— Select an income account —</option>
+            {% for a in income_accounts %}
+              <option value="{{ a.id }}"
+                {% if values.income_account_id|string == a.id|string %}selected{% endif %}>
+                {{ a.label }}
+              </option>
+            {% endfor %}
+          </select>
+          <span class="field__hint">e.g. 4200 · Interest Income.</span>
+        </label>
+
+        <label class="field form__row--full">
+          <span class="field__label">Income Description *</span>
+          <input type="text" name="income_description"
+                 value="{{ values.income_description }}"
+                 placeholder="e.g. Frost Bank — April interest"
+                 required />
+        </label>
+
+        <label class="field form__row--full">
+          <span class="field__label">Notes</span>
+          <input type="text" name="notes" value="{{ values.notes }}"
+                 placeholder="Optional" />
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Rows</div>
+          <div class="panel__description">
+            Use an owner row for income tied to a specific lot; use the
+            <strong>OTHER</strong> row (always at the bottom) for income
+            that isn't owner-specific (typical: bank interest). Blank
+            rows are ignored.
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary" id="add-row-btn">
+          + Add owner row
+        </button>
+      </div>
+
+      <div class="table-wrap" style="overflow: visible;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 48%;">Lot / Address</th>
+              <th class="num" style="width: 16%;">Amount</th>
+              <th>Memo</th>
+              <th style="width: 36px;"></th>
+            </tr>
+          </thead>
+          <tbody id="rows-body">
+            {% for row in owner_rows %}
+              <tr class="income-row">
+                <td>
+                  <select name="row_{{ loop.index0 }}_lot_id" class="row-lot">
+                    <option value="">— Select a lot —</option>
+                    {% for l in lots %}
+                      <option value="{{ l.id }}"
+                        {% if row.lot_id|string == l.id|string %}selected{% endif %}>
+                        {{ l.label }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <input type="number" name="row_{{ loop.index0 }}_amount"
+                         class="row-amount num"
+                         value="{{ row.amount }}"
+                         step="0.01" min="0" inputmode="decimal"
+                         placeholder="0.00"
+                         style="text-align: right;" />
+                </td>
+                <td>
+                  <input type="text" name="row_{{ loop.index0 }}_memo"
+                         value="{{ row.memo }}"
+                         placeholder="" />
+                </td>
+                <td>
+                  <button type="button" class="btn btn--ghost row-remove"
+                          title="Remove row" aria-label="Remove row"
+                          style="padding: 4px 8px;">×</button>
+                </td>
+              </tr>
+            {% endfor %}
+
+            {# Fixed OTHER row — always exactly one, cannot be removed. #}
+            <tr class="income-row income-row--other"
+                style="background: var(--accent-subtle) !important;">
+              <td>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="pill pill--muted">OTHER</span>
+                  <input type="text" name="other_source"
+                         value="{{ values.other_source }}"
+                         placeholder="Source (e.g. Bank interest)"
+                         style="flex: 1;" />
+                </div>
+              </td>
+              <td>
+                <input type="number" name="other_amount"
+                       class="row-amount num"
+                       value="{{ values.other_amount }}"
+                       step="0.01" min="0" inputmode="decimal"
+                       placeholder="0.00"
+                       style="text-align: right;" />
+              </td>
+              <td>
+                <input type="text" name="other_memo"
+                       value="{{ values.other_memo }}"
+                       placeholder="" />
+              </td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row" style="margin-top: var(--sp-4);">
+        <button type="submit" class="btn btn--primary">Post income</button>
+        <a href="/income" class="btn btn--ghost">Cancel</a>
+        <div class="subtle" style="margin-left: auto;">
+          Running total: <span class="mono" id="batch-total-mirror">0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <template id="row-template">
+      <tr class="income-row">
+        <td>
+          <select name="row_IDX_lot_id" class="row-lot">
+            <option value="">— Select a lot —</option>
+            {% for l in lots %}
+              <option value="{{ l.id }}">{{ l.label }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <input type="number" name="row_IDX_amount" class="row-amount num"
+                 step="0.01" min="0" inputmode="decimal"
+                 placeholder="0.00" style="text-align: right;" />
+        </td>
+        <td>
+          <input type="text" name="row_IDX_memo" placeholder="" />
+        </td>
+        <td>
+          <button type="button" class="btn btn--ghost row-remove"
+                  title="Remove row" aria-label="Remove row"
+                  style="padding: 4px 8px;">×</button>
+        </td>
+      </tr>
+    </template>
+  </form>
+
+  <script>
+    (function () {
+      var tbody = document.getElementById("rows-body");
+      var addBtn = document.getElementById("add-row-btn");
+      var total1 = document.getElementById("batch-total");
+      var total2 = document.getElementById("batch-total-mirror");
+      var tmpl = document.getElementById("row-template");
+      // Owner rows — count excludes the fixed OTHER row.
+      var ownerRows = tbody.querySelectorAll("tr.income-row:not(.income-row--other)");
+      var nextIdx = ownerRows.length;
+
+      function money(n) {
+        if (isNaN(n) || !isFinite(n)) n = 0;
+        return n.toFixed(2);
+      }
+      function recalc() {
+        var total = 0;
+        tbody.querySelectorAll("input.row-amount").forEach(function (el) {
+          var v = parseFloat(el.value);
+          if (!isNaN(v)) total += v;
+        });
+        var s = money(total);
+        total1.textContent = s;
+        total2.textContent = s;
+      }
+      function wireRow(tr) {
+        var amt = tr.querySelector("input.row-amount");
+        if (amt) amt.addEventListener("input", recalc);
+        var rm = tr.querySelector("button.row-remove");
+        if (rm) rm.addEventListener("click", function () {
+          var ownerCount = tbody.querySelectorAll(
+            "tr.income-row:not(.income-row--other)"
+          ).length;
+          if (ownerCount === 1) {
+            // Keep one blank row around so the form always submits cleanly.
+            tr.querySelectorAll("input").forEach(function (el) { el.value = ""; });
+            var sel = tr.querySelector("select.row-lot");
+            if (sel) sel.value = "";
+          } else {
+            tr.remove();
+          }
+          recalc();
+        });
+      }
+      function addRow() {
+        var clone = tmpl.content.cloneNode(true);
+        var tr = clone.querySelector("tr");
+        tr.querySelectorAll("[name]").forEach(function (el) {
+          el.setAttribute("name", el.getAttribute("name").replace("IDX", String(nextIdx)));
+        });
+        nextIdx += 1;
+        // Insert before the fixed OTHER row so OTHER stays at the bottom.
+        var other = tbody.querySelector("tr.income-row--other");
+        tbody.insertBefore(tr, other);
+        wireRow(tr);
+      }
+
+      tbody.querySelectorAll("tr.income-row").forEach(wireRow);
+      recalc();
+      addBtn.addEventListener("click", addRow);
+
+      // OTHER row inputs should update the running total on input too.
+      document.querySelector("input[name=other_amount]")
+              .addEventListener("input", recalc);
+    })();
+  </script>
+{% endblock %}
