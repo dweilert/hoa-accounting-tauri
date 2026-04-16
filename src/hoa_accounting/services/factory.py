@@ -61,6 +61,7 @@ class ServiceFactory:
     def assessment_service(self) -> AssessmentService:
         """Return a configured assessment service."""
         return AssessmentService(
+            self.conn,
             assessment_repo=self.assessments_repo,
             audit_repo=self.audit_repo,
             journal_repo=self.journal_repo,
@@ -73,6 +74,7 @@ class ServiceFactory:
     def payment_service(self) -> PaymentService:
         """Return a configured payment service."""
         return PaymentService(
+            self.conn,
             payment_repo=self.payments_repo,
             assessment_repo=self.assessments_repo,
             audit_repo=self.audit_repo,
@@ -86,6 +88,7 @@ class ServiceFactory:
     def vendor_bill_service(self) -> VendorBillService:
         """Return a configured vendor bill service."""
         return VendorBillService(
+            self.conn,
             vendors_repo=self.vendors_repo,
             audit_repo=self.audit_repo,
             journal_repo=self.journal_repo,
@@ -98,6 +101,7 @@ class ServiceFactory:
     def vendor_payment_service(self) -> VendorPaymentService:
         """Return a configured vendor payment service."""
         return VendorPaymentService(
+            self.conn,
             vendors_repo=self.vendors_repo,
             audit_repo=self.audit_repo,
             journal_repo=self.journal_repo,
@@ -110,6 +114,7 @@ class ServiceFactory:
     def reserve_transfer_service(self) -> ReserveTransferService:
         """Return a configured reserve transfer service."""
         return ReserveTransferService(
+            self.conn,
             audit_repo=self.audit_repo,
             journal_repo=self.journal_repo,
             reserve_transfers_repo=self.reserve_transfers_repo,

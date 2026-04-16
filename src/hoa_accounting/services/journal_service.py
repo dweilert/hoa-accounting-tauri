@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
+from hoa_accounting.db.transaction import transaction
 from hoa_accounting.models.dto import JournalEntryResult, JournalLineInput
 from hoa_accounting.repositories.audit_repo import AuditRepository
 from hoa_accounting.repositories.journal_repo import JournalRepository
@@ -39,40 +40,41 @@ class JournalService:
         lines: list[JournalLineInput],
         created_by_user_id: int | None = None,
     ) -> JournalEntryResult:
-        """Create and post a balanced journal entry."""
-        accounting_period_id = self.period_validator.require_open_period(entry_date)
-        self.journal_validator.validate_lines(lines)
+        """Create and post a balanced journal entry atomically."""
+        with transaction(self.conn):
+            accounting_period_id = self.period_validator.require_open_period(entry_date)
+            self.journal_validator.validate_lines(lines)
 
-        entry_number = self.journal_repo.next_entry_number(entry_date)
-        journal_entry_id = self.journal_repo.insert_journal_entry(
-            entry_number=entry_number,
-            entry_date=entry_date,
-            accounting_period_id=accounting_period_id,
-            source_type=source_type,
-            memo=memo,
-            created_by_user_id=created_by_user_id,
-        )
-        self.journal_repo.insert_journal_lines(
-            journal_entry_id=journal_entry_id,
-            lines=lines,
-            amount_formatter=q2,
-        )
+            entry_number = self.journal_repo.next_entry_number(entry_date)
+            journal_entry_id = self.journal_repo.insert_journal_entry(
+                entry_number=entry_number,
+                entry_date=entry_date,
+                accounting_period_id=accounting_period_id,
+                source_type=source_type,
+                memo=memo,
+                created_by_user_id=created_by_user_id,
+            )
+            self.journal_repo.insert_journal_lines(
+                journal_entry_id=journal_entry_id,
+                lines=lines,
+                amount_formatter=q2,
+            )
 
-        self.audit_repo.write(
-            entity_type="journal_entries",
-            entity_id=journal_entry_id,
-            action="POST",
-            user_id=created_by_user_id,
-            after_json={
-                "entry_number": entry_number,
-                "entry_date": entry_date,
-                "source_type": source_type,
-                "memo": memo,
-                "line_count": len(lines),
-            },
-        )
-        return JournalEntryResult(
-            journal_entry_id=journal_entry_id,
-            entry_number=entry_number,
-            source_type=source_type,
-        )
+            self.audit_repo.write(
+                entity_type="journal_entries",
+                entity_id=journal_entry_id,
+                action="POST",
+                user_id=created_by_user_id,
+                after_json={
+                    "entry_number": entry_number,
+                    "entry_date": entry_date,
+                    "source_type": source_type,
+                    "memo": memo,
+                    "line_count": len(lines),
+                },
+            )
+            return JournalEntryResult(
+                journal_entry_id=journal_entry_id,
+                entry_number=entry_number,
+                source_type=source_type,
+            )

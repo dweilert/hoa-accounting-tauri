@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import sqlite3
 from decimal import Decimal
 
+from hoa_accounting.db.transaction import transaction
 from hoa_accounting.models.dto import JournalLineInput, VendorBillResult
 from hoa_accounting.models.enums import SourceType
 from hoa_accounting.repositories.audit_repo import AuditRepository
@@ -21,6 +23,7 @@ class VendorBillService:
 
     def __init__(
         self,
+        conn: sqlite3.Connection,
         *,
         vendors_repo: VendorsRepository,
         audit_repo: AuditRepository,
@@ -30,6 +33,7 @@ class VendorBillService:
         account_validator: AccountValidator,
         account_role_validator: AccountRoleValidator,
     ) -> None:
+        self.conn = conn
         self.vendors_repo = vendors_repo
         self.audit_repo = audit_repo
         self.journal_repo = journal_repo
@@ -53,67 +57,68 @@ class VendorBillService:
         fund_code: str = "OPERATING",
         created_by_user_id: int | None = None,
     ) -> VendorBillResult:
-        """Post a vendor bill."""
-        amount_dec = require_positive_amount(amount, "Vendor bill amount")
-        self.entity_validator.require_exists("vendors", vendor_id)
-        self.account_validator.require_active_account(expense_account_id)
-        self.account_validator.require_active_account(payable_account_id)
-        self.account_validator.require_valid_fund_code(fund_code)
-        self.account_role_validator.require_expense_account(expense_account_id, "vendor expense")
-        self.account_role_validator.require_liability_account(payable_account_id, "accounts payable")
+        """Post a vendor bill atomically."""
+        with transaction(self.conn):
+            amount_dec = require_positive_amount(amount, "Vendor bill amount")
+            self.entity_validator.require_exists("vendors", vendor_id)
+            self.account_validator.require_active_account(expense_account_id)
+            self.account_validator.require_active_account(payable_account_id)
+            self.account_validator.require_valid_fund_code(fund_code)
+            self.account_role_validator.require_expense_account(expense_account_id, "vendor expense")
+            self.account_role_validator.require_liability_account(payable_account_id, "accounts payable")
 
-        effective_due_date = due_date or invoice_date
-        journal = self.journal_service.post_journal_entry(
-            entry_date=entry_date,
-            source_type=SourceType.VENDOR_BILL.value,
-            memo=description,
-            created_by_user_id=created_by_user_id,
-            lines=[
-                JournalLineInput(
-                    account_id=expense_account_id,
-                    description=description,
-                    debit_amount=amount_dec,
-                    vendor_id=vendor_id,
-                ),
-                JournalLineInput(
-                    account_id=payable_account_id,
-                    description=description,
-                    credit_amount=amount_dec,
-                    vendor_id=vendor_id,
-                ),
-            ],
-        )
+            effective_due_date = due_date or invoice_date
+            journal = self.journal_service.post_journal_entry(
+                entry_date=entry_date,
+                source_type=SourceType.VENDOR_BILL.value,
+                memo=description,
+                created_by_user_id=created_by_user_id,
+                lines=[
+                    JournalLineInput(
+                        account_id=expense_account_id,
+                        description=description,
+                        debit_amount=amount_dec,
+                        vendor_id=vendor_id,
+                    ),
+                    JournalLineInput(
+                        account_id=payable_account_id,
+                        description=description,
+                        credit_amount=amount_dec,
+                        vendor_id=vendor_id,
+                    ),
+                ],
+            )
 
-        vendor_bill_id = self.vendors_repo.insert_vendor_bill(
-            vendor_id=vendor_id,
-            invoice_number=invoice_number,
-            invoice_date=invoice_date,
-            due_date=effective_due_date,
-            amount=str(amount_dec),
-            expense_account_id=expense_account_id,
-            payable_account_id=payable_account_id,
-            fund_code=fund_code,
-            journal_entry_id=journal.journal_entry_id,
-            description=description,
-        )
-        self.journal_repo.set_source_id(
-            journal_entry_id=journal.journal_entry_id,
-            source_id=vendor_bill_id,
-        )
-        self.audit_repo.write(
-            entity_type="vendor_bills",
-            entity_id=vendor_bill_id,
-            action="CREATE_AND_POST",
-            user_id=created_by_user_id,
-            after_json={
-                "vendor_id": vendor_id,
-                "amount": str(amount_dec),
-                "invoice_number": invoice_number,
-                "journal_entry_id": journal.journal_entry_id,
-            },
-        )
-        return VendorBillResult(
-            vendor_bill_id=vendor_bill_id,
-            journal_entry_id=journal.journal_entry_id,
-            entry_number=journal.entry_number,
-        )
+            vendor_bill_id = self.vendors_repo.insert_vendor_bill(
+                vendor_id=vendor_id,
+                invoice_number=invoice_number,
+                invoice_date=invoice_date,
+                due_date=effective_due_date,
+                amount=str(amount_dec),
+                expense_account_id=expense_account_id,
+                payable_account_id=payable_account_id,
+                fund_code=fund_code,
+                journal_entry_id=journal.journal_entry_id,
+                description=description,
+            )
+            self.journal_repo.set_source_id(
+                journal_entry_id=journal.journal_entry_id,
+                source_id=vendor_bill_id,
+            )
+            self.audit_repo.write(
+                entity_type="vendor_bills",
+                entity_id=vendor_bill_id,
+                action="CREATE_AND_POST",
+                user_id=created_by_user_id,
+                after_json={
+                    "vendor_id": vendor_id,
+                    "amount": str(amount_dec),
+                    "invoice_number": invoice_number,
+                    "journal_entry_id": journal.journal_entry_id,
+                },
+            )
+            return VendorBillResult(
+                vendor_bill_id=vendor_bill_id,
+                journal_entry_id=journal.journal_entry_id,
+                entry_number=journal.entry_number,
+            )
