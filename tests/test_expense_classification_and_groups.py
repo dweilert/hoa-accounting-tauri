@@ -59,6 +59,8 @@ def test_new_expense_accounts_are_seeded() -> None:
 
 
 def test_landscape_subcategories_are_seeded() -> None:
+    """Every Landscape category seeded in 0002 is present after all
+    migrations apply. Names reflect the 0006 rename (prefix dropped)."""
     conn = _fresh_conn()
     names = {
         r["account_name"]
@@ -67,17 +69,16 @@ def test_landscape_subcategories_are_seeded() -> None:
             "WHERE group_code = 'LANDSCAPE' AND is_active = 1"
         )
     }
-    # Match the spreadsheet categories.
     for required in [
-        "Landscape - Mow & Blow",
-        "Landscape - Sprinkler System",
-        "Landscape - Lighting System",
-        "Landscape - Mulch",
-        "Landscape - Tree Trimming",
-        "Landscape - Bed Maintenance",
-        "Landscape - Hill Maintenance",
-        "Landscape - Plants",
-        "Landscape - Other",
+        "Mow & Blow",
+        "Sprinkler System",
+        "Lighting System",
+        "Mulch",
+        "Tree Trimming",
+        "Bed Maintenance",
+        "Hill Maintenance",
+        "Plants",
+        "Other",
     ]:
         assert required in names
 
