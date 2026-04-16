@@ -65,6 +65,11 @@ class ReserveTransferService:
                 source_type=SourceType.TRANSFER.value,
                 memo=description,
                 created_by_user_id=created_by_user_id,
+                # Reserve transfers legitimately cross funds. The proper
+                # long-term fix is inter-fund due-to/due-from accounts so
+                # every entry balances in every fund; until that chart-of-
+                # accounts work lands, TRANSFER is the one opt-out allowed.
+                inter_fund_allowed=True,
                 lines=[
                     JournalLineInput(
                         account_id=to_account_id,

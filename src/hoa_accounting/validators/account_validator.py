@@ -21,6 +21,15 @@ class AccountValidator:
         if int(row["is_active"]) != 1:
             raise ValidationError(f"Account {account_id} is inactive.")
 
+    def require_active_account_with_fund(self, account_id: int) -> str:
+        """Raise if inactive/missing; otherwise return the account's fund code."""
+        row = self.accounts_repo.get_detail_by_id(account_id)
+        if row is None:
+            raise NotFoundError(f"Account {account_id} was not found.")
+        if int(row["is_active"]) != 1:
+            raise ValidationError(f"Account {account_id} is inactive.")
+        return str(row["fund_code"])
+
     def require_valid_fund_code(self, fund_code: str) -> None:
         """Raise if the fund code is unsupported."""
         try:
