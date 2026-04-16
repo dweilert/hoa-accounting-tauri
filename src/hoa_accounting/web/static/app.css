@@ -3,9 +3,19 @@
  * Design goals: warm neutral palette, dense but readable tables, quiet type,
  * one accent color. No framework, no build step. Custom properties so a
  * future palette change is one file.
+ *
+ * Theming:
+ *   Color tokens are grouped under [data-theme="<name>"] selectors. The
+ *   "warm" theme is the default and also applies via :root so a page that
+ *   forgets to set data-theme still renders. To switch themes, set the
+ *   attribute on <html>:
+ *     <html data-theme="slate">
+ *   All non-color tokens (typography, spacing, radii, elevation) are
+ *   theme-agnostic and stay in :root.
  */
 
-:root {
+:root,
+[data-theme="warm"] {
   /* Palette — warm neutrals with a muted forest-green accent. */
   --bg: #faf7f1;
   --surface: #ffffff;
@@ -33,7 +43,39 @@
 
   --info: #2f4f70;
   --info-subtle: #e0e8f0;
+}
 
+[data-theme="slate"] {
+  /* Cool-neutral palette with a banking-navy accent. */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-muted: #eef1f5;
+  --surface-sunken: #e2e6ee;
+  --border: #d7dce4;
+  --border-strong: #b6bdc9;
+
+  --text: #111827;
+  --text-muted: #4a5462;
+  --text-subtle: #7a8293;
+  --text-inverse: #ffffff;
+
+  --accent: #1f4d7a;
+  --accent-hover: #153a60;
+  --accent-subtle: #dfe8f1;
+  --accent-border: #b2c4d7;
+
+  --danger: #9c3737;
+  --danger-subtle: #f1dcdc;
+  --danger-border: #d4aeae;
+
+  --warning: #7a5312;
+  --warning-subtle: #f1e4c5;
+
+  --info: #1f4d7a;
+  --info-subtle: #dfe8f1;
+}
+
+:root {
   /* Typography */
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -81,8 +123,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -94,10 +136,10 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
-h1 { font-size: 24px; letter-spacing: -0.01em; }
-h2 { font-size: 18px; }
-h3 { font-size: 15px; }
-h4 { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+h1 { font-size: 22px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; }
+h3 { font-size: 14px; }
+h4 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 
 p { margin: 0 0 var(--sp-3) 0; }
 p:last-child { margin-bottom: 0; }
@@ -127,7 +169,7 @@ hr {
 .sidebar {
   background: var(--surface-muted);
   border-right: 1px solid var(--border);
-  padding: var(--sp-6) var(--sp-4);
+  padding: var(--sp-4) var(--sp-3);
   position: sticky;
   top: 0;
   align-self: start;
@@ -139,26 +181,26 @@ hr {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-bottom: var(--sp-5);
+  padding-bottom: var(--sp-3);
   border-bottom: 1px solid var(--border);
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-3);
 }
 
 .sidebar__brand-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .sidebar__brand-legal {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-subtle);
   font-weight: 500;
 }
 
 .sidebar__section {
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-3);
 }
 
 .sidebar__label {
@@ -184,10 +226,10 @@ hr {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 6px var(--sp-2);
+  padding: 5px var(--sp-2);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   border-bottom: none;
   transition: background 100ms ease, color 100ms ease;
@@ -231,7 +273,7 @@ hr {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding: var(--sp-5) var(--sp-8);
+  padding: var(--sp-3) var(--sp-5);
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   position: sticky;
@@ -242,12 +284,12 @@ hr {
 .topbar__title {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
 .topbar__breadcrumb {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-subtle);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -255,20 +297,20 @@ hr {
 }
 
 .topbar__heading {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .topbar__meta {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .content {
-  padding: var(--sp-8);
+  padding: var(--sp-5);
   max-width: var(--content-max);
 }
 
@@ -277,9 +319,9 @@ hr {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--sp-5);
-  margin-bottom: var(--sp-5);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
   box-shadow: var(--shadow-sm);
 }
 
@@ -288,16 +330,16 @@ hr {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-3);
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
 
 .panel__title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .panel__description {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -305,20 +347,36 @@ hr {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sp-3);
+}
+
+/* Denser variant for secondary catalogs (e.g. Available Reports) where
+ * each card is informational rather than a primary action. */
+.card-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-2);
 }
 
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
+
+.card--compact {
+  padding: var(--sp-2) var(--sp-3);
+  gap: var(--sp-1);
+}
+
+.card--compact .card__title { font-size: 13px; }
+.card--compact .card__description { font-size: 12px; line-height: 1.35; }
+.card--compact .card__meta { font-size: 11px; padding-top: var(--sp-1); }
 
 .card:hover {
   border-color: var(--border-strong);
@@ -326,22 +384,23 @@ hr {
 }
 
 .card__title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
 }
 
 .card__description {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
   flex: 1;
+  line-height: 1.4;
 }
 
 .card__footer {
   display: flex;
   gap: var(--sp-3);
-  font-size: 13px;
-  padding-top: var(--sp-2);
+  font-size: 12px;
+  padding-top: var(--sp-1);
 }
 
 .card--selected {
@@ -368,7 +427,7 @@ hr {
 .form {
   display: grid;
   grid-template-columns: repeat(2, minmax(240px, 1fr));
-  gap: var(--sp-4) var(--sp-5);
+  gap: var(--sp-3) var(--sp-4);
   align-items: end;
 }
 
@@ -401,8 +460,8 @@ input[type="password"],
 select,
 textarea {
   font-family: inherit;
-  font-size: 14px;
-  padding: 8px 10px;
+  font-size: 13px;
+  padding: 6px 10px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -428,9 +487,9 @@ input::placeholder {
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  padding: 8px 16px;
+  padding: 6px 14px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
@@ -463,7 +522,7 @@ input::placeholder {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: auto;
-  margin: var(--sp-3) 0 var(--sp-5) 0;
+  margin: var(--sp-2) 0 var(--sp-3) 0;
   background: var(--surface);
 }
 
@@ -476,8 +535,8 @@ table {
 thead th {
   background: var(--surface-muted);
   text-align: left;
-  padding: 10px var(--sp-3);
-  font-size: 12px;
+  padding: 6px 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -487,7 +546,7 @@ thead th {
 }
 
 tbody td {
-  padding: 8px var(--sp-3);
+  padding: 5px 10px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
@@ -539,23 +598,23 @@ th.num {
 
 .summary-totals {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--sp-3);
-  padding: var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-2);
+  padding: var(--sp-3);
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
 
 .summary-totals__item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .summary-totals__label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-subtle);
   text-transform: uppercase;
@@ -563,7 +622,7 @@ th.num {
 }
 
 .summary-totals__value {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
@@ -577,11 +636,11 @@ th.num {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-2);
-  padding: 10px var(--sp-4);
+  padding: 8px var(--sp-3);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: 13px;
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
 
 .alert--error {
@@ -598,12 +657,12 @@ th.num {
 /* ── Sub-headings inside panels ─────────────────────────────────── */
 
 .section-heading {
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-subtle);
   font-weight: 600;
-  margin: var(--sp-5) 0 var(--sp-2) 0;
+  margin: var(--sp-3) 0 var(--sp-1) 0;
 }
 
 .section-heading:first-child { margin-top: 0; }
@@ -626,10 +685,10 @@ pre.raw-json {
 /* ── Empty states ────────────────────────────────────────────────── */
 
 .empty {
-  padding: var(--sp-8);
+  padding: var(--sp-5);
   text-align: center;
   color: var(--text-subtle);
-  font-size: 13px;
+  font-size: 12px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);

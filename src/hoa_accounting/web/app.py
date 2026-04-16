@@ -69,12 +69,14 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
             "legal_name": "",
             "environment": "local",
             "fiscal_year_start_month": 1,
+            "theme": "warm",
         }
     return {
         "name": config.hoa.name,
         "legal_name": config.hoa.legal_name,
         "environment": config.app.environment,
         "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
+        "theme": getattr(config.app, "theme", "warm"),
     }
 
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ theme|default('warm') }}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,6 +7,19 @@
     {% block title %}{{ org.name }} — Accounting{% endblock %}
   </title>
   <link rel="stylesheet" href="/static/app.css" />
+  {#
+    Apply a persisted theme override (if any) before first paint so
+    switching themes in a future toggle never flashes the wrong palette.
+    Safe if localStorage is unavailable.
+  #}
+  <script>
+    (function () {
+      try {
+        var saved = window.localStorage && localStorage.getItem("hoa-theme");
+        if (saved) { document.documentElement.setAttribute("data-theme", saved); }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
 </head>
 <body>
   <div class="app">

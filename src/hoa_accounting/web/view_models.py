@@ -57,6 +57,7 @@ class HomePageContext:
     active_nav: str
     breadcrumb: str
     selected_report: str
+    theme: str
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ class ReportConsoleContext:
     active_nav: str
     breadcrumb: str
     selected_report: str
+    theme: str
 
 
 _DEFAULT_ORG: dict[str, object] = {
@@ -83,7 +85,15 @@ _DEFAULT_ORG: dict[str, object] = {
     "legal_name": "",
     "environment": "local",
     "fiscal_year_start_month": 1,
+    "theme": "warm",
 }
+
+
+def _resolve_theme(org: dict[str, object] | None) -> str:
+    if not org:
+        return "warm"
+    theme = org.get("theme")
+    return str(theme) if theme else "warm"
 
 
 def build_home_page_context(
@@ -107,6 +117,7 @@ def build_home_page_context(
         active_nav="home",
         breadcrumb="Overview",
         selected_report="",
+        theme=_resolve_theme(org),
     )
 
 
@@ -140,6 +151,7 @@ def build_report_console_context(
         active_nav="reports",
         breadcrumb="Reports",
         selected_report=selected_report,
+        theme=_resolve_theme(org),
     )
 
 

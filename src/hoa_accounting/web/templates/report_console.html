@@ -65,9 +65,9 @@
       <div class="panel__title">Available Reports</div>
       <div class="panel__description">Browse and pick a report; the form above reflects the selection.</div>
     </div>
-    <div class="card-grid">
+    <div class="card-grid card-grid--compact">
       {% for report in report_catalog_cards %}
-        <div class="card{% if report.selected %} card--selected{% endif %}">
+        <div class="card card--compact{% if report.selected %} card--selected{% endif %}">
           <div class="card__title">{{ report.title }}</div>
           <div class="card__description">{{ report.description }}</div>
           <div class="card__meta">

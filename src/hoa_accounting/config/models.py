@@ -26,6 +26,7 @@ class AppConfig:
     """Application runtime settings."""
     environment: str
     debug: bool
+    theme: str = "warm"
 
 
 @dataclass(frozen=True)
