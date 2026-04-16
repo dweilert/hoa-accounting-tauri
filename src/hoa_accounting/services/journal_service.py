@@ -39,11 +39,20 @@ class JournalService:
         memo: str,
         lines: list[JournalLineInput],
         created_by_user_id: int | None = None,
+        inter_fund_allowed: bool = False,
     ) -> JournalEntryResult:
-        """Create and post a balanced journal entry atomically."""
+        """Create and post a balanced journal entry atomically.
+
+        By default the entry must balance within each fund. Only callers
+        posting an explicit inter-fund movement (reserve transfers) should
+        pass ``inter_fund_allowed=True``.
+        """
         with transaction(self.conn):
             accounting_period_id = self.period_validator.require_open_period(entry_date)
-            self.journal_validator.validate_lines(lines)
+            self.journal_validator.validate_lines(
+                lines,
+                inter_fund_allowed=inter_fund_allowed,
+            )
 
             journal_entry_id, entry_number = (
                 self.journal_repo.insert_journal_entry_with_generated_number(
