@@ -356,4 +356,4 @@ def test_build_report_console_context_formats_raw_json() -> None:
 
     assert context.error_message == "problem"
     assert '"ok": false' in context.raw_json
-    assert '"message": "bad input"' in context.raw_jsont    
+    assert '"message": "bad input"' in context.raw_json
