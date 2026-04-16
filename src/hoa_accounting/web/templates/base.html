@@ -31,9 +31,14 @@
         {% endif %}
       </div>
 
-      <div class="sidebar__section">
-        <div class="sidebar__label">Overview</div>
-        <ul class="sidebar__nav">
+      <div class="sidebar__section" data-section="overview">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="overview"
+                aria-expanded="true" aria-controls="sidebar-overview">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Overview</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-overview">
           <li>
             <a href="/"
                class="sidebar__link{% if active_nav == 'home' %} sidebar__link--active{% endif %}">
@@ -49,9 +54,14 @@
         </ul>
       </div>
 
-      <div class="sidebar__section">
-        <div class="sidebar__label">Transactions</div>
-        <ul class="sidebar__nav">
+      <div class="sidebar__section" data-section="transactions">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="transactions"
+                aria-expanded="true" aria-controls="sidebar-transactions">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Transactions</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-transactions">
           <li>
             <a href="/vendor-bills"
                class="sidebar__link{% if active_nav == 'transactions' and page_key == 'vendor-bills' %} sidebar__link--active{% endif %}">
@@ -61,8 +71,14 @@
         </ul>
       </div>
 
-      <div class="sidebar__section">
-        <div class="sidebar__label">Master Data</div>
+      <div class="sidebar__section" data-section="master-data">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="master-data"
+                aria-expanded="true" aria-controls="sidebar-master-data">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Master Data</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-master-data">
         <ul class="sidebar__nav">
           <li>
             <a href="/accounts"
@@ -121,5 +137,52 @@
       </div>
     </main>
   </div>
+
+  {#
+    Sidebar section collapse/expand.
+    Each section keeps its open/closed state per user in localStorage so
+    navigation preserves what they collapsed. Default is all expanded.
+    The click handler flips a CSS class and updates aria-expanded on the
+    header button for accessibility.
+  #}
+  <script>
+    (function () {
+      var KEY = "hoa-sidebar-collapsed";
+      function read() {
+        try {
+          var raw = window.localStorage && localStorage.getItem(KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+      }
+      function write(arr) {
+        try { localStorage.setItem(KEY, JSON.stringify(arr)); } catch (e) {}
+      }
+      // Apply saved state.
+      read().forEach(function (section) {
+        var el = document.querySelector('[data-section="' + section + '"]');
+        if (!el) return;
+        el.classList.add("sidebar__section--collapsed");
+        var btn = el.querySelector("[data-toggle-section]");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      });
+      // Wire up click handlers.
+      document.querySelectorAll("[data-toggle-section]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var section = btn.getAttribute("data-toggle-section");
+          var el = document.querySelector('[data-section="' + section + '"]');
+          if (!el) return;
+          var collapsed = el.classList.toggle("sidebar__section--collapsed");
+          btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          var cur = read();
+          if (collapsed) {
+            if (cur.indexOf(section) === -1) cur.push(section);
+          } else {
+            cur = cur.filter(function (s) { return s !== section; });
+          }
+          write(cur);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

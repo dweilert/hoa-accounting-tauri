@@ -203,14 +203,52 @@ hr {
   margin-bottom: var(--sp-3);
 }
 
-.sidebar__label {
+/* Collapsible section header — a real <button> so keyboard focus and
+ * screen readers treat it as an interactive control. */
+.sidebar__section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px var(--sp-2);
+  margin-bottom: var(--sp-1);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
   font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-subtle);
-  padding: 0 var(--sp-2);
-  margin-bottom: var(--sp-1);
-  font-weight: 600;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: color 100ms ease, background 100ms ease;
+}
+.sidebar__section-header:hover {
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+}
+.sidebar__section-header:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+.sidebar__chevron {
+  display: inline-block;
+  width: 10px;
+  font-size: 9px;
+  line-height: 1;
+  color: currentColor;
+  /* Expanded (default): chevron rotates 90° so ▸ points down. */
+  transform: rotate(90deg);
+  transition: transform 120ms ease;
+}
+.sidebar__section--collapsed .sidebar__chevron {
+  transform: rotate(0deg);
+}
+.sidebar__section--collapsed .sidebar__nav {
+  display: none;
 }
 
 .sidebar__nav {
