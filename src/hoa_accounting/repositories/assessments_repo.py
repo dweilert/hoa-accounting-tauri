@@ -68,3 +68,31 @@ class AssessmentsRepository(BaseRepository):
             "UPDATE assessments SET status = ? WHERE id = ?",
             (status, assessment_id),
         )
+
+    def list_open_for_owner(self, owner_id: int) -> list:
+        """Return an owner's still-owed assessments, oldest due-date first.
+
+        Each row reports the original amount plus the sum of what's been
+        applied to it so callers can compute the remaining balance
+        without a second lookup. Only OPEN and PARTIAL assessments are
+        returned — PAID, VOID, and WRITTEN_OFF are excluded.
+        """
+        return list(
+            self.conn.execute(
+                """
+                SELECT
+                    a.id,
+                    a.amount,
+                    a.due_date,
+                    a.status,
+                    COALESCE(SUM(pa.applied_amount), 0) AS already_applied
+                FROM assessments a
+                LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
+                WHERE a.owner_id = ?
+                  AND a.status IN ('OPEN', 'PARTIAL')
+                GROUP BY a.id, a.amount, a.due_date, a.status
+                ORDER BY a.due_date ASC, a.id ASC
+                """,
+                (owner_id,),
+            ).fetchall()
+        )

@@ -10,6 +10,26 @@ from .base import BaseRepository
 class LotsRepository(BaseRepository):
     """Database access for lots and their current owners."""
 
+    def get_current_owner_id(self, lot_id: int) -> int | None:
+        """Return the owner_id of the lot's current primary contact, or None.
+
+        A lot with no open (end_date IS NULL) primary-contact ownership
+        returns None — the batch-entry service treats that as a blocker
+        since the payment needs a real owner to credit AR on.
+        """
+        row = self.conn.execute(
+            """
+            SELECT owner_id FROM lot_ownership
+            WHERE lot_id = ?
+              AND end_date IS NULL
+              AND is_primary_contact = 1
+            ORDER BY start_date DESC
+            LIMIT 1
+            """,
+            (lot_id,),
+        ).fetchone()
+        return int(row["owner_id"]) if row else None
+
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return lots with their current primary-contact owner, if any.
 
