@@ -11,7 +11,8 @@ requires-python = ">=3.11"
 authors = [{ name = "OpenAI" }]
 dependencies = [
   "PyYAML>=6.0",
-  "jinja2>=3.1"
+  "jinja2>=3.1",
+  "flask>=3.0"
 ]
 
 [project.optional-dependencies]
