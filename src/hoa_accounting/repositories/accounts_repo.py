@@ -28,6 +28,40 @@ class AccountsRepository(BaseRepository):
             (account_id,),
         ).fetchone()
 
+    def list_accounts_by_type(
+        self, *, account_type_code: str, active_only: bool = True
+    ) -> list[sqlite3.Row]:
+        """Return active accounts of one type, ordered by account number.
+
+        Used to populate dropdowns on transaction-entry forms — callers
+        pass ``ASSET`` for cash pickers, ``LIABILITY`` for payables,
+        ``INCOME`` for assessment income pickers, ``EXPENSE`` for vendor
+        bill expense pickers.
+        """
+        predicates = ["at.code = ?"]
+        params: list[object] = [account_type_code]
+        if active_only:
+            predicates.append("a.is_active = 1")
+        where_sql = " AND ".join(predicates)
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT
+                    a.id,
+                    a.account_number,
+                    a.account_name,
+                    a.fund_code,
+                    a.group_code,
+                    at.code AS account_type_code
+                FROM accounts a
+                JOIN account_types at ON at.id = a.account_type_id
+                WHERE {where_sql}
+                ORDER BY a.account_number
+                """,
+                params,
+            ).fetchall()
+        )
+
     def list_chart(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return the full chart of accounts joined to account types.
 

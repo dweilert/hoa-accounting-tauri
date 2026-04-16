@@ -14,8 +14,12 @@ from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.services.journal_service import JournalService
 from hoa_accounting.validators.account_role_validator import AccountRoleValidator
 from hoa_accounting.validators.account_validator import AccountValidator
+from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.validators.common import require_positive_amount
 from hoa_accounting.validators.entity_validator import EntityValidator
+
+
+_ALLOWED_EXPENSE_CLASSIFICATIONS = frozenset({"OPERATING", "IMPROVEMENT"})
 
 
 class VendorBillService:
@@ -55,9 +59,18 @@ class VendorBillService:
         invoice_date: str,
         due_date: str | None = None,
         fund_code: str = "OPERATING",
+        expense_classification: str = "OPERATING",
         created_by_user_id: int | None = None,
     ) -> VendorBillResult:
-        """Post a vendor bill atomically."""
+        """Post a vendor bill atomically.
+
+        ``expense_classification`` tags the debit (expense) line with
+        either ``OPERATING`` (the default — routine recurring spending)
+        or ``IMPROVEMENT`` (enhancement/upgrade) so the variance and
+        year-to-date expense reports can split the two. The credit
+        (payable) line stays unclassified because the tag only applies
+        to expense activity.
+        """
         with transaction(self.conn):
             amount_dec = require_positive_amount(amount, "Vendor bill amount")
             self.entity_validator.require_exists("vendors", vendor_id)
@@ -66,6 +79,13 @@ class VendorBillService:
             self.account_validator.require_valid_fund_code(fund_code)
             self.account_role_validator.require_expense_account(expense_account_id, "vendor expense")
             self.account_role_validator.require_liability_account(payable_account_id, "accounts payable")
+
+            classification = (expense_classification or "OPERATING").upper()
+            if classification not in _ALLOWED_EXPENSE_CLASSIFICATIONS:
+                raise ValidationError(
+                    f"Invalid expense classification: {expense_classification!r}. "
+                    f"Expected one of {sorted(_ALLOWED_EXPENSE_CLASSIFICATIONS)}."
+                )
 
             effective_due_date = due_date or invoice_date
             journal = self.journal_service.post_journal_entry(
@@ -79,6 +99,7 @@ class VendorBillService:
                         description=description,
                         debit_amount=amount_dec,
                         vendor_id=vendor_id,
+                        expense_classification=classification,
                     ),
                     JournalLineInput(
                         account_id=payable_account_id,
@@ -115,6 +136,8 @@ class VendorBillService:
                     "amount": str(amount_dec),
                     "invoice_number": invoice_number,
                     "journal_entry_id": journal.journal_entry_id,
+                    "expense_classification": classification,
+                    "fund_code": fund_code,
                 },
             )
             return VendorBillResult(

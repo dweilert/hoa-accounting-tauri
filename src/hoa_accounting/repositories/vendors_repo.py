@@ -10,6 +10,39 @@ from .base import BaseRepository
 class VendorsRepository(BaseRepository):
     """Database access for vendor bills and bill payments."""
 
+    def list_vendor_bills(self, *, limit: int = 200) -> list[sqlite3.Row]:
+        """Return recent vendor bills joined to vendor and journal metadata.
+
+        Ordered newest-first by invoice_date (ties broken by id) so the
+        most-recently entered bills land at the top of the list page.
+        ``limit`` bounds memory when the list grows over years of data;
+        200 is easily enough for a typical HOA year of vendor activity.
+        """
+        return list(
+            self.conn.execute(
+                """
+                SELECT
+                    vb.id,
+                    vb.invoice_number,
+                    vb.invoice_date,
+                    vb.due_date,
+                    vb.amount,
+                    vb.fund_code,
+                    vb.status,
+                    vb.description,
+                    vb.journal_entry_id,
+                    v.vendor_name,
+                    je.entry_number
+                FROM vendor_bills vb
+                JOIN vendors v ON v.id = vb.vendor_id
+                LEFT JOIN journal_entries je ON je.id = vb.journal_entry_id
+                ORDER BY vb.invoice_date DESC, vb.id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        )
+
     def list_vendors(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return vendors for a master-data list page."""
         predicates = []

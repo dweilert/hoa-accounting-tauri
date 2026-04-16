@@ -30,6 +30,7 @@ from hoa_accounting.web.ui_server import (
     ReportConsolePageService,
     UIResponse,
 )
+from hoa_accounting.web.vendor_bill_pages import VendorBillPages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -206,5 +207,62 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/bank-accounts")
     def list_bank_accounts() -> Response: return _render_list("bank-accounts")
+
+    # ── Transaction pages: Vendor Bills ──────────────────────────────
+    # Same per-request connection pattern as the master-data pages, with
+    # a form-handling POST added. Redirect-on-success uses a query param
+    # (`?created=JE-...`) so the list page can display a success banner
+    # without pulling in Flask-Session or a secret key.
+
+    def _open_vendor_bill_pages() -> VendorBillPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; transaction pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._tx_conn = conn
+        return VendorBillPages(conn)
+
+    @app.teardown_request
+    def _close_tx_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_tx_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._tx_conn = None
+
+    @app.get("/vendor-bills")
+    def list_vendor_bills() -> Response:
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        created = (request.args.get("created") or "").strip() or None
+        resp = pages.render_list(org=org_context, theme=theme, created_entry_number=created)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/vendor-bills/new")
+    def new_vendor_bill_form() -> Response:
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendor-bills/new")
+    def submit_vendor_bill() -> Response:
+        from flask import redirect
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        redirect_url, form_resp = pages.handle_post(
+            form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)  # see-other: GET the list
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     return app
