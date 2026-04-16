@@ -1,24 +1,34 @@
-<div class="summary-card">
-  <h3>Formatted Summary</h3>
-  <div><strong>As Of Date:</strong> {{ summary.as_of_date }}</div>
-  <div><strong>Total Debits:</strong> {{ summary.total_debits }}</div>
-  <div><strong>Total Credits:</strong> {{ summary.total_credits }}</div>
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">As of</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.as_of_date }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Debits</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_debits }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Credits</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_credits }}</span>
+  </div>
+</div>
 
+<div class="table-wrap">
   <table>
     <thead>
       <tr>
         <th>Account</th>
         <th>Name</th>
-        <th>Debits</th>
-        <th>Credits</th>
-        <th>Net Debit</th>
-        <th>Net Credit</th>
+        <th class="num">Debits</th>
+        <th class="num">Credits</th>
+        <th class="num">Net Debit</th>
+        <th class="num">Net Credit</th>
       </tr>
     </thead>
     <tbody>
       {% for row in summary.rows %}
         <tr>
-          <td>{{ row.account_number }}</td>
+          <td class="mono">{{ row.account_number }}</td>
           <td>{{ row.account_name }}</td>
           <td class="num">{{ row.debit_total }}</td>
           <td class="num">{{ row.credit_total }}</td>

@@ -1,15 +1,10 @@
-"""Entry point for the minimal report UI server."""
+"""Entry point for the HOA accounting web UI (Flask)."""
 
 from __future__ import annotations
 
 import argparse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
-from hoa_accounting.api.report_api import ReportAPIService
-from hoa_accounting.application.report_runner import ReportRunner
-from hoa_accounting.web.ui_server import HomePageService, ReportConsolePageService
+from hoa_accounting.web.app import create_app
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--host",
         default="127.0.0.1",
-        help="Bind host (default: 127.0.0.1)",
+        help="Bind host (default: 127.0.0.1 — local only)",
     )
     parser.add_argument(
         "--port",
@@ -31,97 +26,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=8090,
         help="Bind port (default: 8090)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable Flask debug mode (auto-reload, tracebacks in browser).",
+    )
     return parser
-
-
-class UIRequestHandler(BaseHTTPRequestHandler):
-    """Minimal HTTP handler for the report console UI."""
-
-    home_service: HomePageService
-    report_page_service: ReportConsolePageService
-
-    def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-
-        if parsed.path == "/":
-            response = self.home_service.render_page()
-            self._write_html(response.status_code, response.body_html)
-            return
-
-        if parsed.path == "/reports":
-            raw_params = parse_qs(parsed.query)
-            report_name = raw_params.get("report_name", ["trial-balance"])[-1]
-            response = self.report_page_service.render_page(selected_report=report_name)
-            self._write_html(response.status_code, response.body_html)
-            return
-
-        if parsed.path == "/run-report":
-            raw_params = parse_qs(parsed.query)
-            query_params = {
-                key: values[-1]
-                for key, values in raw_params.items()
-                if values and values[-1].strip() != ""
-            }
-            report_name = query_params.pop("report_name", "").strip()
-
-            response = self.report_page_service.render_report(
-                report_name=report_name,
-                query_params=query_params,
-            )
-            self._write_html(response.status_code, response.body_html)
-            return
-
-        self.send_response(404)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(b"Not found")
-
-    def log_message(self, format: str, *args) -> None:  # noqa: A003
-        """Keep default server logging simple."""
-        super().log_message(format, *args)
-
-    def _write_html(self, status_code: int, body_html: str) -> None:
-        payload = body_html.encode("utf-8")
-        self.send_response(status_code)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
 
 
 def main() -> int:
     """Run the UI server."""
     args = build_parser().parse_args()
 
-    runner = ReportRunner(config_path=args.config)
-    api_service = ReportAPIService(runner)
-
-    base_dir = Path(__file__).resolve().parent / "src" / "hoa_accounting" / "web" / "templates"
-    home_template_path = base_dir / "home.html"
-    report_template_path = base_dir / "report_console.html"
-
-    home_service = HomePageService(api_service, template_path=home_template_path)
-    report_page_service = ReportConsolePageService(
-        api_service,
-        template_path=report_template_path,
-    )
-
-    class ConfiguredHandler(UIRequestHandler):
-        pass
-
-    ConfiguredHandler.home_service = home_service
-    ConfiguredHandler.report_page_service = report_page_service
-
-    server = ThreadingHTTPServer((args.host, args.port), ConfiguredHandler)
+    app = create_app(config_path=args.config)
     print(f"Serving HOA accounting UI on http://{args.host}:{args.port}")
-
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down UI server...")
-    finally:
-        server.server_close()
-
+    app.run(host=args.host, port=args.port, debug=args.debug)
     return 0
 
 

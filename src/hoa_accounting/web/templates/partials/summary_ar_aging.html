@@ -1,23 +1,36 @@
-<div class="summary-card">
-  <h3>Formatted Summary</h3>
-  <div><strong>As Of Date:</strong> {{ summary.as_of_date }}</div>
-  <div><strong>Total Open Amount:</strong> {{ summary.total_open_amount }}</div>
-  <div><strong>Total Credit Balance:</strong> {{ summary.total_credit_balance }}</div>
-  <div><strong>Total Ledger Balance:</strong> {{ summary.total_ledger_balance }}</div>
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">As of</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.as_of_date }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Open</span>
+    <span class="summary-totals__value summary-totals__value--danger">{{ summary.total_open_amount }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Credit Balances</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_credit_balance }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Ledger Balance</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_ledger_balance }}</span>
+  </div>
+</div>
 
-  <h4>Owner Summaries</h4>
+<div class="section-heading">Owner Summaries</div>
+<div class="table-wrap">
   <table>
     <thead>
       <tr>
         <th>Owner</th>
-        <th>Current</th>
-        <th>1-30</th>
-        <th>31-60</th>
-        <th>61-90</th>
-        <th>90+</th>
-        <th>Total Open</th>
-        <th>Credit Balance</th>
-        <th>Ledger Balance</th>
+        <th class="num">Current</th>
+        <th class="num">1–30</th>
+        <th class="num">31–60</th>
+        <th class="num">61–90</th>
+        <th class="num">90+</th>
+        <th class="num">Total Open</th>
+        <th class="num">Credit</th>
+        <th class="num">Ledger</th>
       </tr>
     </thead>
     <tbody>
@@ -36,34 +49,40 @@
       {% endfor %}
     </tbody>
   </table>
-
-  <h4>Open Items</h4>
-  <table>
-    <thead>
-      <tr>
-        <th>Owner</th>
-        <th>Lot</th>
-        <th>Assessment ID</th>
-        <th>Due Date</th>
-        <th>Bucket</th>
-        <th>Original</th>
-        <th>Applied</th>
-        <th>Remaining</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in summary.detail_rows %}
-        <tr>
-          <td>{{ row.owner_name }}</td>
-          <td>{{ row.lot_number }}</td>
-          <td>{{ row.assessment_id }}</td>
-          <td>{{ row.due_date }}</td>
-          <td>{{ row.aging_bucket }}</td>
-          <td class="num">{{ row.original_amount }}</td>
-          <td class="num">{{ row.applied_amount }}</td>
-          <td class="num">{{ row.remaining_amount }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
 </div>
+
+<div class="section-heading">Open Items</div>
+{% if summary.detail_rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Owner</th>
+          <th>Lot</th>
+          <th>Assessment</th>
+          <th>Due Date</th>
+          <th>Bucket</th>
+          <th class="num">Original</th>
+          <th class="num">Applied</th>
+          <th class="num">Remaining</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.detail_rows %}
+          <tr>
+            <td>{{ row.owner_name }}</td>
+            <td class="mono">{{ row.lot_number }}</td>
+            <td class="mono">#{{ row.assessment_id }}</td>
+            <td>{{ row.due_date }}</td>
+            <td><span class="pill pill--warn">{{ row.aging_bucket }}</span></td>
+            <td class="num">{{ row.original_amount }}</td>
+            <td class="num">{{ row.applied_amount }}</td>
+            <td class="num">{{ row.remaining_amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty">No open items.</div>
+{% endif %}

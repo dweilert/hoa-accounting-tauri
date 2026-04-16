@@ -12,3 +12,7 @@ dist/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Claude Code dev-server config — machine-specific absolute paths.
+# A portable shared version can be added later if we want one.
+.claude/

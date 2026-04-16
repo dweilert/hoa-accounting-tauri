@@ -1,60 +1,74 @@
-<div class="summary-card">
-  <h3>Formatted Summary</h3>
-  <div><strong>From:</strong> {{ summary.from_date }}</div>
-  <div><strong>To:</strong> {{ summary.to_date }}</div>
-  <div><strong>Total Income:</strong> {{ summary.total_income }}</div>
-  <div><strong>Total Expenses:</strong> {{ summary.total_expenses }}</div>
-  <div><strong>Net Income:</strong> {{ summary.net_income }}</div>
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Period</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.from_date }} – {{ summary.to_date }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Income</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_income }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Expenses</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_expenses }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Net Income</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.net_income }}</span>
+  </div>
+</div>
 
-  <h4>Income</h4>
-  {% if summary.income.rows %}
+<div class="section-heading">Income</div>
+{% if summary.income.rows %}
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Account</th>
           <th>Name</th>
           <th>Fund</th>
-          <th>Amount</th>
+          <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary.income.rows %}
           <tr>
-            <td>{{ row.account_number }}</td>
+            <td class="mono">{{ row.account_number }}</td>
             <td>{{ row.account_name }}</td>
-            <td>{{ row.fund_code }}</td>
+            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <p>No rows.</p>
-  {% endif %}
+  </div>
+{% else %}
+  <div class="empty">No income rows for this period.</div>
+{% endif %}
 
-  <h4>Expenses</h4>
-  {% if summary.expenses.rows %}
+<div class="section-heading">Expenses</div>
+{% if summary.expenses.rows %}
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Account</th>
           <th>Name</th>
           <th>Fund</th>
-          <th>Amount</th>
+          <th class="num">Amount</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary.expenses.rows %}
           <tr>
-            <td>{{ row.account_number }}</td>
+            <td class="mono">{{ row.account_number }}</td>
             <td>{{ row.account_name }}</td>
-            <td>{{ row.fund_code }}</td>
+            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <p>No rows.</p>
-  {% endif %}
-</div>
+  </div>
+{% else %}
+  <div class="empty">No expense rows for this period.</div>
+{% endif %}
