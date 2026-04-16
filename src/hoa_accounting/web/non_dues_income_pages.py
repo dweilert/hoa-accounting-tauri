@@ -110,6 +110,7 @@ class NonDuesIncomePages:
                 "id": r["id"],
                 "label": f"{r['account_name']} · {r['institution_name']}"
                          + (f" (…{r['account_last4']})" if r["account_last4"] else ""),
+                "fund_code": r["gl_fund_code"],
             }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
         ]
@@ -117,6 +118,7 @@ class NonDuesIncomePages:
             {
                 "id": r["id"],
                 "label": f"{r['account_number']} · {r['account_name']}",
+                "fund_code": r["fund_code"],
             }
             for r in AccountsRepository(self.conn).list_accounts_by_type(
                 account_type_code="INCOME"

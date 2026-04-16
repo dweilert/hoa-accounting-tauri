@@ -40,10 +40,10 @@
 
         <label class="field">
           <span class="field__label">Bank Account *</span>
-          <select name="bank_account_id" required>
+          <select name="bank_account_id" id="bank-account-select" required>
             <option value="">— Select a bank account —</option>
             {% for b in banks %}
-              <option value="{{ b.id }}"
+              <option value="{{ b.id }}" data-fund="{{ b.fund_code }}"
                 {% if values.bank_account_id|string == b.id|string %}selected{% endif %}>
                 {{ b.label }}
               </option>
@@ -53,16 +53,18 @@
 
         <label class="field">
           <span class="field__label">Income Account *</span>
-          <select name="income_account_id" required>
+          <select name="income_account_id" id="income-account-select" required>
             <option value="">— Select an income account —</option>
             {% for a in income_accounts %}
-              <option value="{{ a.id }}"
+              <option value="{{ a.id }}" data-fund="{{ a.fund_code }}"
                 {% if values.income_account_id|string == a.id|string %}selected{% endif %}>
                 {{ a.label }}
               </option>
             {% endfor %}
           </select>
-          <span class="field__hint">e.g. 4200 · Interest Income.</span>
+          <span class="field__hint" id="income-account-hint">
+            Filtered to match the selected bank account's fund.
+          </span>
         </label>
 
         <label class="field form__row--full">
@@ -273,6 +275,58 @@
       // OTHER row inputs should update the running total on input too.
       document.querySelector("input[name=other_amount]")
               .addEventListener("input", recalc);
+    })();
+  </script>
+
+  <script>
+    // Filter the Income Account dropdown by the selected Bank Account's
+    // fund — so the user can't cross operating/reserve by accident.
+    // Cross-fund entries trip the per-fund balance invariant server-side
+    // regardless, but this keeps the failure mode out of the form.
+    (function () {
+      var bank = document.getElementById("bank-account-select");
+      var income = document.getElementById("income-account-select");
+      var hint = document.getElementById("income-account-hint");
+      if (!bank || !income) return;
+
+      // Snapshot the original income options so we can restore them when
+      // the bank is cleared.
+      var all = Array.from(income.options).slice(1).map(function (o) {
+        return { value: o.value, text: o.textContent, fund: o.getAttribute("data-fund") };
+      });
+      var placeholder = income.options[0];  // "— Select …"
+
+      function bankFund() {
+        var opt = bank.options[bank.selectedIndex];
+        return opt ? opt.getAttribute("data-fund") : "";
+      }
+
+      function rebuildIncome() {
+        var fund = bankFund();
+        var prevSelected = income.value;
+        // Rebuild the options: placeholder first, then matching accounts.
+        income.innerHTML = "";
+        income.appendChild(placeholder);
+        var matches = fund ? all.filter(function (a) { return a.fund === fund; }) : all;
+        matches.forEach(function (a) {
+          var opt = document.createElement("option");
+          opt.value = a.value;
+          opt.textContent = a.text;
+          opt.setAttribute("data-fund", a.fund);
+          income.appendChild(opt);
+        });
+        // Preserve the previous selection if it's still valid under the filter.
+        var stillValid = matches.some(function (a) { return a.value === prevSelected; });
+        income.value = stillValid ? prevSelected : "";
+        if (hint) {
+          hint.textContent = fund
+            ? "Showing " + fund + " income accounts (matched to the bank's fund)."
+            : "Pick a bank account first to filter income accounts by fund.";
+        }
+      }
+
+      bank.addEventListener("change", rebuildIncome);
+      rebuildIncome();  // run on load so the initial state is filtered
     })();
   </script>
 {% endblock %}
