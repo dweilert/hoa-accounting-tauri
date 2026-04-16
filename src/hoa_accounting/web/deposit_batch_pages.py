@@ -44,6 +44,31 @@ def _today() -> str:
 _ROW_KEY_RE = re.compile(r"^row_(\d+)_(lot_id|amount|reference_number|memo)$")
 
 
+def _resolve_ar_account(conn: sqlite3.Connection, org: dict[str, object] | None):
+    """Look up the configured dues receivable account.
+
+    Returns the row (id, number, name, ...) or raises ValidationError
+    with a clear message so the treasurer knows to fix config rather
+    than staring at a server error.
+    """
+    org = org or {}
+    number = str(org.get("dues_receivable_account_number") or "1100")
+    row = AccountsRepository(conn).get_by_number(number)
+    if row is None:
+        raise ValidationError(
+            f"Dues receivable account '{number}' was not found in the chart "
+            "of accounts. Check accounting.dues_receivable_account_number "
+            "in config.yaml."
+        )
+    if int(row["is_active"]) != 1:
+        raise ValidationError(
+            f"Dues receivable account '{number}' is inactive. "
+            "Activate it or update accounting.dues_receivable_account_number "
+            "in config.yaml."
+        )
+    return row
+
+
 class DepositBatchPages:
     """Render and submit the deposit-batch UI."""
 
@@ -110,7 +135,19 @@ class DepositBatchPages:
         error_message: str = "",
     ) -> BatchPageResponse:
         values = form_values or {}
-        # Header dropdowns.
+
+        # Resolve the posting AR account from config and show it read-only
+        # so the treasurer can see where credits land without having to
+        # pick it every time. If config is wrong, surface that as the
+        # form's error alert rather than a 500.
+        resolved_error = error_message
+        ar_account_label = ""
+        try:
+            ar_row = _resolve_ar_account(self.conn, org)
+            ar_account_label = f"{ar_row['account_number']} · {ar_row['account_name']}"
+        except ValidationError as exc:
+            resolved_error = resolved_error or str(exc)
+
         banks = [
             {
                 "id": r["id"],
@@ -120,35 +157,9 @@ class DepositBatchPages:
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
         ]
         lots = [
-            {
-                "id": r["id"],
-                "label": _lot_label(r),
-            }
+            {"id": r["id"], "label": _lot_label(r)}
             for r in LotsRepository(self.conn).list_lots()
         ]
-        ar_accounts = [
-            {
-                "id": r["id"],
-                "label": f"{r['account_number']} · {r['account_name']}",
-            }
-            for r in AccountsRepository(self.conn).list_accounts_by_type(
-                account_type_code="ASSET"
-            )
-            # Only show likely AR accounts — the ones that aren't bank accounts.
-            if int(r["account_number"] or "0") >= 1100 and int(r["account_number"] or "0") < 1200
-        ]
-        # Fall back to all assets if the filter found nothing (starter chart
-        # might use different numbers).
-        if not ar_accounts:
-            ar_accounts = [
-                {
-                    "id": r["id"],
-                    "label": f"{r['account_number']} · {r['account_name']}",
-                }
-                for r in AccountsRepository(self.conn).list_accounts_by_type(
-                    account_type_code="ASSET"
-                )
-            ]
 
         # Preserve submitted rows (after a validation error) or start with
         # a handful of blank rows as scratchpad.
@@ -166,17 +177,16 @@ class DepositBatchPages:
             "breadcrumb": "Transactions · Deposits · New",
             "banks": banks,
             "lots": lots,
-            "ar_accounts": ar_accounts,
+            "ar_account_label": ar_account_label,
             "rows": rows_for_render,
             "values": {
                 "deposit_date": values.get("deposit_date", _today()),
                 "bank_account_id": values.get("bank_account_id", ""),
-                "receivable_account_id": values.get("receivable_account_id", ""),
                 "notes": values.get("notes", ""),
             },
-            "error_message": error_message,
+            "error_message": resolved_error,
         }
-        status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
+        status = HTTPStatus.BAD_REQUEST if resolved_error else HTTPStatus.OK
         return BatchPageResponse(
             status_code=status,
             body_html=render_template(self.FORM_TEMPLATE, ctx),
@@ -214,9 +224,10 @@ class DepositBatchPages:
             bank_account_id = _parse_int(
                 form_data.get("bank_account_id", ""), "Bank account"
             )
-            receivable_account_id = _parse_int(
-                form_data.get("receivable_account_id", ""), "Receivable (AR) account"
-            )
+            # AR account comes from config now — one fixed account for
+            # dues payments rather than a per-batch pick.
+            ar_row = _resolve_ar_account(self.conn, org)
+            receivable_account_id = int(ar_row["id"])
             notes = (form_data.get("notes", "") or "").strip() or None
 
             if not active_rows:

@@ -75,6 +75,7 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
             "environment": "local",
             "fiscal_year_start_month": 1,
             "theme": "warm",
+            "dues_receivable_account_number": "1100",
         }
     return {
         "name": config.hoa.name,
@@ -83,6 +84,9 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
         "theme": getattr(config.app, "theme", "warm"),
         "db_path": config.database.path,
+        "dues_receivable_account_number": getattr(
+            config.accounting, "dues_receivable_account_number", "1100"
+        ),
     }
 
 

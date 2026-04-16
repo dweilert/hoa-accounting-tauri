@@ -50,19 +50,21 @@
           </select>
         </label>
 
-        <label class="field">
-          <span class="field__label">Receivable (AR) Account *</span>
-          <select name="receivable_account_id" required>
-            <option value="">— Select an AR account —</option>
-            {% for a in ar_accounts %}
-              <option value="{{ a.id }}"
-                {% if values.receivable_account_id|string == a.id|string %}selected{% endif %}>
-                {{ a.label }}
-              </option>
-            {% endfor %}
-          </select>
-          <span class="field__hint">Usually "1100 · Accounts Receivable - Owners".</span>
-        </label>
+        <div class="field">
+          <span class="field__label">Posting to AR</span>
+          <div class="mono" style="
+                padding: 7px 10px;
+                background: var(--surface-muted);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                color: var(--text-muted);
+                font-size: 13px;">
+            {{ ar_account_label or '— not configured —' }}
+          </div>
+          <span class="field__hint">
+            Set via <span class="mono">accounting.dues_receivable_account_number</span> in config.
+          </span>
+        </div>
 
         <label class="field form__row--full">
           <span class="field__label">Notes</span>
