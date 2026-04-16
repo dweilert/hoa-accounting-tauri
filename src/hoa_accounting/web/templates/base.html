@@ -63,6 +63,12 @@
         </button>
         <ul class="sidebar__nav" id="sidebar-transactions">
           <li>
+            <a href="/deposits"
+               class="sidebar__link{% if active_nav == 'transactions' and page_key == 'deposits' %} sidebar__link--active{% endif %}">
+              Deposits
+            </a>
+          </li>
+          <li>
             <a href="/vendor-bills"
                class="sidebar__link{% if active_nav == 'transactions' and page_key == 'vendor-bills' %} sidebar__link--active{% endif %}">
               Vendor Bills

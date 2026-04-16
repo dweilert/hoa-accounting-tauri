@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}New Deposit Batch · {{ org.name }}{% endblock %}
+{% block heading %}New Deposit Batch{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/deposits" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">{{ error_message }}</div>
+  {% endif %}
+
+  <form method="post" action="/deposits/new" id="deposit-batch-form">
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Deposit details</div>
+          <div class="panel__description">
+            Matches what's going on the deposit slip to the bank. The
+            running total below reflects the sum of the rows and should
+            equal the deposit.
+          </div>
+        </div>
+        <div class="summary-totals" style="margin: 0; padding: 10px var(--sp-3); min-width: 240px;">
+          <div class="summary-totals__item">
+            <span class="summary-totals__label">Batch total</span>
+            <span class="summary-totals__value summary-totals__value--accent mono" id="batch-total">0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form" style="grid-template-columns: repeat(3, minmax(200px, 1fr));">
+        <label class="field">
+          <span class="field__label">Deposit Date *</span>
+          <input type="date" name="deposit_date" value="{{ values.deposit_date }}" required />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Bank Account *</span>
+          <select name="bank_account_id" required>
+            <option value="">— Select a bank account —</option>
+            {% for b in banks %}
+              <option value="{{ b.id }}"
+                {% if values.bank_account_id|string == b.id|string %}selected{% endif %}>
+                {{ b.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Receivable (AR) Account *</span>
+          <select name="receivable_account_id" required>
+            <option value="">— Select an AR account —</option>
+            {% for a in ar_accounts %}
+              <option value="{{ a.id }}"
+                {% if values.receivable_account_id|string == a.id|string %}selected{% endif %}>
+                {{ a.label }}
+              </option>
+            {% endfor %}
+          </select>
+          <span class="field__hint">Usually "1100 · Accounts Receivable - Owners".</span>
+        </label>
+
+        <label class="field form__row--full">
+          <span class="field__label">Notes</span>
+          <input type="text" name="notes" value="{{ values.notes }}"
+                 placeholder="e.g. April 15 dropbox pickup" />
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Payments</div>
+          <div class="panel__description">
+            One row per check. Select a lot by address; owner is
+            resolved from the current primary-contact ownership. Blank
+            rows are ignored.
+          </div>
+        </div>
+        <button type="button" class="btn btn--secondary" id="add-row-btn">
+          + Add row
+        </button>
+      </div>
+
+      <div class="table-wrap" style="overflow: visible;">
+        <table id="deposit-rows">
+          <thead>
+            <tr>
+              <th style="width: 42%;">Lot / Address</th>
+              <th class="num" style="width: 15%;">Amount</th>
+              <th style="width: 15%;">Check # / Ref</th>
+              <th>Memo</th>
+              <th style="width: 36px;"></th>
+            </tr>
+          </thead>
+          <tbody id="rows-body">
+            {% for row in rows %}
+              <tr class="deposit-row">
+                <td>
+                  <select name="row_{{ loop.index0 }}_lot_id" class="row-lot">
+                    <option value="">— Select a lot —</option>
+                    {% for l in lots %}
+                      <option value="{{ l.id }}"
+                        {% if row.lot_id|string == l.id|string %}selected{% endif %}>
+                        {{ l.label }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <input type="number" name="row_{{ loop.index0 }}_amount"
+                         class="row-amount num"
+                         value="{{ row.amount }}"
+                         step="0.01" min="0" inputmode="decimal"
+                         placeholder="0.00"
+                         style="text-align: right;" />
+                </td>
+                <td>
+                  <input type="text" name="row_{{ loop.index0 }}_reference_number"
+                         class="row-ref mono"
+                         value="{{ row.reference_number }}"
+                         placeholder="1234" />
+                </td>
+                <td>
+                  <input type="text" name="row_{{ loop.index0 }}_memo"
+                         value="{{ row.memo }}"
+                         placeholder="" />
+                </td>
+                <td>
+                  <button type="button" class="btn btn--ghost row-remove"
+                          title="Remove row" aria-label="Remove row"
+                          style="padding: 4px 8px;">×</button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row" style="margin-top: var(--sp-4);">
+        <button type="submit" class="btn btn--primary">Post batch</button>
+        <a href="/deposits" class="btn btn--ghost">Cancel</a>
+        <div class="subtle" style="margin-left: auto;">
+          Running total: <span class="mono" id="batch-total-mirror">0.00</span>
+        </div>
+      </div>
+    </div>
+
+    {# Hidden template for JS-cloned new rows. #}
+    <template id="row-template">
+      <tr class="deposit-row">
+        <td>
+          <select name="row_IDX_lot_id" class="row-lot">
+            <option value="">— Select a lot —</option>
+            {% for l in lots %}
+              <option value="{{ l.id }}">{{ l.label }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <input type="number" name="row_IDX_amount" class="row-amount num"
+                 step="0.01" min="0" inputmode="decimal"
+                 placeholder="0.00" style="text-align: right;" />
+        </td>
+        <td>
+          <input type="text" name="row_IDX_reference_number" class="row-ref mono"
+                 placeholder="1234" />
+        </td>
+        <td>
+          <input type="text" name="row_IDX_memo" placeholder="" />
+        </td>
+        <td>
+          <button type="button" class="btn btn--ghost row-remove"
+                  title="Remove row" aria-label="Remove row"
+                  style="padding: 4px 8px;">×</button>
+        </td>
+      </tr>
+    </template>
+  </form>
+
+  <script>
+    (function () {
+      var form = document.getElementById("deposit-batch-form");
+      var tbody = document.getElementById("rows-body");
+      var addBtn = document.getElementById("add-row-btn");
+      var total1 = document.getElementById("batch-total");
+      var total2 = document.getElementById("batch-total-mirror");
+      var tmpl = document.getElementById("row-template");
+      var nextIdx = tbody.querySelectorAll("tr.deposit-row").length;
+
+      function money(n) {
+        if (isNaN(n) || !isFinite(n)) n = 0;
+        return n.toFixed(2);
+      }
+
+      function recalc() {
+        var total = 0;
+        tbody.querySelectorAll("input.row-amount").forEach(function (el) {
+          var v = parseFloat(el.value);
+          if (!isNaN(v)) total += v;
+        });
+        var s = money(total);
+        total1.textContent = s;
+        total2.textContent = s;
+      }
+
+      function wireRow(tr) {
+        var amt = tr.querySelector("input.row-amount");
+        if (amt) amt.addEventListener("input", recalc);
+        var rm = tr.querySelector("button.row-remove");
+        if (rm) rm.addEventListener("click", function () {
+          // Never remove the last row — clear it instead, so the form
+          // always has at least one row to submit into.
+          if (tbody.querySelectorAll("tr.deposit-row").length === 1) {
+            tr.querySelectorAll("input").forEach(function (el) { el.value = ""; });
+            var sel = tr.querySelector("select.row-lot");
+            if (sel) sel.value = "";
+            recalc();
+            return;
+          }
+          tr.remove();
+          recalc();
+        });
+      }
+
+      function addRow() {
+        var clone = tmpl.content.cloneNode(true);
+        var tr = clone.querySelector("tr");
+        // Rewrite the IDX placeholder in all name attributes.
+        tr.querySelectorAll("[name]").forEach(function (el) {
+          el.setAttribute("name", el.getAttribute("name").replace("IDX", String(nextIdx)));
+        });
+        nextIdx += 1;
+        tbody.appendChild(tr);
+        wireRow(tr);
+      }
+
+      // Wire existing rows, initial total, and the add button.
+      tbody.querySelectorAll("tr.deposit-row").forEach(wireRow);
+      recalc();
+      addBtn.addEventListener("click", addRow);
+    })();
+  </script>
+{% endblock %}

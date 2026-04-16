@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Deposits · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/deposits/new" class="btn btn--primary">New deposit batch</a>
+{% endblock %}
+
+{% block content %}
+  {% if created_entry_number %}
+    <div class="alert alert--info" style="background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border);">
+      Posted deposit batch — journal entry <span class="mono">{{ created_entry_number }}</span>.
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Deposits</div>
+        <div class="panel__description">{{ description }}</div>
+      </div>
+    </div>
+
+    {% if batches %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Bank Account</th>
+              <th class="num">Total</th>
+              <th class="num">Payments</th>
+              <th>Entry #</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in batches %}
+              <tr>
+                <td>{{ b.deposit_date }}</td>
+                <td>{{ b.bank_account }} <span class="subtle">· {{ b.institution }}</span></td>
+                <td class="num">{{ b.total_amount }}</td>
+                <td class="num">{{ b.payment_count }}</td>
+                <td class="mono">{{ b.entry_number }}</td>
+                <td>{{ b.notes }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No deposits recorded yet. Click <strong>New deposit batch</strong> to enter
+        the checks from your next bank run.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
