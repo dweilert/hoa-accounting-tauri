@@ -10,7 +10,7 @@ from pathlib import Path
 from hoa_accounting.config.models import Config
 from hoa_accounting.exceptions import ValidationError
 
-from .schema import base_schema_sql
+from .migrator import Migrator
 
 PBKDF2_ITERATIONS = 600_000
 
@@ -61,7 +61,7 @@ class DatabaseInitializer:
         conn = sqlite3.connect(str(db_path))
         try:
             conn.execute("PRAGMA foreign_keys = ON;")
-            conn.executescript(base_schema_sql())
+            Migrator().apply_all(conn)
 
             self._insert_hoa_profile(conn)
             self._insert_admin_user(
