@@ -153,8 +153,9 @@ class JournalRepository(BaseRepository):
                     vendor_id,
                     description,
                     debit_amount,
-                    credit_amount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    credit_amount,
+                    expense_classification
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     journal_entry_id,
@@ -166,6 +167,7 @@ class JournalRepository(BaseRepository):
                     line.description,
                     str(amount_formatter(line.debit_amount)),
                     str(amount_formatter(line.credit_amount)),
+                    line.expense_classification,
                 ),
             )
 
@@ -194,7 +196,8 @@ class JournalRepository(BaseRepository):
             self.conn.execute(
                 """
                 SELECT line_number, account_id, lot_id, owner_id, vendor_id,
-                       description, debit_amount, credit_amount
+                       description, debit_amount, credit_amount,
+                       expense_classification
                 FROM journal_entry_lines
                 WHERE journal_entry_id = ?
                 ORDER BY line_number
