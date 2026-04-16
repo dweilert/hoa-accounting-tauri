@@ -131,8 +131,9 @@ CREATE TABLE payments (
     payment_method TEXT NOT NULL,
     reference_number TEXT,
     bank_account_id INTEGER NOT NULL,
-    journal_entry_id INTEGER NOT NULL UNIQUE,
+    journal_entry_id INTEGER NOT NULL,
     notes TEXT,
+    deposit_batch_id INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE payment_applications (

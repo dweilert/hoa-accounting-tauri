@@ -28,6 +28,22 @@ class AccountsRepository(BaseRepository):
             (account_id,),
         ).fetchone()
 
+    def get_by_number(self, account_number: str):
+        """Return account id + name for a given account_number, or None.
+
+        Used by the transaction pages when they need to resolve a
+        config-specified account number (e.g. dues_receivable_account_number)
+        into a live account id at post time.
+        """
+        return self.conn.execute(
+            """
+            SELECT id, account_number, account_name, is_active, fund_code
+            FROM accounts
+            WHERE account_number = ?
+            """,
+            (account_number,),
+        ).fetchone()
+
     def list_accounts_by_type(
         self, *, account_type_code: str, active_only: bool = True
     ) -> list[sqlite3.Row]:

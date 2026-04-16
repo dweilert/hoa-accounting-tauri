@@ -34,6 +34,10 @@ class AccountingConfig:
     """Accounting defaults."""
     fiscal_year_start_month: int
     default_fund: str
+    # GL account number that owner dues payments credit. Defaults to
+    # 1100 (the seed chart's Accounts Receivable — Owners). Configurable
+    # so a chart that later renames the account doesn't break the UI.
+    dues_receivable_account_number: str = "1100"
 
 
 @dataclass(frozen=True)
