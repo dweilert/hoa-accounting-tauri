@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/vendor-bills/new" class="btn btn--primary">New bill</a>
+{% endblock %}
+
+{% block content %}
+  {% if created_entry_number %}
+    <div class="alert alert--info" style="background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border);">
+      Posted journal entry <span class="mono">{{ created_entry_number }}</span>.
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Vendor Bills</div>
+        <div class="panel__description">{{ description }}</div>
+      </div>
+    </div>
+
+    {% if bills %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Vendor</th>
+              <th>Invoice Date</th>
+              <th>Due Date</th>
+              <th class="num">Amount</th>
+              <th>Fund</th>
+              <th>Status</th>
+              <th>Entry #</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in bills %}
+              <tr>
+                <td class="mono">{{ b.invoice_number }}</td>
+                <td>{{ b.vendor_name }}</td>
+                <td>{{ b.invoice_date }}</td>
+                <td>{{ b.due_date }}</td>
+                <td class="num">{{ b.amount }}</td>
+                <td><span class="pill pill--muted">{{ b.fund_code }}</span></td>
+                <td>
+                  <span class="pill
+                    {%- if b.status == 'PAID' %} pill--ok
+                    {%- elif b.status == 'VOID' %} pill--muted
+                    {%- elif b.status == 'PARTIAL' %} pill--warn
+                    {%- else %} pill--info{% endif %}">
+                    {{ b.status }}
+                  </span>
+                </td>
+                <td class="mono">{{ b.entry_number }}</td>
+                <td>{{ b.description }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No bills posted yet. Click <strong>New bill</strong> to record your first one.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

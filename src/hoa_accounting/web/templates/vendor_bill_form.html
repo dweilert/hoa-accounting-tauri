@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}New Vendor Bill · {{ org.name }}{% endblock %}
+{% block heading %}New Vendor Bill{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/vendor-bills" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">{{ error_message }}</div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Enter a Vendor Bill</div>
+        <div class="panel__description">
+          Records the bill and posts a balanced journal entry (debit expense,
+          credit Accounts Payable) in one atomic step.
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="/vendor-bills/new" class="form">
+      <label class="field">
+        <span class="field__label">Vendor *</span>
+        <select name="vendor_id" required>
+          <option value="">— Select a vendor —</option>
+          {% for v in vendors %}
+            <option value="{{ v.id }}"
+              {% if values.vendor_id|string == v.id|string %}selected{% endif %}>
+              {{ v.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Invoice Number *</span>
+        <input type="text" name="invoice_number"
+               value="{{ values.invoice_number }}"
+               placeholder="INV-0001"
+               required />
+        <span class="field__hint">Must be unique for the vendor.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Invoice Date *</span>
+        <input type="date" name="invoice_date"
+               value="{{ values.invoice_date }}"
+               required />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Due Date</span>
+        <input type="date" name="due_date"
+               value="{{ values.due_date }}" />
+        <span class="field__hint">Optional. Defaults to the invoice date.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Amount *</span>
+        <input type="number" name="amount"
+               value="{{ values.amount }}"
+               step="0.01" min="0.01"
+               placeholder="0.00"
+               required />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Posting Date *</span>
+        <input type="date" name="entry_date"
+               value="{{ values.entry_date }}"
+               required />
+        <span class="field__hint">The accounting period that receives the JE.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Expense Account *</span>
+        <select name="expense_account_id" required>
+          <option value="">— Select an expense account —</option>
+          {% for a in expense_accounts %}
+            <option value="{{ a.id }}"
+              {% if values.expense_account_id|string == a.id|string %}selected{% endif %}>
+              {{ a.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Classification *</span>
+        <select name="expense_classification" required>
+          {% for c in classifications %}
+            <option value="{{ c }}"
+              {% if values.expense_classification == c %}selected{% endif %}>
+              {{ c|capitalize }}
+            </option>
+          {% endfor %}
+        </select>
+        <span class="field__hint">
+          OPERATING = routine spending. IMPROVEMENT = upgrade or one-off enhancement.
+        </span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Payable Account *</span>
+        <select name="payable_account_id" required>
+          <option value="">— Select a liability account —</option>
+          {% for a in payable_accounts %}
+            <option value="{{ a.id }}"
+              {% if values.payable_account_id|string == a.id|string %}selected{% endif %}>
+              {{ a.label }}
+            </option>
+          {% endfor %}
+        </select>
+        <span class="field__hint">Usually "Accounts Payable".</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Fund *</span>
+        <select name="fund_code" required>
+          {% for fc in fund_codes %}
+            <option value="{{ fc }}"
+              {% if values.fund_code == fc %}selected{% endif %}>
+              {{ fc }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field form__row--full">
+        <span class="field__label">Description</span>
+        <input type="text" name="description"
+               value="{{ values.description }}"
+               placeholder="e.g. April landscaping service" />
+      </label>
+
+      <div class="form__row--full row">
+        <button type="submit" class="btn btn--primary">Post bill</button>
+        <a href="/vendor-bills" class="btn btn--ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
