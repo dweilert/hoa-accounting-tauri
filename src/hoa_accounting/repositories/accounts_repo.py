@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from .base import BaseRepository
 
 
@@ -25,3 +27,35 @@ class AccountsRepository(BaseRepository):
             """,
             (account_id,),
         ).fetchone()
+
+    def list_chart(self, *, active_only: bool = True) -> list[sqlite3.Row]:
+        """Return the full chart of accounts joined to account types.
+
+        Ordered by account_number so the natural 1xxx→9xxx flow (assets,
+        liabilities, equity, income, expense) lines up in the UI.
+        """
+        predicates = []
+        if active_only:
+            predicates.append("a.is_active = 1")
+        where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT
+                    a.id,
+                    a.account_number,
+                    a.account_name,
+                    a.fund_code,
+                    a.is_bank_account,
+                    a.is_active,
+                    a.group_code,
+                    a.description,
+                    at.code AS account_type_code,
+                    at.name AS account_type_name
+                FROM accounts a
+                JOIN account_types at ON at.id = a.account_type_id
+                {where_sql}
+                ORDER BY a.account_number
+                """
+            ).fetchall()
+        )

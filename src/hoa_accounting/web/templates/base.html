@@ -49,6 +49,42 @@
         </ul>
       </div>
 
+      <div class="sidebar__section">
+        <div class="sidebar__label">Master Data</div>
+        <ul class="sidebar__nav">
+          <li>
+            <a href="/accounts"
+               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'accounts' %} sidebar__link--active{% endif %}">
+              Chart of Accounts
+            </a>
+          </li>
+          <li>
+            <a href="/owners"
+               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'owners' %} sidebar__link--active{% endif %}">
+              Owners
+            </a>
+          </li>
+          <li>
+            <a href="/lots"
+               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'lots' %} sidebar__link--active{% endif %}">
+              Lots
+            </a>
+          </li>
+          <li>
+            <a href="/vendors"
+               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'vendors' %} sidebar__link--active{% endif %}">
+              Vendors
+            </a>
+          </li>
+          <li>
+            <a href="/bank-accounts"
+               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">
+              Bank Accounts
+            </a>
+          </li>
+        </ul>
+      </div>
+
       <div class="sidebar__footer">
         Environment: <span class="mono">{{ org.environment|default('local') }}</span><br />
         Fiscal year starts month {{ org.fiscal_year_start_month|default(1) }}

@@ -21,7 +21,10 @@ from flask import Flask, Response, g, request
 
 from hoa_accounting.api.report_api import ReportAPIService
 from hoa_accounting.application.report_runner import ReportRunner
+from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.config.loader import load_config
+from hoa_accounting.db.connection import connect_sqlite
+from hoa_accounting.web.master_data_pages import MasterDataListService
 from hoa_accounting.web.ui_server import (
     HomePageService,
     ReportConsolePageService,
@@ -77,6 +80,7 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "environment": config.app.environment,
         "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
         "theme": getattr(config.app, "theme", "warm"),
+        "db_path": config.database.path,
     }
 
 
@@ -94,6 +98,20 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # don't see Flask's context processors. Pass `org` through as part of
     # the view-model context instead — handled in view_models.py.
     org_context = _load_org_context(resolved_config_path)
+
+    # Apply any pending schema migrations to the configured database on
+    # startup. The migrator is idempotent (already-applied migrations are
+    # skipped), so booting an older DB silently catches up to the current
+    # schema. Failure here is intentionally left to surface at boot rather
+    # than per-request — better to fail loudly at startup than to 500 on
+    # every page that touches a missing column.
+    db_path = org_context.get("db_path")
+    if db_path:
+        boot_conn = connect_sqlite(str(db_path))
+        try:
+            Migrator().apply_all(boot_conn)
+        finally:
+            boot_conn.close()
 
     @app.before_request
     def _attach_org() -> None:
@@ -135,5 +153,58 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 org=org_context,
             )
         )
+
+    # ── Master-data list pages ───────────────────────────────────────
+    # Each route opens its own SQLite connection per request and closes
+    # it via Flask's teardown hook. Short-lived, independent, and safe
+    # to run concurrently with WAL mode (enabled in connect_sqlite).
+
+    def _open_master_data_service() -> MasterDataListService:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; master-data pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._md_conn = conn
+        return MasterDataListService(conn)
+
+    @app.teardown_request
+    def _close_master_data_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_md_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._md_conn = None
+
+    def _render_list(page: str) -> Response:
+        svc = _open_master_data_service()
+        renderer = {
+            "accounts": svc.render_accounts,
+            "owners": svc.render_owners,
+            "lots": svc.render_lots,
+            "vendors": svc.render_vendors,
+            "bank-accounts": svc.render_bank_accounts,
+        }[page]
+        theme = str(org_context.get("theme", "warm"))
+        resp = renderer(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/accounts")
+    def list_accounts() -> Response: return _render_list("accounts")
+
+    @app.get("/owners")
+    def list_owners() -> Response: return _render_list("owners")
+
+    @app.get("/lots")
+    def list_lots() -> Response: return _render_list("lots")
+
+    @app.get("/vendors")
+    def list_vendors() -> Response: return _render_list("vendors")
+
+    @app.get("/bank-accounts")
+    def list_bank_accounts() -> Response: return _render_list("bank-accounts")
 
     return app
