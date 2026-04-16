@@ -1,0 +1,60 @@
+<div class="summary-card">
+  <h3>Formatted Summary</h3>
+  <div><strong>From:</strong> {{ summary.from_date }}</div>
+  <div><strong>To:</strong> {{ summary.to_date }}</div>
+  <div><strong>Total Income:</strong> {{ summary.total_income }}</div>
+  <div><strong>Total Expenses:</strong> {{ summary.total_expenses }}</div>
+  <div><strong>Net Income:</strong> {{ summary.net_income }}</div>
+
+  <h4>Income</h4>
+  {% if summary.income.rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Name</th>
+          <th>Fund</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.income.rows %}
+          <tr>
+            <td>{{ row.account_number }}</td>
+            <td>{{ row.account_name }}</td>
+            <td>{{ row.fund_code }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No rows.</p>
+  {% endif %}
+
+  <h4>Expenses</h4>
+  {% if summary.expenses.rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Name</th>
+          <th>Fund</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.expenses.rows %}
+          <tr>
+            <td>{{ row.account_number }}</td>
+            <td>{{ row.account_name }}</td>
+            <td>{{ row.fund_code }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No rows.</p>
+  {% endif %}
+</div>

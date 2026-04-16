@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}HOA Accounting Report Console{% endblock %}
+
+{% block content %}
+  <h1>HOA Accounting Report Console</h1>
+  <div class="subtext">
+    Read-only UI. The page gathers parameters, calls the API, and renders returned data.
+  </div>
+
+  <div class="panel">
+    <h2>Available Reports</h2>
+    <div class="catalog-grid">
+      {% for report in report_catalog_cards %}
+        <div class="catalog-card{% if report.selected %} selected-card{% endif %}">
+          <h3>{{ report.title }}</h3>
+          <p>{{ report.description }}</p>
+          <div class="catalog-fields">
+            <strong>Inputs:</strong> {{ report.field_list }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="report-summary">
+      <h2>{{ report_title }}</h2>
+      <div>{{ report_description }}</div>
+    </div>
+
+    <form method="get" action="/run-report">
+      <label class="full-width">
+        Report Name
+        <select name="report_name">
+          {% for option in report_options %}
+            <option value="{{ option.name }}"{% if option.selected %} selected{% endif %}>
+              {{ option.title }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      {% for field in parameter_fields %}
+        <label>
+          {{ field.label }}
+          <input
+            type="text"
+            name="{{ field.name }}"
+            value="{{ field.value }}"
+            placeholder="{{ field.placeholder }}"
+          />
+        </label>
+      {% endfor %}
+
+      <div class="full-width">
+        <button type="submit">Run Report</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Formatted Output</h2>
+    {% if error_message %}
+      <div class="error">{{ error_message }}</div>
+    {% endif %}
+
+    {% include summary_template %}
+  </div>
+
+  <div class="panel">
+    <h2>Raw API Response</h2>
+    {% if raw_json %}
+      <pre>{{ raw_json }}</pre>
+    {% else %}
+      <p>No report run yet.</p>
+    {% endif %}
+  </div>
+{% endblock %}

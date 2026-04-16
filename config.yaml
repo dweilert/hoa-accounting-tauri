@@ -1,0 +1,17 @@
+hoa:
+  name: "Sample HOA"
+  legal_name: "Sample Homeowners Association, Inc."
+  tax_id_federal: "12-3456789"
+  tax_id_state: "TX-STATE-ID-001"
+
+database:
+  type: "sqlite"
+  path: "/Users/bob/hoa-system/data/hoa_accounting.db"
+
+app:
+  environment: "local"
+  debug: true
+
+accounting:
+  fiscal_year_start_month: 1
+  default_fund: "OPERATING"

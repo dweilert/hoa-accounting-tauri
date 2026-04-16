@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}HOA Accounting{% endblock %}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: #f7f7f7;
+      color: #222;
+    }
+    h1, h2, h3, h4 {
+      margin-top: 0;
+    }
+    .nav {
+      margin-bottom: 20px;
+    }
+    .nav a {
+      margin-right: 14px;
+      text-decoration: none;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+    .subtext {
+      margin-bottom: 24px;
+      color: #555;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fafafa;
+    }
+    .card p {
+      color: #444;
+      min-height: 54px;
+    }
+    .links {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .links a {
+      text-decoration: none;
+      color: #1d4ed8;
+      font-size: 14px;
+    }
+    .status-ok {
+      color: #166534;
+      font-weight: 700;
+    }
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .catalog-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fafafa;
+    }
+    .selected-card {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px #2563eb inset;
+      background: #eff6ff;
+    }
+    .catalog-fields {
+      color: #444;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      gap: 12px 16px;
+      align-items: end;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 14px;
+      gap: 6px;
+    }
+    input, select, button {
+      font-size: 14px;
+      padding: 8px;
+    }
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    button {
+      width: 180px;
+      cursor: pointer;
+    }
+    .report-summary {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f3f4f6;
+      border-radius: 8px;
+    }
+    .summary-card {
+      background: #f8fafc;
+      border: 1px solid #dbe3ea;
+      padding: 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .error {
+      background: #ffe8e8;
+      color: #8a1f1f;
+      border: 1px solid #e3b0b0;
+      padding: 10px;
+      margin-bottom: 16px;
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      margin-bottom: 16px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #d8dde3;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2f7;
+    }
+    td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #111;
+      color: #eaeaea;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">Home</a>
+    <a href="/reports">Report Console</a>
+  </div>
+
+  {% block content %}{% endblock %}
+</body>
+</html>

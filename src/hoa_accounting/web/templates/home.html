@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}HOA Accounting Dashboard{% endblock %}
+
+{% block content %}
+  <h1>HOA Accounting Dashboard</h1>
+  <div class="subtext">
+    Read-only operator shell for reports and financial review.
+  </div>
+
+  <div class="panel">
+    <h2>System Status</h2>
+    <div>API Health: <span class="status-ok">{{ api_status }}</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>Quick Reports</h2>
+    <div class="grid">
+      {% for card in report_cards %}
+        <div class="card">
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.description }}</p>
+          <div class="links">
+            <a href="/reports?report_name={{ card.name }}">Open in console</a>
+            <a href="/run-report?report_name={{ card.name }}{{ card.example_query }}">Run example</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}
