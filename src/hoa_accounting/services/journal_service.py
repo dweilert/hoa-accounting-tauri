@@ -45,14 +45,14 @@ class JournalService:
             accounting_period_id = self.period_validator.require_open_period(entry_date)
             self.journal_validator.validate_lines(lines)
 
-            entry_number = self.journal_repo.next_entry_number(entry_date)
-            journal_entry_id = self.journal_repo.insert_journal_entry(
-                entry_number=entry_number,
-                entry_date=entry_date,
-                accounting_period_id=accounting_period_id,
-                source_type=source_type,
-                memo=memo,
-                created_by_user_id=created_by_user_id,
+            journal_entry_id, entry_number = (
+                self.journal_repo.insert_journal_entry_with_generated_number(
+                    entry_date=entry_date,
+                    accounting_period_id=accounting_period_id,
+                    source_type=source_type,
+                    memo=memo,
+                    created_by_user_id=created_by_user_id,
+                )
             )
             self.journal_repo.insert_journal_lines(
                 journal_entry_id=journal_entry_id,
