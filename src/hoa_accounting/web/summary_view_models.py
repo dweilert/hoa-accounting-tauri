@@ -30,6 +30,7 @@ def build_summary_view_model(
         "income-statement": _build_income_statement_summary,
         "owner-ledger": _build_owner_ledger_summary,
         "ar-aging": _build_ar_aging_summary,
+        "ytd-expense-summary": _build_ytd_expense_summary,
     }
 
     builder = builders.get(selected_report)
@@ -167,6 +168,38 @@ def _build_ar_aging_summary(data: dict[str, object]) -> dict[str, Any]:
                 }
                 for row in detail_rows
             ],
+        },
+    }
+
+
+def _build_ytd_expense_summary(data: dict[str, object]) -> dict[str, Any]:
+    groups_raw = _safe_dict_list(data.get("groups"))
+    groups: list[dict[str, Any]] = []
+    for group in groups_raw:
+        rows = _safe_dict_list(group.get("rows"))
+        groups.append({
+            "group_code": str(group.get("group_code", "")),
+            "group_total": str(group.get("group_total", "")),
+            "group_record_count": int(group.get("group_record_count", 0) or 0),
+            "rows": [
+                {
+                    "account_number": str(row.get("account_number", "")),
+                    "account_name": str(row.get("account_name", "")),
+                    "fund_code": str(row.get("fund_code", "")),
+                    "ytd_amount": str(row.get("ytd_amount", "")),
+                    "record_count": int(row.get("record_count", 0) or 0),
+                }
+                for row in rows
+            ],
+        })
+    return {
+        "summary_template": "partials/summary_ytd_expense.html",
+        "summary": {
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "grand_total": str(data.get("grand_total", "")),
+            "total_record_count": int(data.get("total_record_count", 0) or 0),
+            "groups": groups,
         },
     }
 

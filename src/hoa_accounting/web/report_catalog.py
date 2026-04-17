@@ -144,6 +144,29 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
             ),
         ],
     ),
+    ReportDefinition(
+        name="ytd-expense-summary",
+        title="YTD Expense Summary",
+        description=(
+            "Expenses grouped by category and group, with YTD amount and "
+            "transaction count per category. Zero-activity categories are "
+            "included so the whole chart is visible at a glance."
+        ),
+        fields=[
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
 ]
 
 
