@@ -138,7 +138,6 @@ class OwnerPages:
                 "email": row["email"] or "",
                 "phone": row["phone"] or "",
                 "notes": row["notes"] or "",
-                # Lot assignment read-only on edit
                 "current_lot_number": (
                     current_ownership["lot_number"] if current_ownership else ""
                 ),
@@ -147,11 +146,15 @@ class OwnerPages:
                 ),
                 "is_primary_contact": (
                     str(current_ownership["is_primary_contact"])
-                    if current_ownership else ""
+                    if current_ownership else "1"
                 ),
             }
         else:
             values = form_values or {}
+
+        # Lot options are needed on add, and on edit when owner has no current lot
+        has_lot = bool(values.get("current_lot_number", ""))
+        needs_lot_options = not is_edit or (is_edit and not has_lot)
 
         heading = "Edit Owner" if is_edit else "Add Owner"
         breadcrumb = "Master Data · Owners"
@@ -163,7 +166,7 @@ class OwnerPages:
             "theme": theme,
             "is_edit": is_edit,
             "owner_id": owner_id,
-            "lot_options": self._lot_options() if not is_edit else [],
+            "lot_options": self._lot_options() if needs_lot_options else [],
             "values": {
                 "owner_type": values.get("owner_type", "PERSON"),
                 "display_name": values.get("display_name", ""),
@@ -279,6 +282,41 @@ class OwnerPages:
                 phone=_opt(form_data.get("phone", "")),
                 notes=_opt(form_data.get("notes", "")),
             )
+
+            # If owner has no current lot and a lot was submitted, assign it now
+            has_no_lot = self.ownership_repo.get_current_ownership_by_owner(owner_id) is None
+            lot_id_raw = _opt(form_data.get("lot_id", ""))
+            if has_no_lot and lot_id_raw:
+                lot_id = _parse_int(lot_id_raw, "Lot")
+                start_date = _require(form_data.get("start_date", ""), "Start Date")
+                is_primary = form_data.get("is_primary_contact", "1") == "1"
+
+                count = self.ownership_repo.count_current_owners(lot_id)
+                if count >= 2:
+                    raise ValidationError(
+                        "This lot already has two current owners. "
+                        "Mark one as Previous before adding another."
+                    )
+                if is_primary and self.ownership_repo.has_current_primary(lot_id):
+                    raise ValidationError(
+                        "This lot already has an Owner 1. "
+                        "Assign as Owner 2 or mark the existing Owner 1 as Previous first."
+                    )
+                if not is_primary:
+                    existing = self.ownership_repo.get_current_ownerships(lot_id)
+                    secondaries = [r for r in existing if not r["is_primary_contact"]]
+                    if secondaries:
+                        raise ValidationError(
+                            "This lot already has an Owner 2. "
+                            "Mark the existing Owner 2 as Previous before adding another."
+                        )
+                self.ownership_repo.assign_owner(
+                    lot_id=lot_id,
+                    owner_id=owner_id,
+                    start_date=start_date,
+                    is_primary_contact=is_primary,
+                )
+
             self.conn.commit()
 
         except ValidationError as exc:

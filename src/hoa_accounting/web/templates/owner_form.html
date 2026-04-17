@@ -89,19 +89,19 @@
   </div>
 
   {% if is_edit %}
-    {# On edit: show current lot assignment as read-only #}
-    <div class="panel" style="margin-top:1rem;">
-      <div class="panel__header">
-        <div>
-          <div class="panel__title">Current Lot Assignment</div>
-          <div class="panel__description">
-            To change a lot assignment, use Mark as Previous on the Owners list,
-            then add a new owner to the lot.
+    {% if values.current_lot_number %}
+      {# Owner has a lot — show it read-only #}
+      <div class="panel" style="margin-top:1rem;">
+        <div class="panel__header">
+          <div>
+            <div class="panel__title">Current Lot Assignment</div>
+            <div class="panel__description">
+              To change a lot assignment, use Mark as Previous on the Owners list,
+              then add a new owner to the lot.
+            </div>
           </div>
         </div>
-      </div>
-      <div style="padding:1rem 1.25rem;">
-        {% if values.current_lot_number %}
+        <div style="padding:1rem 1.25rem;">
           <p>
             <strong>Lot:</strong>
             <span class="mono">{{ values.current_lot_number }}</span>
@@ -110,11 +110,57 @@
             <strong>Role:</strong>
             {% if values.is_primary_contact == '1' %}Owner 1{% else %}Owner 2{% endif %}
           </p>
-        {% else %}
-          <p style="color:var(--color-text-muted);">No current lot assignment.</p>
-        {% endif %}
+        </div>
       </div>
-    </div>
+    {% else %}
+      {# Owner has no lot — allow assignment #}
+      <div class="panel" style="margin-top:1rem;">
+        <div class="panel__header">
+          <div>
+            <div class="panel__title">Lot Assignment</div>
+            <div class="panel__description">
+              This owner has no current lot. Assign one below, or leave blank to assign later.
+            </div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Lot</span>
+          <select name="lot_id">
+            <option value="">— No assignment —</option>
+            {% for lot in lot_options %}
+              <option value="{{ lot.id }}"
+                {% if values.lot_id|string == lot.id|string %}selected{% endif %}>
+                {{ lot.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Ownership Start Date</span>
+          <input type="date" name="start_date"
+                 value="{{ values.start_date }}" />
+          <span class="field__hint">Required when a lot is selected.</span>
+        </label>
+
+        <fieldset class="field" style="border:none;padding:0;margin:0;">
+          <legend class="field__label">Role</legend>
+          <div style="display:flex;gap:1.5rem;margin-top:.25rem;">
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+              <input type="radio" name="is_primary_contact" value="1"
+                     {% if values.is_primary_contact != '0' %}checked{% endif %} />
+              Owner 1 (Primary Contact)
+            </label>
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+              <input type="radio" name="is_primary_contact" value="0"
+                     {% if values.is_primary_contact == '0' %}checked{% endif %} />
+              Owner 2
+            </label>
+          </div>
+        </fieldset>
+      </div>
+    {% endif %}
   {% else %}
     {# On add: required lot assignment section #}
     <div class="panel" style="margin-top:1rem;">

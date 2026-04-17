@@ -73,6 +73,9 @@
                              style="font-size:.8rem;" />
                       <button type="submit" class="btn btn--sm btn--danger">Mark as Previous</button>
                     </form>
+                  {% else %}
+                    <a href="/owners/{{ o.id }}/edit" class="btn btn--sm btn--primary"
+                       style="margin-left:.25rem;">Assign Lot</a>
                   {% endif %}
                 </td>
               </tr>
