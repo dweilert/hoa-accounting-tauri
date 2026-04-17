@@ -31,7 +31,13 @@
           </div>
         </div>
       </div>
-      <div class="form" style="grid-template-columns: repeat(4, minmax(180px, 1fr));">
+      {#
+        align-items: start so every field's label sits at the top of its
+        cell — without this, .form's default align-items: end pushes the
+        Posting to AR box (a <div>, taller than the siblings' <input>s)
+        down, which misaligns the label text across the row.
+      #}
+      <div class="form" style="grid-template-columns: repeat(4, minmax(180px, 1fr)); align-items: start;">
         <label class="field form__row--full">
           <span class="field__label">Assessment Description *</span>
           <input type="text" name="description"

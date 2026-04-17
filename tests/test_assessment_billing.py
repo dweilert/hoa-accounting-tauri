@@ -157,6 +157,39 @@ def test_bill_individuals_rejects_empty_rows(conn: sqlite3.Connection) -> None:
         )
 
 
+def test_bill_individuals_rejects_duplicate_lot(conn: sqlite3.Connection) -> None:
+    """Same lot can't appear twice in one batch — user error to catch early."""
+    ids = _seed(conn)
+    factory = ServiceFactory(conn)
+    with pytest.raises(ValidationError, match="appears more than once"):
+        factory.assessment_billing_service().bill_individual_amounts(
+            entry_date="2026-04-15",
+            description="Dup test",
+            rows=[
+                IndividualAssessmentRow(lot_id=1, amount="50.00"),
+                IndividualAssessmentRow(lot_id=2, amount="75.00"),
+                IndividualAssessmentRow(lot_id=1, amount="25.00"),  # duplicate
+            ],
+            receivable_account_id=ids["ar_id"],
+            income_account_id=ids["income_id"],
+        )
+    # Nothing was persisted.
+    assert conn.execute("SELECT COUNT(*) c FROM assessments").fetchone()["c"] == 0
+
+
+def test_bill_individuals_rejects_zero_amount(conn: sqlite3.Connection) -> None:
+    """Zero is not a positive amount — caller must remove the row."""
+    ids = _seed(conn)
+    with pytest.raises(ValidationError, match="greater than zero"):
+        ServiceFactory(conn).assessment_billing_service().bill_individual_amounts(
+            entry_date="2026-04-15",
+            description="Zero test",
+            rows=[IndividualAssessmentRow(lot_id=1, amount="0.00")],
+            receivable_account_id=ids["ar_id"],
+            income_account_id=ids["income_id"],
+        )
+
+
 # ── Page flow ──────────────────────────────────────────────────────
 
 

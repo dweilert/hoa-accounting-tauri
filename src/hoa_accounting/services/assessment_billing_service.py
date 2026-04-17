@@ -144,6 +144,20 @@ class AssessmentBillingService:
                     "Enter at least one amount before posting individual assessments."
                 )
 
+            # Duplicate-lot check: a single batch billing the same
+            # lot twice is almost always a user error. Reject it
+            # up-front with a specific message rather than silently
+            # creating two assessments for the same owner.
+            seen_lots: set[int] = set()
+            for idx, row in enumerate(rows, start=1):
+                lot_id = int(row.lot_id)
+                if lot_id in seen_lots:
+                    raise ValidationError(
+                        f"Row {idx}: lot {lot_id} appears more than once in "
+                        "this batch. Remove the duplicate row before posting."
+                    )
+                seen_lots.add(lot_id)
+
             results: list[AssessmentResult] = []
             total = Decimal("0.00")
 
