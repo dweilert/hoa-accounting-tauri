@@ -145,6 +145,30 @@ class LotsRepository(BaseRepository):
             ).fetchall()
         )
 
+    def get_lot_with_owner(self, lot_id: int) -> sqlite3.Row | None:
+        """Return a single lot with its current primary-contact owner, or None."""
+        return self.conn.execute(
+            """
+            SELECT
+                l.id AS lot_id,
+                l.lot_number,
+                l.street_address_1,
+                l.street_address_2,
+                l.active_flag,
+                o.id AS owner_id,
+                o.display_name AS owner_name
+            FROM lots l
+            LEFT JOIN lot_ownership lo
+              ON lo.lot_id = l.id
+             AND lo.end_date IS NULL
+             AND lo.is_primary_contact = 1
+            LEFT JOIN owners o
+              ON o.id = lo.owner_id
+            WHERE l.id = ?
+            """,
+            (lot_id,),
+        ).fetchone()
+
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return lots with their current primary-contact owner, if any.
 

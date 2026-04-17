@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/renters" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">{{ heading }}</div>
+        <div class="panel__description">
+          Contact information for a lot renter. Used in correspondence and the contact list report.
+        </div>
+      </div>
+    </div>
+
+    {% if is_edit %}
+      <form method="post" action="/renters/{{ renter_id }}/edit" class="form">
+    {% else %}
+      <form method="post" action="/renters/add" class="form">
+    {% endif %}
+
+      <label class="field">
+        <span class="field__label">Lot *</span>
+        <select name="lot_id" required>
+          <option value="">— Select a lot —</option>
+          {% for lot in lot_options %}
+            <option value="{{ lot.id }}"
+              {% if values.lot_id|string == lot.id|string %}selected{% endif %}>
+              {{ lot.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Display Name *</span>
+        <input type="text" name="display_name"
+               value="{{ values.display_name }}"
+               placeholder="e.g. Jane Smith"
+               required />
+        <span class="field__hint">Shown on the Lots list and contact report.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">First Name</span>
+        <input type="text" name="first_name"
+               value="{{ values.first_name }}"
+               placeholder="Jane" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Last Name</span>
+        <input type="text" name="last_name"
+               value="{{ values.last_name }}"
+               placeholder="Smith" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Phone</span>
+        <input type="tel" name="phone"
+               value="{{ values.phone }}" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Email</span>
+        <input type="email" name="email"
+               value="{{ values.email }}" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Start Date *</span>
+        <input type="date" name="start_date"
+               value="{{ values.start_date }}"
+               required />
+      </label>
+
+      <label class="field form__row--full">
+        <span class="field__label">Notes</span>
+        <input type="text" name="notes"
+               value="{{ values.notes }}" />
+      </label>
+
+      <div class="form__row--full row">
+        <button type="submit" class="btn btn--primary">
+          {% if is_edit %}Save Changes{% else %}Add Renter{% endif %}
+        </button>
+        <a href="/renters" class="btn btn--ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

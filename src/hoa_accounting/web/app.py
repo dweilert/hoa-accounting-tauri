@@ -26,6 +26,7 @@ from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
 from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
+from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.master_data_pages import MasterDataListService
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
@@ -214,6 +215,101 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/bank-accounts")
     def list_bank_accounts() -> Response: return _render_list("bank-accounts")
+
+    # ── Renter pages ─────────────────────────────────────────────────
+
+    def _open_renter_pages() -> LotRentersPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; renter pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._renter_conn = conn
+        return LotRentersPages(conn)
+
+    @app.teardown_request
+    def _close_renter_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_renter_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._renter_conn = None
+
+    @app.get("/renters")
+    def list_renters() -> Response:
+        pages = _open_renter_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/renters/add")
+    def new_renter_form() -> Response:
+        pages = _open_renter_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/renters/add")
+    def submit_new_renter() -> Response:
+        from flask import redirect
+        pages = _open_renter_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/renters/<int:renter_id>/edit")
+    def edit_renter_form(renter_id: int) -> Response:
+        pages = _open_renter_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 renter_id=renter_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/renters/<int:renter_id>/edit")
+    def submit_edit_renter(renter_id: int) -> Response:
+        from flask import redirect
+        pages = _open_renter_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit(
+            renter_id=renter_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/renters/<int:renter_id>/end")
+    def submit_end_tenancy(renter_id: int) -> Response:
+        from flask import redirect
+        pages = _open_renter_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_end(
+            renter_id=renter_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     # ── Transaction pages: Vendor Bills ──────────────────────────────
     # Same per-request connection pattern as the master-data pages, with

@@ -64,7 +64,7 @@ class MasterDataListService:
     def render_lots(
         self, *, org: dict[str, object] | None = None, theme: str = "warm"
     ) -> ListPageResponse:
-        rows = LotsRepository(self.conn).list_lots()
+        rows = LotsRepository(self.conn).list_lots_with_occupancy()
         ctx = build_lots_list_context(rows=rows, org=org, theme=theme)
         return self._render(ctx)
 

@@ -11,6 +11,7 @@ import sqlite3
 from dataclasses import dataclass
 
 
+
 @dataclass(frozen=True)
 class ListColumnVM:
     """One column on a master-data list table."""
@@ -154,24 +155,25 @@ def build_lots_list_context(
     theme: str,
 ) -> ListPageContext:
     cols = [
-        ListColumnVM(key="lot_number", label="Lot", mono=True),
+        ListColumnVM(key="lot_number", label="Lot #", mono=True),
         ListColumnVM(key="street", label="Street Address"),
-        ListColumnVM(key="city_state", label="City / State"),
         ListColumnVM(key="owner_name", label="Current Owner"),
+        ListColumnVM(key="occupancy", label="Occupancy"),
         ListColumnVM(key="status", label="Status"),
     ]
     vm_rows: list[dict[str, object]] = []
     for r in rows:
         street_parts = [r["street_address_1"] or "", r["street_address_2"] or ""]
         street = " ".join(p for p in street_parts if p).strip()
-        city_state = ", ".join(
-            p for p in [r["city"] or "", r["state"] or "", r["postal_code"] or ""] if p
+        occupancy = (
+            "Owner Occupied" if r["is_owner_occupied"]
+            else f"Renter: {r['renter_name'] or '—'}"
         )
         vm_rows.append({
             "lot_number": r["lot_number"],
             "street": street,
-            "city_state": city_state,
             "owner_name": r["owner_name"] or "—",
+            "occupancy": occupancy,
             "status": _active_cell(r["active_flag"]),
         })
     return ListPageContext(
@@ -179,7 +181,7 @@ def build_lots_list_context(
         heading="Lots",
         description=(
             "Every lot in the association, with its current primary-contact "
-            "owner. Edit ownership from a future Ownership History page."
+            "owner and occupancy status."
         ),
         columns=cols,
         rows=vm_rows,
