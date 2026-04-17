@@ -94,8 +94,12 @@
             have a current primary-contact owner.
           </div>
         </div>
+        <button type="submit" class="btn btn--primary"
+                formaction="/assessments/bill-all">
+          Bill all homeowners
+        </button>
       </div>
-      <div class="form" style="grid-template-columns: minmax(220px, 360px) 1fr;">
+      <div class="form" style="grid-template-columns: minmax(220px, 360px) 1fr; align-items: start;">
         <label class="field">
           <span class="field__label">Amount per homeowner *</span>
           <input type="number" name="bulk_amount"
@@ -104,12 +108,6 @@
                  placeholder="0.00" />
           <span class="field__hint">Used only by the "Bill all" button.</span>
         </label>
-        <div class="row" style="align-self: end;">
-          <button type="submit" class="btn btn--primary"
-                  formaction="/assessments/bill-all">
-            Bill all homeowners
-          </button>
-        </div>
       </div>
     </div>
 
@@ -123,9 +121,17 @@
             skipped.
           </div>
         </div>
-        <button type="button" class="btn btn--secondary" id="add-row-btn">
-          + Add row
-        </button>
+        <div class="row" style="flex-wrap: nowrap; white-space: nowrap;">
+          <button type="button" class="btn btn--secondary" id="add-row-btn"
+                  style="white-space: nowrap;">
+            + Add row
+          </button>
+          <button type="submit" class="btn btn--primary"
+                  formaction="/assessments/bill-individual"
+                  style="white-space: nowrap;">
+            Bill only these homeowners
+          </button>
+        </div>
       </div>
 
       <div class="table-wrap" style="overflow: visible;">
@@ -167,13 +173,6 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
-
-      <div class="row" style="margin-top: var(--sp-4);">
-        <button type="submit" class="btn btn--primary"
-                formaction="/assessments/bill-individual">
-          Bill only these homeowners
-        </button>
       </div>
     </div>
 
