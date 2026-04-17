@@ -1,10 +1,17 @@
-"""Repository for account lookups."""
+"""Repository for account lookups and mutations."""
 
 from __future__ import annotations
 
 import sqlite3
 
 from .base import BaseRepository
+
+_GROUP_CODES = [
+    "LANDSCAPE", "SEWER", "ROAD", "WALL", "ENTRANCE",
+    "UTILITIES", "INSURANCE", "MISC", "FIREWISE",
+]
+
+_FUND_CODES = ["OPERATING", "RESERVE", "SPECIAL"]
 
 
 class AccountsRepository(BaseRepository):
@@ -28,6 +35,29 @@ class AccountsRepository(BaseRepository):
             (account_id,),
         ).fetchone()
 
+    def get_account(self, account_id: int) -> sqlite3.Row | None:
+        """Return full account detail joined to its type, or None."""
+        return self.conn.execute(
+            """
+            SELECT
+                a.id,
+                a.account_number,
+                a.account_name,
+                a.account_type_id,
+                a.fund_code,
+                a.group_code,
+                a.is_bank_account,
+                a.is_active,
+                a.description,
+                at.code  AS account_type_code,
+                at.name  AS account_type_name
+            FROM accounts a
+            JOIN account_types at ON at.id = a.account_type_id
+            WHERE a.id = ?
+            """,
+            (account_id,),
+        ).fetchone()
+
     def get_by_number(self, account_number: str):
         """Return account id + name for a given account_number, or None.
 
@@ -43,6 +73,14 @@ class AccountsRepository(BaseRepository):
             """,
             (account_number,),
         ).fetchone()
+
+    def list_account_types(self) -> list[sqlite3.Row]:
+        """Return all account types ordered by id (ASSET → LIABILITY → EQUITY → INCOME → EXPENSE)."""
+        return list(
+            self.conn.execute(
+                "SELECT id, code, name FROM account_types ORDER BY id"
+            ).fetchall()
+        )
 
     def list_accounts_by_type(
         self, *, account_type_code: str, active_only: bool = True
@@ -109,3 +147,119 @@ class AccountsRepository(BaseRepository):
                 """
             ).fetchall()
         )
+
+    def account_number_exists(
+        self, account_number: str, *, exclude_id: int | None = None
+    ) -> bool:
+        """Return True if account_number is already taken by another account."""
+        if exclude_id is not None:
+            row = self.conn.execute(
+                "SELECT COUNT(*) FROM accounts WHERE account_number = ? AND id != ?",
+                (account_number, exclude_id),
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT COUNT(*) FROM accounts WHERE account_number = ?",
+                (account_number,),
+            ).fetchone()
+        return int(row[0]) > 0
+
+    def has_activity(self, account_id: int) -> bool:
+        """Return True if any records reference this account."""
+        checks = [
+            ("journal_entry_lines", "account_id"),
+            ("assessment_rules",    "income_account_id"),
+            ("assessment_rules",    "receivable_account_id"),
+            ("vendor_bills",        "expense_account_id"),
+            ("vendor_bills",        "payable_account_id"),
+            ("bank_accounts",       "gl_account_id"),
+            ("budget_lines",        "account_id"),
+            ("reserve_transfers",   "from_account_id"),
+            ("reserve_transfers",   "to_account_id"),
+        ]
+        for table, col in checks:
+            row = self.conn.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE {col} = ? LIMIT 1",
+                (account_id,),
+            ).fetchone()
+            if int(row[0]) > 0:
+                return True
+        return False
+
+    # ── Mutations ──────────────────────────────────────────────────────
+
+    def insert_account(
+        self,
+        *,
+        account_number: str,
+        account_name: str,
+        account_type_id: int,
+        fund_code: str,
+        group_code: str | None,
+        is_bank_account: bool,
+        description: str | None,
+    ) -> int:
+        """Insert a new account and return its new id."""
+        cur = self.conn.execute(
+            """
+            INSERT INTO accounts
+                (account_number, account_name, account_type_id, fund_code,
+                 group_code, is_bank_account, description)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                account_number,
+                account_name,
+                account_type_id,
+                fund_code,
+                group_code,
+                1 if is_bank_account else 0,
+                description,
+            ),
+        )
+        return cur.lastrowid  # type: ignore[return-value]
+
+    def update_account(
+        self,
+        account_id: int,
+        *,
+        account_number: str,
+        account_name: str,
+        account_type_id: int,
+        fund_code: str,
+        group_code: str | None,
+        is_bank_account: bool,
+        is_active: bool,
+        description: str | None,
+    ) -> None:
+        """Update an existing account."""
+        self.conn.execute(
+            """
+            UPDATE accounts
+               SET account_number  = ?,
+                   account_name    = ?,
+                   account_type_id = ?,
+                   fund_code       = ?,
+                   group_code      = ?,
+                   is_bank_account = ?,
+                   is_active       = ?,
+                   description     = ?,
+                   updated_at      = CURRENT_TIMESTAMP
+             WHERE id = ?
+            """,
+            (
+                account_number,
+                account_name,
+                account_type_id,
+                fund_code,
+                group_code,
+                1 if is_bank_account else 0,
+                1 if is_active else 0,
+                description,
+                account_id,
+            ),
+        )
+
+    def delete_account(self, account_id: int) -> None:
+        """Hard-delete an account with no activity."""
+        self.conn.execute("DELETE FROM accounts WHERE id = ?", (account_id,))

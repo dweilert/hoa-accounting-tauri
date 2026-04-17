@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/accounts" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if is_edit %}
+    <form id="account-form" method="post" action="/accounts/{{ account_id }}/edit" class="form">
+  {% else %}
+    <form id="account-form" method="post" action="/accounts/add" class="form">
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Account Details</div>
+        <div class="panel__description">General ledger account number, name, type, and classification.</div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Account Number *</span>
+      <input type="text" name="account_number"
+             value="{{ values.account_number }}"
+             placeholder="e.g. 1000"
+             required
+             style="max-width:12rem;" />
+      <span class="field__hint">Must be unique across all accounts.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Account Name *</span>
+      <input type="text" name="account_name"
+             value="{{ values.account_name }}"
+             placeholder="e.g. Cash - Operating"
+             required />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Account Type *</span>
+      <select name="account_type_id" required>
+        <option value="">— Select type —</option>
+        {% for t in account_types %}
+          <option value="{{ t.id }}"
+            {% if values.account_type_id|string == t.id|string %} selected{% endif %}>
+            {{ t.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Fund Code *</span>
+      <select name="fund_code" required>
+        {% for f in fund_codes %}
+          <option value="{{ f }}"
+            {% if values.fund_code == f %} selected{% endif %}>
+            {{ f | title }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Expense Group</span>
+      <select name="group_code">
+        <option value="">— None —</option>
+        {% for g in group_codes %}
+          <option value="{{ g }}"
+            {% if values.group_code == g %} selected{% endif %}>
+            {{ g | title }}
+          </option>
+        {% endfor %}
+      </select>
+      <span class="field__hint">For expense accounts only — the HOA spending group this account rolls up to.</span>
+    </label>
+
+    <label class="field form__row--full">
+      <span class="field__label">Description</span>
+      <input type="text" name="description"
+             value="{{ values.description }}" />
+    </label>
+
+    <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;">
+      <input type="checkbox" name="is_bank_account" value="1"
+             {% if values.is_bank_account == '1' %}checked{% endif %}
+             style="width:auto;" />
+      <span class="field__label" style="margin:0;">Bank Account</span>
+    </label>
+    <input type="hidden" name="_is_bank_account_present" value="1" />
+
+    {% if is_edit %}
+      <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;">
+        <input type="checkbox" name="is_active" value="1"
+               {% if values.is_active == '1' %}checked{% endif %}
+               style="width:auto;" />
+        <span class="field__label" style="margin:0;">Active</span>
+      </label>
+      <input type="hidden" name="_is_active_present" value="1" />
+    {% endif %}
+  </div>
+
+  </form>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" form="account-form" class="btn btn--primary">
+      {% if is_edit %}Save Changes{% else %}Add Account{% endif %}
+    </button>
+    <a href="/accounts" class="btn btn--ghost">Cancel</a>
+    {% if is_edit %}
+      <span style="flex:1;"></span>
+      {% if has_activity %}
+        <span style="font-size:.8rem;color:var(--color-text-muted);">Has activity — deactivate instead of deleting</span>
+      {% else %}
+        <form method="post" action="/accounts/{{ account_id }}/delete"
+              onsubmit="return confirm('Delete this account? This cannot be undone.');">
+          <button type="submit" class="btn btn--danger btn--sm">Delete Account</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}
