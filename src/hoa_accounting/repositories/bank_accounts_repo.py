@@ -30,6 +30,8 @@ class BankAccountsRepository(BaseRepository):
                     b.account_last4,
                     b.account_type,
                     b.active_flag,
+                    b.opening_balance,
+                    b.opening_balance_date,
                     a.id AS gl_account_id,
                     a.account_number AS gl_account_number,
                     a.account_name AS gl_account_name,
@@ -53,6 +55,8 @@ class BankAccountsRepository(BaseRepository):
                 b.account_last4,
                 b.account_type,
                 b.active_flag,
+                b.opening_balance,
+                b.opening_balance_date,
                 a.id AS gl_account_id,
                 a.account_number AS gl_account_number,
                 a.account_name AS gl_account_name,
@@ -125,15 +129,21 @@ class BankAccountsRepository(BaseRepository):
         account_last4: str | None,
         account_type: str,
         gl_account_id: int,
+        opening_balance: str = "0",
+        opening_balance_date: str | None = None,
     ) -> int:
         """Insert a new bank account and return its new id."""
         cur = self.conn.execute(
             """
             INSERT INTO bank_accounts
-                (account_name, institution_name, account_last4, account_type, gl_account_id)
-            VALUES (?, ?, ?, ?, ?)
+                (account_name, institution_name, account_last4, account_type,
+                 gl_account_id, opening_balance, opening_balance_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (account_name, institution_name, account_last4, account_type, gl_account_id),
+            (
+                account_name, institution_name, account_last4, account_type,
+                gl_account_id, opening_balance, opening_balance_date,
+            ),
         )
         return cur.lastrowid  # type: ignore[return-value]
 
@@ -147,18 +157,22 @@ class BankAccountsRepository(BaseRepository):
         account_type: str,
         gl_account_id: int,
         active_flag: bool,
+        opening_balance: str = "0",
+        opening_balance_date: str | None = None,
     ) -> None:
         """Update an existing bank account."""
         self.conn.execute(
             """
             UPDATE bank_accounts
-               SET account_name    = ?,
-                   institution_name = ?,
-                   account_last4   = ?,
-                   account_type    = ?,
-                   gl_account_id   = ?,
-                   active_flag     = ?,
-                   updated_at      = CURRENT_TIMESTAMP
+               SET account_name          = ?,
+                   institution_name      = ?,
+                   account_last4         = ?,
+                   account_type          = ?,
+                   gl_account_id         = ?,
+                   active_flag           = ?,
+                   opening_balance       = ?,
+                   opening_balance_date  = ?,
+                   updated_at            = CURRENT_TIMESTAMP
              WHERE id = ?
             """,
             (
@@ -168,6 +182,8 @@ class BankAccountsRepository(BaseRepository):
                 account_type,
                 gl_account_id,
                 1 if active_flag else 0,
+                opening_balance,
+                opening_balance_date,
                 bank_account_id,
             ),
         )

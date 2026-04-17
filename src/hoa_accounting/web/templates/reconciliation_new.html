@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}New Reconciliation · {{ org.name }}{% endblock %}
+{% block heading %}New Bank Reconciliation{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/reconciliations" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ error }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <form method="post" action="/reconciliations/new" class="form">
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Reconciliation Details</div>
+          <div class="panel__description">
+            Select the bank account and enter the ending balance from your bank statement.
+          </div>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field__label">Bank Account *</span>
+        <select name="bank_account_id" required>
+          <option value="">— Select a bank account —</option>
+          {% for ba in bank_accounts %}
+            <option value="{{ ba.id }}"
+              {% if values.bank_account_id|string == ba.id|string %} selected{% endif %}>
+              {{ ba.account_name }}
+              {% if ba.account_last4 %} ···{{ ba.account_last4 }}{% endif %}
+              — {{ ba.institution_name }}
+              {% if ba.opening_balance_date %}
+                (opening balance {{ "%.2f"|format(ba.opening_balance|float) }} as of {{ ba.opening_balance_date }})
+              {% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        {% if not bank_accounts %}
+          <span class="field__hint" style="color:var(--danger);">
+            No active bank accounts found.
+            <a href="/bank-accounts/add">Add one first.</a>
+          </span>
+        {% endif %}
+      </label>
+
+      <label class="field">
+        <span class="field__label">Statement Ending Date *</span>
+        <input type="date" name="statement_date"
+               value="{{ values.statement_date or '' }}"
+               required
+               style="max-width:14rem;" />
+        <span class="field__hint">The last day of the bank statement period.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Statement Ending Balance *</span>
+        <input type="text" name="statement_balance"
+               value="{{ values.statement_balance or '' }}"
+               inputmode="decimal"
+               placeholder="0.00"
+               required
+               style="max-width:12rem;" />
+        <span class="field__hint">The ending balance shown on the bank statement.</span>
+      </label>
+    </div>
+
+    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+      <button type="submit" class="btn btn--primary"
+              {% if not bank_accounts %}disabled{% endif %}>
+        Start Reconciliation
+      </button>
+      <a href="/reconciliations" class="btn btn--ghost">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

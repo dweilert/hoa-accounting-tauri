@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Reconcile · {{ recon.account_name }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  {% if recon.status == 'FINALIZED' %}
+    <span class="pill pill--ok" style="font-size:.75rem;">Completed</span>
+  {% else %}
+    <span class="pill" style="font-size:.7rem;background:var(--accent-warm);color:var(--text);">Open</span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Action bar ──────────────────────────────────────────────────── #}
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
+    <a href="/reconciliations" class="btn btn--ghost btn--sm">← All Reconciliations</a>
+    {% if is_open %}
+      <form method="post" action="/reconciliations/{{ recon.id }}/finalize" style="display:inline;">
+        <button type="submit" id="finalize-btn"
+                class="btn btn--primary btn--sm"
+                {% if not summary.balanced %}disabled title="Difference must be 0.00 to complete"{% endif %}>
+          Complete Reconciliation
+        </button>
+      </form>
+      <form method="post" action="/reconciliations/{{ recon.id }}/delete" style="display:inline;"
+            onsubmit="return confirm('Delete this reconciliation and all cleared items?');">
+        <button type="submit" class="btn btn--danger btn--sm">Delete</button>
+      </form>
+    {% else %}
+      <form method="post" action="/reconciliations/{{ recon.id }}/reopen" style="display:inline;">
+        <button type="submit" class="btn btn--ghost btn--sm">Reopen</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {# ── Balance summary bar ─────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;font-size:13px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Bank Account</div>
+        <div style="font-weight:600;">{{ recon.account_name }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">
+          {{ recon.institution_name }}{% if recon.account_last4 %} ···{{ recon.account_last4 }}{% endif %}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Statement Date</div>
+        <div>{{ recon.statement_ending_date }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Statement Balance</div>
+        <div class="mono" style="font-size:15px;font-weight:600;">{{ summary.statement_balance }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Cleared Balance</div>
+        <div class="mono" style="font-size:15px;font-weight:600;" id="cleared-balance">
+          {{ summary.cleared_balance }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Difference</div>
+        <div class="mono" style="font-size:15px;font-weight:700;
+             color:{% if summary.balanced %}#2d7a2d{% else %}var(--danger){% endif %};"
+             id="difference">
+          {{ summary.difference }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Book Balance</div>
+        <div class="mono" style="font-size:13px;color:var(--text-muted);">{{ summary.book_balance }}</div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Transaction table ───────────────────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header" style="flex-wrap:wrap;gap:.5rem;">
+      <div>
+        <div class="panel__title">Transactions</div>
+        <div class="panel__description" id="summary-counts">
+          <span id="cleared-count">{{ summary.cleared_count }}</span> cleared ·
+          <span id="outstanding-count">{{ summary.outstanding_count }}</span> outstanding
+        </div>
+      </div>
+      <button type="button" id="toggle-prior-btn"
+              class="btn btn--ghost btn--sm"
+              onclick="togglePrior(this)">
+        {% if show_prior %}Hide prior cleared{% else %}Show prior cleared{% endif %}
+      </button>
+    </div>
+
+    {% set active_rows = rows | selectattr('cleared_prior', 'equalto', 0) | list %}
+    {% set prior_rows  = rows | selectattr('cleared_prior', 'equalto', 1) | list %}
+
+    {% if active_rows or prior_rows %}
+      <div class="table-wrap">
+        <table id="recon-table">
+          <thead>
+            <tr>
+              {% if is_open %}<th style="width:2rem;"></th>{% endif %}
+              <th>Date</th>
+              <th>Source</th>
+              <th>Description</th>
+              <th style="text-align:right;">Payment</th>
+              <th style="text-align:right;">Deposit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {# ── Active rows (uncleared + cleared-this-recon) ─────── #}
+            {% for row in active_rows %}
+              {% set is_cleared = row.cleared_this == 1 %}
+              <tr class="recon-row{% if is_cleared %} recon-row--cleared{% endif %}"
+                  data-line-id="{{ row.line_id }}">
+                {% if is_open %}
+                  <td style="text-align:center;width:2rem;">
+                    <input type="checkbox"
+                           class="clear-chk"
+                           data-line-id="{{ row.line_id }}"
+                           {% if is_cleared %}checked{% endif %}
+                           style="cursor:pointer;width:auto;" />
+                  </td>
+                {% endif %}
+                <td style="white-space:nowrap;font-size:13px;">{{ row.entry_date }}</td>
+                <td>
+                  {% if row.source == 'MANUAL' %}
+                    <a href="/journal-entries/{{ row.journal_entry_id }}"
+                       class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">
+                      Manual JE
+                    </a>
+                  {% else %}
+                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source }}</span>
+                  {% endif %}
+                </td>
+                <td style="max-width:260px;">
+                  <div style="font-size:12px;">{{ row.memo }}</div>
+                  {% if row.line_description and row.line_description != row.memo %}
+                    <div style="font-size:11px;color:var(--text-muted);">{{ row.line_description }}</div>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
+                           white-space:nowrap;color:{% if row.credit_amount %}var(--danger){% else %}var(--text-muted){% endif %};">
+                  {% if row.credit_amount %}{{ "%.2f"|format(row.credit_amount) }}{% endif %}
+                </td>
+                <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
+                           white-space:nowrap;">
+                  {% if row.debit_amount %}{{ "%.2f"|format(row.debit_amount) }}{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+
+            {# ── Prior-cleared rows (locked, toggle-able visibility) ── #}
+            {% for row in prior_rows %}
+              <tr class="recon-row recon-row--prior"
+                  data-line-id="{{ row.line_id }}"
+                  style="{% if not show_prior %}display:none;{% endif %}
+                         opacity:.5;">
+                {% if is_open %}
+                  <td style="text-align:center;width:2rem;">
+                    <input type="checkbox" checked disabled
+                           style="width:auto;cursor:not-allowed;" />
+                  </td>
+                {% endif %}
+                <td style="white-space:nowrap;font-size:13px;">{{ row.entry_date }}</td>
+                <td>
+                  {% if row.source == 'MANUAL' %}
+                    <a href="/journal-entries/{{ row.journal_entry_id }}"
+                       class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">
+                      Manual JE
+                    </a>
+                  {% else %}
+                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source }}</span>
+                  {% endif %}
+                </td>
+                <td style="max-width:260px;">
+                  <div style="font-size:12px;">{{ row.memo }}</div>
+                  {% if row.line_description and row.line_description != row.memo %}
+                    <div style="font-size:11px;color:var(--text-muted);">{{ row.line_description }}</div>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
+                           white-space:nowrap;color:{% if row.credit_amount %}var(--danger){% else %}var(--text-muted){% endif %};">
+                  {% if row.credit_amount %}{{ "%.2f"|format(row.credit_amount) }}{% endif %}
+                </td>
+                <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
+                           white-space:nowrap;">
+                  {% if row.debit_amount %}{{ "%.2f"|format(row.debit_amount) }}{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No posted transactions found for this bank account through {{ recon.statement_ending_date }}.
+      </div>
+    {% endif %}
+  </div>
+
+  {% if is_open %}
+  <script>
+  (function () {
+    var reconId = {{ recon.id }};
+
+    // ── Checkbox toggle ────────────────────────────────────────────
+    document.querySelectorAll(".clear-chk").forEach(function (chk) {
+      chk.addEventListener("change", function () {
+        var lineId = chk.getAttribute("data-line-id");
+        var cleared = chk.checked ? "1" : "0";
+
+        fetch("/reconciliations/" + reconId + "/toggle", {
+          method: "POST",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: "line_id=" + lineId + "&cleared=" + cleared,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          // Update header numbers
+          document.getElementById("cleared-balance").textContent = data.cleared_balance;
+          document.getElementById("difference").textContent = data.difference;
+          document.getElementById("cleared-count").textContent = data.cleared_count;
+          document.getElementById("outstanding-count").textContent = data.outstanding_count;
+
+          // Colour the difference
+          var diffEl = document.getElementById("difference");
+          diffEl.style.color = data.balanced ? "#2d7a2d" : "var(--danger)";
+
+          // Enable/disable finalize button
+          var btn = document.getElementById("finalize-btn");
+          if (btn) {
+            btn.disabled = !data.balanced;
+            btn.title = data.balanced ? "" : "Difference must be 0.00 to complete";
+          }
+
+          // Shade the row
+          var tr = chk.closest("tr");
+          if (tr) {
+            if (chk.checked) {
+              tr.classList.add("recon-row--cleared");
+            } else {
+              tr.classList.remove("recon-row--cleared");
+            }
+          }
+        })
+        .catch(function () {
+          // Revert checkbox on error
+          chk.checked = !chk.checked;
+        });
+      });
+    });
+
+    // ── Show/hide prior-cleared rows ───────────────────────────────
+    var priorVisible = {{ 'true' if show_prior else 'false' }};
+
+    window.togglePrior = function (btn) {
+      priorVisible = !priorVisible;
+      document.querySelectorAll(".recon-row--prior").forEach(function (tr) {
+        tr.style.display = priorVisible ? "" : "none";
+      });
+      btn.textContent = priorVisible ? "Hide prior cleared" : "Show prior cleared";
+    };
+  })();
+  </script>
+  <style>
+    .recon-row--cleared td { background: #f0faf0; }
+    .recon-row--prior  td { background: #f8f8f8; }
+  </style>
+  {% endif %}
+{% endblock %}

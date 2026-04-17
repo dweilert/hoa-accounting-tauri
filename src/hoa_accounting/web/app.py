@@ -34,6 +34,7 @@ from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
 from hoa_accounting.web.all_ledger_pages import AllLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
+from hoa_accounting.web.reconciliation_pages import ReconciliationPages
 from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
@@ -492,6 +493,125 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         redirect_url, form_resp = pages.handle_delete(
             bank_account_id=bank_account_id,
             org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Reconciliation pages ──────────────────────────────────────────
+
+    def _open_recon_pages() -> ReconciliationPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._recon_conn = conn
+        return ReconciliationPages(conn)
+
+    @app.teardown_request
+    def _close_recon_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_recon_conn", None)
+        if conn is not None:
+            conn.close()
+            g._recon_conn = None
+
+    @app.get("/reconciliations")
+    def list_reconciliations() -> Response:
+        from flask import request
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_list(
+            org=org_context, theme=theme,
+            flash_message=request.args.get("msg"),
+            error_message=request.args.get("error"),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/reconciliations/new")
+    def new_reconciliation_form() -> Response:
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/new")
+    def submit_new_reconciliation() -> Response:
+        from flask import redirect, request
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_new(
+            form_data=request.form.to_dict(),
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/reconciliations/<int:reconciliation_id>")
+    def view_reconciliation(reconciliation_id: int) -> Response:
+        from flask import request
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        show_prior = request.args.get("show_prior") == "1"
+        flash = request.args.get("msg")
+        resp = pages.render_working(
+            reconciliation_id, org=org_context, theme=theme,
+            show_prior=show_prior, flash_message=flash,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/toggle")
+    def toggle_reconciliation_line(reconciliation_id: int) -> Response:
+        from flask import request
+        pages = _open_recon_pages()
+        status, body = pages.handle_toggle(
+            reconciliation_id, form_data=request.form.to_dict()
+        )
+        return Response(body, status=status,
+                        mimetype="application/json")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/finalize")
+    def finalize_reconciliation(reconciliation_id: int) -> Response:
+        from flask import redirect
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_finalize(
+            reconciliation_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/reopen")
+    def reopen_reconciliation(reconciliation_id: int) -> Response:
+        from flask import redirect
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_reopen(
+            reconciliation_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/delete")
+    def delete_reconciliation(reconciliation_id: int) -> Response:
+        from flask import redirect
+        pages = _open_recon_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            reconciliation_id, org=org_context, theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
