@@ -76,26 +76,12 @@
           </option>
         {% endfor %}
       </select>
-      <span class="field__hint">Must be a bank-type GL account not already assigned to another bank account.</span>
+      <span class="field__hint">
+        Must be a bank-type GL account not already assigned to another bank account.
+        To set the opening cash balance for this account, use
+        <a href="/opening-balances">Opening Balances</a>.
+      </span>
     </label>
-
-    <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-      <label class="field" style="flex:0 0 auto;">
-        <span class="field__label">Opening Balance</span>
-        <input type="text" name="opening_balance"
-               value="{{ values.opening_balance or '0' }}"
-               inputmode="decimal"
-               style="max-width:12rem;" />
-        <span class="field__hint">Balance before tracking transactions in this system.</span>
-      </label>
-      <label class="field" style="flex:0 0 auto;">
-        <span class="field__label">As of Date</span>
-        <input type="date" name="opening_balance_date"
-               value="{{ values.opening_balance_date or '' }}"
-               style="max-width:14rem;" />
-        <span class="field__hint">Date of the opening balance above.</span>
-      </label>
-    </div>
 
     {% if is_edit %}
       <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;">

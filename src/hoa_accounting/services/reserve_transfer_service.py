@@ -48,6 +48,8 @@ class ReserveTransferService:
         description: str,
         from_account_id: int,
         to_account_id: int,
+        transfer_type: str | None = None,
+        purpose: str | None = None,
         created_by_user_id: int | None = None,
     ) -> ReserveTransferResult:
         """Post a reserve transfer atomically."""
@@ -91,6 +93,8 @@ class ReserveTransferService:
                 amount=str(amount_dec),
                 journal_entry_id=journal.journal_entry_id,
                 notes=description,
+                transfer_type=transfer_type,
+                purpose=purpose,
             )
             self.journal_repo.set_source_id(
                 journal_entry_id=journal.journal_entry_id,

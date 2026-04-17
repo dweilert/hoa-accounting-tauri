@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Opening Balances · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+  {% if flash %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Info panel ──────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;border:1px solid var(--border);
+       background:var(--surface-raised,var(--surface));">
+    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+      Enter the balances that existed <strong>before</strong> you started using this system.
+      Saving posts a single journal entry that brings the general ledger into balance.
+      If you re-save later, the previous entry is replaced automatically.
+      {% if has_existing_je %}
+        <span style="display:inline-block;margin-top:.35rem;padding:.2rem .6rem;
+               background:#fffbe6;border:1px solid #f5d44a;border-radius:4px;
+               font-size:12px;color:#7a5c00;">
+          Opening balances have already been posted — saving will replace the existing entry.
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post" action="/opening-balances/save" class="form">
+
+    {# ── As of date ──────────────────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">As of Date</div>
+        <div class="panel__description">
+          All balances below apply to this date (typically January 1 of your go-live year).
+          The date must fall within an open accounting period.
+        </div>
+      </div>
+      <label class="field">
+        <span class="field__label">As of Date *</span>
+        <input type="date" name="as_of_date"
+               value="{{ values.as_of_date or as_of_date }}"
+               required
+               style="max-width:14rem;" />
+      </label>
+    </div>
+
+    {# ── Bank Accounts ───────────────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">Bank Account Balances</div>
+        <div class="panel__description">
+          Enter the cash balance in each bank account as of the date above.
+          Leave as 0 for accounts with no prior balance.
+        </div>
+      </div>
+
+      {% if bank_rows %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Institution</th>
+                <th>Fund</th>
+                <th style="text-align:right;width:14rem;">Opening Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in bank_rows %}
+                <tr>
+                  <td style="font-size:13px;">
+                    <div>{{ row.account_name }}</div>
+                    {% if row.account_last4 %}
+                      <div style="font-size:11px;color:var(--text-muted);">···{{ row.account_last4 }}</div>
+                    {% endif %}
+                  </td>
+                  <td style="font-size:12px;color:var(--text-muted);">{{ row.institution_name }}</td>
+                  <td>
+                    <span class="pill pill--muted" style="font-size:.65rem;">{{ row.fund_code }}</span>
+                  </td>
+                  <td style="text-align:right;">
+                    <input type="text"
+                           name="bank_{{ row.bank_account_id }}"
+                           value="{{ values['bank_' ~ row.bank_account_id] if 'bank_' ~ row.bank_account_id in values else ('%.2f'|format(row.amount|float) if row.amount else '0.00') }}"
+                           inputmode="decimal"
+                           style="text-align:right;max-width:12rem;" />
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">No active bank accounts found. <a href="/bank-accounts/add">Add one first.</a></div>
+      {% endif %}
+    </div>
+
+    {# ── Lot Owner Balances ──────────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">Lot Owner Balances</div>
+        <div class="panel__description">
+          Enter the amount each lot owner owed as of the date above.
+          Leave as 0 for owners with no prior balance.
+        </div>
+      </div>
+
+      {% if lot_rows %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Lot</th>
+                <th>Owner</th>
+                <th style="text-align:right;width:14rem;">Balance Owed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in lot_rows %}
+                <tr>
+                  <td class="mono" style="font-size:13px;">{{ row.lot_number }}</td>
+                  <td style="font-size:13px;">{{ row.owner_name or '—' }}</td>
+                  <td style="text-align:right;">
+                    <input type="text"
+                           name="lot_{{ row.lot_id }}"
+                           value="{{ values['lot_' ~ row.lot_id] if 'lot_' ~ row.lot_id in values else ('%.2f'|format(row.amount|float) if row.amount else '0.00') }}"
+                           inputmode="decimal"
+                           style="text-align:right;max-width:12rem;" />
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">No lots found. <a href="/lots/add">Add lots first.</a></div>
+      {% endif %}
+    </div>
+
+    <div style="display:flex;gap:.75rem;align-items:center;">
+      <button type="submit" class="btn btn--primary"
+              {% if not bank_rows and not lot_rows %}disabled{% endif %}>
+        Save Opening Balances
+      </button>
+    </div>
+
+  </form>
+{% endblock %}

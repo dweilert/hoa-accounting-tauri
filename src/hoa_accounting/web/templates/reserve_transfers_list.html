@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Reserve Transfers · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/reserve-transfers/new" class="btn btn--primary btn--sm">+ New Transfer</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Reserve balance card ────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;border:1px solid var(--border);background:var(--surface-raised,var(--surface));">
+    <div style="display:flex;gap:2.5rem;align-items:flex-end;flex-wrap:wrap;padding:.25rem 0;">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-weight:500;
+                    text-transform:uppercase;letter-spacing:.04em;">Reserve Balance</div>
+        <div class="mono" style="font-size:16px;font-weight:700;">{{ reserve_balance }}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);padding-bottom:.2rem;">
+        Net balance of all active Reserve-fund bank accounts
+      </div>
+    </div>
+  </div>
+
+  {# ── Filter bar ──────────────────────────────────────────────────── #}
+  <form method="get" action="/reserve-transfers"
+        style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">
+    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--text-muted);">
+      Type
+      <select name="type_filter" style="font-size:13px;">
+        <option value="">All</option>
+        {% for key, label in type_labels.items() %}
+          <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--text-muted);">
+      From
+      <input type="date" name="start_date" value="{{ start_date }}" style="font-size:13px;" />
+    </label>
+    <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--text-muted);">
+      To
+      <input type="date" name="end_date" value="{{ end_date }}" style="font-size:13px;" />
+    </label>
+    <button type="submit" class="btn btn--ghost btn--sm" style="margin-bottom:1px;">Filter</button>
+    {% if type_filter or start_date or end_date %}
+      <a href="/reserve-transfers" class="btn btn--ghost btn--sm" style="margin-bottom:1px;">Clear</a>
+    {% endif %}
+  </form>
+
+  {# ── Transfer table ──────────────────────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Transfers</div>
+        <div class="panel__description">{{ row_count }} record{% if row_count != 1 %}s{% endif %}</div>
+      </div>
+    </div>
+
+    {% if rows %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>From</th>
+              <th>To</th>
+              <th style="text-align:right;">Amount</th>
+              <th>Purpose / Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td style="white-space:nowrap;font-size:13px;">{{ row.transfer_date }}</td>
+                <td>
+                  {% if row.transfer_type == 'FUND' %}
+                    <span class="pill pill--info" style="font-size:.7rem;">Fund Reserve</span>
+                  {% elif row.transfer_type == 'WITHDRAW' %}
+                    <span class="pill pill--warn" style="font-size:.7rem;">Withdrawal</span>
+                  {% else %}
+                    <span class="pill pill--muted" style="font-size:.7rem;">Transfer</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:12px;">
+                  <div>{{ row.from_account_name }}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {{ row.from_account_number }}
+                    <span class="pill pill--muted" style="font-size:.65rem;">{{ row.from_fund_code }}</span>
+                  </div>
+                </td>
+                <td style="font-size:12px;">
+                  <div>{{ row.to_account_name }}</div>
+                  <div style="font-size:11px;color:var(--text-muted);">
+                    {{ row.to_account_number }}
+                    <span class="pill pill--muted" style="font-size:.65rem;">{{ row.to_fund_code }}</span>
+                  </div>
+                </td>
+                <td style="text-align:right;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">
+                  {{ "%.2f"|format(row.amount|float) }}
+                </td>
+                <td style="max-width:200px;font-size:12px;">
+                  {% if row.purpose %}
+                    <div>{{ row.purpose }}</div>
+                  {% endif %}
+                  {% if row.notes and row.notes != row.purpose %}
+                    <div style="color:var(--text-muted);">{{ row.notes }}</div>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <form method="post" action="/reserve-transfers/{{ row.id }}/delete"
+                        onsubmit="return confirm('Delete this reserve transfer and its journal entry?');"
+                        style="display:inline;">
+                    <button type="submit" class="btn btn--ghost btn--sm"
+                            style="color:var(--danger);">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No reserve transfers recorded yet.
+        <a href="/reserve-transfers/new">Record the first one.</a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

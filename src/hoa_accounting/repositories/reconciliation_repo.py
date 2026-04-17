@@ -30,8 +30,6 @@ class ReconciliationRepository(BaseRepository):
                     ba.account_name,
                     ba.institution_name,
                     ba.account_last4,
-                    ba.opening_balance,
-                    ba.opening_balance_date,
                     a.account_number AS gl_account_number
                 FROM bank_reconciliations br
                 JOIN bank_accounts ba ON ba.id = br.bank_account_id
@@ -58,8 +56,6 @@ class ReconciliationRepository(BaseRepository):
                 ba.account_name,
                 ba.institution_name,
                 ba.account_last4,
-                ba.opening_balance,
-                ba.opening_balance_date,
                 ba.gl_account_id,
                 a.account_number AS gl_account_number,
                 a.account_name   AS gl_account_name
@@ -76,8 +72,8 @@ class ReconciliationRepository(BaseRepository):
     ) -> tuple[Decimal, str]:
         """Return (expected_beginning_balance, source_label).
 
-        Looks for the most recent FINALIZED reconciliation's book_balance.
-        Falls back to the bank account's opening_balance.
+        Checks the most recent FINALIZED reconciliation's book_balance first,
+        then falls back to the opening_balances table.
         """
         prior = self.conn.execute(
             """
@@ -93,17 +89,20 @@ class ReconciliationRepository(BaseRepository):
         if prior and prior["book_balance"] is not None:
             return Decimal(str(prior["book_balance"])), "prior reconciliation"
 
-        row = self.conn.execute(
-            "SELECT opening_balance, opening_balance_date FROM bank_accounts WHERE id = ?",
+        ob = self.conn.execute(
+            "SELECT amount, as_of_date FROM opening_balances "
+            "WHERE entity_type = 'BANK_ACCOUNT' AND entity_id = ?",
             (bank_account_id,),
         ).fetchone()
-        balance = Decimal(str(row["opening_balance"])) if row else Decimal("0")
-        label = (
-            f"account opening balance ({row['opening_balance_date']})"
-            if row and row["opening_balance_date"]
-            else "account opening balance"
-        )
-        return balance, label
+        if ob:
+            label = (
+                f"account opening balance ({ob['as_of_date']})"
+                if ob["as_of_date"]
+                else "account opening balance"
+            )
+            return Decimal(str(ob["amount"])), label
+
+        return Decimal("0"), "account opening balance"
 
     def list_active_bank_accounts(self) -> list[sqlite3.Row]:
         """Return active bank accounts with opening-balance info for the new-recon form."""
@@ -115,12 +114,14 @@ class ReconciliationRepository(BaseRepository):
                     ba.account_name,
                     ba.institution_name,
                     ba.account_last4,
-                    ba.opening_balance,
-                    ba.opening_balance_date,
-                    a.account_number AS gl_account_number,
-                    a.account_name   AS gl_account_name
+                    COALESCE(ob.amount, 0)   AS opening_balance,
+                    ob.as_of_date            AS opening_balance_date,
+                    a.account_number         AS gl_account_number,
+                    a.account_name           AS gl_account_name
                 FROM bank_accounts ba
                 JOIN accounts a ON a.id = ba.gl_account_id
+                LEFT JOIN opening_balances ob
+                    ON ob.entity_type = 'BANK_ACCOUNT' AND ob.entity_id = ba.id
                 WHERE ba.active_flag = 1
                 ORDER BY ba.account_name COLLATE NOCASE
                 """
@@ -182,18 +183,19 @@ class ReconciliationRepository(BaseRepository):
     ) -> dict[str, str | bool]:
         """Compute book balance, cleared balance, and difference.
 
-        Returns a dict suitable for JSON responses and template rendering.
+        Balance is derived purely from posted JE lines — the opening balance
+        JE (source_type OPENING_BALANCE) appears as a normal transaction line
+        and is cleared by the user in the first reconciliation.
         """
         recon = self.get_reconciliation(reconciliation_id)
         if not recon:
             return {}
 
-        opening = Decimal(str(recon["opening_balance"] or 0))
         statement = Decimal(str(recon["statement_ending_balance"]))
 
         rows = self.get_working_lines(reconciliation_id)
-        book_balance = opening
-        cleared_balance = opening
+        book_balance = Decimal("0")
+        cleared_balance = Decimal("0")
         cleared_count = 0
         outstanding_count = 0
 

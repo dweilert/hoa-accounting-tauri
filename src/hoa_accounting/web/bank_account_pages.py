@@ -110,8 +110,6 @@ class BankAccountPages:
                 "account_type": row["account_type"] or "CHECKING",
                 "gl_account_id": str(row["gl_account_id"]),
                 "active_flag": str(row["active_flag"]),
-                "opening_balance": str(row["opening_balance"] or "0"),
-                "opening_balance_date": row["opening_balance_date"] or "",
             }
         else:
             values = form_values or {}
@@ -144,8 +142,6 @@ class BankAccountPages:
                 "account_type": values.get("account_type", "CHECKING"),
                 "gl_account_id": values.get("gl_account_id", ""),
                 "active_flag": values.get("active_flag", "1"),
-                "opening_balance": values.get("opening_balance", "0"),
-                "opening_balance_date": values.get("opening_balance_date", ""),
             },
             "error_message": error_message,
         }
@@ -183,8 +179,6 @@ class BankAccountPages:
                 account_last4=_opt(form_data.get("account_last4", "")),
                 account_type=account_type_raw,
                 gl_account_id=gl_account_id,
-                opening_balance=_opt(form_data.get("opening_balance", "")) or "0",
-                opening_balance_date=_opt(form_data.get("opening_balance_date", "")),
             )
             self.conn.commit()
         except ValidationError as exc:
@@ -235,8 +229,6 @@ class BankAccountPages:
                 account_type=account_type_raw,
                 gl_account_id=gl_account_id,
                 active_flag=active_flag,
-                opening_balance=_opt(form_data.get("opening_balance", "")) or "0",
-                opening_balance_date=_opt(form_data.get("opening_balance_date", "")),
             )
             self.conn.commit()
         except ValidationError as exc:

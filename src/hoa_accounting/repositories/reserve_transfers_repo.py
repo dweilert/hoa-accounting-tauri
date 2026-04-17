@@ -2,11 +2,166 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from .base import BaseRepository
 
 
 class ReserveTransfersRepository(BaseRepository):
     """Database access for reserve transfer records."""
+
+    # ── Queries ────────────────────────────────────────────────────────
+
+    def list_transfers(
+        self,
+        *,
+        type_filter: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[sqlite3.Row]:
+        """Return all reserve transfers, newest first."""
+        predicates = []
+        params: list[object] = []
+        if type_filter:
+            predicates.append("rt.transfer_type = ?")
+            params.append(type_filter)
+        if start_date:
+            predicates.append("rt.transfer_date >= ?")
+            params.append(start_date)
+        if end_date:
+            predicates.append("rt.transfer_date <= ?")
+            params.append(end_date)
+        where = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT
+                    rt.id,
+                    rt.transfer_date,
+                    rt.transfer_type,
+                    rt.amount,
+                    rt.notes,
+                    rt.purpose,
+                    rt.journal_entry_id,
+                    je.entry_number,
+                    fa.account_number AS from_account_number,
+                    fa.account_name   AS from_account_name,
+                    fa.fund_code      AS from_fund_code,
+                    ta.account_number AS to_account_number,
+                    ta.account_name   AS to_account_name,
+                    ta.fund_code      AS to_fund_code
+                FROM reserve_transfers rt
+                JOIN journal_entries je ON je.id = rt.journal_entry_id
+                JOIN accounts fa ON fa.id = rt.from_account_id
+                JOIN accounts ta ON ta.id = rt.to_account_id
+                {where}
+                ORDER BY rt.transfer_date DESC, rt.id DESC
+                """,
+                params,
+            ).fetchall()
+        )
+
+    def get_transfer(self, transfer_id: int) -> sqlite3.Row | None:
+        """Return one transfer with full details, or None."""
+        return self.conn.execute(
+            """
+            SELECT
+                rt.id,
+                rt.transfer_date,
+                rt.transfer_type,
+                rt.amount,
+                rt.notes,
+                rt.purpose,
+                rt.journal_entry_id,
+                je.entry_number,
+                fa.account_number AS from_account_number,
+                fa.account_name   AS from_account_name,
+                fa.fund_code      AS from_fund_code,
+                ta.account_number AS to_account_number,
+                ta.account_name   AS to_account_name,
+                ta.fund_code      AS to_fund_code
+            FROM reserve_transfers rt
+            JOIN journal_entries je ON je.id = rt.journal_entry_id
+            JOIN accounts fa ON fa.id = rt.from_account_id
+            JOIN accounts ta ON ta.id = rt.to_account_id
+            WHERE rt.id = ?
+            """,
+            (transfer_id,),
+        ).fetchone()
+
+    def get_bank_accounts_by_fund(self) -> dict[str, list[sqlite3.Row]]:
+        """Return active bank accounts grouped by GL fund code.
+
+        Keys are fund codes (e.g. 'OPERATING', 'RESERVE').
+        """
+        rows = list(
+            self.conn.execute(
+                """
+                SELECT
+                    ba.id    AS bank_account_id,
+                    ba.account_name,
+                    ba.account_last4,
+                    ba.institution_name,
+                    a.id     AS gl_account_id,
+                    a.account_number AS gl_account_number,
+                    a.account_name   AS gl_account_name,
+                    a.fund_code
+                FROM bank_accounts ba
+                JOIN accounts a ON a.id = ba.gl_account_id
+                WHERE ba.active_flag = 1
+                ORDER BY a.fund_code, ba.account_name COLLATE NOCASE
+                """
+            ).fetchall()
+        )
+        result: dict[str, list[sqlite3.Row]] = {}
+        for row in rows:
+            result.setdefault(row["fund_code"], []).append(row)
+        return result
+
+    def get_reserve_balance(self) -> str:
+        """Return the current net balance of all RESERVE-fund GL accounts.
+
+        Computes opening_balance + net posted JE lines for each active
+        RESERVE bank account's GL account, summed together.
+        """
+        row = self.conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(ba.opening_balance), 0)
+                + COALESCE(SUM(
+                    CASE WHEN je.status = 'POSTED' THEN
+                        jel.debit_amount - jel.credit_amount
+                    ELSE 0 END
+                ), 0) AS balance
+            FROM bank_accounts ba
+            JOIN accounts a ON a.id = ba.gl_account_id AND a.fund_code = 'RESERVE'
+            LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id
+            LEFT JOIN journal_entries je ON je.id = jel.journal_entry_id
+            WHERE ba.active_flag = 1
+            """
+        ).fetchone()
+        if row and row["balance"] is not None:
+            return f"{float(row['balance']):,.2f}"
+        return "0.00"
+
+    def delete_transfer(self, transfer_id: int) -> None:
+        """Delete a reserve transfer and its linked journal entry."""
+        row = self.conn.execute(
+            "SELECT journal_entry_id FROM reserve_transfers WHERE id = ?",
+            (transfer_id,),
+        ).fetchone()
+        if row:
+            self.conn.execute(
+                "DELETE FROM journal_entries WHERE id = ?",
+                (row["journal_entry_id"],),
+            )
+        self.conn.execute(
+            "DELETE FROM reserve_transfers WHERE id = ?",
+            (transfer_id,),
+        )
+        self.conn.commit()
+
+    # ── Mutations ──────────────────────────────────────────────────────
 
     def insert_transfer(
         self,
@@ -17,6 +172,8 @@ class ReserveTransfersRepository(BaseRepository):
         amount: str,
         journal_entry_id: int,
         notes: str,
+        transfer_type: str | None = None,
+        purpose: str | None = None,
     ) -> int:
         """Insert a reserve transfer and return its id."""
         cur = self.conn.execute(
@@ -27,8 +184,10 @@ class ReserveTransfersRepository(BaseRepository):
                 to_account_id,
                 amount,
                 journal_entry_id,
-                notes
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                notes,
+                transfer_type,
+                purpose
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 transfer_date,
@@ -37,6 +196,8 @@ class ReserveTransfersRepository(BaseRepository):
                 amount,
                 journal_entry_id,
                 notes,
+                transfer_type,
+                purpose,
             ),
         )
         return int(cur.lastrowid)

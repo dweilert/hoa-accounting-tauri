@@ -34,7 +34,9 @@ from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
 from hoa_accounting.web.all_ledger_pages import AllLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
+from hoa_accounting.web.opening_balances_pages import OpeningBalancesPages
 from hoa_accounting.web.reconciliation_pages import ReconciliationPages
+from hoa_accounting.web.reserve_transfer_pages import ReserveTransferPages
 from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
@@ -1443,6 +1445,128 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_bill_individuals(
             form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Reserve transfer pages ───────────────────────────────────────
+
+    def _open_reserve_transfer_pages() -> ReserveTransferPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; reserve transfer pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._rt_conn = conn
+        return ReserveTransferPages(conn)
+
+    @app.teardown_request
+    def _close_rt_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_rt_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._rt_conn = None
+
+    @app.get("/reserve-transfers")
+    def list_reserve_transfers() -> Response:
+        pages = _open_reserve_transfer_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_list(
+            org=org_context, theme=theme,
+            type_filter=(request.args.get("type_filter") or "").strip() or None,
+            start_date=(request.args.get("start_date") or "").strip() or None,
+            end_date=(request.args.get("end_date") or "").strip() or None,
+            flash_message=(request.args.get("msg") or "").strip() or None,
+            error_message=(request.args.get("error") or "").strip() or None,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/reserve-transfers/new")
+    def new_reserve_transfer_form() -> Response:
+        pages = _open_reserve_transfer_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reserve-transfers/new")
+    def submit_new_reserve_transfer() -> Response:
+        from flask import redirect
+        pages = _open_reserve_transfer_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_new(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reserve-transfers/<int:transfer_id>/delete")
+    def delete_reserve_transfer(transfer_id: int) -> Response:
+        from flask import redirect
+        pages = _open_reserve_transfer_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            transfer_id=transfer_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Opening Balances pages ───────────────────────────────────────
+
+    def _open_ob_pages() -> OpeningBalancesPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; opening balance pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._ob_conn = conn
+        ar_num = str(org_context.get("dues_receivable_account_number", "1100"))
+        return OpeningBalancesPages(conn, ar_account_number=ar_num)
+
+    @app.teardown_request
+    def _close_ob_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_ob_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._ob_conn = None
+
+    @app.get("/opening-balances")
+    def opening_balances_page() -> Response:
+        pages = _open_ob_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_page(
+            org=org_context, theme=theme,
+            flash=(request.args.get("msg") or "").strip() or None,
+            error=(request.args.get("error") or "").strip() or None,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/opening-balances/save")
+    def save_opening_balances() -> Response:
+        from flask import redirect
+        pages = _open_ob_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)

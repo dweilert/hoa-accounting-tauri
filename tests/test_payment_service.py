@@ -189,7 +189,20 @@ CREATE TABLE reserve_transfers (
     amount NUMERIC NOT NULL,
     journal_entry_id INTEGER NOT NULL UNIQUE,
     notes TEXT,
+    transfer_type TEXT CHECK (transfer_type IN ('FUND', 'WITHDRAW')),
+    purpose TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE opening_balances (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('BANK_ACCOUNT', 'LOT')),
+    entity_id INTEGER NOT NULL,
+    as_of_date TEXT NOT NULL,
+    amount NUMERIC NOT NULL DEFAULT 0,
+    journal_entry_id INTEGER REFERENCES journal_entries(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (entity_type, entity_id)
 );
 CREATE TABLE audit_log (
     id INTEGER PRIMARY KEY,
