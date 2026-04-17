@@ -31,6 +31,7 @@ from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.owner_pages import OwnerPages
 from hoa_accounting.web.account_pages import AccountPages
 from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
+from hoa_accounting.web.all_ledger_pages import AllLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
 from hoa_accounting.web.vendor_pages import VendorPages
@@ -1036,6 +1037,51 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Ledger reports: all-accounts views ───────────────────────────
+
+    def _open_all_ledger_pages() -> AllLedgerPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._all_ledger_conn = conn
+        return AllLedgerPages(conn)
+
+    @app.teardown_request
+    def _close_all_ledger_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_all_ledger_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._all_ledger_conn = None
+
+    @app.get("/ledger/transactions")
+    def all_transactions() -> Response:
+        pages = _open_all_ledger_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_all_transactions(
+            org=org_context, theme=theme,
+            start_date=(request.args.get("start") or "").strip(),
+            end_date=(request.args.get("end") or "").strip(),
+            sort=(request.args.get("sort") or "asc").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/ledger/by-account")
+    def ledger_by_account() -> Response:
+        pages = _open_all_ledger_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_by_account(
+            org=org_context, theme=theme,
+            start_date=(request.args.get("start") or "").strip(),
+            end_date=(request.args.get("end") or "").strip(),
+            sort=(request.args.get("sort") or "asc").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     # ── Transaction pages: Manual Journal Entries ───────────────────
