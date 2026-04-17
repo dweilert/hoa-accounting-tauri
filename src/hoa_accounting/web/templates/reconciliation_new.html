@@ -51,6 +51,19 @@
       </label>
 
       <label class="field">
+        <span class="field__label">Statement Beginning Balance *</span>
+        <input type="text" name="beginning_balance" id="beginning_balance"
+               value="{{ values.beginning_balance or '' }}"
+               inputmode="decimal"
+               placeholder="0.00"
+               required
+               style="max-width:12rem;" />
+        <span class="field__hint" id="beginning_balance_hint">
+          The opening balance shown on the bank statement.
+        </span>
+      </label>
+
+      <label class="field">
         <span class="field__label">Statement Ending Date *</span>
         <input type="date" name="statement_date"
                value="{{ values.statement_date or '' }}"
@@ -79,4 +92,29 @@
       <a href="/reconciliations" class="btn btn--ghost">Cancel</a>
     </div>
   </form>
+
+  <script>
+  (function () {
+    var data = {{ beginning_balances | tojson }};
+    var select = document.querySelector('select[name="bank_account_id"]');
+    var input  = document.getElementById("beginning_balance");
+    var hint   = document.getElementById("beginning_balance_hint");
+
+    function populate() {
+      var id = select.value;
+      if (id && data[id]) {
+        input.value = data[id].amount;
+        hint.textContent = "Auto-populated from " + data[id].label + ". Edit if your statement shows a different value.";
+        hint.style.color = "var(--text-muted)";
+      } else {
+        input.value = "";
+        hint.textContent = "The opening balance shown on the bank statement.";
+        hint.style.color = "";
+      }
+    }
+
+    select.addEventListener("change", populate);
+    if (select.value) populate();
+  })();
+  </script>
 {% endblock %}

@@ -83,6 +83,17 @@ class ReconciliationPages:
         values: dict | None = None,
     ) -> PageResponse:
         bank_accounts = self._repo.list_active_bank_accounts()
+
+        # Pre-compute expected beginning balance for each bank account
+        # so the form can auto-populate via JS when the user picks one.
+        beginning_balances: dict[int, dict] = {}
+        for ba in bank_accounts:
+            bal, label = self._repo.get_expected_beginning_balance(int(ba["id"]))
+            beginning_balances[int(ba["id"])] = {
+                "amount": str(bal),
+                "label": label,
+            }
+
         return self._render(
             "reconciliation_new.html",
             org=org,
@@ -90,6 +101,7 @@ class ReconciliationPages:
             page_key="reconciliations",
             heading="New Bank Reconciliation",
             bank_accounts=bank_accounts,
+            beginning_balances=beginning_balances,
             error=error,
             values=values or {},
         )
@@ -125,6 +137,9 @@ class ReconciliationPages:
                 values=form_data,
             )
 
+        beginning_balance_raw = form_data.get("beginning_balance", "").strip()
+        beginning_balance = self._parse_amount(beginning_balance_raw) if beginning_balance_raw else None
+
         bank_account_id = int(bank_account_id_raw)
 
         # Check for duplicate (same account + statement date)
@@ -144,6 +159,7 @@ class ReconciliationPages:
             bank_account_id=bank_account_id,
             statement_ending_date=statement_date,
             statement_ending_balance=str(balance),
+            statement_beginning_balance=str(beginning_balance) if beginning_balance is not None else None,
         )
         return f"/reconciliations/{recon_id}", None
 
@@ -166,6 +182,21 @@ class ReconciliationPages:
 
         is_open = recon["status"] == "OPEN"
 
+        # Beginning balance mismatch warning
+        beginning_balance_warning: str | None = None
+        stmt_beg = recon["statement_beginning_balance"]
+        if stmt_beg is not None:
+            expected, expected_label = self._repo.get_expected_beginning_balance(
+                int(recon["bank_account_id"])
+            )
+            actual = Decimal(str(stmt_beg))
+            if actual != expected:
+                beginning_balance_warning = (
+                    f"Statement beginning balance ({actual:,.2f}) does not match "
+                    f"the expected {expected_label} ({expected:,.2f}). "
+                    f"Please verify before completing."
+                )
+
         return self._render(
             "reconciliation_work.html",
             org=org,
@@ -178,6 +209,7 @@ class ReconciliationPages:
             is_open=is_open,
             show_prior=show_prior,
             flash_message=flash_message,
+            beginning_balance_warning=beginning_balance_warning,
         )
 
     # ── Toggle (AJAX) ──────────────────────────────────────────────────

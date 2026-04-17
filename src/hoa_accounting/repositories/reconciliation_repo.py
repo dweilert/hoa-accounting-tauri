@@ -48,6 +48,7 @@ class ReconciliationRepository(BaseRepository):
             SELECT
                 br.id,
                 br.bank_account_id,
+                br.statement_beginning_balance,
                 br.statement_ending_date,
                 br.statement_ending_balance,
                 br.book_balance,
@@ -69,6 +70,40 @@ class ReconciliationRepository(BaseRepository):
             """,
             (reconciliation_id,),
         ).fetchone()
+
+    def get_expected_beginning_balance(
+        self, bank_account_id: int
+    ) -> tuple[Decimal, str]:
+        """Return (expected_beginning_balance, source_label).
+
+        Looks for the most recent FINALIZED reconciliation's book_balance.
+        Falls back to the bank account's opening_balance.
+        """
+        prior = self.conn.execute(
+            """
+            SELECT book_balance
+            FROM bank_reconciliations
+            WHERE bank_account_id = ?
+              AND status = 'FINALIZED'
+            ORDER BY statement_ending_date DESC, id DESC
+            LIMIT 1
+            """,
+            (bank_account_id,),
+        ).fetchone()
+        if prior and prior["book_balance"] is not None:
+            return Decimal(str(prior["book_balance"])), "prior reconciliation"
+
+        row = self.conn.execute(
+            "SELECT opening_balance, opening_balance_date FROM bank_accounts WHERE id = ?",
+            (bank_account_id,),
+        ).fetchone()
+        balance = Decimal(str(row["opening_balance"])) if row else Decimal("0")
+        label = (
+            f"account opening balance ({row['opening_balance_date']})"
+            if row and row["opening_balance_date"]
+            else "account opening balance"
+        )
+        return balance, label
 
     def list_active_bank_accounts(self) -> list[sqlite3.Row]:
         """Return active bank accounts with opening-balance info for the new-recon form."""
@@ -107,7 +142,7 @@ class ReconciliationRepository(BaseRepository):
                     je.id                           AS journal_entry_id,
                     je.entry_date,
                     je.memo,
-                    je.source,
+                    je.source_type,
                     jel.description                 AS line_description,
                     CAST(jel.debit_amount  AS REAL)  AS debit_amount,
                     CAST(jel.credit_amount AS REAL)  AS credit_amount,
@@ -194,16 +229,23 @@ class ReconciliationRepository(BaseRepository):
         bank_account_id: int,
         statement_ending_date: str,
         statement_ending_balance: str,
+        statement_beginning_balance: str | None = None,
     ) -> int:
         """Insert a new OPEN reconciliation and return its id."""
         cur = self.conn.execute(
             """
             INSERT INTO bank_reconciliations
                 (bank_account_id, statement_ending_date,
-                 statement_ending_balance, book_balance, status)
-            VALUES (?, ?, ?, 0, 'OPEN')
+                 statement_ending_balance, statement_beginning_balance,
+                 book_balance, status)
+            VALUES (?, ?, ?, ?, 0, 'OPEN')
             """,
-            (bank_account_id, statement_ending_date, statement_ending_balance),
+            (
+                bank_account_id,
+                statement_ending_date,
+                statement_ending_balance,
+                statement_beginning_balance,
+            ),
         )
         self.conn.commit()
         return int(cur.lastrowid)  # type: ignore[arg-type]

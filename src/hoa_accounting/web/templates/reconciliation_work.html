@@ -7,7 +7,7 @@
   {% if recon.status == 'FINALIZED' %}
     <span class="pill pill--ok" style="font-size:.75rem;">Completed</span>
   {% else %}
-    <span class="pill" style="font-size:.7rem;background:var(--accent-warm);color:var(--text);">Open</span>
+    <span class="pill pill--warn" style="font-size:.7rem;">Open</span>
   {% endif %}
 {% endblock %}
 
@@ -18,15 +18,21 @@
       <button type="button" class="alert__close" aria-label="Dismiss">×</button>
     </div>
   {% endif %}
+  {% if beginning_balance_warning %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      <div class="alert__content">⚠ {{ beginning_balance_warning }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
 
   {# ── Action bar ──────────────────────────────────────────────────── #}
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
     <a href="/reconciliations" class="btn btn--ghost btn--sm">← All Reconciliations</a>
     {% if is_open %}
-      <form method="post" action="/reconciliations/{{ recon.id }}/finalize" style="display:inline;">
-        <button type="submit" id="finalize-btn"
-                class="btn btn--primary btn--sm"
-                {% if not summary.balanced %}disabled title="Difference must be 0.00 to complete"{% endif %}>
+      <form method="post" action="/reconciliations/{{ recon.id }}/finalize" style="display:inline;"
+            id="finalize-form"
+            onsubmit="return confirmFinalize(event)">
+        <button type="submit" id="finalize-btn" class="btn btn--primary btn--sm">
           Complete Reconciliation
         </button>
       </form>
@@ -57,9 +63,23 @@
                     text-transform:uppercase;letter-spacing:.04em;">Statement Date</div>
         <div>{{ recon.statement_ending_date }}</div>
       </div>
+      {% if recon.statement_beginning_balance is not none %}
+        <div>
+          <div style="font-size:11px;font-weight:500;text-transform:uppercase;
+                      letter-spacing:.04em;
+                      color:{% if beginning_balance_warning %}#b45309{% else %}var(--text-muted){% endif %};">
+            Stmt Beginning
+            {% if beginning_balance_warning %} ⚠{% endif %}
+          </div>
+          <div class="mono" style="font-size:15px;font-weight:600;
+               color:{% if beginning_balance_warning %}#b45309{% else %}inherit{% endif %};">
+            {{ "%.2f"|format(recon.statement_beginning_balance|float) }}
+          </div>
+        </div>
+      {% endif %}
       <div>
         <div style="font-size:11px;color:var(--text-muted);font-weight:500;
-                    text-transform:uppercase;letter-spacing:.04em;">Statement Balance</div>
+                    text-transform:uppercase;letter-spacing:.04em;">Stmt Ending</div>
         <div class="mono" style="font-size:15px;font-weight:600;">{{ summary.statement_balance }}</div>
       </div>
       <div>
@@ -136,7 +156,7 @@
                 {% endif %}
                 <td style="white-space:nowrap;font-size:13px;">{{ row.entry_date }}</td>
                 <td>
-                  {% if row.source == 'MANUAL' %}
+                  {% if row.source_type == 'MANUAL' %}
                     <a href="/journal-entries/{{ row.journal_entry_id }}"
                        class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">
                       Manual JE
@@ -176,7 +196,7 @@
                 {% endif %}
                 <td style="white-space:nowrap;font-size:13px;">{{ row.entry_date }}</td>
                 <td>
-                  {% if row.source == 'MANUAL' %}
+                  {% if row.source_type == 'MANUAL' %}
                     <a href="/journal-entries/{{ row.journal_entry_id }}"
                        class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">
                       Manual JE
@@ -215,6 +235,29 @@
   <script>
   (function () {
     var reconId = {{ recon.id }};
+    var isBalanced = {{ 'true' if summary.balanced else 'false' }};
+
+    // ── Complete Reconciliation guard ──────────────────────────────
+    window.confirmFinalize = function (e) {
+      if (!isBalanced) {
+        e.preventDefault();
+        var diffEl = document.getElementById("difference");
+        var diff = diffEl ? diffEl.textContent.trim() : "non-zero";
+        var msg = document.getElementById("finalize-error");
+        if (!msg) {
+          msg = document.createElement("div");
+          msg.id = "finalize-error";
+          msg.className = "alert alert--error";
+          msg.style.cssText = "margin-bottom:1rem;";
+          document.getElementById("finalize-form").closest("div").insertAdjacentElement("afterend", msg);
+        }
+        msg.innerHTML = '<div class="alert__content">Cannot complete \u2014 difference is ' + diff + '. Clear all outstanding items before completing.</div>'
+                      + '<button type="button" class="alert__close" aria-label="Dismiss">\u00d7</button>';
+        msg.scrollIntoView({behavior: "smooth", block: "nearest"});
+        return false;
+      }
+      return confirm("Mark this reconciliation as complete? This cannot be undone without reopening it.");
+    };
 
     // ── Checkbox toggle ────────────────────────────────────────────
     document.querySelectorAll(".clear-chk").forEach(function (chk) {
@@ -229,6 +272,8 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+          isBalanced = data.balanced;
+
           // Update header numbers
           document.getElementById("cleared-balance").textContent = data.cleared_balance;
           document.getElementById("difference").textContent = data.difference;
@@ -239,11 +284,10 @@
           var diffEl = document.getElementById("difference");
           diffEl.style.color = data.balanced ? "#2d7a2d" : "var(--danger)";
 
-          // Enable/disable finalize button
-          var btn = document.getElementById("finalize-btn");
-          if (btn) {
-            btn.disabled = !data.balanced;
-            btn.title = data.balanced ? "" : "Difference must be 0.00 to complete";
+          // Clear any outstanding error message if now balanced
+          if (data.balanced) {
+            var msg = document.getElementById("finalize-error");
+            if (msg) msg.remove();
           }
 
           // Shade the row
