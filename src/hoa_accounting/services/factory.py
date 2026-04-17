@@ -12,6 +12,7 @@ from hoa_accounting.repositories.deposit_batches_repo import DepositBatchesRepos
 from hoa_accounting.repositories.entities_repo import EntitiesRepository
 from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
 from hoa_accounting.repositories.journal_repo import JournalRepository
+from hoa_accounting.repositories.lot_renters_repo import LotRentersRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.repositories.periods_repo import PeriodsRepository
@@ -48,6 +49,7 @@ class ServiceFactory:
         self.entities_repo = EntitiesRepository(conn)
         self.income_batches_repo = IncomeBatchesRepository(conn)
         self.journal_repo = JournalRepository(conn)
+        self.lot_renters_repo = LotRentersRepository(conn)
         self.lots_repo = LotsRepository(conn)
         self.payments_repo = PaymentsRepository(conn)
         self.periods_repo = PeriodsRepository(conn)
