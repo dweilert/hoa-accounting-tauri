@@ -16,9 +16,9 @@
   {% endif %}
 
   {% if is_edit %}
-    <form method="post" action="/owners/{{ owner_id }}/edit" class="form">
+    <form id="owner-form" method="post" action="/owners/{{ owner_id }}/edit" class="form">
   {% else %}
-    <form method="post" action="/owners/add" class="form">
+    <form id="owner-form" method="post" action="/owners/add" class="form">
   {% endif %}
 
   <div class="panel">
@@ -211,8 +211,10 @@
     </div>
   {% endif %}
 
+  </form>
+
   <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
-    <button type="submit" class="btn btn--primary">
+    <button type="submit" form="owner-form" class="btn btn--primary">
       {% if is_edit %}Save Changes{% else %}Add Owner{% endif %}
     </button>
     <a href="/owners" class="btn btn--ghost">Cancel</a>
@@ -224,6 +226,4 @@
       </form>
     {% endif %}
   </div>
-
-  </form>
 {% endblock %}

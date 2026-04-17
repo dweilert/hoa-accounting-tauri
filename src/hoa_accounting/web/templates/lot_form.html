@@ -16,9 +16,9 @@
   {% endif %}
 
   {% if is_edit %}
-    <form method="post" action="/lots/{{ lot_id }}/edit" class="form">
+    <form id="lot-form" method="post" action="/lots/{{ lot_id }}/edit" class="form">
   {% else %}
-    <form method="post" action="/lots/add" class="form">
+    <form id="lot-form" method="post" action="/lots/add" class="form">
   {% endif %}
 
   <div class="panel">
@@ -92,8 +92,10 @@
     {% endif %}
   </div>
 
+  </form>
+
   <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
-    <button type="submit" class="btn btn--primary">
+    <button type="submit" form="lot-form" class="btn btn--primary">
       {% if is_edit %}Save Changes{% else %}Add Lot{% endif %}
     </button>
     <a href="/lots" class="btn btn--ghost">Cancel</a>
@@ -105,6 +107,4 @@
       </form>
     {% endif %}
   </div>
-
-  </form>
 {% endblock %}
