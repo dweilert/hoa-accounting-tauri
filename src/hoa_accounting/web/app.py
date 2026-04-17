@@ -43,6 +43,7 @@ from hoa_accounting.web.ui_server import (
 )
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
 from hoa_accounting.web.manual_journal_pages import ManualJournalPages
+from hoa_accounting.web.budget_pages import BudgetPages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -1149,6 +1150,130 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             flash_message=flash_message,
         )
         return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Budget pages ─────────────────────────────────────────────────
+
+    def _open_budget_pages() -> BudgetPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; budget pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._budget_conn = conn
+        return BudgetPages(conn)
+
+    @app.teardown_request
+    def _close_budget_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_budget_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._budget_conn = None
+
+    @app.get("/budgets")
+    def list_budgets() -> Response:
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/budgets/new")
+    def new_budget_form() -> Response:
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/new")
+    def submit_new_budget() -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_new(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/budgets/<int:budget_id>/edit")
+    def edit_budget_form(budget_id: int) -> Response:
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_edit_form(
+            budget_id, org=org_context, theme=theme,
+            flash_message=flash_message,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/edit")
+    def submit_save_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save(
+            budget_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/approve")
+    def approve_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_approve(
+            budget_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/archive")
+    def archive_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_archive(
+            budget_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/delete")
+    def delete_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            budget_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     # ── Transaction pages: Bill Assessments ─────────────────────────

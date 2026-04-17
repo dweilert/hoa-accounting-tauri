@@ -111,7 +111,6 @@
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Entry #</th>
                 <th>Source</th>
                 <th>Description</th>
                 <th style="text-align:right;">Debit</th>
@@ -123,17 +122,13 @@
               {% for row in rows %}
                 <tr>
                   <td style="white-space:nowrap;">{{ row.entry_date }}</td>
-                  <td class="mono" style="white-space:nowrap;">
-                    {% if row.is_manual %}
-                      <a href="/journal-entries/{{ loop.index }}" style="font-family:var(--font-mono);">
-                        {{ row.entry_number }}
-                      </a>
-                    {% else %}
-                      {{ row.entry_number }}
-                    {% endif %}
-                  </td>
                   <td>
-                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source_label }}</span>
+                    {% if row.is_manual %}
+                      <a href="/journal-entries/{{ row.journal_entry_id }}"
+                         class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">{{ row.source_label }}</a>
+                    {% else %}
+                      <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source_label }}</span>
+                    {% endif %}
                   </td>
                   <td style="max-width:260px;">
                     <div style="font-size:12px;">{{ row.memo }}</div>
@@ -156,7 +151,7 @@
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="4" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
+                <td colspan="3" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
                 <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_debits }}</td>
                 <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_credits }}</td>
                 <td></td>

@@ -69,7 +69,6 @@
           <thead>
             <tr>
               <th>Date</th>
-              <th>Entry #</th>
               <th>Source</th>
               <th>Account</th>
               <th>Description</th>
@@ -81,16 +80,13 @@
             {% for row in rows %}
               <tr>
                 <td style="white-space:nowrap;">{{ row.entry_date }}</td>
-                <td class="mono" style="white-space:nowrap;font-size:12px;">
+                <td>
                   {% if row.is_manual %}
                     <a href="/journal-entries/{{ row.journal_entry_id }}"
-                       style="font-family:var(--font-mono);">{{ row.entry_number }}</a>
+                       class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">{{ row.source_label }}</a>
                   {% else %}
-                    {{ row.entry_number }}
+                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source_label }}</span>
                   {% endif %}
-                </td>
-                <td>
-                  <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source_label }}</span>
                 </td>
                 <td style="white-space:nowrap;">
                   <span class="mono" style="font-size:12px;">{{ row.account_number }}</span>
@@ -113,7 +109,7 @@
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="5" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
+              <td colspan="4" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
               <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_debits }}</td>
               <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_credits }}</td>
             </tr>
