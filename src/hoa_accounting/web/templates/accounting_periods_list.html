@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Accounting Periods · {{ org.name }}{% endblock %}
+{% block heading %}Accounting Periods{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ periods|length }} period{% if periods|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Accounting Periods</div>
+        <div class="panel__description">
+          Monthly periods that control which dates can be posted to.
+          Closed periods block new journal entries.
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <a href="/accounting-periods/generate" class="btn btn--primary btn--sm">Generate Year</a>
+        <a href="/accounting-periods/add" class="btn btn--ghost btn--sm">Add Period</a>
+      </div>
+    </div>
+
+    {% if periods %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Fiscal Year</th>
+              <th>Month #</th>
+              <th>Status</th>
+              <th>Closed At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in periods %}
+              <tr{% if p.is_closed %} style="opacity:.6;"{% endif %}>
+                <td class="mono">{{ p.period_name }}</td>
+                <td>{{ p.start_date }}</td>
+                <td>{{ p.end_date }}</td>
+                <td>{{ p.fiscal_year }}</td>
+                <td>{{ p.fiscal_period }}</td>
+                <td>
+                  {% if p.is_closed %}
+                    <span class="pill pill--muted">Closed</span>
+                  {% else %}
+                    <span class="pill pill--success">Open</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:.85rem;color:var(--color-text-muted);">
+                  {{ p.closed_at or '' }}
+                </td>
+                <td style="display:flex;gap:.4rem;justify-content:flex-end;">
+                  {% if p.is_closed %}
+                    <form method="post" action="/accounting-periods/{{ p.id }}/reopen"
+                          onsubmit="return confirm('Reopen {{ p.period_name }}? This allows new postings.');">
+                      <button type="submit" class="btn btn--sm btn--ghost">Reopen</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="/accounting-periods/{{ p.id }}/close"
+                          onsubmit="return confirm('Close {{ p.period_name }}? No new entries can be posted to it.');">
+                      <button type="submit" class="btn btn--sm btn--ghost">Close</button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="/accounting-periods/{{ p.id }}/delete"
+                        onsubmit="return confirm('Delete {{ p.period_name }}? This cannot be undone.');">
+                    <button type="submit" class="btn btn--sm btn--danger">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No accounting periods on record.
+        Use <strong>Generate Year</strong> to create all 12 months for a fiscal year at once.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
