@@ -118,7 +118,7 @@ class VendorBillPages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "vendor-bills",
-            "breadcrumb": "Transactions · Vendor Bills",
+            "breadcrumb": "Transactions",
             "created_entry_number": created_entry_number,
         }
         return VendorBillFormResponse(
@@ -171,7 +171,7 @@ class VendorBillPages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "vendor-bills",
-            "breadcrumb": "Transactions · Vendor Bills · New",
+            "breadcrumb": "Transactions · Vendor Bills",
             "vendors": vendors,
             "expense_accounts": expense_accounts,
             "payable_accounts": payable_accounts,

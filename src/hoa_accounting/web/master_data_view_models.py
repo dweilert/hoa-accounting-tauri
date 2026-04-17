@@ -101,7 +101,7 @@ def build_accounts_list_context(
         empty_message="No active accounts. Run the initializer to seed a starter chart.",
         org=org or {},
         active_nav="master-data",
-        breadcrumb="Master Data · Chart of Accounts",
+        breadcrumb="Master Data",
         theme=theme,
     )
 
@@ -142,7 +142,7 @@ def build_owners_list_context(
         empty_message="No owners on record.",
         org=org or {},
         active_nav="master-data",
-        breadcrumb="Master Data · Owners",
+        breadcrumb="Master Data",
         theme=theme,
     )
 
@@ -186,7 +186,7 @@ def build_lots_list_context(
         empty_message="No lots on record.",
         org=org or {},
         active_nav="master-data",
-        breadcrumb="Master Data · Lots",
+        breadcrumb="Master Data",
         theme=theme,
     )
 
@@ -228,7 +228,7 @@ def build_vendors_list_context(
         empty_message="No vendors on record.",
         org=org or {},
         active_nav="master-data",
-        breadcrumb="Master Data · Vendors",
+        breadcrumb="Master Data",
         theme=theme,
     )
 
@@ -270,6 +270,6 @@ def build_bank_accounts_list_context(
         empty_message="No bank accounts on record.",
         org=org or {},
         active_nav="master-data",
-        breadcrumb="Master Data · Bank Accounts",
+        breadcrumb="Master Data",
         theme=theme,
     )

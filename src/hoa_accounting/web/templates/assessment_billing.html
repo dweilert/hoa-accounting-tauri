@@ -13,53 +13,21 @@
     <div class="alert alert--error">{{ error_message }}</div>
   {% endif %}
 
-  <div class="panel">
-    <div class="panel__header">
-      <div>
-        <div class="panel__title">How this works</div>
-        <div class="panel__description">{{ description }}</div>
-      </div>
-    </div>
-
-    <div class="form" style="grid-template-columns: 1fr 1fr;">
-      <div class="field">
-        <span class="field__label">Posting to AR</span>
-        <div class="mono" style="
-              padding: 7px 10px;
-              background: var(--surface-muted);
-              border: 1px solid var(--border);
-              border-radius: var(--radius-sm);
-              color: var(--text-muted);
-              font-size: 13px;">
-          {{ ar_account_label or '— not configured —' }}
-        </div>
-        <span class="field__hint">Same AR account the dues deposit form uses.</span>
-      </div>
-
-      <div class="field">
-        <span class="field__label">YTD period shown in the table</span>
-        <div class="mono" style="
-              padding: 7px 10px;
-              background: var(--surface-muted);
-              border: 1px solid var(--border);
-              border-radius: var(--radius-sm);
-              color: var(--text-muted);
-              font-size: 13px;">
-          {{ ytd_period_label }}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Bulk billing form ─────────────────────────────────────── -->
+  {#
+    Single <form> covering both actions. The two submit buttons use the
+    formaction attribute to route to different endpoints (/assessments/
+    bill-all vs /assessments/bill-individual) while sharing all header
+    fields (description, income account, dates) and the per-lot rows.
+    This replaces the earlier two-forms-with-JS-syncing design.
+  #}
   <form method="post" action="/assessments/bill-all">
     <div class="panel">
       <div class="panel__header">
         <div>
-          <div class="panel__title">Bill all homeowners the same amount</div>
+          <div class="panel__title">Shared fields — used by both actions below</div>
           <div class="panel__description">
-            Posts one assessment per active lot. Requires every lot to
-            have a current primary-contact owner.
+            Description, income account, and dates apply to whichever
+            action you submit. Fill them in once.
           </div>
         </div>
       </div>
@@ -72,13 +40,6 @@
                  required />
         </label>
         <label class="field">
-          <span class="field__label">Amount *</span>
-          <input type="number" name="bulk_amount"
-                 value="{{ values.bulk_amount }}"
-                 step="0.01" min="0.01" inputmode="decimal"
-                 placeholder="0.00" required />
-        </label>
-        <label class="field">
           <span class="field__label">Income Account *</span>
           <select name="income_account_id" required>
             <option value="">— Select —</option>
@@ -89,6 +50,7 @@
               </option>
             {% endfor %}
           </select>
+          <span class="field__hint">Filtered to match the AR account's fund.</span>
         </label>
         <label class="field">
           <span class="field__label">Posting Date *</span>
@@ -99,37 +61,75 @@
           <span class="field__label">Due Date</span>
           <input type="date" name="due_date"
                  value="{{ values.due_date }}" />
-          <span class="field__hint">Optional. Defaults to posting date.</span>
+          <span class="field__hint">Optional · defaults to posting date.</span>
         </label>
-        <div class="form__row--full row">
-          <button type="submit" class="btn btn--primary">
+        <div class="field">
+          <span class="field__label">Posting to AR</span>
+          <div class="mono" style="
+                padding: 7px 10px;
+                background: var(--surface-muted);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                color: var(--text-muted);
+                font-size: 13px;">
+            {{ ar_account_label or '— not configured —' }}
+          </div>
+        </div>
+        <div class="field">
+          <span class="field__label">YTD period shown in the table</span>
+          <div class="mono" style="
+                padding: 7px 10px;
+                background: var(--surface-muted);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                color: var(--text-muted);
+                font-size: 13px;">
+            {{ ytd_period_label }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Option A · Bill all homeowners the same amount</div>
+          <div class="panel__description">
+            Posts one assessment per active lot. Requires every lot to
+            have a current primary-contact owner.
+          </div>
+        </div>
+      </div>
+      <div class="form" style="grid-template-columns: minmax(220px, 360px) 1fr;">
+        <label class="field">
+          <span class="field__label">Amount per homeowner *</span>
+          <input type="number" name="bulk_amount"
+                 value="{{ values.bulk_amount }}"
+                 step="0.01" min="0" inputmode="decimal"
+                 placeholder="0.00" />
+          <span class="field__hint">Used only by the "Bill all" button.</span>
+        </label>
+        <div class="row" style="align-self: end;">
+          <button type="submit" class="btn btn--primary"
+                  formaction="/assessments/bill-all">
             Bill all homeowners
           </button>
         </div>
       </div>
     </div>
-  </form>
-
-  <!-- ── Individual billing form + owner summary table ─────────── -->
-  <form method="post" action="/assessments/bill-individual">
-    <input type="hidden" name="description" value="" id="ind-description-hidden" />
-    <input type="hidden" name="entry_date" value="" id="ind-entry-date-hidden" />
-    <input type="hidden" name="due_date" value="" id="ind-due-date-hidden" />
-    <input type="hidden" name="income_account_id" value="" id="ind-income-hidden" />
 
     <div class="panel">
       <div class="panel__header">
         <div>
-          <div class="panel__title">Bill individual homeowners</div>
+          <div class="panel__title">Option B · Bill specific homeowners</div>
           <div class="panel__description">
-            Enter an amount only for the lots you want to bill. Rows
-            left blank are skipped. Uses the same Description, Income
-            Account, and Dates as the bulk form above — change them
-            there, then come back to this form to submit.
+            Enter an amount in the <strong>Individual Amount</strong>
+            column only for the lots you want to bill. Lots left blank
+            are skipped. YTD Billed / Paid / Balance on the right
+            shows each owner's current standing so you can decide.
           </div>
         </div>
       </div>
-
       <div class="table-wrap" style="overflow: visible;">
         <table>
           <thead>
@@ -174,41 +174,12 @@
           </tbody>
         </table>
       </div>
-
       <div class="row" style="margin-top: var(--sp-4);">
-        <button type="submit" class="btn btn--primary">
-          Bill individual homeowners
+        <button type="submit" class="btn btn--primary"
+                formaction="/assessments/bill-individual">
+          Bill only these homeowners
         </button>
       </div>
     </div>
   </form>
-
-  <script>
-    // Mirror the bulk form's Description / Dates / Income Account into
-    // the individual form's hidden inputs so the user only types them
-    // once. The individual form uses these via the hidden <input>s.
-    (function () {
-      var bulkForm = document.querySelector("form[action='/assessments/bill-all']");
-      var indForm = document.querySelector("form[action='/assessments/bill-individual']");
-      if (!bulkForm || !indForm) return;
-      var mapping = [
-        ["description",         "ind-description-hidden"],
-        ["entry_date",          "ind-entry-date-hidden"],
-        ["due_date",            "ind-due-date-hidden"],
-        ["income_account_id",   "ind-income-hidden"],
-      ];
-      function syncAll() {
-        mapping.forEach(function (pair) {
-          var src = bulkForm.querySelector("[name=" + pair[0] + "]");
-          var dst = document.getElementById(pair[1]);
-          if (src && dst) dst.value = src.value || "";
-        });
-      }
-      ["input", "change"].forEach(function (ev) {
-        bulkForm.addEventListener(ev, syncAll);
-      });
-      indForm.addEventListener("submit", syncAll);
-      syncAll();  // initial
-    })();
-  </script>
 {% endblock %}

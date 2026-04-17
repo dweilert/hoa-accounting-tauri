@@ -186,7 +186,9 @@ class AssessmentBillingPages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "bill-assessments",
-            "breadcrumb": "Transactions · Bill Assessments",
+            # Breadcrumb shows the path TO this page; the heading
+            # already says 'Bill Assessments'.
+            "breadcrumb": "Transactions",
             "ar_account_label": ar_account_label,
             "income_accounts": income_accounts,
             "lot_rows": lot_rows,
