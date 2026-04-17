@@ -90,6 +90,61 @@ class LotsRepository(BaseRepository):
             ).fetchall()
         )
 
+    def list_lots_with_occupancy(
+        self, *, active_only: bool = True
+    ) -> list[sqlite3.Row]:
+        """Lots joined to current primary owner AND current primary renter.
+
+        Per-row columns:
+          - lot fields + owner_id/owner_name (primary contact, same as
+            list_lots)
+          - renter_id / renter_name / renter_email / renter_phone —
+            the lot's current primary-contact renter (NULL for owner-
+            occupied lots)
+          - is_owner_occupied — derived: 1 when no current renter, 0
+            when a renter is present. Simpler for callers than
+            computing from NULL-ness of renter_id.
+        """
+        predicates = []
+        if active_only:
+            predicates.append("l.active_flag = 1")
+        where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT
+                    l.id AS lot_id,
+                    l.lot_number,
+                    l.street_address_1,
+                    l.street_address_2,
+                    l.city,
+                    l.state,
+                    l.postal_code,
+                    l.active_flag,
+                    o.id AS owner_id,
+                    o.display_name AS owner_name,
+                    r.id AS renter_id,
+                    r.display_name AS renter_name,
+                    r.email AS renter_email,
+                    r.phone AS renter_phone,
+                    CASE WHEN r.id IS NULL THEN 1 ELSE 0 END AS is_owner_occupied
+                FROM lots l
+                LEFT JOIN lot_ownership lo
+                  ON lo.lot_id = l.id
+                 AND lo.end_date IS NULL
+                 AND lo.is_primary_contact = 1
+                LEFT JOIN owners o
+                  ON o.id = lo.owner_id
+                LEFT JOIN lot_renters r
+                  ON r.lot_id = l.id
+                 AND r.end_date IS NULL
+                 AND r.is_primary_contact = 1
+                {where_sql}
+                ORDER BY l.lot_number COLLATE NOCASE
+                """
+            ).fetchall()
+        )
+
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return lots with their current primary-contact owner, if any.
 
