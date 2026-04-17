@@ -76,6 +76,75 @@ class LotRentersRepository(BaseRepository):
             ).fetchall()
         )
 
+    def list_all_renters(self) -> list[sqlite3.Row]:
+        """Return every renter row joined to its lot, current renters first.
+
+        Columns: all lot_renters fields plus lot_number and street_address_1
+        from the lots table. Within each group (current / ended), ordered by
+        lot_number then start_date descending.
+        """
+        return list(
+            self.conn.execute(
+                """
+                SELECT
+                    r.id, r.lot_id, r.display_name, r.first_name, r.last_name,
+                    r.email, r.phone, r.start_date, r.end_date, r.notes,
+                    CASE WHEN r.end_date IS NULL THEN 1 ELSE 0 END AS is_current,
+                    l.lot_number, l.street_address_1
+                FROM lot_renters r
+                JOIN lots l ON l.id = r.lot_id
+                ORDER BY
+                    CASE WHEN r.end_date IS NULL THEN 0 ELSE 1 END,
+                    l.lot_number COLLATE NOCASE,
+                    r.start_date DESC,
+                    r.id DESC
+                """
+            ).fetchall()
+        )
+
+    def get_renter(self, renter_id: int) -> sqlite3.Row | None:
+        """Return a single renter row by id, or None."""
+        return self.conn.execute(
+            """
+            SELECT
+                r.id, r.lot_id, r.display_name, r.first_name, r.last_name,
+                r.email, r.phone, r.start_date, r.end_date, r.notes,
+                CASE WHEN r.end_date IS NULL THEN 1 ELSE 0 END AS is_current,
+                l.lot_number, l.street_address_1
+            FROM lot_renters r
+            JOIN lots l ON l.id = r.lot_id
+            WHERE r.id = ?
+            """,
+            (renter_id,),
+        ).fetchone()
+
+    def update_renter(
+        self,
+        *,
+        renter_id: int,
+        lot_id: int,
+        display_name: str,
+        first_name: str | None,
+        last_name: str | None,
+        email: str | None,
+        phone: str | None,
+        start_date: str,
+        notes: str | None,
+    ) -> None:
+        """Update editable fields on an existing renter row."""
+        self.conn.execute(
+            """
+            UPDATE lot_renters
+               SET lot_id = ?, display_name = ?, first_name = ?, last_name = ?,
+                   email = ?, phone = ?, start_date = ?, notes = ?
+             WHERE id = ?
+            """,
+            (
+                lot_id, display_name, first_name, last_name,
+                email, phone, start_date, notes, renter_id,
+            ),
+        )
+
     def list_renter_history(self, lot_id: int) -> list[sqlite3.Row]:
         """Return every renter (past + current) for a lot, newest first."""
         return list(

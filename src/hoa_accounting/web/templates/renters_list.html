@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Renters · {{ org.name }}{% endblock %}
+{% block heading %}Renters{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ renters|length }} record{% if renters|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Renters</div>
+        <div class="panel__description">
+          All renters across every lot. Ended tenancies are shown below active ones.
+        </div>
+      </div>
+      <a href="/renters/add" class="btn btn--primary btn--sm">Add Renter</a>
+    </div>
+
+    {% if renters %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Lot</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Start Date</th>
+              <th>End Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in renters %}
+              <tr{% if not r.is_current %} style="opacity:.5;"{% endif %}>
+                <td class="mono">{{ r.lot_number }}</td>
+                <td>{{ r.display_name }}</td>
+                <td>{{ r.phone or '' }}</td>
+                <td>{{ r.email or '' }}</td>
+                <td class="mono">{{ r.start_date }}</td>
+                <td class="mono">{{ r.end_date or '—' }}</td>
+                <td style="white-space:nowrap;">
+                  <a href="/renters/{{ r.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                  {% if r.is_current %}
+                    <form method="post" action="/renters/{{ r.id }}/end"
+                          style="display:inline-flex;gap:.375rem;align-items:center;margin-left:.25rem;">
+                      <input type="date" name="end_date" value="{{ today }}" required
+                             style="font-size:.8rem;" />
+                      <button type="submit" class="btn btn--sm btn--danger">End Tenancy</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No renters on record. Use Add Renter to record the first one.</div>
+    {% endif %}
+  </div>
+{% endblock %}
