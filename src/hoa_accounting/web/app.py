@@ -30,6 +30,7 @@ from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.master_data_pages import MasterDataListService
 from hoa_accounting.web.owner_pages import OwnerPages
+from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
     HomePageService,
@@ -205,9 +206,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/accounts")
     def list_accounts() -> Response: return _render_list("accounts")
-
-    @app.get("/vendors")
-    def list_vendors() -> Response: return _render_list("vendors")
 
     @app.get("/bank-accounts")
     def list_bank_accounts() -> Response: return _render_list("bank-accounts")
@@ -396,6 +394,101 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             renter_id=renter_id,
             form_data={k: v for k, v in request.form.items()},
             org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Vendor pages ─────────────────────────────────────────────────
+
+    def _open_vendor_pages() -> VendorPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; vendor pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._vendor_conn = conn
+        return VendorPages(conn)
+
+    @app.teardown_request
+    def _close_vendor_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_vendor_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._vendor_conn = None
+
+    @app.get("/vendors")
+    def list_vendors() -> Response:
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/vendors/add")
+    def new_vendor_form() -> Response:
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendors/add")
+    def submit_new_vendor() -> Response:
+        from flask import redirect
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/vendors/<int:vendor_id>/edit")
+    def edit_vendor_form(vendor_id: int) -> Response:
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 vendor_id=vendor_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendors/<int:vendor_id>/edit")
+    def submit_edit_vendor(vendor_id: int) -> Response:
+        from flask import redirect
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        if "_active_flag_present" in form_data and "active_flag" not in form_data:
+            form_data["active_flag"] = "0"
+        redirect_url, form_resp = pages.handle_edit(
+            vendor_id=vendor_id, form_data=form_data,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendors/<int:vendor_id>/delete")
+    def submit_delete_vendor(vendor_id: int) -> Response:
+        from flask import redirect
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            vendor_id=vendor_id, org=org_context, theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)

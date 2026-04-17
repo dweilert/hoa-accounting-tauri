@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Vendors · {{ org.name }}{% endblock %}
+{% block heading %}Vendors{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ vendors|length }} record{% if vendors|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Vendors</div>
+        <div class="panel__description">
+          Companies and service providers the HOA pays.
+        </div>
+      </div>
+      <a href="/vendors/add" class="btn btn--primary btn--sm">Add Vendor</a>
+    </div>
+
+    {% if vendors %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Vendor Name</th>
+              <th>Contact</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>City / State</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in vendors %}
+              <tr{% if not v.active_flag %} style="opacity:.5;"{% endif %}>
+                <td>{{ v.vendor_name }}</td>
+                <td>{{ v.contact_name or '' }}</td>
+                <td>{{ v.phone or '' }}</td>
+                <td>{{ v.email or '' }}</td>
+                <td>
+                  {% set parts = [] %}
+                  {% if v.city %}{% set _ = parts.append(v.city) %}{% endif %}
+                  {% if v.state %}{% set _ = parts.append(v.state) %}{% endif %}
+                  {{ parts | join(', ') }}
+                </td>
+                <td>{% if v.active_flag %}Active{% else %}Inactive{% endif %}</td>
+                <td>
+                  <a href="/vendors/{{ v.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No vendors on record. Use Add Vendor to record the first one.</div>
+    {% endif %}
+  </div>
+{% endblock %}

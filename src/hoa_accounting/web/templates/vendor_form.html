@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/vendors" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if is_edit %}
+    <form method="post" action="/vendors/{{ vendor_id }}/edit" class="form">
+  {% else %}
+    <form method="post" action="/vendors/add" class="form">
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Vendor Details</div>
+        <div class="panel__description">Name, contact, and address for this vendor.</div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Vendor Name *</span>
+      <input type="text" name="vendor_name"
+             value="{{ values.vendor_name }}"
+             placeholder="e.g. Sunrise Landscaping"
+             required />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Contact Name</span>
+      <input type="text" name="contact_name"
+             value="{{ values.contact_name }}"
+             placeholder="Jane Smith" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Phone</span>
+      <input type="tel" name="phone"
+             value="{{ values.phone }}" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Email</span>
+      <input type="email" name="email"
+             value="{{ values.email }}" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Address</span>
+      <input type="text" name="address_1"
+             value="{{ values.address_1 }}"
+             placeholder="123 Main St" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Address 2</span>
+      <input type="text" name="address_2"
+             value="{{ values.address_2 }}"
+             placeholder="Suite 100" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">City</span>
+      <input type="text" name="city"
+             value="{{ values.city }}" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">State</span>
+      <input type="text" name="state"
+             value="{{ values.state }}"
+             maxlength="2"
+             placeholder="TX" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Postal Code</span>
+      <input type="text" name="postal_code"
+             value="{{ values.postal_code }}"
+             placeholder="78701" />
+    </label>
+
+    <label class="field form__row--full">
+      <span class="field__label">Notes</span>
+      <input type="text" name="notes"
+             value="{{ values.notes }}" />
+    </label>
+
+    {% if is_edit %}
+      <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;">
+        <input type="checkbox" name="active_flag" value="1"
+               {% if values.active_flag == '1' %}checked{% endif %}
+               style="width:auto;" />
+        <span class="field__label" style="margin:0;">Active</span>
+      </label>
+      <input type="hidden" name="_active_flag_present" value="1" />
+    {% endif %}
+  </div>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" class="btn btn--primary">
+      {% if is_edit %}Save Changes{% else %}Add Vendor{% endif %}
+    </button>
+    <a href="/vendors" class="btn btn--ghost">Cancel</a>
+    {% if is_edit %}
+      <span style="flex:1;"></span>
+      {% if values.has_bills == '1' %}
+        <span style="font-size:.8rem;color:var(--color-text-muted);">Has bills — deactivate instead of deleting</span>
+      {% else %}
+        <form method="post" action="/vendors/{{ vendor_id }}/delete"
+              onsubmit="return confirm('Delete this vendor? This cannot be undone.');">
+          <button type="submit" class="btn btn--danger btn--sm">Delete Vendor</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  </form>
+{% endblock %}
