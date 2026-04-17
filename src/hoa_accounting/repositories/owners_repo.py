@@ -109,10 +109,55 @@ class OwnersRepository(BaseRepository):
         return int(row[0]) > 0
 
     def delete_owner(self, owner_id: int) -> None:
-        """Hard-delete an owner and all their lot ownership history."""
+        """Hard-delete an owner and all related records (for test data cleanup).
+
+        Cascade order:
+          payment_applications  (cascade from payments)
+          payments              -> journal entries collected below
+          assessments           -> journal entries collected below
+          owner_adjustments     -> journal entries collected below
+          journal_entry_lines   (NULL out nullable owner_id on shared entries)
+          journal_entries       (dedicated 1-to-1 entries from above)
+          lot_ownership
+          owners
+        """
+        # Collect the dedicated journal entry IDs before deleting records
+        je_rows = self.conn.execute(
+            """
+            SELECT journal_entry_id FROM assessments     WHERE owner_id = ?
+            UNION ALL
+            SELECT journal_entry_id FROM payments        WHERE owner_id = ?
+            UNION ALL
+            SELECT journal_entry_id FROM owner_adjustments WHERE owner_id = ?
+            """,
+            (owner_id, owner_id, owner_id),
+        ).fetchall()
+        je_ids = [row[0] for row in je_rows]
+
+        # payment_applications cascade automatically from payments, but be explicit
         self.conn.execute(
-            "DELETE FROM lot_ownership WHERE owner_id = ?", (owner_id,)
+            "DELETE FROM payment_applications "
+            "WHERE payment_id IN (SELECT id FROM payments WHERE owner_id = ?)",
+            (owner_id,),
         )
+        self.conn.execute("DELETE FROM payments         WHERE owner_id = ?", (owner_id,))
+        self.conn.execute("DELETE FROM assessments      WHERE owner_id = ?", (owner_id,))
+        self.conn.execute("DELETE FROM owner_adjustments WHERE owner_id = ?", (owner_id,))
+
+        # NULL out owner_id on any shared journal entry lines that still reference this owner
+        self.conn.execute(
+            "UPDATE journal_entry_lines SET owner_id = NULL WHERE owner_id = ?",
+            (owner_id,),
+        )
+
+        # Delete the 1-to-1 journal entries (journal_entry_lines cascade from these)
+        if je_ids:
+            placeholders = ",".join("?" * len(je_ids))
+            self.conn.execute(
+                f"DELETE FROM journal_entries WHERE id IN ({placeholders})", je_ids
+            )
+
+        self.conn.execute("DELETE FROM lot_ownership WHERE owner_id = ?", (owner_id,))
         self.conn.execute("DELETE FROM owners WHERE id = ?", (owner_id,))
 
     def list_owners(self, *, active_only: bool = True) -> list[sqlite3.Row]:
