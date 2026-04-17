@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Budget {{ budget.fiscal_year }} {{ budget.fund_code }} · {{ org.name }}{% endblock %}
+{% block heading %}Budget {{ budget.fiscal_year }} — {{ budget.fund_code | title }}{% endblock %}
+
+{% block topbar_meta %}
+  {% if budget.status == 'DRAFT' %}
+    <span class="pill" style="font-size:.75rem;background:var(--accent-warm);color:var(--text);">Draft</span>
+  {% elif budget.status == 'APPROVED' %}
+    <span class="pill pill--ok" style="font-size:.75rem;">Approved</span>
+  {% else %}
+    <span class="pill pill--muted" style="font-size:.75rem;">Archived</span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      {{ error }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Action bar ──────────────────────────────────────────────────── #}
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
+    <a href="/budgets" class="btn btn--ghost btn--sm">← All Budgets</a>
+    {% if is_draft %}
+      <form method="post" action="/budgets/{{ budget.id }}/approve" style="display:inline;">
+        <button type="submit" class="btn btn--primary btn--sm">Approve Budget</button>
+      </form>
+      <form method="post" action="/budgets/{{ budget.id }}/delete" style="display:inline;"
+            onsubmit="return confirm('Delete this draft budget and all its lines?');">
+        <button type="submit" class="btn btn--danger btn--sm">Delete Draft</button>
+      </form>
+    {% elif is_approved %}
+      <form method="post" action="/budgets/{{ budget.id }}/archive" style="display:inline;">
+        <button type="submit" class="btn btn--ghost btn--sm">Archive</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {# ── Spreadsheet grid ─────────────────────────────────────────────── #}
+  {#
+    Column layout (table-layout:fixed so widths are exact):
+      Col 0 — Account name        160 px  sticky left:0
+      Col 1 — Annual ÷ spread     168 px  sticky left:160px
+      Col 2-13 — Jan … Dec         72 px × 12 = 864 px  (scrollable)
+      Col 14 — Row total           80 px  (scrollable)
+    Total table width: 160 + 168 + 864 + 80 = 1272 px
+  #}
+  <form method="post" action="/budgets/{{ budget.id }}/edit">
+    <div class="panel">
+      <div class="panel__header" style="margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem;">
+        <div>
+          <div class="panel__title">Monthly Budget by Account</div>
+          <div class="panel__description">
+            Enter monthly amounts directly, or type an annual total in the
+            <strong>Annual ÷</strong> column and choose a spread method.
+            {% if not is_draft %}Read-only — budget is {{ budget.status | lower }}.{% endif %}
+          </div>
+        </div>
+        {% if is_draft %}
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+            <label class="field" style="margin:0;flex:0 0 auto;">
+              <span class="field__label" style="font-size:11px;">Notes</span>
+              <input type="text" name="notes" value="{{ budget.notes or '' }}"
+                     placeholder="Optional notes" style="max-width:220px;font-size:12px;">
+            </label>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if account_rows %}
+        {#
+          The outer div is the horizontal scroll container.
+          Sticky cells are sticky relative to this container's left edge,
+          so the account + annual columns stay pinned while months scroll.
+        #}
+        <div style="overflow-x:auto;border-top:1px solid var(--border,#e0e0e0);">
+          <table id="budget-grid"
+                 style="table-layout:fixed;width:1272px;border-collapse:collapse;">
+            <colgroup>
+              <col style="width:160px;">
+              <col style="width:80px;">
+              <col style="width:168px;">
+              {% for _ in month_names %}<col style="width:72px;">{% endfor %}
+            </colgroup>
+            <thead>
+              <tr style="background:var(--surface);">
+                <th style="width:160px;text-align:left;padding:.4rem .5rem;font-size:12px;
+                           position:sticky;left:0;z-index:3;background:var(--surface);
+                           border-bottom:2px solid var(--border,#ccc);">
+                  Account
+                </th>
+                <th style="width:80px;text-align:right;padding:.4rem .5rem;font-size:11px;font-weight:700;
+                           position:sticky;left:160px;z-index:3;background:var(--surface);
+                           border-bottom:2px solid var(--border,#ccc);
+                           border-left:1px solid var(--border,#ddd);
+                           border-right:1px solid var(--border,#ddd);">
+                  Total
+                </th>
+                <th style="width:168px;text-align:center;padding:.4rem .4rem;font-size:11px;
+                           background:#f0f6f0;color:#2d5a2d;
+                           border-bottom:2px solid var(--border,#ccc);
+                           border-right:2px solid #a0c8a0;">
+                  Annual ÷ Spread
+                </th>
+                {% for m in month_names %}
+                  <th style="width:72px;text-align:right;padding:.4rem .3rem;font-size:11px;
+                             border-bottom:2px solid var(--border,#ccc);">
+                    {{ m }}
+                  </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody id="budget-body">
+              {% set ns = namespace(current_group=None, row_idx=0) %}
+              {% for row in account_rows %}
+
+                {# ── Group header row ────────────────────────────────── #}
+                {% if row.group_code != ns.current_group %}
+                  {% set ns.current_group = row.group_code %}
+                  {% set ns.row_idx = 0 %}
+                  <tr class="budget-group-header">
+                    {# Sticky label cell #}
+                    <td style="position:sticky;left:0;z-index:2;background:#deeede;
+                               padding:.3rem .5rem;font-size:10px;font-weight:800;
+                               letter-spacing:.07em;text-transform:uppercase;
+                               color:#2d5a2d;border-top:1px solid #b8d8b8;">
+                      {{ row.group_label }}
+                    </td>
+                    {# Total cell #}
+                    <td style="position:sticky;left:160px;z-index:2;background:#deeede;
+                               border-left:1px solid #b8d8b8;
+                               border-right:1px solid #b8d8b8;border-top:1px solid #b8d8b8;"></td>
+                    {# Annual-spread cell #}
+                    <td style="background:#deeede;border-right:2px solid #a0c8a0;
+                               border-top:1px solid #b8d8b8;"></td>
+                    {# Month cells #}
+                    {% for _ in month_names %}
+                      <td style="background:#deeede;border-top:1px solid #b8d8b8;"></td>
+                    {% endfor %}
+                  </tr>
+                {% endif %}
+
+                {# ── Data row ────────────────────────────────────────── #}
+                {# Alternate white / very pale green within each group #}
+                {% if ns.row_idx % 2 == 0 %}
+                  {% set row_bg = '#ffffff' %}
+                {% else %}
+                  {% set row_bg = '#f2faf2' %}
+                {% endif %}
+                {% set ns.row_idx = ns.row_idx + 1 %}
+
+                <tr class="budget-row" data-account="{{ row.account_id }}"
+                    style="background:{{ row_bg }};">
+
+                  {# Account name — sticky #}
+                  <td style="position:sticky;left:0;z-index:1;background:{{ row_bg }};
+                              padding:.25rem .5rem;vertical-align:middle;
+                              border-bottom:1px solid var(--border,#ececec);">
+                    <span class="mono" style="font-size:10px;color:var(--text-muted);">{{ row.account_number }}</span>
+                    <span style="font-size:12px;margin-left:.3rem;">{{ row.account_name }}</span>
+                  </td>
+
+                  {# Row total #}
+                  <td class="row-total"
+                      style="position:sticky;left:160px;z-index:1;background:{{ row_bg }};
+                             text-align:right;font-size:11px;font-weight:600;
+                             font-family:var(--font-mono);padding:.25rem .5rem;
+                             white-space:nowrap;color:var(--text-muted);
+                             border-left:1px solid var(--border,#ddd);
+                             border-right:1px solid var(--border,#ddd);
+                             border-bottom:1px solid var(--border,#ececec);">
+                    {{ row.row_total }}
+                  </td>
+
+                  {# Annual ÷ spread #}
+                  <td style="background:{{ row_bg }};padding:.2rem .3rem;vertical-align:middle;
+                              border-right:2px solid var(--border,#ccc);
+                              border-bottom:1px solid var(--border,#ececec);">
+                    {% if is_draft %}
+                      <div style="display:flex;gap:2px;align-items:center;">
+                        <input type="text"
+                               class="annual-input"
+                               data-row="{{ row.account_id }}"
+                               placeholder="Annual"
+                               inputmode="decimal"
+                               style="width:66px;font-size:11px;text-align:right;
+                                      font-family:var(--font-mono);padding:.2rem .3rem;
+                                      border:1px solid var(--border,#ccc);border-radius:3px;
+                                      background:var(--input,#fff);">
+                        <select class="spread-select"
+                                data-row="{{ row.account_id }}"
+                                style="font-size:10px;padding:.2rem .2rem;
+                                       border:1px solid var(--border,#ccc);border-radius:3px;
+                                       background:var(--input,#fff);max-width:94px;">
+                          <option value="">÷ Spread</option>
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="bimonthly">Bi-Monthly</option>
+                          <option value="semiannual">Semi-Annual</option>
+                        </select>
+                      </div>
+                    {% endif %}
+                  </td>
+
+                  {# Monthly cells #}
+                  {% for cell in row.monthly %}
+                    <td style="padding:.15rem .2rem;vertical-align:middle;
+                               border-bottom:1px solid var(--border,#ececec);">
+                      {% if is_draft %}
+                        <input type="text"
+                               name="{{ cell.field }}"
+                               value="{{ cell.value }}"
+                               inputmode="decimal"
+                               class="budget-cell"
+                               data-row="{{ row.account_id }}"
+                               data-col="{{ cell.period }}"
+                               style="width:64px;text-align:right;font-size:11px;
+                                      font-family:var(--font-mono);padding:.2rem .25rem;
+                                      border:1px solid var(--border,#ccc);border-radius:3px;
+                                      background:var(--input,#fff);">
+                      {% else %}
+                        <span style="display:block;text-align:right;font-size:11px;
+                                     font-family:var(--font-mono);padding:.2rem .25rem;
+                                     color:{% if cell.value %}var(--text){% else %}var(--text-muted){% endif %};">
+                          {{ cell.value or '' }}
+                        </span>
+                      {% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+
+            <tfoot>
+              <tr style="background:var(--surface);">
+                <td style="position:sticky;left:0;background:var(--surface);
+                           border-top:2px solid var(--border,#ccc);"></td>
+                <td id="grand-total"
+                    style="position:sticky;left:160px;z-index:2;background:var(--surface);
+                           text-align:right;font-size:11px;font-weight:700;
+                           font-family:var(--font-mono);padding:.4rem .5rem;
+                           border-left:1px solid var(--border,#ddd);
+                           border-right:1px solid var(--border,#ddd);
+                           border-top:2px solid var(--border,#ccc);">
+                  —
+                </td>
+                <td style="background:var(--surface);
+                           border-right:2px solid var(--border,#ccc);
+                           border-top:2px solid var(--border,#ccc);"></td>
+                {% for _ in month_names %}
+                  <td class="col-total"
+                      style="text-align:right;font-size:11px;font-weight:700;
+                             font-family:var(--font-mono);padding:.4rem .25rem;
+                             border-top:2px solid var(--border,#ccc);">
+                    —
+                  </td>
+                {% endfor %}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">No active expense accounts found.</div>
+      {% endif %}
+    </div>
+
+    {% if is_draft %}
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+        <button type="submit" class="btn btn--primary">Save</button>
+        <a href="/budgets" class="btn btn--ghost">Cancel</a>
+      </div>
+    {% endif %}
+  </form>
+
+  <script>
+(function () {
+  // ── Helpers ────────────────────────────────────────────────────────
+  function parseAmt(val) {
+    var n = parseFloat((val || "").replace(/,/g, ""));
+    return isNaN(n) ? 0 : n;
+  }
+  function fmt(n) {
+    if (n === 0) return "";
+    return n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  // ── Recalculate row totals and column totals ───────────────────────
+  function recalc() {
+    var colSums = {};
+    for (var p = 1; p <= 12; p++) colSums[p] = 0;
+
+    document.querySelectorAll(".budget-row").forEach(function (tr) {
+      var rowSum = 0;
+      tr.querySelectorAll(".budget-cell").forEach(function (inp) {
+        var col = parseInt(inp.getAttribute("data-col"));
+        var v = parseAmt(inp.value);
+        rowSum += v;
+        colSums[col] = (colSums[col] || 0) + v;
+      });
+      var rowTd = tr.querySelector(".row-total");
+      if (rowTd) rowTd.textContent = fmt(rowSum);
+    });
+
+    var colTds = document.querySelectorAll(".col-total");
+    var grand = 0;
+    colTds.forEach(function (td, i) {
+      var s = colSums[i + 1] || 0;
+      grand += s;
+      td.textContent = fmt(s);
+    });
+    var gt = document.getElementById("grand-total");
+    if (gt) gt.textContent = fmt(grand);
+  }
+
+  // ── Spread an annual amount across months ──────────────────────────
+  function spread(rowId, annualVal, method) {
+    var total = parseAmt(annualVal);
+    if (!total || !method) return;
+
+    var schedule;
+    switch (method) {
+      case "monthly":    schedule = [1,2,3,4,5,6,7,8,9,10,11,12]; break;
+      case "quarterly":  schedule = [1,4,7,10]; break;
+      case "bimonthly":  schedule = [1,3,5,7,9,11]; break;
+      case "semiannual": schedule = [1,7]; break;
+      default: return;
+    }
+
+    // Round each instalment to 2 dp; put the remainder in the last slot
+    var count  = schedule.length;
+    var each   = Math.floor(total / count * 100) / 100;
+    var last   = Math.round((total - each * (count - 1)) * 100) / 100;
+
+    // Clear ALL cells for this row first
+    for (var m = 1; m <= 12; m++) {
+      var cell = document.querySelector(
+        '.budget-cell[data-row="' + rowId + '"][data-col="' + m + '"]'
+      );
+      if (cell) cell.value = "";
+    }
+
+    // Fill the scheduled months
+    schedule.forEach(function (m, i) {
+      var cell = document.querySelector(
+        '.budget-cell[data-row="' + rowId + '"][data-col="' + m + '"]'
+      );
+      if (!cell) return;
+      var amt = (i === count - 1) ? last : each;
+      cell.value = amt > 0 ? amt.toFixed(2) : "";
+    });
+
+    recalc();
+  }
+
+  // ── Wire up monthly cells ──────────────────────────────────────────
+  document.querySelectorAll(".budget-cell").forEach(function (inp) {
+    inp.addEventListener("input", recalc);
+    // Enter → move down to same column in next row
+    inp.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      var col = inp.getAttribute("data-col");
+      var all = Array.from(
+        document.querySelectorAll('.budget-cell[data-col="' + col + '"]')
+      );
+      var idx = all.indexOf(inp);
+      if (idx >= 0 && idx + 1 < all.length) all[idx + 1].focus();
+    });
+  });
+
+  // ── Wire up spread selects ─────────────────────────────────────────
+  document.querySelectorAll(".spread-select").forEach(function (sel) {
+    sel.addEventListener("change", function () {
+      var method = sel.value;
+      if (!method) return;
+      var rowId = sel.getAttribute("data-row");
+      var annualInp = document.querySelector(
+        '.annual-input[data-row="' + rowId + '"]'
+      );
+      spread(rowId, annualInp ? annualInp.value : "", method);
+      sel.value = "";              // reset dropdown
+      if (annualInp) annualInp.value = "";  // clear the annual amount
+    });
+  });
+
+  // Reset horizontal scroll to leftmost on load
+  var scrollWrap = document.querySelector("#budget-grid")
+    && document.querySelector("#budget-grid").closest("[style*='overflow-x']");
+  if (scrollWrap) scrollWrap.scrollLeft = 0;
+
+  recalc();
+})();
+  </script>
+{% endblock %}

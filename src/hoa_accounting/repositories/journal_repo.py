@@ -206,6 +206,62 @@ class JournalRepository(BaseRepository):
             ).fetchall()
         )
 
+    def list_manual_entries(self) -> list[sqlite3.Row]:
+        """Return all MANUAL journal entries, newest first."""
+        return list(
+            self.conn.execute(
+                """
+                SELECT je.id, je.entry_number, je.entry_date, je.memo,
+                       je.status, je.posted_at, je.reversal_entry_id,
+                       ap.period_name
+                FROM journal_entries je
+                LEFT JOIN accounting_periods ap
+                       ON ap.id = je.accounting_period_id
+                WHERE je.source_type = 'MANUAL'
+                ORDER BY je.entry_date DESC, je.entry_number DESC
+                """,
+            ).fetchall()
+        )
+
+    def get_journal_entry_with_lines(
+        self, journal_entry_id: int
+    ) -> tuple[sqlite3.Row | None, list[sqlite3.Row]]:
+        """Return (header_row, lines) for a journal entry."""
+        header = self.conn.execute(
+            """
+            SELECT je.id, je.entry_number, je.entry_date, je.memo,
+                   je.source_type, je.status, je.posted_at,
+                   je.reversal_entry_id,
+                   ap.period_name
+            FROM journal_entries je
+            LEFT JOIN accounting_periods ap
+                   ON ap.id = je.accounting_period_id
+            WHERE je.id = ?
+            """,
+            (journal_entry_id,),
+        ).fetchone()
+        if header is None:
+            return None, []
+        lines = list(
+            self.conn.execute(
+                """
+                SELECT jel.line_number,
+                       jel.account_id,
+                       a.account_number,
+                       a.account_name,
+                       jel.description,
+                       jel.debit_amount,
+                       jel.credit_amount
+                FROM journal_entry_lines jel
+                JOIN accounts a ON a.id = jel.account_id
+                WHERE jel.journal_entry_id = ?
+                ORDER BY jel.line_number
+                """,
+                (journal_entry_id,),
+            ).fetchall()
+        )
+        return header, lines
+
     def mark_reversed(
         self,
         *,

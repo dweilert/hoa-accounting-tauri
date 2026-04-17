@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/accounting-periods" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if is_generate %}
+    <form id="period-form" method="post" action="/accounting-periods/generate" class="form">
+  {% else %}
+    <form id="period-form" method="post" action="/accounting-periods/add" class="form">
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        {% if is_generate %}
+          <div class="panel__title">Generate Year</div>
+          <div class="panel__description">Creates all 12 monthly periods for a fiscal year at once.</div>
+        {% else %}
+          <div class="panel__title">Period Details</div>
+          <div class="panel__description">Manually add a single accounting period.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if is_generate %}
+
+      <label class="field">
+        <span class="field__label">Fiscal Year *</span>
+        <input type="number" name="fiscal_year"
+               value="{{ values.fiscal_year }}"
+               min="2000" max="2100"
+               required
+               style="max-width:10rem;" />
+        <span class="field__hint">Enter the 4-digit year (e.g. {{ values.fiscal_year }}). Creates Jan–Dec periods.</span>
+      </label>
+
+    {% else %}
+
+      <label class="field">
+        <span class="field__label">Period Name *</span>
+        <input type="text" name="period_name"
+               value="{{ values.period_name }}"
+               placeholder="e.g. 2026-01"
+               required
+               style="max-width:12rem;" />
+        <span class="field__hint">Must be unique. Use YYYY-MM format for monthly periods.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Start Date *</span>
+        <input type="date" name="start_date"
+               value="{{ values.start_date }}"
+               required />
+      </label>
+
+      <label class="field">
+        <span class="field__label">End Date *</span>
+        <input type="date" name="end_date"
+               value="{{ values.end_date }}"
+               required />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Fiscal Year *</span>
+        <input type="number" name="fiscal_year"
+               value="{{ values.fiscal_year }}"
+               min="2000" max="2100"
+               required
+               style="max-width:10rem;" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Fiscal Period (Month #) *</span>
+        <input type="number" name="fiscal_period"
+               value="{{ values.fiscal_period }}"
+               min="1" max="12"
+               required
+               style="max-width:8rem;" />
+        <span class="field__hint">1 = January … 12 = December</span>
+      </label>
+
+    {% endif %}
+  </div>
+
+  </form>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" form="period-form" class="btn btn--primary">
+      {% if is_generate %}Generate Periods{% else %}Add Period{% endif %}
+    </button>
+    <a href="/accounting-periods" class="btn btn--ghost">Cancel</a>
+  </div>
+{% endblock %}

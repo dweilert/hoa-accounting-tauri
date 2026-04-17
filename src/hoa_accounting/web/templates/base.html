@@ -51,6 +51,18 @@
               Reports
             </a>
           </li>
+          <li>
+            <a href="/ledger/transactions"
+               class="sidebar__link{% if page_key == 'all-transactions' %} sidebar__link--active{% endif %}">
+              All Transactions
+            </a>
+          </li>
+          <li>
+            <a href="/ledger/by-account"
+               class="sidebar__link{% if page_key == 'ledger-by-account' %} sidebar__link--active{% endif %}">
+              Ledger by Account
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -84,6 +96,18 @@
             <a href="/vendor-bills"
                class="sidebar__link{% if active_nav == 'transactions' and page_key == 'vendor-bills' %} sidebar__link--active{% endif %}">
               Vendor Bills
+            </a>
+          </li>
+          <li>
+            <a href="/accounting-periods"
+               class="sidebar__link{% if active_nav == 'transactions' and page_key == 'accounting-periods' %} sidebar__link--active{% endif %}">
+              Accounting Periods
+            </a>
+          </li>
+          <li>
+            <a href="/journal-entries"
+               class="sidebar__link{% if active_nav == 'transactions' and page_key == 'journal-entries' %} sidebar__link--active{% endif %}">
+              Journal Entries
             </a>
           </li>
         </ul>
@@ -132,6 +156,12 @@
             <a href="/bank-accounts"
                class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">
               Bank Accounts
+            </a>
+          </li>
+          <li>
+            <a href="/budgets"
+               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'budgets' %} sidebar__link--active{% endif %}">
+              Budgets
             </a>
           </li>
         </ul>

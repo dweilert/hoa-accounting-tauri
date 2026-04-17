@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/lots" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if is_edit %}
+    <form id="lot-form" method="post" action="/lots/{{ lot_id }}/edit" class="form">
+  {% else %}
+    <form id="lot-form" method="post" action="/lots/add" class="form">
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Lot Details</div>
+        <div class="panel__description">Lot number and address information.</div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Lot Number *</span>
+      <input type="text" name="lot_number"
+             value="{{ values.lot_number }}"
+             placeholder="e.g. 42 or L-42"
+             required />
+      <span class="field__hint">Must be unique across all lots.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Street Address</span>
+      <input type="text" name="street_address_1"
+             value="{{ values.street_address_1 }}"
+             placeholder="123 Main St" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Street Address 2</span>
+      <input type="text" name="street_address_2"
+             value="{{ values.street_address_2 }}"
+             placeholder="Unit, Suite, etc." />
+    </label>
+
+    <label class="field">
+      <span class="field__label">City</span>
+      <input type="text" name="city"
+             value="{{ values.city }}" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">State</span>
+      <input type="text" name="state"
+             value="{{ values.state }}"
+             maxlength="2"
+             placeholder="TX" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Postal Code</span>
+      <input type="text" name="postal_code"
+             value="{{ values.postal_code }}"
+             placeholder="78701" />
+    </label>
+
+    <label class="field form__row--full">
+      <span class="field__label">Legal Description</span>
+      <input type="text" name="legal_description"
+             value="{{ values.legal_description }}"
+             placeholder="e.g. Lot 42, Block 3, Sunset Ridge Subdivision" />
+    </label>
+
+    {% if is_edit %}
+      <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;">
+        <input type="checkbox" name="active_flag" value="1"
+               {% if values.active_flag == '1' %}checked{% endif %}
+               style="width:auto;" />
+        <span class="field__label" style="margin:0;">Active</span>
+      </label>
+      {# Hidden field ensures active_flag=0 is submitted when checkbox is unchecked #}
+      <input type="hidden" name="_active_flag_present" value="1" />
+    {% endif %}
+  </div>
+
+  </form>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" form="lot-form" class="btn btn--primary">
+      {% if is_edit %}Save Changes{% else %}Add Lot{% endif %}
+    </button>
+    <a href="/lots" class="btn btn--ghost">Cancel</a>
+    {% if is_edit %}
+      <span style="flex:1;"></span>
+      <form method="post" action="/lots/{{ lot_id }}/delete"
+            onsubmit="return confirm('Delete this lot and all its ownership history? This cannot be undone.');">
+        <button type="submit" class="btn btn--danger btn--sm">Delete Lot</button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

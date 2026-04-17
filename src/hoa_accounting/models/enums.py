@@ -30,3 +30,4 @@ class SourceType(StrEnum):
     TRANSFER = "TRANSFER"
     ADJUSTMENT = "ADJUSTMENT"
     REVERSAL = "REVERSAL"
+    MANUAL = "MANUAL"

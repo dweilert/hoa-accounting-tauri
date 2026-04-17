@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}New Budget · {{ org.name }}{% endblock %}
+{% block heading %}New Budget{% endblock %}
+
+{% block content %}
+  <div class="panel" style="max-width:500px;">
+    <div class="panel__header">
+      <div class="panel__title">Create Budget</div>
+    </div>
+
+    {% if error %}
+      <div class="alert alert--error" style="margin:.75rem .75rem 0;">
+        {{ error }}
+        <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+      </div>
+    {% endif %}
+
+    <form method="post" action="/budgets/new" style="padding:.75rem;">
+      <div class="field" style="margin-bottom:1rem;">
+        <span class="field__label">Fiscal Year</span>
+        <input type="number" name="fiscal_year" value="{{ fiscal_year }}"
+               min="2000" max="2100" placeholder="e.g. 2025" style="max-width:12rem;" required>
+        <div class="field__hint">The calendar year this budget covers.</div>
+      </div>
+
+      <div class="field" style="margin-bottom:1rem;">
+        <span class="field__label">Fund</span>
+        <select name="fund_code" style="max-width:16rem;">
+          <option value="OPERATING" {% if fund_code == 'OPERATING' %}selected{% endif %}>Operating</option>
+          <option value="RESERVE"   {% if fund_code == 'RESERVE'   %}selected{% endif %}>Reserve</option>
+          <option value="SPECIAL"   {% if fund_code == 'SPECIAL'   %}selected{% endif %}>Special</option>
+        </select>
+      </div>
+
+      <div class="field" style="margin-bottom:1.25rem;">
+        <span class="field__label">Notes</span>
+        <textarea name="notes" rows="2" style="max-width:100%;width:360px;">{{ notes }}</textarea>
+        <div class="field__hint">Optional notes about this budget.</div>
+      </div>
+
+      <div style="display:flex;gap:.5rem;">
+        <button type="submit" class="btn btn--primary">Create &amp; Enter Amounts</button>
+        <a href="/budgets" class="btn btn--ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

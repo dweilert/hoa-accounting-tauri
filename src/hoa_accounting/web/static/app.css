@@ -551,8 +551,21 @@ input::placeholder {
 .btn--ghost {
   background: transparent;
   color: var(--text-muted);
+  border-color: var(--border);
 }
-.btn--ghost:hover { background: var(--surface-muted); color: var(--text); }
+.btn--ghost:hover { background: var(--surface-muted); color: var(--text); border-color: var(--border-strong); }
+
+.btn--danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+.btn--danger:hover { filter: brightness(0.9); }
+
+.btn--sm {
+  padding: 3px 10px;
+  font-size: 12px;
+}
 
 /* ── Tables ─────────────────────────────────────────────────────── */
 

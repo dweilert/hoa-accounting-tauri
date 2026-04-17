@@ -1,0 +1,601 @@
+{% extends "base.html" %}
+
+{% block title %}New Manual Journal Entry · {{ org.name }}{% endblock %}
+{% block heading %}New Manual Journal Entry{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Accounting help panel ─────────────────────────────────────────── #}
+  <details id="je-help" style="margin-bottom:1rem;">
+    <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);
+                    padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius);
+                    background:var(--surface);user-select:none;">
+      ℹ How double-entry accounting works — click to expand
+    </summary>
+    <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);
+                background:var(--surface);padding:1rem 1.25rem;font-size:12.5px;line-height:1.6;">
+
+      <p style="margin:0 0 .75rem;">
+        Every journal entry must have <strong>at least two lines</strong> and the total of all
+        <strong>Debit</strong> amounts must equal the total of all <strong>Credit</strong> amounts.
+        This is the fundamental rule of double-entry bookkeeping — one account goes up,
+        another goes down by the same amount.
+      </p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem;">
+        <div>
+          <div style="font-weight:600;margin-bottom:.4rem;">Which direction increases each account type?</div>
+          <table style="font-size:12px;width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:var(--surface-muted);">
+                <th style="text-align:left;padding:.3rem .5rem;border:1px solid var(--border);">Account Type</th>
+                <th style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);">Increases with</th>
+                <th style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);">Decreases with</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Asset (cash, receivables)</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+              </tr>
+              <tr style="background:var(--surface-muted);">
+                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Liability (payables)</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+              </tr>
+              <tr>
+                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Income / Revenue</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+              </tr>
+              <tr style="background:var(--surface-muted);">
+                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Expense</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div style="font-weight:600;margin-bottom:.4rem;">Common HOA examples</div>
+          <ul style="margin:0;padding-left:1.1rem;font-size:12px;">
+            <li style="margin-bottom:.4rem;">
+              <strong>Move expense between categories:</strong><br>
+              Debit new expense account, Credit old expense account
+            </li>
+            <li style="margin-bottom:.4rem;">
+              <strong>Write off an owner that won't pay:</strong><br>
+              Debit Bad Debt Expense, Credit Dues Receivable
+            </li>
+            <li style="margin-bottom:.4rem;">
+              <strong>Record bank interest:</strong><br>
+              Debit Cash, Credit Interest Income
+            </li>
+            <li style="margin-bottom:.4rem;">
+              <strong>Reserve project payment:</strong><br>
+              Debit Reserve Expense, Credit Reserve Cash
+            </li>
+            <li>
+              <strong>Accrue an unpaid expense:</strong><br>
+              Debit Expense, Credit Accounts Payable
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <p style="margin:0;color:var(--text-muted);font-size:12px;">
+        <strong>Tip:</strong> Use the <em>Quick Start</em> dropdown below to pre-fill a common
+        adjustment pattern — it will select the right accounts and suggest a memo for you.
+      </p>
+    </div>
+  </details>
+
+  <form id="je-form" method="post" action="/journal-entries/new">
+    <input type="hidden" name="line_count" id="line-count-field" value="{{ lines|length }}">
+
+    {# ── Quick-start template picker ──────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header" style="margin-bottom:.5rem;">
+        <div>
+          <div class="panel__title">Quick Start</div>
+          <div class="panel__description">Choose a common adjustment to pre-fill the form, or fill it in manually below.</div>
+        </div>
+      </div>
+      <label class="field" style="max-width:520px;">
+        <span class="field__label">Common Adjustment Templates</span>
+        <select id="template-picker">
+          {% for t in adjustment_templates %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div id="template-description"
+           style="display:none;margin-top:.6rem;padding:.6rem .75rem;
+                  background:var(--accent-subtle);border:1px solid var(--accent-border);
+                  border-radius:var(--radius-sm);font-size:12.5px;line-height:1.5;
+                  max-width:640px;">
+      </div>
+    </div>
+
+    {# ── Entry header ─────────────────────────────────────────────── #}
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Entry Header</div>
+          <div class="panel__description">Date and description of this adjustment.</div>
+        </div>
+      </div>
+      <div class="form" style="padding-bottom:var(--sp-2);">
+        <label class="field">
+          <span class="field__label">Entry Date *</span>
+          <input type="date" id="entry_date" name="entry_date"
+                 value="{{ values.entry_date }}"
+                 style="max-width:16rem;"
+                 required>
+        </label>
+        <label class="field form__row--full">
+          <span class="field__label">Memo *</span>
+          <input type="text" id="memo" name="memo"
+                 value="{{ values.memo }}"
+                 placeholder="What is this adjustment for?"
+                 maxlength="255" required>
+        </label>
+      </div>
+    </div>
+
+    {# ── Lines ────────────────────────────────────────────────────── #}
+    <div class="panel">
+      <div class="panel__header">
+        <div class="panel__title">Lines
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:.5rem;">
+            Each line is either a Debit <em>or</em> a Credit — not both.
+          </span>
+        </div>
+        <div id="balance-indicator" class="pill pill--error" style="font-size:.8rem;font-weight:600;">
+          Unbalanced
+        </div>
+      </div>
+
+      {# Guidance bar — updates dynamically after line 1 account is selected #}
+      <div id="balance-guidance" style="display:none;padding:.4rem .75rem;
+           font-size:12px;background:var(--accent-subtle);border-bottom:1px solid var(--accent-border);">
+      </div>
+
+      <div class="table-wrap">
+        <table id="lines-table">
+          <thead>
+            <tr>
+              <th style="width:35%;">Account</th>
+              <th style="width:24%;">Description</th>
+              <th style="width:13%;text-align:right;">Debit</th>
+              <th style="width:13%;text-align:right;">Credit</th>
+              <th style="width:11%;">Type hint</th>
+              <th style="width:4%;"></th>
+            </tr>
+          </thead>
+          <tbody id="lines-body">
+            {% for i in range(lines|length) %}
+              {% set n = i + 1 %}
+              {% set ln = lines[i] %}
+              <tr data-line="{{ n }}">
+                <td>
+                  <select name="account_id_{{ n }}" class="je-account" style="font-size:12px;">
+                    <option value="">— select account —</option>
+                    {% for type_code in ["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"] %}
+                      <optgroup label="
+                        {%- if type_code == 'ASSET' -%}Assets  (↑ Debit / ↓ Credit)
+                        {%- elif type_code == 'LIABILITY' -%}Liabilities  (↑ Credit / ↓ Debit)
+                        {%- elif type_code == 'EQUITY' -%}Equity  (↑ Credit / ↓ Debit)
+                        {%- elif type_code == 'INCOME' -%}Income  (↑ Credit / ↓ Debit)
+                        {%- elif type_code == 'EXPENSE' -%}Expenses  (↑ Debit / ↓ Credit)
+                        {%- endif -%}
+                      ">
+                        {% for a in account_options if a.account_type_code == type_code %}
+                          <option value="{{ a.id }}"
+                                  data-type="{{ a.account_type_code }}"
+                                  data-number="{{ a.account_number }}"
+                                  {% if ln.account_id|string == a.id|string %}selected{% endif %}>
+                            {{ a.label }}
+                          </option>
+                        {% endfor %}
+                      </optgroup>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <input type="text" name="description_{{ n }}"
+                         value="{{ ln.description }}" maxlength="255"
+                         style="font-size:12px;">
+                </td>
+                <td>
+                  <input type="number" name="debit_{{ n }}"
+                         class="je-debit"
+                         style="text-align:right;font-size:12px;"
+                         value="{{ ln.debit }}"
+                         min="0" step="0.01" placeholder="0.00">
+                </td>
+                <td>
+                  <input type="number" name="credit_{{ n }}"
+                         class="je-credit"
+                         style="text-align:right;font-size:12px;"
+                         value="{{ ln.credit }}"
+                         min="0" step="0.01" placeholder="0.00">
+                </td>
+                <td>
+                  <span class="je-type-hint" style="font-size:11px;color:var(--text-muted);"></span>
+                </td>
+                <td style="text-align:center;">
+                  <button type="button" class="btn btn--sm btn--ghost je-remove-line"
+                          title="Remove line">×</button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
+              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-debits">0.00</td>
+              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-credits">0.00</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style="padding:.75rem 1rem;display:flex;gap:.5rem;align-items:center;border-top:1px solid var(--border);">
+        <button type="button" id="add-line-btn" class="btn btn--ghost btn--sm">+ Add Line</button>
+        <span style="font-size:.8rem;color:var(--text-muted);">Minimum 2 lines · Total debits must equal total credits</span>
+      </div>
+    </div>
+  </form>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" form="je-form" class="btn btn--primary">Post Entry</button>
+    <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
+  </div>
+
+<script>
+(function () {
+  // ── Data passed from server ───────────────────────────────────────
+  var accountOptions = {{ account_options | tojson }};
+  var adjustmentTemplates = {{ adjustment_templates | tojson }};
+
+  // Normal balance direction per account type
+  var normalBalance = {
+    "ASSET":     "DEBIT",
+    "LIABILITY": "CREDIT",
+    "EQUITY":    "CREDIT",
+    "INCOME":    "CREDIT",
+    "EXPENSE":   "DEBIT",
+  };
+
+  var typeLabels = {
+    "ASSET":     "Asset",
+    "LIABILITY": "Liability",
+    "EQUITY":    "Equity",
+    "INCOME":    "Income",
+    "EXPENSE":   "Expense",
+  };
+
+  // Build optgroups HTML (for dynamically added rows)
+  var typeOrder = ["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"];
+  var typeGroupLabels = {
+    "ASSET":     "Assets  (↑ Debit / ↓ Credit)",
+    "LIABILITY": "Liabilities  (↑ Credit / ↓ Debit)",
+    "EQUITY":    "Equity  (↑ Credit / ↓ Debit)",
+    "INCOME":    "Income  (↑ Credit / ↓ Debit)",
+    "EXPENSE":   "Expenses  (↑ Debit / ↓ Credit)",
+  };
+
+  function buildSelect(name, selectedId) {
+    var sel = document.createElement("select");
+    sel.name = name;
+    sel.className = "je-account";
+    sel.style.fontSize = "12px";
+
+    var blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "— select account —";
+    sel.appendChild(blank);
+
+    typeOrder.forEach(function (typeCode) {
+      var group = document.createElement("optgroup");
+      group.label = typeGroupLabels[typeCode];
+      accountOptions.forEach(function (a) {
+        if (a.account_type_code !== typeCode) return;
+        var opt = document.createElement("option");
+        opt.value = a.id;
+        opt.textContent = a.label;
+        opt.setAttribute("data-type", a.account_type_code);
+        opt.setAttribute("data-number", a.account_number);
+        if (String(a.id) === String(selectedId)) opt.selected = true;
+        group.appendChild(opt);
+      });
+      sel.appendChild(group);
+    });
+    return sel;
+  }
+
+  // ── Type hint display ─────────────────────────────────────────────
+  function updateTypeHint(tr) {
+    var sel = tr.querySelector(".je-account");
+    var hintEl = tr.querySelector(".je-type-hint");
+    if (!sel || !hintEl) return;
+    var opt = sel.options[sel.selectedIndex];
+    var typeCode = opt ? opt.getAttribute("data-type") : null;
+    if (!typeCode) { hintEl.textContent = ""; return; }
+    var nb = normalBalance[typeCode] || "";
+    hintEl.innerHTML =
+      "<span style='font-weight:600;'>" + (typeLabels[typeCode] || typeCode) + "</span>" +
+      "<br><span style='color:var(--text-subtle);'>normal balance: " + nb + "</span>";
+  }
+
+  // ── Balance guidance bar ──────────────────────────────────────────
+  function updateGuidance() {
+    var rows = document.querySelectorAll("#lines-body tr");
+    var guidanceEl = document.getElementById("balance-guidance");
+
+    // Collect sides chosen so far
+    var hasDr = false, hasCr = false;
+    rows.forEach(function (tr) {
+      var d = parseNum(tr.querySelector(".je-debit")  && tr.querySelector(".je-debit").value);
+      var c = parseNum(tr.querySelector(".je-credit") && tr.querySelector(".je-credit").value);
+      if (d > 0) hasDr = true;
+      if (c > 0) hasCr = true;
+    });
+
+    var debits = parseNum(document.getElementById("total-debits").textContent);
+    var credits = parseNum(document.getElementById("total-credits").textContent);
+    var diff = Math.abs(debits - credits);
+
+    if (diff < 0.005 && debits > 0) {
+      guidanceEl.style.display = "none";
+      return;
+    }
+
+    var msg = "";
+    if (debits > 0 && credits === 0) {
+      msg = "✏️ Now add a <strong>Credit</strong> line for the same amount (" + debits.toFixed(2) + ") to balance the entry.";
+    } else if (credits > 0 && debits === 0) {
+      msg = "✏️ Now add a <strong>Debit</strong> line for the same amount (" + credits.toFixed(2) + ") to balance the entry.";
+    } else if (debits > credits) {
+      msg = "⚠️ Debits exceed credits by <strong>" + diff.toFixed(2) + "</strong>. Add a Credit line or increase an existing one.";
+    } else if (credits > debits) {
+      msg = "⚠️ Credits exceed debits by <strong>" + diff.toFixed(2) + "</strong>. Add a Debit line or increase an existing one.";
+    }
+
+    if (msg) {
+      guidanceEl.innerHTML = msg;
+      guidanceEl.style.display = "block";
+    } else {
+      guidanceEl.style.display = "none";
+    }
+  }
+
+  // ── Totals + balance indicator ────────────────────────────────────
+  function parseNum(val) {
+    var n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function updateTotals() {
+    var debits = 0, credits = 0;
+    document.querySelectorAll(".je-debit").forEach(function (el) {
+      debits += parseNum(el.value);
+    });
+    document.querySelectorAll(".je-credit").forEach(function (el) {
+      credits += parseNum(el.value);
+    });
+    document.getElementById("total-debits").textContent = debits.toFixed(2);
+    document.getElementById("total-credits").textContent = credits.toFixed(2);
+
+    var ind = document.getElementById("balance-indicator");
+    var balanced = Math.abs(debits - credits) < 0.005 && debits > 0;
+    ind.textContent = balanced ? "✓ Balanced" : "Unbalanced";
+    ind.className = balanced ? "pill pill--ok" : "pill pill--error";
+
+    updateGuidance();
+  }
+
+  // ── Add / remove lines ────────────────────────────────────────────
+  function currentLineCount() {
+    return document.querySelectorAll("#lines-body tr").length;
+  }
+
+  function renumber() {
+    document.querySelectorAll("#lines-body tr").forEach(function (tr, idx) {
+      var n = idx + 1;
+      tr.setAttribute("data-line", n);
+      tr.querySelectorAll("[name]").forEach(function (el) {
+        el.name = el.name.replace(/_\d+$/, "_" + n);
+      });
+    });
+    document.getElementById("line-count-field").value = currentLineCount();
+  }
+
+  function wireRow(tr) {
+    tr.querySelector(".je-account").addEventListener("change", function () {
+      updateTypeHint(tr);
+      updateGuidance();
+    });
+    tr.querySelector(".je-debit").addEventListener("input", updateTotals);
+    tr.querySelector(".je-credit").addEventListener("input", updateTotals);
+  }
+
+  function addLine(opts) {
+    opts = opts || {};
+    var tbody = document.getElementById("lines-body");
+    var n = currentLineCount() + 1;
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-line", n);
+
+    var tdAccount = document.createElement("td");
+    tdAccount.appendChild(buildSelect("account_id_" + n, opts.accountId || ""));
+
+    var tdDesc = document.createElement("td");
+    var dscInp = document.createElement("input");
+    dscInp.type = "text"; dscInp.name = "description_" + n;
+    dscInp.style.fontSize = "12px"; dscInp.maxLength = 255;
+    dscInp.value = opts.description || "";
+    tdDesc.appendChild(dscInp);
+
+    var tdDebit = document.createElement("td");
+    var dInp = document.createElement("input");
+    dInp.type = "number"; dInp.name = "debit_" + n;
+    dInp.className = "je-debit";
+    dInp.style.cssText = "text-align:right;font-size:12px;";
+    dInp.min = "0"; dInp.step = "0.01"; dInp.placeholder = "0.00";
+    dInp.value = opts.debit || "";
+    tdDebit.appendChild(dInp);
+
+    var tdCredit = document.createElement("td");
+    var cInp = document.createElement("input");
+    cInp.type = "number"; cInp.name = "credit_" + n;
+    cInp.className = "je-credit";
+    cInp.style.cssText = "text-align:right;font-size:12px;";
+    cInp.min = "0"; cInp.step = "0.01"; cInp.placeholder = "0.00";
+    cInp.value = opts.credit || "";
+    tdCredit.appendChild(cInp);
+
+    var tdHint = document.createElement("td");
+    var hintSpan = document.createElement("span");
+    hintSpan.className = "je-type-hint";
+    hintSpan.style.fontSize = "11px";
+    hintSpan.style.color = "var(--text-muted)";
+    tdHint.appendChild(hintSpan);
+
+    var tdBtn = document.createElement("td");
+    tdBtn.style.textAlign = "center";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "btn btn--sm btn--ghost je-remove-line";
+    btn.title = "Remove line"; btn.textContent = "×";
+    tdBtn.appendChild(btn);
+
+    tr.appendChild(tdAccount);
+    tr.appendChild(tdDesc);
+    tr.appendChild(tdDebit);
+    tr.appendChild(tdCredit);
+    tr.appendChild(tdHint);
+    tr.appendChild(tdBtn);
+    tbody.appendChild(tr);
+
+    document.getElementById("line-count-field").value = currentLineCount();
+    wireRow(tr);
+    updateTypeHint(tr);
+    updateTotals();
+    return tr;
+  }
+
+  function removeLine(tr) {
+    if (currentLineCount() <= 2) return;
+    tr.remove();
+    renumber();
+    updateTotals();
+  }
+
+  // ── Template picker ───────────────────────────────────────────────
+  function findAccountId(match) {
+    if (!match) return null;
+    if (match.by === "number") {
+      for (var i = 0; i < accountOptions.length; i++) {
+        if (accountOptions[i].account_number === match.value) return accountOptions[i].id;
+      }
+    }
+    if (match.by === "type") {
+      for (var j = 0; j < accountOptions.length; j++) {
+        if (accountOptions[j].account_type_code === match.value) return accountOptions[j].id;
+      }
+    }
+    return null;
+  }
+
+  function applyTemplate(templateId) {
+    var tpl = null;
+    for (var i = 0; i < adjustmentTemplates.length; i++) {
+      if (adjustmentTemplates[i].id === templateId) { tpl = adjustmentTemplates[i]; break; }
+    }
+
+    var descEl = document.getElementById("template-description");
+    if (!tpl || tpl.id === "blank") {
+      descEl.style.display = "none";
+      return;
+    }
+
+    // Show description
+    descEl.textContent = tpl.description;
+    descEl.style.display = tpl.description ? "block" : "none";
+
+    // Pre-fill memo (only if currently empty)
+    var memoEl = document.getElementById("memo");
+    if (!memoEl.value.trim() && tpl.memo) memoEl.value = tpl.memo;
+
+    // Rebuild lines from template
+    var tbody = document.getElementById("lines-body");
+    // Remove existing rows down to 0
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+    document.getElementById("line-count-field").value = 0;
+
+    tpl.lines.forEach(function (lineDef) {
+      var accountId = findAccountId(lineDef.account_match);
+      var opts = {
+        accountId: accountId || "",
+        description: lineDef.hint || "",
+        debit: lineDef.side === "debit" ? "" : "",
+        credit: "",
+      };
+      var tr = addLine(opts);
+
+      // If auto-matched, clear the description hint since the account speaks for itself
+      if (accountId) {
+        var descInput = tr.querySelector("input[type=text]");
+        if (descInput) descInput.value = "";
+      } else {
+        // Show placeholder hint in description field
+        var descInput = tr.querySelector("input[type=text]");
+        if (descInput) {
+          descInput.value = "";
+          descInput.placeholder = lineDef.hint || "";
+        }
+      }
+    });
+
+    // Ensure at least 2 rows
+    while (currentLineCount() < 2) addLine({});
+    updateTotals();
+  }
+
+  document.getElementById("template-picker").addEventListener("change", function () {
+    applyTemplate(this.value);
+  });
+
+  // ── Wire up existing rows ─────────────────────────────────────────
+  document.querySelectorAll("#lines-body tr").forEach(wireRow);
+
+  document.getElementById("add-line-btn").addEventListener("click", function () {
+    addLine({});
+  });
+
+  document.getElementById("lines-body").addEventListener("click", function (e) {
+    var btn = e.target.closest(".je-remove-line");
+    if (!btn) return;
+    var tr = btn.closest("tr");
+    if (tr) removeLine(tr);
+  });
+
+  // Initial state
+  document.querySelectorAll("#lines-body tr").forEach(updateTypeHint);
+  updateTotals();
+})();
+</script>
+{% endblock %}

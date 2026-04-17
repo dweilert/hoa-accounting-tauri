@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/bank-accounts" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if is_edit %}
+    <form id="bank-account-form" method="post" action="/bank-accounts/{{ bank_account_id }}/edit" class="form">
+  {% else %}
+    <form id="bank-account-form" method="post" action="/bank-accounts/add" class="form">
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Bank Account Details</div>
+        <div class="panel__description">Account name, institution, type, and linked GL account.</div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Account Name *</span>
+      <input type="text" name="account_name"
+             value="{{ values.account_name }}"
+             placeholder="e.g. HOA Operating Checking"
+             required />
+      <span class="field__hint">A descriptive name shown throughout the system.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Institution Name *</span>
+      <input type="text" name="institution_name"
+             value="{{ values.institution_name }}"
+             placeholder="e.g. First National Bank"
+             required />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Account Type *</span>
+      <select name="account_type" required>
+        {% for t in account_types %}
+          <option value="{{ t }}"{% if values.account_type == t %} selected{% endif %}>{{ t | replace('_', ' ') | title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Last 4 Digits</span>
+      <input type="text" name="account_last4"
+             value="{{ values.account_last4 }}"
+             placeholder="1234"
+             maxlength="4"
+             style="max-width:8rem;" />
+      <span class="field__hint">Optional — last 4 digits of the account number.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">GL Account *</span>
+      <select name="gl_account_id" required>
+        <option value="">— Select a GL account —</option>
+        {% for gl in gl_options %}
+          <option value="{{ gl.id }}"
+            {% if values.gl_account_id|string == gl.id|string %} selected{% endif %}>
+            {{ gl.account_number }} · {{ gl.account_name }} ({{ gl.fund_code }})
+          </option>
+        {% endfor %}
+      </select>
+      <span class="field__hint">Must be a bank-type GL account not already assigned to another bank account.</span>
+    </label>
+
+    {% if is_edit %}
+      <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;">
+        <input type="checkbox" name="active_flag" value="1"
+               {% if values.active_flag == '1' %}checked{% endif %}
+               style="width:auto;" />
+        <span class="field__label" style="margin:0;">Active</span>
+      </label>
+      <input type="hidden" name="_active_flag_present" value="1" />
+    {% endif %}
+  </div>
+
+  </form>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" form="bank-account-form" class="btn btn--primary">
+      {% if is_edit %}Save Changes{% else %}Add Bank Account{% endif %}
+    </button>
+    <a href="/bank-accounts" class="btn btn--ghost">Cancel</a>
+    {% if is_edit %}
+      <span style="flex:1;"></span>
+      {% if has_transactions %}
+        <span style="font-size:.8rem;color:var(--color-text-muted);">Has transactions — deactivate instead of deleting</span>
+      {% else %}
+        <form method="post" action="/bank-accounts/{{ bank_account_id }}/delete"
+              onsubmit="return confirm('Delete this bank account? This cannot be undone.');">
+          <button type="submit" class="btn btn--danger btn--sm">Delete Bank Account</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

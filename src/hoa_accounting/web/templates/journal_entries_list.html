@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Journal Entries · {{ org.name }}{% endblock %}
+{% block heading %}Manual Journal Entries{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ entries|length }} entr{% if entries|length != 1 %}ies{% else %}y{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Manual Journal Entries</div>
+        <div class="panel__description">
+          General-purpose journal entries posted directly to the ledger.
+        </div>
+      </div>
+      <a href="/journal-entries/new" class="btn btn--primary btn--sm">New Entry</a>
+    </div>
+
+    {% if entries %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Entry #</th>
+              <th>Date</th>
+              <th>Period</th>
+              <th>Memo</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in entries %}
+              <tr{% if e.status == 'REVERSED' %} style="opacity:.55;"{% endif %}>
+                <td class="mono">{{ e.entry_number }}</td>
+                <td>{{ e.entry_date }}</td>
+                <td class="mono">{{ e.period_name or '—' }}</td>
+                <td>{{ e.memo }}</td>
+                <td>
+                  {% if e.status == 'REVERSED' %}
+                    <span class="pill pill--muted">Reversed</span>
+                  {% else %}
+                    <span class="pill pill--ok">Posted</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <a href="/journal-entries/{{ e.id }}" class="btn btn--sm btn--ghost">View</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No manual journal entries on record.
+        Use <strong>New Entry</strong> to post a general-purpose journal entry.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

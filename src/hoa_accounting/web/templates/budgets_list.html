@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Budgets · {{ org.name }}{% endblock %}
+{% block heading %}Budgets{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/budgets/new" class="btn btn--primary btn--sm">+ New Budget</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">All Budgets</div>
+    </div>
+
+    {% if budgets %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fiscal Year</th>
+              <th>Fund</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in budgets %}
+              <tr>
+                <td style="font-weight:600;">{{ b.fiscal_year }}</td>
+                <td>
+                  <span class="pill pill--muted" style="font-size:.75rem;">{{ b.fund_code }}</span>
+                </td>
+                <td>
+                  {% if b.status == 'APPROVED' %}
+                    <span class="pill pill--ok" style="font-size:.75rem;">Approved</span>
+                  {% elif b.status == 'ARCHIVED' %}
+                    <span class="pill pill--muted" style="font-size:.75rem;">Archived</span>
+                  {% else %}
+                    <span class="pill" style="font-size:.75rem;background:var(--accent-warm);color:var(--text);">Draft</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--text-muted);max-width:260px;">
+                  {{ b.notes }}
+                </td>
+                <td style="text-align:right;">
+                  <a href="/budgets/{{ b.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No budgets yet. <a href="/budgets/new">Create the first one.</a></div>
+    {% endif %}
+  </div>
+{% endblock %}

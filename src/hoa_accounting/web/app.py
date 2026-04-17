@@ -26,8 +26,15 @@ from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
 from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
+from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
-from hoa_accounting.web.master_data_pages import MasterDataListService
+from hoa_accounting.web.owner_pages import OwnerPages
+from hoa_accounting.web.account_pages import AccountPages
+from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
+from hoa_accounting.web.all_ledger_pages import AllLedgerPages
+from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
+from hoa_accounting.web.bank_account_pages import BankAccountPages
+from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
     HomePageService,
@@ -35,6 +42,8 @@ from hoa_accounting.web.ui_server import (
     UIResponse,
 )
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
+from hoa_accounting.web.manual_journal_pages import ManualJournalPages
+from hoa_accounting.web.budget_pages import BudgetPages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -163,58 +172,428 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             )
         )
 
-    # ── Master-data list pages ───────────────────────────────────────
-    # Each route opens its own SQLite connection per request and closes
-    # it via Flask's teardown hook. Short-lived, independent, and safe
-    # to run concurrently with WAL mode (enabled in connect_sqlite).
 
-    def _open_master_data_service() -> MasterDataListService:
+    # ── Account (Chart of Accounts) pages ────────────────────────────
+
+    def _open_account_pages() -> AccountPages:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError(
-                "database.path missing from config; master-data pages need it."
+                "database.path missing from config; account pages need it."
             )
         conn = connect_sqlite(str(db_path))
-        g._md_conn = conn
-        return MasterDataListService(conn)
+        g._acct_conn = conn
+        return AccountPages(conn)
 
     @app.teardown_request
-    def _close_master_data_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_md_conn", None)
+    def _close_acct_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_acct_conn", None)
         if conn is not None:
             try:
                 conn.close()
             finally:
-                g._md_conn = None
+                g._acct_conn = None
 
-    def _render_list(page: str) -> Response:
-        svc = _open_master_data_service()
-        renderer = {
-            "accounts": svc.render_accounts,
-            "owners": svc.render_owners,
-            "lots": svc.render_lots,
-            "vendors": svc.render_vendors,
-            "bank-accounts": svc.render_bank_accounts,
-        }[page]
+    @app.get("/accounts")
+    def list_accounts() -> Response:
+        pages = _open_account_pages()
         theme = str(org_context.get("theme", "warm"))
-        resp = renderer(org=org_context, theme=theme)
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
-    @app.get("/accounts")
-    def list_accounts() -> Response: return _render_list("accounts")
+    @app.get("/accounts/add")
+    def new_account_form() -> Response:
+        pages = _open_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
-    @app.get("/owners")
-    def list_owners() -> Response: return _render_list("owners")
+    @app.post("/accounts/add")
+    def submit_new_account() -> Response:
+        from flask import redirect
+        pages = _open_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
-    @app.get("/lots")
-    def list_lots() -> Response: return _render_list("lots")
+    @app.get("/accounts/<int:account_id>/edit")
+    def edit_account_form(account_id: int) -> Response:
+        pages = _open_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 account_id=account_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
-    @app.get("/vendors")
-    def list_vendors() -> Response: return _render_list("vendors")
+    @app.post("/accounts/<int:account_id>/edit")
+    def submit_edit_account(account_id: int) -> Response:
+        from flask import redirect
+        pages = _open_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit(
+            account_id=account_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/accounts/<int:account_id>/ledger")
+    def view_account_ledger(account_id: int) -> Response:
+        conn = connect_sqlite(str(org_context["db_path"]))
+        try:
+            pages = AccountLedgerPages(conn)
+            theme = str(org_context.get("theme", "warm"))
+            start_date = (request.args.get("start") or "").strip()
+            end_date = (request.args.get("end") or "").strip()
+            resp = pages.render_ledger(
+                account_id=account_id,
+                org=org_context, theme=theme,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        finally:
+            conn.close()
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounts/<int:account_id>/delete")
+    def submit_delete_account(account_id: int) -> Response:
+        from flask import redirect
+        pages = _open_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            account_id=account_id,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Accounting period pages ───────────────────────────────────────
+
+    def _open_period_pages() -> AccountingPeriodPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; period pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._period_conn = conn
+        return AccountingPeriodPages(conn)
+
+    @app.teardown_request
+    def _close_period_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_period_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._period_conn = None
+
+    @app.get("/accounting-periods")
+    def list_periods() -> Response:
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/accounting-periods/add")
+    def new_period_form() -> Response:
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_add_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounting-periods/add")
+    def submit_new_period() -> Response:
+        from flask import redirect
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/accounting-periods/generate")
+    def generate_year_form() -> Response:
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_generate_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounting-periods/generate")
+    def submit_generate_year() -> Response:
+        from flask import redirect
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_generate_year(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounting-periods/<int:period_id>/close")
+    def close_period(period_id: int) -> Response:
+        from flask import redirect
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_close(
+            period_id=period_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounting-periods/<int:period_id>/reopen")
+    def reopen_period(period_id: int) -> Response:
+        from flask import redirect
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_reopen(
+            period_id=period_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounting-periods/<int:period_id>/delete")
+    def delete_period(period_id: int) -> Response:
+        from flask import redirect
+        pages = _open_period_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            period_id=period_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Bank account pages ────────────────────────────────────────────
+
+    def _open_bank_account_pages() -> BankAccountPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; bank account pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._ba_conn = conn
+        return BankAccountPages(conn)
+
+    @app.teardown_request
+    def _close_ba_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_ba_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._ba_conn = None
 
     @app.get("/bank-accounts")
-    def list_bank_accounts() -> Response: return _render_list("bank-accounts")
+    def list_bank_accounts() -> Response:
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-accounts/add")
+    def new_bank_account_form() -> Response:
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/add")
+    def submit_new_bank_account() -> Response:
+        from flask import redirect
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-accounts/<int:bank_account_id>/edit")
+    def edit_bank_account_form(bank_account_id: int) -> Response:
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 bank_account_id=bank_account_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/edit")
+    def submit_edit_bank_account(bank_account_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit(
+            bank_account_id=bank_account_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/delete")
+    def submit_delete_bank_account(bank_account_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            bank_account_id=bank_account_id,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Lot pages ─────────────────────────────────────────────────────
+
+    def _open_lot_pages() -> LotPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; lot pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._lot_conn = conn
+        return LotPages(conn)
+
+    @app.teardown_request
+    def _close_lot_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_lot_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._lot_conn = None
+
+    @app.get("/lots")
+    def list_lots() -> Response:
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/lots/add")
+    def new_lot_form() -> Response:
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/add")
+    def submit_new_lot() -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        # active_flag checkbox: present=1, absent=0
+        form_data = {k: v for k, v in request.form.items()}
+        if "_active_flag_present" in form_data and "active_flag" not in form_data:
+            form_data["active_flag"] = "0"
+        redirect_url, form_resp = pages.handle_add(
+            form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/lots/<int:lot_id>/edit")
+    def edit_lot_form(lot_id: int) -> Response:
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme, lot_id=lot_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/edit")
+    def submit_edit_lot(lot_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        if "_active_flag_present" in form_data and "active_flag" not in form_data:
+            form_data["active_flag"] = "0"
+        redirect_url, form_resp = pages.handle_edit(
+            lot_id=lot_id, form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/delete")
+    def submit_delete_lot(lot_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            lot_id=lot_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     # ── Renter pages ─────────────────────────────────────────────────
 
@@ -303,6 +682,211 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         redirect_url, form_resp = pages.handle_end(
             renter_id=renter_id,
             form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Vendor pages ─────────────────────────────────────────────────
+
+    def _open_vendor_pages() -> VendorPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; vendor pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._vendor_conn = conn
+        return VendorPages(conn)
+
+    @app.teardown_request
+    def _close_vendor_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_vendor_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._vendor_conn = None
+
+    @app.get("/vendors")
+    def list_vendors() -> Response:
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/vendors/add")
+    def new_vendor_form() -> Response:
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendors/add")
+    def submit_new_vendor() -> Response:
+        from flask import redirect
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/vendors/<int:vendor_id>/edit")
+    def edit_vendor_form(vendor_id: int) -> Response:
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 vendor_id=vendor_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendors/<int:vendor_id>/edit")
+    def submit_edit_vendor(vendor_id: int) -> Response:
+        from flask import redirect
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        if "_active_flag_present" in form_data and "active_flag" not in form_data:
+            form_data["active_flag"] = "0"
+        redirect_url, form_resp = pages.handle_edit(
+            vendor_id=vendor_id, form_data=form_data,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendors/<int:vendor_id>/delete")
+    def submit_delete_vendor(vendor_id: int) -> Response:
+        from flask import redirect
+        pages = _open_vendor_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            vendor_id=vendor_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Owner pages ───────────────────────────────────────────────────
+
+    def _open_owner_pages() -> OwnerPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; owner pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._owner_conn = conn
+        return OwnerPages(conn)
+
+    @app.teardown_request
+    def _close_owner_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_owner_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._owner_conn = None
+
+    @app.get("/owners")
+    def list_owners() -> Response:
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/owners/add")
+    def new_owner_form() -> Response:
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/add")
+    def submit_new_owner() -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/owners/<int:owner_id>/edit")
+    def edit_owner_form(owner_id: int) -> Response:
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 owner_id=owner_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/<int:owner_id>/edit")
+    def submit_edit_owner(owner_id: int) -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit(
+            owner_id=owner_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/<int:owner_id>/mark-previous")
+    def submit_mark_previous(owner_id: int) -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_mark_previous(
+            owner_id=owner_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/<int:owner_id>/delete")
+    def submit_delete_owner(owner_id: int) -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            owner_id=owner_id,
             org=org_context, theme=theme,
         )
         if redirect_url is not None:
@@ -449,6 +1033,242 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_post(
             form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Ledger reports: all-accounts views ───────────────────────────
+
+    def _open_all_ledger_pages() -> AllLedgerPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._all_ledger_conn = conn
+        return AllLedgerPages(conn)
+
+    @app.teardown_request
+    def _close_all_ledger_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_all_ledger_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._all_ledger_conn = None
+
+    @app.get("/ledger/transactions")
+    def all_transactions() -> Response:
+        pages = _open_all_ledger_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_all_transactions(
+            org=org_context, theme=theme,
+            start_date=(request.args.get("start") or "").strip(),
+            end_date=(request.args.get("end") or "").strip(),
+            sort=(request.args.get("sort") or "asc").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/ledger/by-account")
+    def ledger_by_account() -> Response:
+        pages = _open_all_ledger_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_by_account(
+            org=org_context, theme=theme,
+            start_date=(request.args.get("start") or "").strip(),
+            end_date=(request.args.get("end") or "").strip(),
+            sort=(request.args.get("sort") or "asc").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Transaction pages: Manual Journal Entries ───────────────────
+
+    def _open_manual_journal_pages() -> ManualJournalPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; journal entry pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._je_conn = conn
+        return ManualJournalPages(conn)
+
+    @app.teardown_request
+    def _close_je_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_je_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._je_conn = None
+
+    @app.get("/journal-entries")
+    def list_journal_entries() -> Response:
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/journal-entries/new")
+    def new_journal_entry_form() -> Response:
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/journal-entries/new")
+    def submit_journal_entry() -> Response:
+        from flask import redirect
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_new(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/journal-entries/<int:journal_entry_id>")
+    def view_journal_entry(journal_entry_id: int) -> Response:
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_view(
+            journal_entry_id=journal_entry_id,
+            org=org_context, theme=theme,
+            flash_message=flash_message,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Budget pages ─────────────────────────────────────────────────
+
+    def _open_budget_pages() -> BudgetPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; budget pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._budget_conn = conn
+        return BudgetPages(conn)
+
+    @app.teardown_request
+    def _close_budget_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_budget_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._budget_conn = None
+
+    @app.get("/budgets")
+    def list_budgets() -> Response:
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/budgets/new")
+    def new_budget_form() -> Response:
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/new")
+    def submit_new_budget() -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_new(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/budgets/<int:budget_id>/edit")
+    def edit_budget_form(budget_id: int) -> Response:
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_edit_form(
+            budget_id, org=org_context, theme=theme,
+            flash_message=flash_message,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/edit")
+    def submit_save_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save(
+            budget_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/approve")
+    def approve_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_approve(
+            budget_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/archive")
+    def archive_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_archive(
+            budget_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/delete")
+    def delete_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            budget_id, org=org_context, theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
