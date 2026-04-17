@@ -35,6 +35,162 @@ _BASE_CTX = {
 _MIN_LINES = 2
 _MAX_LINES = 30
 
+# ── Common adjustment templates shown in the "Quick Start" dropdown ────────────
+# Each template defines:
+#   name        – shown in the select
+#   description – shown as a helper subtitle when selected
+#   memo        – pre-fills the Memo field
+#   lines       – list of line stubs:
+#       side          "debit" | "credit"
+#       account_match {"by": "number"|"type", "value": "1100"|"EXPENSE"}
+#                     first match in the accounts list wins; blank if none found
+#       hint          shown to the user if no account auto-matched
+#
+# account_match is resolved client-side in JavaScript so it works regardless of
+# which chart of accounts a specific HOA has configured.
+
+_ADJUSTMENT_TEMPLATES: list[dict] = [
+    {
+        "id": "blank",
+        "name": "— choose a common adjustment —",
+        "description": "",
+        "memo": "",
+        "lines": [],
+    },
+    {
+        "id": "expense_reclassify",
+        "name": "Correct a misclassified expense",
+        "description": (
+            "Use when a payment was posted to the wrong expense account. "
+            "Debit the correct account (increases it) and credit the wrong one "
+            "(decreases it). Both are Expense accounts."
+        ),
+        "memo": "Expense reclassification",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "type", "value": "EXPENSE"},
+                "hint": "Pick the CORRECT expense account (the one it should have gone to)",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "type", "value": "EXPENSE"},
+                "hint": "Pick the WRONG expense account (the one it was incorrectly posted to)",
+            },
+        ],
+    },
+    {
+        "id": "write_off_bad_debt",
+        "name": "Write off an uncollectible assessment",
+        "description": (
+            "Use when an owner will never pay and you want to remove the "
+            "balance from Dues Receivable. Debit a Bad Debt or Write-Off "
+            "expense account, and credit Dues Receivable."
+        ),
+        "memo": "Write off uncollectible assessment",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "type", "value": "EXPENSE"},
+                "hint": "Pick your Bad Debt Expense or Write-Off Expense account",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1100"},
+                "hint": "Dues Receivable (usually account 1100)",
+            },
+        ],
+    },
+    {
+        "id": "bank_interest",
+        "name": "Record bank interest earned",
+        "description": (
+            "Use when the bank statement shows interest credited to your "
+            "account that hasn't been recorded yet. Debit your cash account "
+            "and credit Interest Income."
+        ),
+        "memo": "Bank interest earned",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "number", "value": "1000"},
+                "hint": "Operating Cash (usually account 1000)",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "4200"},
+                "hint": "Interest Income (usually account 4200)",
+            },
+        ],
+    },
+    {
+        "id": "reserve_project",
+        "name": "Reserve fund project payment",
+        "description": (
+            "Use when a reserve-funded project is paid from the Reserve "
+            "savings account. Debit Reserve Expense and credit Reserve Cash."
+        ),
+        "memo": "Reserve fund project payment",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "number", "value": "6100"},
+                "hint": "Reserve Expense (usually account 6100)",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1010"},
+                "hint": "Reserve Savings / Cash (usually account 1010)",
+            },
+        ],
+    },
+    {
+        "id": "accrue_expense",
+        "name": "Accrue an unpaid expense (bill not yet entered)",
+        "description": (
+            "Use at month-end when you know an expense was incurred but the "
+            "vendor bill hasn't been entered yet. Debit the expense account "
+            "and credit Accounts Payable."
+        ),
+        "memo": "Accrued expense",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "type", "value": "EXPENSE"},
+                "hint": "Pick the applicable expense account",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "type", "value": "LIABILITY"},
+                "hint": "Accounts Payable or Accrued Liabilities account",
+            },
+        ],
+    },
+    {
+        "id": "prepaid_expense",
+        "name": "Record a prepaid expense (paid in advance)",
+        "description": (
+            "Use when you pay for something that covers future months "
+            "(e.g. annual insurance premium). Debit the Prepaid asset account "
+            "and credit Cash. Then in each future month, debit the expense "
+            "and credit Prepaid."
+        ),
+        "memo": "Prepaid expense",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "type", "value": "ASSET"},
+                "hint": "Prepaid Expenses (an Asset account)",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1000"},
+                "hint": "Operating Cash (usually account 1000)",
+            },
+        ],
+    },
+]
+
 
 @dataclass(frozen=True)
 class JournalPageResponse:
@@ -212,6 +368,7 @@ class ManualJournalPages:
             "values": values,
             "lines": lines,
             "account_options": self._account_options(),
+            "adjustment_templates": _ADJUSTMENT_TEMPLATES,
             "error_message": error_message,
         }
         status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
