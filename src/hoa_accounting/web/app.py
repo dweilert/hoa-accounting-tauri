@@ -40,6 +40,7 @@ from hoa_accounting.web.ui_server import (
     UIResponse,
 )
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
+from hoa_accounting.web.manual_journal_pages import ManualJournalPages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -1015,6 +1016,73 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Transaction pages: Manual Journal Entries ───────────────────
+
+    def _open_manual_journal_pages() -> ManualJournalPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; journal entry pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._je_conn = conn
+        return ManualJournalPages(conn)
+
+    @app.teardown_request
+    def _close_je_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_je_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._je_conn = None
+
+    @app.get("/journal-entries")
+    def list_journal_entries() -> Response:
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/journal-entries/new")
+    def new_journal_entry_form() -> Response:
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/journal-entries/new")
+    def submit_journal_entry() -> Response:
+        from flask import redirect
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_new(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/journal-entries/<int:journal_entry_id>")
+    def view_journal_entry(journal_entry_id: int) -> Response:
+        pages = _open_manual_journal_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_view(
+            journal_entry_id=journal_entry_id,
+            org=org_context, theme=theme,
+            flash_message=flash_message,
+        )
+        return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     # ── Transaction pages: Bill Assessments ─────────────────────────

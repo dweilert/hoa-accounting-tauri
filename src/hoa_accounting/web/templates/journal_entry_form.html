@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}New Manual Journal Entry · {{ org.name }}{% endblock %}
+{% block heading %}New Manual Journal Entry{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <form id="je-form" method="post" action="/journal-entries/new">
+    <input type="hidden" name="line_count" id="line-count-field" value="{{ lines|length }}">
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Entry Header</div>
+          <div class="panel__description">Date and memo for this journal entry.</div>
+        </div>
+      </div>
+      <div class="form" style="padding-bottom:var(--sp-2);">
+        <label class="field">
+          <span class="field__label">Entry Date *</span>
+          <input type="date" id="entry_date" name="entry_date"
+                 value="{{ values.entry_date }}"
+                 style="max-width:16rem;"
+                 required>
+        </label>
+        <label class="field form__row--full">
+          <span class="field__label">Memo *</span>
+          <input type="text" id="memo" name="memo"
+                 value="{{ values.memo }}"
+                 placeholder="Description of this journal entry"
+                 maxlength="255" required>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel__header">
+        <div class="panel__title">Lines</div>
+        <div id="balance-indicator" class="pill pill--muted" style="font-size:.8rem;">
+          Unbalanced
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="lines-table">
+          <thead>
+            <tr>
+              <th style="width:36%;">Account</th>
+              <th style="width:28%;">Description</th>
+              <th style="width:14%;text-align:right;">Debit</th>
+              <th style="width:14%;text-align:right;">Credit</th>
+              <th style="width:8%;"></th>
+            </tr>
+          </thead>
+          <tbody id="lines-body">
+            {% for i in range(lines|length) %}
+              {% set n = i + 1 %}
+              {% set ln = lines[i] %}
+              <tr data-line="{{ n }}">
+                <td>
+                  <select name="account_id_{{ n }}" style="font-size:12px;">
+                    <option value="">— select account —</option>
+                    {% for a in account_options %}
+                      <option value="{{ a.id }}"
+                        {% if ln.account_id|string == a.id|string %}selected{% endif %}>
+                        {{ a.label }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <input type="text" name="description_{{ n }}"
+                         value="{{ ln.description }}" maxlength="255"
+                         style="font-size:12px;">
+                </td>
+                <td>
+                  <input type="number" name="debit_{{ n }}"
+                         class="je-debit"
+                         style="text-align:right;font-size:12px;"
+                         value="{{ ln.debit }}"
+                         min="0" step="0.01" placeholder="0.00">
+                </td>
+                <td>
+                  <input type="number" name="credit_{{ n }}"
+                         class="je-credit"
+                         style="text-align:right;font-size:12px;"
+                         value="{{ ln.credit }}"
+                         min="0" step="0.01" placeholder="0.00">
+                </td>
+                <td style="text-align:center;">
+                  <button type="button" class="btn btn--sm btn--ghost je-remove-line"
+                          title="Remove line">×</button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
+              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-debits">0.00</td>
+              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-credits">0.00</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style="padding:.75rem 1rem;display:flex;gap:.5rem;align-items:center;border-top:1px solid var(--border);">
+        <button type="button" id="add-line-btn" class="btn btn--ghost btn--sm">+ Add Line</button>
+        <span style="font-size:.8rem;color:var(--text-muted);">Minimum 2 lines required</span>
+      </div>
+    </div>
+  </form>
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+    <button type="submit" form="je-form" class="btn btn--primary">Post Entry</button>
+    <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
+  </div>
+
+<script>
+(function () {
+  var accountOptions = {{ account_options | tojson }};
+
+  function buildSelect(name, selectedId) {
+    var sel = document.createElement("select");
+    sel.name = name;
+    sel.style.fontSize = "12px";
+    var blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "— select account —";
+    sel.appendChild(blank);
+    accountOptions.forEach(function (a) {
+      var opt = document.createElement("option");
+      opt.value = a.id;
+      opt.textContent = a.label;
+      if (String(a.id) === String(selectedId)) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function currentLineCount() {
+    return document.querySelectorAll("#lines-body tr").length;
+  }
+
+  function renumber() {
+    document.querySelectorAll("#lines-body tr").forEach(function (tr, idx) {
+      var n = idx + 1;
+      tr.setAttribute("data-line", n);
+      tr.querySelectorAll("[name]").forEach(function (el) {
+        el.name = el.name.replace(/_\d+$/, "_" + n);
+      });
+    });
+    document.getElementById("line-count-field").value = currentLineCount();
+  }
+
+  function addLine() {
+    var tbody = document.getElementById("lines-body");
+    var n = currentLineCount() + 1;
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-line", n);
+
+    var tdAccount = document.createElement("td");
+    tdAccount.appendChild(buildSelect("account_id_" + n, ""));
+
+    var tdDesc = document.createElement("td");
+    var inp = document.createElement("input");
+    inp.type = "text"; inp.name = "description_" + n;
+    inp.style.fontSize = "12px"; inp.maxLength = 255;
+    tdDesc.appendChild(inp);
+
+    var tdDebit = document.createElement("td");
+    var dInp = document.createElement("input");
+    dInp.type = "number"; dInp.name = "debit_" + n;
+    dInp.className = "je-debit";
+    dInp.style.cssText = "text-align:right;font-size:12px;";
+    dInp.min = "0"; dInp.step = "0.01"; dInp.placeholder = "0.00";
+    tdDebit.appendChild(dInp);
+
+    var tdCredit = document.createElement("td");
+    var cInp = document.createElement("input");
+    cInp.type = "number"; cInp.name = "credit_" + n;
+    cInp.className = "je-credit";
+    cInp.style.cssText = "text-align:right;font-size:12px;";
+    cInp.min = "0"; cInp.step = "0.01"; cInp.placeholder = "0.00";
+    tdCredit.appendChild(cInp);
+
+    var tdBtn = document.createElement("td");
+    tdBtn.style.textAlign = "center";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "btn btn--sm btn--ghost je-remove-line";
+    btn.title = "Remove line"; btn.textContent = "×";
+    tdBtn.appendChild(btn);
+
+    tr.appendChild(tdAccount);
+    tr.appendChild(tdDesc);
+    tr.appendChild(tdDebit);
+    tr.appendChild(tdCredit);
+    tr.appendChild(tdBtn);
+    tbody.appendChild(tr);
+
+    document.getElementById("line-count-field").value = currentLineCount();
+    [dInp, cInp].forEach(function (el) {
+      el.addEventListener("input", updateTotals);
+    });
+    updateTotals();
+  }
+
+  function removeLine(tr) {
+    if (currentLineCount() <= 2) return;
+    tr.remove();
+    renumber();
+    updateTotals();
+  }
+
+  function parseNum(val) {
+    var n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function updateTotals() {
+    var debits = 0, credits = 0;
+    document.querySelectorAll(".je-debit").forEach(function (el) {
+      debits += parseNum(el.value);
+    });
+    document.querySelectorAll(".je-credit").forEach(function (el) {
+      credits += parseNum(el.value);
+    });
+    document.getElementById("total-debits").textContent = debits.toFixed(2);
+    document.getElementById("total-credits").textContent = credits.toFixed(2);
+    var ind = document.getElementById("balance-indicator");
+    var balanced = Math.abs(debits - credits) < 0.005 && debits > 0;
+    ind.textContent = balanced ? "Balanced" : "Unbalanced";
+    ind.className = balanced ? "pill pill--ok" : "pill pill--error";
+  }
+
+  document.querySelectorAll(".je-debit, .je-credit").forEach(function (el) {
+    el.addEventListener("input", updateTotals);
+  });
+  document.getElementById("add-line-btn").addEventListener("click", addLine);
+  document.getElementById("lines-body").addEventListener("click", function (e) {
+    var btn = e.target.closest(".je-remove-line");
+    if (!btn) return;
+    var tr = btn.closest("tr");
+    if (tr) removeLine(tr);
+  });
+  updateTotals();
+})();
+</script>
+{% endblock %}
