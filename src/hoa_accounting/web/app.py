@@ -24,6 +24,7 @@ from hoa_accounting.application.report_runner import ReportRunner
 from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
+from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
 from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
 from hoa_accounting.web.master_data_pages import MasterDataListService
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
@@ -351,6 +352,60 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_post(
+            form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Transaction pages: Bill Assessments ─────────────────────────
+
+    def _open_assessment_billing_pages() -> AssessmentBillingPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; billing pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._tx_conn = conn
+        return AssessmentBillingPages(conn)
+
+    @app.get("/assessments/bill")
+    def bill_assessments_page() -> Response:
+        pages = _open_assessment_billing_pages()
+        theme = str(org_context.get("theme", "warm"))
+        billed_msg = (request.args.get("billed") or "").strip() or ""
+        resp = pages.render_page(
+            org=org_context, theme=theme,
+            success_message=billed_msg,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/assessments/bill-all")
+    def submit_bill_all() -> Response:
+        from flask import redirect
+        pages = _open_assessment_billing_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        redirect_url, form_resp = pages.handle_bill_all(
+            form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/assessments/bill-individual")
+    def submit_bill_individual() -> Response:
+        from flask import redirect
+        pages = _open_assessment_billing_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        redirect_url, form_resp = pages.handle_bill_individuals(
             form_data=form_data, org=org_context, theme=theme,
         )
         if redirect_url is not None:

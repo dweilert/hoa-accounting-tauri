@@ -84,7 +84,7 @@ class NonDuesIncomePages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "income",
-            "breadcrumb": "Transactions · Non-Dues Income",
+            "breadcrumb": "Transactions",
             "created_entry_number": created_entry_number,
         }
         return IncomePageResponse(
@@ -141,7 +141,7 @@ class NonDuesIncomePages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "income",
-            "breadcrumb": "Transactions · Non-Dues Income · New",
+            "breadcrumb": "Transactions · Non-Dues Income",
             "banks": banks,
             "income_accounts": income_accounts,
             "lots": lots,

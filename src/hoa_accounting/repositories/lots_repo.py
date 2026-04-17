@@ -30,6 +30,66 @@ class LotsRepository(BaseRepository):
         ).fetchone()
         return int(row["owner_id"]) if row else None
 
+    def list_lots_with_ytd_assessments(
+        self,
+        *,
+        from_date: str,
+        to_date: str,
+    ) -> list[sqlite3.Row]:
+        """Active lots with YTD billed / paid / balance assessment totals.
+
+        Billed = sum of ``assessments.amount`` for the lot's assessments
+        dated in the range.
+        Paid = sum of ``payment_applications.applied_amount`` tied to
+        those same assessments.
+        Balance = Billed − Paid.
+
+        Zero totals show when a lot had no assessment activity. Lots
+        with no current primary-contact owner still appear — the
+        billing UI renders their row, and the billing service rejects
+        them at post time.
+        """
+        return list(
+            self.conn.execute(
+                """
+                SELECT
+                    l.id AS lot_id,
+                    l.lot_number,
+                    l.street_address_1,
+                    l.active_flag,
+                    o.id AS owner_id,
+                    o.display_name AS owner_name,
+                    COALESCE((
+                        SELECT SUM(a.amount)
+                        FROM assessments a
+                        WHERE a.lot_id = l.id
+                          AND a.assessment_date >= ?
+                          AND a.assessment_date <= ?
+                          AND a.status != 'VOID'
+                    ), 0) AS ytd_billed,
+                    COALESCE((
+                        SELECT SUM(pa.applied_amount)
+                        FROM payment_applications pa
+                        JOIN assessments a ON a.id = pa.assessment_id
+                        WHERE a.lot_id = l.id
+                          AND a.assessment_date >= ?
+                          AND a.assessment_date <= ?
+                          AND a.status != 'VOID'
+                    ), 0) AS ytd_paid
+                FROM lots l
+                LEFT JOIN lot_ownership lo
+                  ON lo.lot_id = l.id
+                 AND lo.end_date IS NULL
+                 AND lo.is_primary_contact = 1
+                LEFT JOIN owners o
+                  ON o.id = lo.owner_id
+                WHERE l.active_flag = 1
+                ORDER BY l.lot_number COLLATE NOCASE
+                """,
+                (from_date, to_date, from_date, to_date),
+            ).fetchall()
+        )
+
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return lots with their current primary-contact owner, if any.
 

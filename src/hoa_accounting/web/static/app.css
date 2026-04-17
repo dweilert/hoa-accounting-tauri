@@ -681,6 +681,30 @@ th.num {
   margin-bottom: var(--sp-3);
 }
 
+.alert__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert__close {
+  margin-left: auto;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.6;
+  transition: opacity 120ms ease;
+}
+.alert__close:hover { opacity: 1; }
+.alert__close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+
 .alert--error {
   background: var(--danger-subtle);
   color: var(--danger);

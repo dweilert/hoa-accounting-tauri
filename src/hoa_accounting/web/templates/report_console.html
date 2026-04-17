@@ -58,7 +58,10 @@
       <div class="panel__title">Formatted Output</div>
     </div>
     {% if error_message %}
-      <div class="alert alert--error">{{ error_message }}</div>
+      <div class="alert alert--error">
+        <div class="alert__content">{{ error_message }}</div>
+        <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+      </div>
     {% endif %}
 
     {% include summary_template %}

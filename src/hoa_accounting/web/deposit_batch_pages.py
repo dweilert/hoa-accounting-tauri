@@ -115,7 +115,7 @@ class DepositBatchPages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "deposits",
-            "breadcrumb": "Transactions · Deposits",
+            "breadcrumb": "Transactions",
             "created_entry_number": created_entry_number,
         }
         return BatchPageResponse(
@@ -174,7 +174,7 @@ class DepositBatchPages:
             "theme": theme,
             "active_nav": "transactions",
             "page_key": "deposits",
-            "breadcrumb": "Transactions · Deposits · New",
+            "breadcrumb": "Transactions · Deposits",
             "banks": banks,
             "lots": lots,
             "ar_account_label": ar_account_label,
