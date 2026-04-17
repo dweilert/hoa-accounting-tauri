@@ -74,18 +74,7 @@
                 font-size: 13px;">
             {{ ar_account_label or '— not configured —' }}
           </div>
-        </div>
-        <div class="field">
-          <span class="field__label">YTD period shown in the table</span>
-          <div class="mono" style="
-                padding: 7px 10px;
-                background: var(--surface-muted);
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                color: var(--text-muted);
-                font-size: 13px;">
-            {{ ytd_period_label }}
-          </div>
+          <span class="field__hint">Same AR account the dues deposit form uses.</span>
         </div>
       </div>
     </div>
@@ -123,57 +112,57 @@
         <div>
           <div class="panel__title">Option B · Bill specific homeowners</div>
           <div class="panel__description">
-            Enter an amount in the <strong>Individual Amount</strong>
-            column only for the lots you want to bill. Lots left blank
-            are skipped. YTD Billed / Paid / Balance on the right
-            shows each owner's current standing so you can decide.
+            Pick the homeowner/lot for each row and enter the amount
+            to bill them. Add more rows as needed. Blank rows are
+            skipped.
           </div>
         </div>
+        <button type="button" class="btn btn--secondary" id="add-row-btn">
+          + Add row
+        </button>
       </div>
+
       <div class="table-wrap" style="overflow: visible;">
-        <table>
+        <table id="individual-rows">
           <thead>
             <tr>
-              <th>Lot</th>
-              <th>Owner</th>
-              <th class="num" style="width: 140px;">Individual Amount</th>
-              <th class="num">YTD Billed</th>
-              <th class="num">YTD Paid</th>
-              <th class="num">YTD Balance</th>
+              <th style="width: 66%;">Lot / Owner</th>
+              <th class="num" style="width: 20%;">Amount</th>
+              <th style="width: 36px;"></th>
             </tr>
           </thead>
-          <tbody>
-            {% for row in lot_rows %}
-              <tr>
-                <td class="mono">{{ row.lot_number }}</td>
+          <tbody id="individual-rows-body">
+            {% for row in individual_rows %}
+              <tr class="individual-row">
                 <td>
-                  {{ row.owner_name }}
-                  {% if row.street %}
-                    <div class="subtle" style="font-size: 11px;">{{ row.street }}</div>
-                  {% endif %}
+                  <select name="row_{{ loop.index0 }}_lot_id" class="row-lot">
+                    <option value="">— Select a homeowner / lot —</option>
+                    {% for l in lot_options %}
+                      <option value="{{ l.id }}" {% if not l.has_owner %}disabled{% endif %}
+                        {% if row.lot_id|string == l.id|string %}selected{% endif %}>
+                        {{ l.label }}
+                      </option>
+                    {% endfor %}
+                  </select>
                 </td>
                 <td>
-                  <input type="hidden" name="row_{{ loop.index0 }}_lot_id"
-                         value="{{ row.lot_id }}" />
                   <input type="number" name="row_{{ loop.index0 }}_amount"
-                         value="{{ row.individual_amount }}"
+                         value="{{ row.amount }}"
                          step="0.01" min="0" inputmode="decimal"
                          placeholder="0.00"
-                         style="text-align: right;"
-                         {% if not row.has_owner %}disabled{% endif %} />
+                         style="text-align: right;" />
                 </td>
-                <td class="num">{{ row.ytd_billed }}</td>
-                <td class="num">{{ row.ytd_paid }}</td>
-                <td class="num">
-                  <span {% if row.balance_is_positive %}style="color: var(--danger);"{% endif %}>
-                    {{ row.ytd_balance }}
-                  </span>
+                <td>
+                  <button type="button" class="btn btn--ghost row-remove"
+                          title="Remove row" aria-label="Remove row"
+                          style="padding: 4px 8px;">×</button>
                 </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+
       <div class="row" style="margin-top: var(--sp-4);">
         <button type="submit" class="btn btn--primary"
                 formaction="/assessments/bill-individual">
@@ -181,5 +170,68 @@
         </button>
       </div>
     </div>
+
+    {# Hidden template row for + Add row — cloned by the JS below. #}
+    <template id="row-template">
+      <tr class="individual-row">
+        <td>
+          <select name="row_IDX_lot_id" class="row-lot">
+            <option value="">— Select a homeowner / lot —</option>
+            {% for l in lot_options %}
+              <option value="{{ l.id }}" {% if not l.has_owner %}disabled{% endif %}>
+                {{ l.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <input type="number" name="row_IDX_amount"
+                 step="0.01" min="0" inputmode="decimal"
+                 placeholder="0.00" style="text-align: right;" />
+        </td>
+        <td>
+          <button type="button" class="btn btn--ghost row-remove"
+                  title="Remove row" aria-label="Remove row"
+                  style="padding: 4px 8px;">×</button>
+        </td>
+      </tr>
+    </template>
   </form>
+
+  <script>
+    (function () {
+      var tbody = document.getElementById("individual-rows-body");
+      var addBtn = document.getElementById("add-row-btn");
+      var tmpl = document.getElementById("row-template");
+      var nextIdx = tbody.querySelectorAll("tr.individual-row").length;
+
+      function wireRow(tr) {
+        var rm = tr.querySelector("button.row-remove");
+        if (rm) rm.addEventListener("click", function () {
+          // Keep at least one row on the page so there's always
+          // something to submit into.
+          if (tbody.querySelectorAll("tr.individual-row").length === 1) {
+            tr.querySelectorAll("input").forEach(function (el) { el.value = ""; });
+            var sel = tr.querySelector("select.row-lot");
+            if (sel) sel.value = "";
+          } else {
+            tr.remove();
+          }
+        });
+      }
+
+      addBtn.addEventListener("click", function () {
+        var clone = tmpl.content.cloneNode(true);
+        var tr = clone.querySelector("tr");
+        tr.querySelectorAll("[name]").forEach(function (el) {
+          el.setAttribute("name", el.getAttribute("name").replace("IDX", String(nextIdx)));
+        });
+        nextIdx += 1;
+        tbody.appendChild(tr);
+        wireRow(tr);
+      });
+
+      tbody.querySelectorAll("tr.individual-row").forEach(wireRow);
+    })();
+  </script>
 {% endblock %}

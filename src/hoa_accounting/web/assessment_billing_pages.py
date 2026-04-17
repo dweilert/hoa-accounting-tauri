@@ -114,12 +114,12 @@ class AssessmentBillingPages:
         org: dict[str, object] | None,
         theme: str,
         form_values: dict[str, str] | None = None,
-        submitted_individuals: dict[str, str] | None = None,
+        submitted_individual_rows: list[dict[str, str]] | None = None,
         error_message: str = "",
         success_message: str = "",
     ) -> BillingPageResponse:
         values = form_values or {}
-        submitted = submitted_individuals or {}
+        submitted = {"rows": submitted_individual_rows} if submitted_individual_rows else {}
 
         # AR account is fixed from config; shown read-only on the page.
         resolved_error = error_message
@@ -147,36 +147,35 @@ class AssessmentBillingPages:
             if (not ar_fund) or str(r["fund_code"]) == ar_fund
         ]
 
-        # Lot table with YTD summary per owner.
-        from_date, to_date = _fiscal_year_range(org)
-        lots = LotsRepository(self.conn).list_lots_with_ytd_assessments(
-            from_date=from_date, to_date=to_date,
-        )
-        lot_rows = []
-        for r in lots:
-            billed = Decimal(str(r["ytd_billed"] or 0))
-            paid = Decimal(str(r["ytd_paid"] or 0))
-            balance = billed - paid
-            lot_rows.append({
-                "lot_id": r["lot_id"],
-                "lot_number": r["lot_number"],
-                "street": r["street_address_1"] or "",
-                "owner_name": r["owner_name"] or "(no current owner)",
+        # Lot dropdown options for the per-row picker: label each by
+        # lot number + street + current owner so the treasurer can
+        # identify them at a glance.
+        lot_options = []
+        for r in LotsRepository(self.conn).list_lots():
+            street = r["street_address_1"] or ""
+            owner = r["owner_name"] or "(no current owner)"
+            bits = [str(r["lot_number"])]
+            if street:
+                bits.append(street)
+            bits.append(owner)
+            lot_options.append({
+                "id": r["id"],
+                "label": " · ".join(bits),
                 "has_owner": r["owner_id"] is not None,
-                # Prefer whatever the user just typed into the
-                # individual-amount box over the default blank.
-                "individual_amount": submitted.get(str(r["lot_id"]), ""),
-                "ytd_billed": f"{billed:.2f}",
-                "ytd_paid": f"{paid:.2f}",
-                "ytd_balance": f"{balance:.2f}",
-                "balance_is_positive": balance > 0,
             })
+
+        # Individual-billing rows — preserve whatever the user typed on
+        # re-render after a validation error, otherwise start with a
+        # few blank rows as scratchpad.
+        individual_rows = submitted.get("rows") or [
+            {"lot_id": "", "amount": ""} for _ in range(3)
+        ]
 
         ctx = {
             "heading": "Bill Assessments",
             "description": (
                 "Create an assessment bill for every homeowner at the same "
-                "amount, or enter individual amounts for specific lots. Every "
+                "amount, or pick specific lots and amounts. Every "
                 "assessment posts its own balanced journal entry (DR receivable, "
                 "CR income) and shows up immediately in AR Aging and the Owner "
                 "Ledger. All-or-nothing — if any row fails validation, the "
@@ -191,7 +190,8 @@ class AssessmentBillingPages:
             "breadcrumb": "Transactions",
             "ar_account_label": ar_account_label,
             "income_accounts": income_accounts,
-            "lot_rows": lot_rows,
+            "lot_options": lot_options,
+            "individual_rows": individual_rows,
             "values": {
                 "description": values.get("description", ""),
                 "entry_date": values.get("entry_date", _today()),
@@ -201,7 +201,6 @@ class AssessmentBillingPages:
             },
             "error_message": resolved_error,
             "success_message": success_message,
-            "ytd_period_label": f"{from_date} – {to_date}",
         }
         status = HTTPStatus.BAD_REQUEST if resolved_error else HTTPStatus.OK
         return BillingPageResponse(
@@ -242,7 +241,7 @@ class AssessmentBillingPages:
             resp = self.render_page(
                 org=org, theme=theme,
                 form_values=form_data,
-                submitted_individuals=_extract_individual_amounts(form_data),
+                submitted_individual_rows=_extract_individual_rows(form_data),
                 error_message=str(exc),
             )
             return (None, resp)
@@ -315,7 +314,7 @@ class AssessmentBillingPages:
             resp = self.render_page(
                 org=org, theme=theme,
                 form_values=form_data,
-                submitted_individuals=_extract_individual_amounts(form_data),
+                submitted_individual_rows=_extract_individual_rows(form_data),
                 error_message=str(exc),
             )
             return (None, resp)
@@ -327,26 +326,23 @@ class AssessmentBillingPages:
 # ── Helpers ────────────────────────────────────────────────────────
 
 
-def _extract_individual_amounts(form_data: dict[str, str]) -> dict[str, str]:
-    """Rebuild a lot_id → submitted amount map for re-render."""
-    lot_by_idx: dict[int, int] = {}
-    amt_by_idx: dict[int, str] = {}
+def _extract_individual_rows(form_data: dict[str, str]) -> list[dict[str, str]]:
+    """Reconstruct the submitted individual-billing rows in row order.
+
+    Used on validation-error re-render so the treasurer doesn't lose
+    what they typed. Returns a list ordered by the row index the
+    browser submitted.
+    """
+    by_idx: dict[int, dict[str, str]] = {}
     for key, value in form_data.items():
         m_lot = _ROW_LOT_RE.match(key)
         if m_lot:
-            try:
-                lot_by_idx[int(m_lot.group(1))] = int(value)
-            except (TypeError, ValueError):
-                continue
+            by_idx.setdefault(int(m_lot.group(1)), {})["lot_id"] = value
             continue
         m_amt = _ROW_KEY_RE.match(key)
         if m_amt:
-            amt_by_idx[int(m_amt.group(1))] = value
-    out: dict[str, str] = {}
-    for idx, lot_id in lot_by_idx.items():
-        if idx in amt_by_idx:
-            out[str(lot_id)] = amt_by_idx[idx]
-    return out
+            by_idx.setdefault(int(m_amt.group(1)), {})["amount"] = value
+    return [by_idx[i] for i in sorted(by_idx)]
 
 
 def _require(raw: str, label: str) -> str:

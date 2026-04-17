@@ -160,8 +160,8 @@ def test_bill_individuals_rejects_empty_rows(conn: sqlite3.Connection) -> None:
 # ── Page flow ──────────────────────────────────────────────────────
 
 
-def test_page_renders_lot_rows_with_ytd_columns(conn: sqlite3.Connection) -> None:
-    """Every active lot appears with YTD Billed / Paid / Balance."""
+def test_page_renders_lot_options_in_individual_picker(conn: sqlite3.Connection) -> None:
+    """All active lots + owners appear as dropdown options for the picker."""
     _seed(conn)
     pages = AssessmentBillingPages(conn)
     resp = pages.render_page(org=_ORG, theme="warm")
@@ -170,10 +170,12 @@ def test_page_renders_lot_rows_with_ytd_columns(conn: sqlite3.Connection) -> Non
     assert "Alice Park" in body
     assert "Bob Cole" in body
     assert "Carla Nguyen" in body
-    # Three YTD columns visible.
-    assert "YTD Billed" in body
-    assert "YTD Paid" in body
-    assert "YTD Balance" in body
+    # New dynamic-row picker: prompt option + Add row button.
+    assert "Select a homeowner / lot" in body
+    assert "+ Add row" in body
+    # YTD columns are deliberately not on this page anymore.
+    assert "YTD Billed" not in body
+    assert "YTD Paid" not in body
 
 
 def test_handle_bill_all_returns_redirect_on_success(conn: sqlite3.Connection) -> None:
