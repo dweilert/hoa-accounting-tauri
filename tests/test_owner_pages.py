@@ -183,7 +183,8 @@ def test_render_edit_form_unknown_returns_404(conn: sqlite3.Connection) -> None:
 # ── handle_add ─────────────────────────────────────────────────────────
 
 
-def test_handle_add_owner_only_redirects(conn: sqlite3.Connection) -> None:
+def test_handle_add_with_lot_redirects(conn: sqlite3.Connection) -> None:
+    lot_id = _seed_lot(conn)
     redirect_url, form_resp = OwnerPages(conn).handle_add(
         form_data={
             "owner_type": "PERSON",
@@ -192,6 +193,9 @@ def test_handle_add_owner_only_redirects(conn: sqlite3.Connection) -> None:
             "last_name": "Owner",
             "email": "new@example.com",
             "phone": "555-2222",
+            "lot_id": str(lot_id),
+            "start_date": "2026-01-01",
+            "is_primary_contact": "1",
         },
         org=_ORG, theme="warm",
     )
@@ -225,8 +229,10 @@ def test_handle_add_with_lot_assignment(conn: sqlite3.Connection) -> None:
 def test_handle_add_missing_display_name_returns_error(
     conn: sqlite3.Connection,
 ) -> None:
+    lot_id = _seed_lot(conn)
     redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={"owner_type": "PERSON"},
+        form_data={"owner_type": "PERSON", "lot_id": str(lot_id),
+                   "start_date": "2026-01-01"},
         org=_ORG, theme="warm",
     )
     assert redirect_url is None
@@ -238,8 +244,21 @@ def test_handle_add_missing_display_name_returns_error(
 def test_handle_add_missing_owner_type_returns_error(
     conn: sqlite3.Connection,
 ) -> None:
+    lot_id = _seed_lot(conn)
     redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={"display_name": "Test"},
+        form_data={"display_name": "Test", "lot_id": str(lot_id),
+                   "start_date": "2026-01-01"},
+        org=_ORG, theme="warm",
+    )
+    assert redirect_url is None
+    assert form_resp is not None
+    assert form_resp.status_code == 400
+
+
+def test_handle_add_missing_lot_returns_error(conn: sqlite3.Connection) -> None:
+    redirect_url, form_resp = OwnerPages(conn).handle_add(
+        form_data={"owner_type": "PERSON", "display_name": "Test",
+                   "start_date": "2026-01-01"},
         org=_ORG, theme="warm",
     )
     assert redirect_url is None

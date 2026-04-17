@@ -116,21 +116,21 @@
       </div>
     </div>
   {% else %}
-    {# On add: optional lot assignment section #}
+    {# On add: required lot assignment section #}
     <div class="panel" style="margin-top:1rem;">
       <div class="panel__header">
         <div>
-          <div class="panel__title">Lot Assignment <span style="font-weight:400;color:var(--color-text-muted);">(optional)</span></div>
+          <div class="panel__title">Lot Assignment</div>
           <div class="panel__description">
-            Assign this owner to a lot now, or leave blank to assign later from the Owners list.
+            Every owner must be assigned to a lot. Add the lot first if it does not appear below.
           </div>
         </div>
       </div>
 
       <label class="field">
-        <span class="field__label">Lot</span>
-        <select name="lot_id">
-          <option value="">— No assignment —</option>
+        <span class="field__label">Lot *</span>
+        <select name="lot_id" required>
+          <option value="">— Select a lot —</option>
           {% for lot in lot_options %}
             <option value="{{ lot.id }}"
               {% if values.lot_id|string == lot.id|string %}selected{% endif %}>
@@ -141,10 +141,10 @@
       </label>
 
       <label class="field">
-        <span class="field__label">Ownership Start Date</span>
+        <span class="field__label">Ownership Start Date *</span>
         <input type="date" name="start_date"
-               value="{{ values.start_date }}" />
-        <span class="field__hint">Required when a lot is selected.</span>
+               value="{{ values.start_date }}"
+               required />
       </label>
 
       <fieldset class="field" style="border:none;padding:0;margin:0;">

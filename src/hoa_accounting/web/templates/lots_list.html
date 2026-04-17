@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Lots · {{ org.name }}{% endblock %}
+{% block heading %}Lots{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ lots|length }} record{% if lots|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Lots</div>
+        <div class="panel__description">
+          Every lot in the association. Add lots here before assigning owners.
+        </div>
+      </div>
+      <a href="/lots/add" class="btn btn--primary btn--sm">Add Lot</a>
+    </div>
+
+    {% if lots %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Lot #</th>
+              <th>Street Address</th>
+              <th>City</th>
+              <th>State</th>
+              <th>Postal Code</th>
+              <th>Owner 1</th>
+              <th>Owner 2</th>
+              <th>Occupancy</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in lots %}
+              <tr{% if not l.active_flag %} style="opacity:.5;"{% endif %}>
+                <td class="mono">{{ l.lot_number }}</td>
+                <td>
+                  {{ l.street_address_1 or '' }}
+                  {% if l.street_address_2 %}<br />{{ l.street_address_2 }}{% endif %}
+                </td>
+                <td>{{ l.city or '' }}</td>
+                <td>{{ l.state or '' }}</td>
+                <td class="mono">{{ l.postal_code or '' }}</td>
+                <td>{{ l.owner_name or '—' }}</td>
+                <td>{{ l.owner2_name or '—' }}</td>
+                <td>
+                  {% if l.is_owner_occupied %}
+                    Owner Occupied
+                  {% else %}
+                    Renter: {{ l.renter_name or '—' }}
+                  {% endif %}
+                </td>
+                <td>{% if l.active_flag %}Active{% else %}Inactive{% endif %}</td>
+                <td>
+                  <a href="/lots/{{ l.lot_id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No lots on record. Use Add Lot to record the first one.</div>
+    {% endif %}
+  </div>
+{% endblock %}

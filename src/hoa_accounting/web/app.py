@@ -26,6 +26,7 @@ from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
 from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
+from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.master_data_pages import MasterDataListService
 from hoa_accounting.web.owner_pages import OwnerPages
@@ -205,14 +206,107 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     @app.get("/accounts")
     def list_accounts() -> Response: return _render_list("accounts")
 
-    @app.get("/lots")
-    def list_lots() -> Response: return _render_list("lots")
-
     @app.get("/vendors")
     def list_vendors() -> Response: return _render_list("vendors")
 
     @app.get("/bank-accounts")
     def list_bank_accounts() -> Response: return _render_list("bank-accounts")
+
+    # ── Lot pages ─────────────────────────────────────────────────────
+
+    def _open_lot_pages() -> LotPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; lot pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._lot_conn = conn
+        return LotPages(conn)
+
+    @app.teardown_request
+    def _close_lot_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_lot_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._lot_conn = None
+
+    @app.get("/lots")
+    def list_lots() -> Response:
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/lots/add")
+    def new_lot_form() -> Response:
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/add")
+    def submit_new_lot() -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        # active_flag checkbox: present=1, absent=0
+        form_data = {k: v for k, v in request.form.items()}
+        if "_active_flag_present" in form_data and "active_flag" not in form_data:
+            form_data["active_flag"] = "0"
+        redirect_url, form_resp = pages.handle_add(
+            form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/lots/<int:lot_id>/edit")
+    def edit_lot_form(lot_id: int) -> Response:
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme, lot_id=lot_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/edit")
+    def submit_edit_lot(lot_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        if "_active_flag_present" in form_data and "active_flag" not in form_data:
+            form_data["active_flag"] = "0"
+        redirect_url, form_resp = pages.handle_edit(
+            lot_id=lot_id, form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/delete")
+    def submit_delete_lot(lot_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            lot_id=lot_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     # ── Renter pages ─────────────────────────────────────────────────
 

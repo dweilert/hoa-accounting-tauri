@@ -212,40 +212,37 @@ class OwnerPages:
                 notes=_opt(form_data.get("notes", "")),
             )
 
-            # Optional lot assignment
-            lot_id_raw = _opt(form_data.get("lot_id", ""))
-            if lot_id_raw:
-                lot_id = _parse_int(lot_id_raw, "Lot")
-                start_date = _require(form_data.get("start_date", ""), "Start Date")
-                is_primary = form_data.get("is_primary_contact", "1") == "1"
+            # Required lot assignment
+            lot_id = _parse_int(form_data.get("lot_id", ""), "Lot")
+            start_date = _require(form_data.get("start_date", ""), "Start Date")
+            is_primary = form_data.get("is_primary_contact", "1") == "1"
 
-                count = self.ownership_repo.count_current_owners(lot_id)
-                if count >= 2:
-                    raise ValidationError(
-                        "This lot already has two current owners. "
-                        "Mark one as Previous before adding another."
-                    )
-                if is_primary and self.ownership_repo.has_current_primary(lot_id):
-                    raise ValidationError(
-                        "This lot already has an Owner 1. "
-                        "Assign as Owner 2 or mark the existing Owner 1 as Previous first."
-                    )
-                if not is_primary:
-                    # Check that a secondary slot is available
-                    existing = self.ownership_repo.get_current_ownerships(lot_id)
-                    secondaries = [r for r in existing if not r["is_primary_contact"]]
-                    if secondaries:
-                        raise ValidationError(
-                            "This lot already has an Owner 2. "
-                            "Mark the existing Owner 2 as Previous before adding another."
-                        )
-
-                self.ownership_repo.assign_owner(
-                    lot_id=lot_id,
-                    owner_id=owner_id,
-                    start_date=start_date,
-                    is_primary_contact=is_primary,
+            count = self.ownership_repo.count_current_owners(lot_id)
+            if count >= 2:
+                raise ValidationError(
+                    "This lot already has two current owners. "
+                    "Mark one as Previous before adding another."
                 )
+            if is_primary and self.ownership_repo.has_current_primary(lot_id):
+                raise ValidationError(
+                    "This lot already has an Owner 1. "
+                    "Assign as Owner 2 or mark the existing Owner 1 as Previous first."
+                )
+            if not is_primary:
+                existing = self.ownership_repo.get_current_ownerships(lot_id)
+                secondaries = [r for r in existing if not r["is_primary_contact"]]
+                if secondaries:
+                    raise ValidationError(
+                        "This lot already has an Owner 2. "
+                        "Mark the existing Owner 2 as Previous before adding another."
+                    )
+
+            self.ownership_repo.assign_owner(
+                lot_id=lot_id,
+                owner_id=owner_id,
+                start_date=start_date,
+                is_primary_contact=is_primary,
+            )
 
             self.conn.commit()
 

@@ -177,6 +177,105 @@ class LotsRepository(BaseRepository):
             (lot_id,),
         ).fetchone()
 
+    def get_lot(self, lot_id: int) -> sqlite3.Row | None:
+        """Return a single lot row by id, or None."""
+        return self.conn.execute(
+            """
+            SELECT id, lot_number, street_address_1, street_address_2,
+                   city, state, postal_code, legal_description, active_flag
+            FROM lots WHERE id = ?
+            """,
+            (lot_id,),
+        ).fetchone()
+
+    def insert_lot(
+        self,
+        *,
+        lot_number: str,
+        street_address_1: str | None,
+        street_address_2: str | None,
+        city: str | None,
+        state: str | None,
+        postal_code: str | None,
+        legal_description: str | None,
+    ) -> int:
+        """Insert a new lot and return its id."""
+        cur = self.conn.execute(
+            """
+            INSERT INTO lots
+                (lot_number, street_address_1, street_address_2,
+                 city, state, postal_code, legal_description)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (lot_number, street_address_1, street_address_2,
+             city, state, postal_code, legal_description),
+        )
+        return int(cur.lastrowid)
+
+    def update_lot(
+        self,
+        *,
+        lot_id: int,
+        lot_number: str,
+        street_address_1: str | None,
+        street_address_2: str | None,
+        city: str | None,
+        state: str | None,
+        postal_code: str | None,
+        legal_description: str | None,
+        active_flag: bool,
+    ) -> None:
+        """Update editable fields on an existing lot."""
+        self.conn.execute(
+            """
+            UPDATE lots
+               SET lot_number = ?, street_address_1 = ?, street_address_2 = ?,
+                   city = ?, state = ?, postal_code = ?,
+                   legal_description = ?, active_flag = ?,
+                   updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?
+            """,
+            (lot_number, street_address_1, street_address_2,
+             city, state, postal_code, legal_description,
+             1 if active_flag else 0, lot_id),
+        )
+
+    def has_current_owners(self, lot_id: int) -> bool:
+        """Return True if the lot has any current (end_date IS NULL) owners."""
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM lot_ownership WHERE lot_id = ? AND end_date IS NULL",
+            (lot_id,),
+        ).fetchone()
+        return int(row[0]) > 0
+
+    def has_current_renters(self, lot_id: int) -> bool:
+        """Return True if the lot has any current (end_date IS NULL) renters."""
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM lot_renters WHERE lot_id = ? AND end_date IS NULL",
+            (lot_id,),
+        ).fetchone()
+        return int(row[0]) > 0
+
+    def delete_lot(self, lot_id: int) -> None:
+        """Hard-delete a lot and all its ownership and renter history."""
+        self.conn.execute("DELETE FROM lot_ownership WHERE lot_id = ?", (lot_id,))
+        self.conn.execute("DELETE FROM lot_renters WHERE lot_id = ?", (lot_id,))
+        self.conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
+
+    def lot_number_exists(self, lot_number: str, *, exclude_id: int | None = None) -> bool:
+        """Return True if lot_number is already taken by another lot."""
+        if exclude_id is not None:
+            row = self.conn.execute(
+                "SELECT COUNT(*) FROM lots WHERE lot_number = ? AND id != ?",
+                (lot_number, exclude_id),
+            ).fetchone()
+        else:
+            row = self.conn.execute(
+                "SELECT COUNT(*) FROM lots WHERE lot_number = ?",
+                (lot_number,),
+            ).fetchone()
+        return int(row[0]) > 0
+
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return lots with their current primary-contact owner, if any.
 
