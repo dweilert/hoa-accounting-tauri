@@ -1,0 +1,50 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Period</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      {{ summary.from_date }} – {{ summary.to_date }}
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Grand Total</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.grand_total }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Transactions</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_record_count }}</span>
+  </div>
+</div>
+
+{% if summary.groups %}
+  {% for group in summary.groups %}
+    <div class="section-heading">
+      {{ group.group_code }} — {{ group.group_total }} ({{ group.group_record_count }} entries)
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Category</th>
+            <th>Fund</th>
+            <th class="num">Amount</th>
+            <th class="num">Records</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in group.rows %}
+            <tr>
+              <td class="mono">{{ row.account_number }}</td>
+              <td>{{ row.account_name }}</td>
+              <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
+              <td class="num">{{ row.ytd_amount }}</td>
+              <td class="num">{{ row.record_count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">No expense activity in this period.</div>
+{% endif %}

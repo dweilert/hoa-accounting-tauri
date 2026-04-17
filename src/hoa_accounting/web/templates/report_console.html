@@ -1,34 +1,38 @@
 {% extends "base.html" %}
 
 {% block title %}Reports · {{ org.name }}{% endblock %}
-{% block heading %}{{ report_title }}{% endblock %}
-
-{% block topbar_meta %}
-  {% if selected_report %}
-    <span class="pill pill--muted">{{ selected_report }}</span>
-  {% endif %}
-{% endblock %}
+{% block heading %}Reports{% endblock %}
 
 {% block content %}
   <div class="panel">
     <div class="panel__header">
       <div>
-        <div class="panel__title">{{ report_title }}</div>
         <div class="panel__description">{{ report_description }}</div>
       </div>
     </div>
 
-    <form method="get" action="/run-report" class="form">
+    {#
+      The report picker is its own tiny form so selecting a different
+      option auto-submits to /reports (a plain GET). The server re-renders
+      with the correct parameter fields below, without needing the user to
+      click "Run report" just to see the right inputs.
+    #}
+    <form method="get" action="/reports" class="form" style="margin-bottom: var(--sp-3);">
       <label class="field form__row--full">
         <span class="field__label">Report</span>
-        <select name="report_name">
+        <select name="report_name" id="report-picker" onchange="this.form.submit()">
           {% for option in report_options %}
             <option value="{{ option.name }}"{% if option.selected %} selected{% endif %}>
               {{ option.title }}
             </option>
           {% endfor %}
         </select>
+        <span class="field__hint">Changing the report updates the input fields below.</span>
       </label>
+    </form>
+
+    <form method="get" action="/run-report" class="form">
+      <input type="hidden" name="report_name" value="{{ selected_report }}" />
 
       {% for field in parameter_fields %}
         <label class="field">
@@ -59,33 +63,4 @@
 
     {% include summary_template %}
   </div>
-
-  <div class="panel">
-    <div class="panel__header">
-      <div class="panel__title">Available Reports</div>
-      <div class="panel__description">Browse and pick a report; the form above reflects the selection.</div>
-    </div>
-    <div class="card-grid card-grid--compact">
-      {% for report in report_catalog_cards %}
-        <div class="card card--compact{% if report.selected %} card--selected{% endif %}">
-          <div class="card__title">{{ report.title }}</div>
-          <div class="card__description">{{ report.description }}</div>
-          <div class="card__meta">
-            <span class="card__meta-label">Inputs:</span> {{ report.field_list }}
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <details class="panel">
-    <summary class="panel__title" style="cursor: pointer;">Raw API response</summary>
-    <div style="margin-top: var(--sp-3);">
-      {% if raw_json %}
-        <pre class="raw-json">{{ raw_json }}</pre>
-      {% else %}
-        <div class="empty">No report has been run yet.</div>
-      {% endif %}
-    </div>
-  </details>
 {% endblock %}

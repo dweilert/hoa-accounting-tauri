@@ -19,6 +19,7 @@ from hoa_accounting.reporting.income_statement import IncomeStatementReportServi
 from hoa_accounting.reporting.owner_ledger import OwnerLedgerReportService
 from hoa_accounting.reporting.serializers import to_plain_data
 from hoa_accounting.reporting.trial_balance import TrialBalanceReportService
+from hoa_accounting.reporting.ytd_expense_summary import YtdExpenseSummaryReportService
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,14 @@ class ReportRunner:
             from_date = self._require_param(params, "from_date")
             to_date = self._require_param(params, "to_date")
             return IncomeStatementReportService(conn).generate(
+                from_date=from_date,
+                to_date=to_date,
+            )
+
+        if report_name == "ytd-expense-summary":
+            from_date = self._require_param(params, "from_date")
+            to_date = self._require_param(params, "to_date")
+            return YtdExpenseSummaryReportService(conn).generate(
                 from_date=from_date,
                 to_date=to_date,
             )

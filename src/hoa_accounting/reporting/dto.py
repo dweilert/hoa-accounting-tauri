@@ -207,3 +207,35 @@ class IncomeStatementReport:
     total_income: Decimal
     total_expenses: Decimal
     net_income: Decimal
+
+
+@dataclass(frozen=True)
+class YtdExpenseCategoryRow:
+    """One expense category (GL account) row on the YTD summary."""
+    account_id: int
+    account_number: str
+    account_name: str
+    group_code: str
+    fund_code: str
+    ytd_amount: Decimal
+    record_count: int
+
+
+@dataclass(frozen=True)
+class YtdExpenseGroup:
+    """One group bucket (Landscape, Entrance, …) with its categories."""
+    group_code: str
+    rows: list[YtdExpenseCategoryRow]
+    group_total: Decimal
+    group_record_count: int
+
+
+@dataclass(frozen=True)
+class YtdExpenseSummaryReport:
+    """YTD expense summary grouped by expense group, matching the
+    user's spreadsheet summary view."""
+    from_date: str
+    to_date: str
+    groups: list[YtdExpenseGroup]
+    grand_total: Decimal
+    total_record_count: int
