@@ -149,7 +149,11 @@ def build_report_console_context(
         raw_json=_build_raw_json(api_payload),
         org=org or dict(_DEFAULT_ORG),
         active_nav="reports",
-        breadcrumb="Reports",
+        # Intentionally blank — the heading already says 'Reports' and
+        # the sidebar shows we're on the Reports tab, so a breadcrumb
+        # reading 'REPORTS' above a heading reading 'Reports' just
+        # duplicates the word.
+        breadcrumb="",
         selected_report=selected_report,
         theme=_resolve_theme(org),
     )
