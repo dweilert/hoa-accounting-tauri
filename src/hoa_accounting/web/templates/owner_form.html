@@ -211,11 +211,18 @@
     </div>
   {% endif %}
 
-  <div style="margin-top:1rem;display:flex;gap:.75rem;">
+  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
     <button type="submit" class="btn btn--primary">
       {% if is_edit %}Save Changes{% else %}Add Owner{% endif %}
     </button>
     <a href="/owners" class="btn btn--ghost">Cancel</a>
+    {% if is_edit %}
+      <span style="flex:1;"></span>
+      <form method="post" action="/owners/{{ owner_id }}/delete"
+            onsubmit="return confirm('Delete this owner and all their ownership history? This cannot be undone.');">
+        <button type="submit" class="btn btn--danger btn--sm">Delete Owner</button>
+      </form>
+    {% endif %}
   </div>
 
   </form>

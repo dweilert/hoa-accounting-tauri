@@ -100,6 +100,21 @@ class OwnersRepository(BaseRepository):
              entity_name, email, phone, notes, owner_id),
         )
 
+    def has_current_lot(self, owner_id: int) -> bool:
+        """Return True if the owner has a current (end_date IS NULL) lot assignment."""
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM lot_ownership WHERE owner_id = ? AND end_date IS NULL",
+            (owner_id,),
+        ).fetchone()
+        return int(row[0]) > 0
+
+    def delete_owner(self, owner_id: int) -> None:
+        """Hard-delete an owner and all their lot ownership history."""
+        self.conn.execute(
+            "DELETE FROM lot_ownership WHERE owner_id = ?", (owner_id,)
+        )
+        self.conn.execute("DELETE FROM owners WHERE id = ?", (owner_id,))
+
     def list_owners(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return owners for a master-data list page."""
         predicates = []

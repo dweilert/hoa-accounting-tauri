@@ -353,3 +353,28 @@ class OwnerPages:
                 org=org, theme=theme, error_message=str(exc),
             )
         return "/owners?msg=Owner+marked+as+previous.", None
+
+    # ── Delete owner (POST) ────────────────────────────────────────
+
+    def handle_delete(
+        self,
+        *,
+        owner_id: int,
+        org: dict[str, object] | None,
+        theme: str,
+    ) -> tuple[str | None, OwnerPageResponse | None]:
+        try:
+            if self.repo.has_current_lot(owner_id):
+                raise ValidationError(
+                    "Cannot delete an owner with a current lot assignment. "
+                    "Mark them as Previous first."
+                )
+            self.repo.delete_owner(owner_id)
+            self.conn.commit()
+        except ValidationError as exc:
+            return None, self.render_form(
+                org=org, theme=theme,
+                owner_id=owner_id,
+                error_message=str(exc),
+            )
+        return "/owners?msg=Owner+deleted.", None

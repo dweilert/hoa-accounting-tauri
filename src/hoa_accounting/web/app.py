@@ -498,6 +498,21 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    @app.post("/owners/<int:owner_id>/delete")
+    def submit_delete_owner(owner_id: int) -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            owner_id=owner_id,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     # ── Transaction pages: Vendor Bills ──────────────────────────────
     # Same per-request connection pattern as the master-data pages, with
     # a form-handling POST added. Redirect-on-success uses a query param
