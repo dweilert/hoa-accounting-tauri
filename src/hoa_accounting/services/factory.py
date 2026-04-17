@@ -10,6 +10,7 @@ from hoa_accounting.repositories.audit_repo import AuditRepository
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.repositories.deposit_batches_repo import DepositBatchesRepository
 from hoa_accounting.repositories.entities_repo import EntitiesRepository
+from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
 from hoa_accounting.repositories.journal_repo import JournalRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
@@ -19,6 +20,7 @@ from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.services.assessment_service import AssessmentService
 from hoa_accounting.services.deposit_batch_service import DepositBatchService
 from hoa_accounting.services.journal_service import JournalService
+from hoa_accounting.services.non_dues_income_service import NonDuesIncomeService
 from hoa_accounting.services.payment_service import PaymentService
 from hoa_accounting.services.reserve_transfer_service import ReserveTransferService
 from hoa_accounting.services.reversal_service import ReversalService
@@ -43,6 +45,7 @@ class ServiceFactory:
         self.bank_accounts_repo = BankAccountsRepository(conn)
         self.deposit_batches_repo = DepositBatchesRepository(conn)
         self.entities_repo = EntitiesRepository(conn)
+        self.income_batches_repo = IncomeBatchesRepository(conn)
         self.journal_repo = JournalRepository(conn)
         self.lots_repo = LotsRepository(conn)
         self.payments_repo = PaymentsRepository(conn)
@@ -135,6 +138,19 @@ class ServiceFactory:
             payments_repo=self.payments_repo,
             assessments_repo=self.assessments_repo,
             deposit_batches_repo=self.deposit_batches_repo,
+            lots_repo=self.lots_repo,
+            accounts_repo=self.accounts_repo,
+            bank_accounts_repo=self.bank_accounts_repo,
+            audit_repo=self.audit_repo,
+            journal_repo=self.journal_repo,
+            journal_service=self.journal_service(),
+        )
+
+    def non_dues_income_service(self) -> NonDuesIncomeService:
+        """Return a configured non-dues income service."""
+        return NonDuesIncomeService(
+            self.conn,
+            income_batches_repo=self.income_batches_repo,
             lots_repo=self.lots_repo,
             accounts_repo=self.accounts_repo,
             bank_accounts_repo=self.bank_accounts_repo,
