@@ -57,7 +57,8 @@
                 <td>{{ a.group_code or '' }}</td>
                 <td>{% if a.is_bank_account %}✓{% endif %}</td>
                 <td>{% if a.is_active %}Active{% else %}Inactive{% endif %}</td>
-                <td>
+                <td style="display:flex;gap:.4rem;justify-content:flex-end;">
+                  <a href="/accounts/{{ a.id }}/ledger" class="btn btn--sm btn--ghost">Ledger</a>
                   <a href="/accounts/{{ a.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
                 </td>
               </tr>

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Ledger: {{ account.account_number if account }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  {% if account %}
+    <span class="pill pill--muted">{{ row_count }} transaction{% if row_count != 1 %}s{% endif %}</span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if account %}
+    {# ── Account header card ─────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header" style="margin-bottom:.5rem;">
+        <div>
+          <div class="panel__title">Account Details</div>
+        </div>
+        <a href="/accounts" class="btn btn--ghost btn--sm">← Chart of Accounts</a>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;font-size:13px;">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Account #</div>
+          <div class="mono" style="font-size:15px;font-weight:600;">{{ account.account_number }}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Name</div>
+          <div style="font-size:14px;">{{ account.account_name }}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Type</div>
+          <div>{{ account.account_type_name }}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Fund</div>
+          <div>{{ account.fund_code }}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Normal Balance</div>
+          <div style="font-weight:600;color:{% if normal_balance == 'DEBIT' %}#2d7a2d{% else %}#a0522d{% endif %};">
+            {{ normal_balance }}
+          </div>
+        </div>
+        {% if not account.is_active %}
+          <div style="display:flex;align-items:center;">
+            <span class="pill pill--muted">Inactive</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Date range filter ───────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header" style="margin-bottom:.5rem;">
+        <div class="panel__title">Filter by Date Range</div>
+        {% if start_date or end_date %}
+          <a href="/accounts/{{ account.id }}/ledger" class="btn btn--ghost btn--sm">Clear filter</a>
+        {% endif %}
+      </div>
+      <form method="get" action="/accounts/{{ account.id }}/ledger"
+            style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;">
+        <label class="field" style="flex:0 0 auto;">
+          <span class="field__label">From</span>
+          <input type="date" name="start" value="{{ start_date }}" style="max-width:14rem;">
+        </label>
+        <label class="field" style="flex:0 0 auto;">
+          <span class="field__label">To</span>
+          <input type="date" name="end" value="{{ end_date }}" style="max-width:14rem;">
+        </label>
+        <div style="padding-bottom:1px;">
+          <button type="submit" class="btn btn--primary btn--sm">Apply</button>
+        </div>
+      </form>
+    </div>
+
+    {# ── Transaction table ───────────────────────────────────────── #}
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Transaction History</div>
+          {% if start_date or end_date %}
+            <div class="panel__description">
+              Showing
+              {% if start_date %}from {{ start_date }}{% endif %}
+              {% if end_date %}to {{ end_date }}{% endif %}
+            </div>
+          {% else %}
+            <div class="panel__description">All posted transactions for this account, oldest first.</div>
+          {% endif %}
+        </div>
+        {% if rows %}
+          <div style="display:flex;gap:.4rem;align-items:center;">
+            <span style="font-size:12px;color:var(--text-muted);">Totals:</span>
+            <span class="pill pill--muted" style="font-size:.75rem;">Dr {{ total_debits }}</span>
+            <span class="pill pill--muted" style="font-size:.75rem;">Cr {{ total_credits }}</span>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if rows %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Entry #</th>
+                <th>Source</th>
+                <th>Description</th>
+                <th style="text-align:right;">Debit</th>
+                <th style="text-align:right;">Credit</th>
+                <th style="text-align:right;">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+                <tr>
+                  <td style="white-space:nowrap;">{{ row.entry_date }}</td>
+                  <td class="mono" style="white-space:nowrap;">
+                    {% if row.is_manual %}
+                      <a href="/journal-entries/{{ loop.index }}" style="font-family:var(--font-mono);">
+                        {{ row.entry_number }}
+                      </a>
+                    {% else %}
+                      {{ row.entry_number }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source_label }}</span>
+                  </td>
+                  <td style="max-width:260px;">
+                    <div style="font-size:12px;">{{ row.memo }}</div>
+                    {% if row.line_description and row.line_description != row.memo %}
+                      <div style="font-size:11px;color:var(--text-muted);">{{ row.line_description }}</div>
+                    {% endif %}
+                  </td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;">
+                    {% if row.debit_amount %}{{ row.debit_amount }}{% endif %}
+                  </td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;">
+                    {% if row.credit_amount %}{{ row.credit_amount }}{% endif %}
+                  </td>
+                  <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
+                             font-weight:500;color:{% if 'Cr' in row.running_balance and normal_balance == 'DEBIT' %}var(--danger){% elif 'Dr' in row.running_balance and normal_balance == 'CREDIT' %}var(--danger){% else %}var(--text){% endif %};">
+                    {{ row.running_balance }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
+                <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_debits }}</td>
+                <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_credits }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">
+          No posted transactions found for this account
+          {% if start_date or end_date %}in the selected date range{% endif %}.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

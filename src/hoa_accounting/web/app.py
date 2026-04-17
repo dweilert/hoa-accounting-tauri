@@ -30,6 +30,7 @@ from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.owner_pages import OwnerPages
 from hoa_accounting.web.account_pages import AccountPages
+from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
 from hoa_accounting.web.vendor_pages import VendorPages
@@ -247,6 +248,25 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/accounts/<int:account_id>/ledger")
+    def view_account_ledger(account_id: int) -> Response:
+        conn = connect_sqlite(str(org_context["db_path"]))
+        try:
+            pages = AccountLedgerPages(conn)
+            theme = str(org_context.get("theme", "warm"))
+            start_date = (request.args.get("start") or "").strip()
+            end_date = (request.args.get("end") or "").strip()
+            resp = pages.render_ledger(
+                account_id=account_id,
+                org=org_context, theme=theme,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        finally:
+            conn.close()
+        return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     @app.post("/accounts/<int:account_id>/delete")
