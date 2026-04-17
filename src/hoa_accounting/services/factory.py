@@ -17,6 +17,7 @@ from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.repositories.periods_repo import PeriodsRepository
 from hoa_accounting.repositories.reserve_transfers_repo import ReserveTransfersRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
+from hoa_accounting.services.assessment_billing_service import AssessmentBillingService
 from hoa_accounting.services.assessment_service import AssessmentService
 from hoa_accounting.services.deposit_batch_service import DepositBatchService
 from hoa_accounting.services.journal_service import JournalService
@@ -144,6 +145,14 @@ class ServiceFactory:
             audit_repo=self.audit_repo,
             journal_repo=self.journal_repo,
             journal_service=self.journal_service(),
+        )
+
+    def assessment_billing_service(self) -> AssessmentBillingService:
+        """Return a configured assessment-billing service (bulk + individual)."""
+        return AssessmentBillingService(
+            self.conn,
+            assessment_service=self.assessment_service(),
+            lots_repo=self.lots_repo,
         )
 
     def non_dues_income_service(self) -> NonDuesIncomeService:
