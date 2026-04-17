@@ -202,5 +202,20 @@
       });
     })();
   </script>
+
+  {#
+    Alert dismissal.
+    Any .alert with a .alert__close button can be clicked away. One
+    delegated listener at the document level catches clicks from all
+    pages, so individual templates don't need their own wiring.
+  #}
+  <script>
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest(".alert__close");
+      if (!btn) return;
+      var alertEl = btn.closest(".alert");
+      if (alertEl) alertEl.remove();
+    });
+  </script>
 </body>
 </html>
