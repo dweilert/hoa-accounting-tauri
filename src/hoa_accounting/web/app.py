@@ -30,6 +30,7 @@ from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.master_data_pages import MasterDataListService
 from hoa_accounting.web.owner_pages import OwnerPages
+from hoa_accounting.web.bank_account_pages import BankAccountPages
 from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
@@ -194,10 +195,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         svc = _open_master_data_service()
         renderer = {
             "accounts": svc.render_accounts,
-            "owners": svc.render_owners,
-            "lots": svc.render_lots,
-            "vendors": svc.render_vendors,
-            "bank-accounts": svc.render_bank_accounts,
         }[page]
         theme = str(org_context.get("theme", "warm"))
         resp = renderer(org=org_context, theme=theme)
@@ -207,8 +204,99 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     @app.get("/accounts")
     def list_accounts() -> Response: return _render_list("accounts")
 
+    # ── Bank account pages ────────────────────────────────────────────
+
+    def _open_bank_account_pages() -> BankAccountPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; bank account pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._ba_conn = conn
+        return BankAccountPages(conn)
+
+    @app.teardown_request
+    def _close_ba_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_ba_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._ba_conn = None
+
     @app.get("/bank-accounts")
-    def list_bank_accounts() -> Response: return _render_list("bank-accounts")
+    def list_bank_accounts() -> Response:
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-accounts/add")
+    def new_bank_account_form() -> Response:
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/add")
+    def submit_new_bank_account() -> Response:
+        from flask import redirect
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-accounts/<int:bank_account_id>/edit")
+    def edit_bank_account_form(bank_account_id: int) -> Response:
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 bank_account_id=bank_account_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/edit")
+    def submit_edit_bank_account(bank_account_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit(
+            bank_account_id=bank_account_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/delete")
+    def submit_delete_bank_account(bank_account_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_account_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_delete(
+            bank_account_id=bank_account_id,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     # ── Lot pages ─────────────────────────────────────────────────────
 

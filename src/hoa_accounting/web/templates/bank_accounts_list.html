@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Bank Accounts · {{ org.name }}{% endblock %}
+{% block heading %}Bank Accounts{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ bank_accounts|length }} record{% if bank_accounts|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Bank Accounts</div>
+        <div class="panel__description">
+          Checking, savings, and other accounts the HOA holds.
+        </div>
+      </div>
+      <a href="/bank-accounts/add" class="btn btn--primary btn--sm">Add Bank Account</a>
+    </div>
+
+    {% if bank_accounts %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Account Name</th>
+              <th>Institution</th>
+              <th>Type</th>
+              <th>Last 4</th>
+              <th>GL Account</th>
+              <th>Fund</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ba in bank_accounts %}
+              <tr{% if not ba.active_flag %} style="opacity:.5;"{% endif %}>
+                <td>{{ ba.account_name }}</td>
+                <td>{{ ba.institution_name }}</td>
+                <td>{{ ba.account_type }}</td>
+                <td class="mono">{{ ba.account_last4 or '' }}</td>
+                <td>{{ ba.gl_account_number }} · {{ ba.gl_account_name }}</td>
+                <td>{{ ba.gl_fund_code }}</td>
+                <td>{% if ba.active_flag %}Active{% else %}Inactive{% endif %}</td>
+                <td>
+                  <a href="/bank-accounts/{{ ba.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No bank accounts on record. Use Add Bank Account to record the first one.</div>
+    {% endif %}
+  </div>
+{% endblock %}
