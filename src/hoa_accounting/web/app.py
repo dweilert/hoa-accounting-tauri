@@ -28,6 +28,7 @@ from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
 from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.master_data_pages import MasterDataListService
+from hoa_accounting.web.owner_pages import OwnerPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
     HomePageService,
@@ -204,9 +205,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     @app.get("/accounts")
     def list_accounts() -> Response: return _render_list("accounts")
 
-    @app.get("/owners")
-    def list_owners() -> Response: return _render_list("owners")
-
     @app.get("/lots")
     def list_lots() -> Response: return _render_list("lots")
 
@@ -302,6 +300,101 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_end(
             renter_id=renter_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Owner pages ───────────────────────────────────────────────────
+
+    def _open_owner_pages() -> OwnerPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; owner pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._owner_conn = conn
+        return OwnerPages(conn)
+
+    @app.teardown_request
+    def _close_owner_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_owner_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._owner_conn = None
+
+    @app.get("/owners")
+    def list_owners() -> Response:
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme,
+                                 flash_message=flash_message)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/owners/add")
+    def new_owner_form() -> Response:
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/add")
+    def submit_new_owner() -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/owners/<int:owner_id>/edit")
+    def edit_owner_form(owner_id: int) -> Response:
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme,
+                                 owner_id=owner_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/<int:owner_id>/edit")
+    def submit_edit_owner(owner_id: int) -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit(
+            owner_id=owner_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/owners/<int:owner_id>/mark-previous")
+    def submit_mark_previous(owner_id: int) -> Response:
+        from flask import redirect
+        pages = _open_owner_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_mark_previous(
+            owner_id=owner_id,
             form_data={k: v for k, v in request.form.items()},
             org=org_context, theme=theme,
         )

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/owners" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if is_edit %}
+    <form method="post" action="/owners/{{ owner_id }}/edit" class="form">
+  {% else %}
+    <form method="post" action="/owners/add" class="form">
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Contact Information</div>
+        <div class="panel__description">Name, type, and contact details for this owner.</div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Owner Type *</span>
+      <select name="owner_type" required>
+        <option value="PERSON"{% if values.owner_type == 'PERSON' %} selected{% endif %}>Person</option>
+        <option value="ENTITY"{% if values.owner_type == 'ENTITY' %} selected{% endif %}>Entity (LLC, Corp, etc.)</option>
+        <option value="TRUST"{% if values.owner_type == 'TRUST' %} selected{% endif %}>Trust</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Display Name *</span>
+      <input type="text" name="display_name"
+             value="{{ values.display_name }}"
+             placeholder="e.g. Jane Smith or Smith Family Trust"
+             required />
+      <span class="field__hint">Shown on the Owners and Lots list pages.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">First Name</span>
+      <input type="text" name="first_name"
+             value="{{ values.first_name }}"
+             placeholder="Jane" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Last Name</span>
+      <input type="text" name="last_name"
+             value="{{ values.last_name }}"
+             placeholder="Smith" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Entity / Trust Name</span>
+      <input type="text" name="entity_name"
+             value="{{ values.entity_name }}"
+             placeholder="Smith Family Trust" />
+      <span class="field__hint">For ENTITY and TRUST types.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Phone</span>
+      <input type="tel" name="phone"
+             value="{{ values.phone }}" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Email</span>
+      <input type="email" name="email"
+             value="{{ values.email }}" />
+    </label>
+
+    <label class="field form__row--full">
+      <span class="field__label">Notes</span>
+      <input type="text" name="notes"
+             value="{{ values.notes }}" />
+    </label>
+  </div>
+
+  {% if is_edit %}
+    {# On edit: show current lot assignment as read-only #}
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Current Lot Assignment</div>
+          <div class="panel__description">
+            To change a lot assignment, use Mark as Previous on the Owners list,
+            then add a new owner to the lot.
+          </div>
+        </div>
+      </div>
+      <div style="padding:1rem 1.25rem;">
+        {% if values.current_lot_number %}
+          <p>
+            <strong>Lot:</strong>
+            <span class="mono">{{ values.current_lot_number }}</span>
+            {% if values.current_lot_address %}&nbsp;— {{ values.current_lot_address }}{% endif %}
+            &nbsp;·&nbsp;
+            <strong>Role:</strong>
+            {% if values.is_primary_contact == '1' %}Owner 1{% else %}Owner 2{% endif %}
+          </p>
+        {% else %}
+          <p style="color:var(--color-text-muted);">No current lot assignment.</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {# On add: optional lot assignment section #}
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Lot Assignment <span style="font-weight:400;color:var(--color-text-muted);">(optional)</span></div>
+          <div class="panel__description">
+            Assign this owner to a lot now, or leave blank to assign later from the Owners list.
+          </div>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field__label">Lot</span>
+        <select name="lot_id">
+          <option value="">— No assignment —</option>
+          {% for lot in lot_options %}
+            <option value="{{ lot.id }}"
+              {% if values.lot_id|string == lot.id|string %}selected{% endif %}>
+              {{ lot.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Ownership Start Date</span>
+        <input type="date" name="start_date"
+               value="{{ values.start_date }}" />
+        <span class="field__hint">Required when a lot is selected.</span>
+      </label>
+
+      <fieldset class="field" style="border:none;padding:0;margin:0;">
+        <legend class="field__label">Role</legend>
+        <div style="display:flex;gap:1.5rem;margin-top:.25rem;">
+          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+            <input type="radio" name="is_primary_contact" value="1"
+                   {% if values.is_primary_contact != '0' %}checked{% endif %} />
+            Owner 1 (Primary Contact)
+          </label>
+          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
+            <input type="radio" name="is_primary_contact" value="0"
+                   {% if values.is_primary_contact == '0' %}checked{% endif %} />
+            Owner 2
+          </label>
+        </div>
+      </fieldset>
+    </div>
+  {% endif %}
+
+  <div style="margin-top:1rem;display:flex;gap:.75rem;">
+    <button type="submit" class="btn btn--primary">
+      {% if is_edit %}Save Changes{% else %}Add Owner{% endif %}
+    </button>
+    <a href="/owners" class="btn btn--ghost">Cancel</a>
+  </div>
+
+  </form>
+{% endblock %}

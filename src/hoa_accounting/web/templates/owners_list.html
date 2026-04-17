@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Owners · {{ org.name }}{% endblock %}
+{% block heading %}Owners{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ owners|length }} record{% if owners|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Owners</div>
+        <div class="panel__description">
+          All active owners and their current lot assignment. Use Mark as Previous to end an
+          ownership when someone sells or moves out.
+        </div>
+      </div>
+      <a href="/owners/add" class="btn btn--primary btn--sm">Add Owner</a>
+    </div>
+
+    {% if owners %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Current Lot</th>
+              <th>Role</th>
+              <th>Since</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in owners %}
+              <tr>
+                <td>{{ o.display_name }}</td>
+                <td>{{ o.owner_type }}</td>
+                <td>{{ o.phone or '' }}</td>
+                <td>{{ o.email or '' }}</td>
+                <td class="mono">{{ o.lot_number or '—' }}</td>
+                <td>
+                  {% if o.ownership_id %}
+                    {% if o.is_primary_contact %}Owner 1{% else %}Owner 2{% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="mono">{{ o.ownership_start or '—' }}</td>
+                <td style="white-space:nowrap;">
+                  <a href="/owners/{{ o.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                  {% if o.ownership_id %}
+                    <form method="post" action="/owners/{{ o.id }}/mark-previous"
+                          style="display:inline-flex;gap:.375rem;align-items:center;margin-left:.25rem;">
+                      <input type="date" name="end_date" value="{{ today }}" required
+                             style="font-size:.8rem;" />
+                      <button type="submit" class="btn btn--sm btn--danger">Mark as Previous</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No owners on record. Use Add Owner to record the first one.</div>
+    {% endif %}
+  </div>
+{% endblock %}

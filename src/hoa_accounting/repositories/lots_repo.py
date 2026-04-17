@@ -123,6 +123,8 @@ class LotsRepository(BaseRepository):
                     l.active_flag,
                     o.id AS owner_id,
                     o.display_name AS owner_name,
+                    o2.id AS owner2_id,
+                    o2.display_name AS owner2_name,
                     r.id AS renter_id,
                     r.display_name AS renter_name,
                     r.email AS renter_email,
@@ -135,6 +137,12 @@ class LotsRepository(BaseRepository):
                  AND lo.is_primary_contact = 1
                 LEFT JOIN owners o
                   ON o.id = lo.owner_id
+                LEFT JOIN lot_ownership lo2
+                  ON lo2.lot_id = l.id
+                 AND lo2.end_date IS NULL
+                 AND lo2.is_primary_contact = 0
+                LEFT JOIN owners o2
+                  ON o2.id = lo2.owner_id
                 LEFT JOIN lot_renters r
                   ON r.lot_id = l.id
                  AND r.end_date IS NULL
