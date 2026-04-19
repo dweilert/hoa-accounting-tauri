@@ -213,6 +213,7 @@
     {% for tab in tabs_data %}
       <button type="button"
               class="wge-tab{% if tab.id == active_tab_id %} active{% endif %}{% if not tab.is_active %} inactive{% endif %}"
+              data-tab-id="{{ tab.id }}"
               onclick="switchTab({{ tab.id }})">
         {% if tab.icon %}{{ tab.icon }} {% endif %}{{ tab.label }}
         {% if not tab.is_active %}<span style="font-size:10px;opacity:.7;"> (off)</span>{% endif %}
@@ -426,8 +427,8 @@
 var activeTabId = {{ active_tab_id }};
 
 function switchTab(id) {
-  document.querySelectorAll('.wge-tab').forEach(function(t, i) {
-    t.classList.toggle('active', parseInt(t.getAttribute('onclick').match(/\d+/)[0]) === id);
+  document.querySelectorAll('.wge-tab[data-tab-id]').forEach(function(t) {
+    t.classList.toggle('active', parseInt(t.getAttribute('data-tab-id')) === id);
   });
   document.querySelectorAll('.wge-panel').forEach(function(p) {
     p.classList.toggle('active', p.id === 'tab-panel-' + id);
