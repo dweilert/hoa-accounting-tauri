@@ -419,10 +419,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/workflow-guide")
     def workflow_guide_page() -> Response:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowPages
         theme = str(org_context.get("theme", "warm"))
-        conn = g.db
+        conn = _open_db()
         status, html = WorkflowPages(conn).render_guide(org=org_context, theme=theme)
         return Response(html, status=status, mimetype="text/html")
 
@@ -430,7 +429,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def workflow_admin_page() -> Response:
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
         theme = str(org_context.get("theme", "warm"))
-        conn = g.db
+        conn = _open_db()
         tab_id = int(request.args.get("tab", 1))
         edit_card_id = request.args.get("edit")
         edit_card_id = int(edit_card_id) if edit_card_id else None
@@ -445,21 +444,21 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def workflow_add_card() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_add_card(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_add_card(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/update-card")
     def workflow_update_card() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_update_card(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_update_card(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/move-card")
     def workflow_move_card() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_move_card(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_move_card(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/toggle-card")
@@ -467,28 +466,28 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
         card_id = int(request.form.get("card_id", 0))
         tab_id = int(request.form.get("tab_id", 1))
-        WorkflowAdminPages(g.db).handle_toggle_card(card_id, tab_id)
+        WorkflowAdminPages(_open_db()).handle_toggle_card(card_id, tab_id)
         return Response("ok", mimetype="text/plain")
 
     @app.post("/admin/workflow-guide/delete-card")
     def workflow_delete_card() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_delete_card(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_delete_card(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/reorder-card")
     def workflow_reorder_card() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_reorder_card(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_reorder_card(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/add-section")
     def workflow_add_section() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_add_section(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_add_section(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/toggle-section")
@@ -497,14 +496,14 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
         section_id = int(request.form.get("section_id", 0))
         tab_id = int(request.form.get("tab_id", 1))
-        WorkflowAdminPages(g.db).handle_toggle_section(section_id, tab_id)
+        WorkflowAdminPages(_open_db()).handle_toggle_section(section_id, tab_id)
         return redirect(f"/admin/workflow-guide?tab={tab_id}")
 
     @app.post("/admin/workflow-guide/add-tab")
     def workflow_add_tab() -> Response:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
-        url = WorkflowAdminPages(g.db).handle_add_tab(request.form)
+        url = WorkflowAdminPages(_open_db()).handle_add_tab(request.form)
         return redirect(url)
 
     @app.post("/admin/workflow-guide/toggle-tab")
@@ -512,7 +511,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
         tab_id = int(request.form.get("tab_id", 1))
-        WorkflowAdminPages(g.db).handle_toggle_tab(tab_id)
+        WorkflowAdminPages(_open_db()).handle_toggle_tab(tab_id)
         return redirect(f"/admin/workflow-guide?tab={tab_id}")
 
     @app.get("/dashboard-config")
