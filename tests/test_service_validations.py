@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from hoa_accounting.bootstrap.migrator import Migrator
+
 import pytest
 
 from hoa_accounting.db.transaction import transaction
@@ -35,16 +37,12 @@ CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_time TEXT NOT NULL DEFAULT
 def build_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA_SQL)
+    Migrator().apply_all(conn)
     conn.execute("INSERT INTO accounting_periods (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed) VALUES (1, '2026-01', '2026-01-01', '2026-01-31', 2026, 1, 0)")
     conn.execute("INSERT INTO users (id, email, full_name, password_hash, is_active) VALUES (1, 'a@example.com', 'Admin', 'x', 1)")
     conn.execute("INSERT INTO lots (id, lot_number) VALUES (1, '1')")
     conn.execute("INSERT INTO owners (id, display_name, owner_type, active_flag) VALUES (1, 'Owner 1', 'PERSON', 1)")
     conn.execute("INSERT INTO vendors (id, vendor_name, active_flag) VALUES (1, 'Vendor 1', 1)")
-    conn.execute("INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (1, 'ASSET', 'Asset', 'DEBIT', 'BALANCE_SHEET')")
-    conn.execute("INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (2, 'LIABILITY', 'Liability', 'CREDIT', 'BALANCE_SHEET')")
-    conn.execute("INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (4, 'INCOME', 'Income', 'CREDIT', 'INCOME_STATEMENT')")
-    conn.execute("INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (5, 'EXPENSE', 'Expense', 'DEBIT', 'INCOME_STATEMENT')")
     conn.execute("INSERT INTO accounts (id, account_number, account_name, account_type_id, fund_code, is_bank_account, is_active) VALUES (1000, '1000', 'Cash', 1, 'OPERATING', 1, 1)")
     conn.execute("INSERT INTO accounts (id, account_number, account_name, account_type_id, fund_code, is_bank_account, is_active) VALUES (1010, '1010', 'Reserve Cash', 1, 'RESERVE', 1, 1)")
     conn.execute("INSERT INTO accounts (id, account_number, account_name, account_type_id, fund_code, is_bank_account, is_active) VALUES (1100, '1100', 'AR', 1, 'OPERATING', 0, 1)")

@@ -7,6 +7,7 @@ import sqlite3
 
 import pytest
 
+from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.factory import ServiceFactory
@@ -219,15 +220,16 @@ CREATE TABLE audit_log (
 """
 
 def build_conn() -> sqlite3.Connection:
-    """Create an in-memory test database."""
+    """Create an in-memory test database with full current schema via migrations."""
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA_SQL)
-    conn.execute(
-        "INSERT INTO accounting_periods (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed) VALUES (1, '2026-01', '2026-01-01', '2026-01-31', 2026, 1, 0)"
-    )
+    Migrator().apply_all(conn)
+    # account_types are seeded by migration 0001; insert only test-specific rows.
     conn.execute(
         "INSERT INTO users (id, email, full_name, password_hash, is_active) VALUES (1, 'a@example.com', 'Admin', 'x', 1)"
+    )
+    conn.execute(
+        "INSERT INTO accounting_periods (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed) VALUES (1, '2026-01', '2026-01-01', '2026-01-31', 2026, 1, 0)"
     )
     conn.execute("INSERT INTO lots (id, lot_number) VALUES (1, '1')")
     conn.execute(
@@ -235,18 +237,6 @@ def build_conn() -> sqlite3.Connection:
     )
     conn.execute(
         "INSERT INTO vendors (id, vendor_name, active_flag) VALUES (1, 'Vendor 1', 1)"
-    )
-    conn.execute(
-        "INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (1, 'ASSET', 'Asset', 'DEBIT', 'BALANCE_SHEET')"
-    )
-    conn.execute(
-        "INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (2, 'LIABILITY', 'Liability', 'CREDIT', 'BALANCE_SHEET')"
-    )
-    conn.execute(
-        "INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (4, 'INCOME', 'Income', 'CREDIT', 'INCOME_STATEMENT')"
-    )
-    conn.execute(
-        "INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group) VALUES (5, 'EXPENSE', 'Expense', 'DEBIT', 'INCOME_STATEMENT')"
     )
     conn.execute(
         "INSERT INTO accounts (id, account_number, account_name, account_type_id, fund_code, is_bank_account, is_active) VALUES (1000, '1000', 'Cash', 1, 'OPERATING', 1, 1)"

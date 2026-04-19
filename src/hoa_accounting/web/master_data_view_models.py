@@ -157,8 +157,7 @@ def build_lots_list_context(
     cols = [
         ListColumnVM(key="lot_number", label="Lot #", mono=True),
         ListColumnVM(key="street", label="Street Address"),
-        ListColumnVM(key="owner_name", label="Owner 1"),
-        ListColumnVM(key="owner2_name", label="Owner 2"),
+        ListColumnVM(key="owner_names", label="Owner(s)"),
         ListColumnVM(key="occupancy", label="Occupancy"),
         ListColumnVM(key="status", label="Status"),
     ]
@@ -173,8 +172,7 @@ def build_lots_list_context(
         vm_rows.append({
             "lot_number": r["lot_number"],
             "street": street,
-            "owner_name": r["owner_name"] or "—",
-            "owner2_name": r["owner2_name"] or "—",
+            "owner_names": r["owner_names"] or "—",
             "occupancy": occupancy,
             "status": _active_cell(r["active_flag"]),
         })

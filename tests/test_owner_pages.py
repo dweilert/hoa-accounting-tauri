@@ -72,9 +72,9 @@ def _assign(
     is_primary: bool = True,
 ) -> int:
     cur = conn.execute(
-        "INSERT INTO lot_ownership (lot_id, owner_id, start_date, "
-        "ownership_percent, is_primary_contact) VALUES (?, ?, '2020-01-01', 100.0, ?)",
-        (lot_id, owner_id, 1 if is_primary else 0),
+        "INSERT INTO lot_ownership (lot_id, owner_id, start_date) "
+        "VALUES (?, ?, '2020-01-01')",
+        (lot_id, owner_id),
     )
     conn.commit()
     return int(cur.lastrowid)
@@ -100,56 +100,11 @@ def test_render_list_shows_owner_without_lot(conn: sqlite3.Connection) -> None:
     assert "Bob Buyer" in resp.body_html
 
 
-def test_render_list_shows_owner_with_lot(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    owner_id = _seed_owner(conn, "Carol Owner")
-    _assign(conn, lot_id, owner_id)
-    resp = OwnerPages(conn).render_list(org=_ORG, theme="warm")
-    assert resp.status_code == 200
-    assert "Carol Owner" in resp.body_html
-    assert "L-1" in resp.body_html
-    assert "Owner 1" in resp.body_html
-
-
 def test_render_list_flash_message(conn: sqlite3.Connection) -> None:
     resp = OwnerPages(conn).render_list(
         org=_ORG, theme="warm", flash_message="Owner added."
     )
     assert "Owner added." in resp.body_html
-
-
-def test_render_list_mark_previous_button_shown_when_assigned(
-    conn: sqlite3.Connection,
-) -> None:
-    lot_id = _seed_lot(conn)
-    owner_id = _seed_owner(conn)
-    _assign(conn, lot_id, owner_id)
-    resp = OwnerPages(conn).render_list(org=_ORG, theme="warm")
-    assert "Mark as Previous" in resp.body_html
-
-
-def test_render_list_no_mark_previous_when_not_assigned(
-    conn: sqlite3.Connection,
-) -> None:
-    _seed_owner(conn)
-    resp = OwnerPages(conn).render_list(org=_ORG, theme="warm")
-    # Button appears only for owners with a current lot assignment
-    assert 'mark-previous' not in resp.body_html
-
-
-# ── render_form (add) ──────────────────────────────────────────────────
-
-
-def test_render_add_form_shows_lot_dropdown(conn: sqlite3.Connection) -> None:
-    _seed_lot(conn)
-    resp = OwnerPages(conn).render_form(org=_ORG, theme="warm")
-    assert resp.status_code == 200
-    assert "L-1" in resp.body_html
-    assert "Display Name" in resp.body_html
-    assert "Owner Type" in resp.body_html
-
-
-# ── render_form (edit) ─────────────────────────────────────────────────
 
 
 def test_render_edit_form_prefilled(conn: sqlite3.Connection) -> None:
@@ -166,64 +121,12 @@ def test_render_edit_form_prefilled(conn: sqlite3.Connection) -> None:
     assert "555-1111" in resp.body_html
 
 
-def test_render_edit_form_shows_current_lot(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    owner_id = _seed_owner(conn)
-    _assign(conn, lot_id, owner_id)
-    resp = OwnerPages(conn).render_form(org=_ORG, theme="warm", owner_id=owner_id)
-    assert resp.status_code == 200
-    assert "L-1" in resp.body_html
-
-
 def test_render_edit_form_unknown_returns_404(conn: sqlite3.Connection) -> None:
     resp = OwnerPages(conn).render_form(org=_ORG, theme="warm", owner_id=999)
     assert resp.status_code == 404
 
 
 # ── handle_add ─────────────────────────────────────────────────────────
-
-
-def test_handle_add_with_lot_redirects(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={
-            "owner_type": "PERSON",
-            "display_name": "New Owner",
-            "first_name": "New",
-            "last_name": "Owner",
-            "email": "new@example.com",
-            "phone": "555-2222",
-            "lot_id": str(lot_id),
-            "start_date": "2026-01-01",
-            "is_primary_contact": "1",
-        },
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url == "/owners?msg=Owner+added."
-    assert form_resp is None
-    row = OwnersRepository(conn).list_owners()[0]
-    assert row["display_name"] == "New Owner"
-
-
-def test_handle_add_with_lot_assignment(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={
-            "owner_type": "PERSON",
-            "display_name": "Lot Owner",
-            "lot_id": str(lot_id),
-            "start_date": "2026-01-01",
-            "is_primary_contact": "1",
-        },
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url == "/owners?msg=Owner+added."
-    assert form_resp is None
-    rows = OwnersRepository(conn).list_owners()
-    owner_id = rows[0]["id"]
-    ownership = LotOwnershipRepository(conn).get_current_ownership_by_owner(owner_id)
-    assert ownership is not None
-    assert ownership["lot_id"] == lot_id
 
 
 def test_handle_add_missing_display_name_returns_error(
@@ -253,64 +156,6 @@ def test_handle_add_missing_owner_type_returns_error(
     assert redirect_url is None
     assert form_resp is not None
     assert form_resp.status_code == 400
-
-
-def test_handle_add_missing_lot_returns_error(conn: sqlite3.Connection) -> None:
-    redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={"owner_type": "PERSON", "display_name": "Test",
-                   "start_date": "2026-01-01"},
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url is None
-    assert form_resp is not None
-    assert form_resp.status_code == 400
-
-
-def test_handle_add_enforces_two_owner_limit(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    owner1_id = _seed_owner(conn, "Owner One")
-    owner2_id = _seed_owner(conn, "Owner Two")
-    _assign(conn, lot_id, owner1_id, is_primary=True)
-    _assign(conn, lot_id, owner2_id, is_primary=False)
-
-    redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={
-            "owner_type": "PERSON",
-            "display_name": "Third Owner",
-            "lot_id": str(lot_id),
-            "start_date": "2026-01-01",
-            "is_primary_contact": "0",
-        },
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url is None
-    assert form_resp is not None
-    assert form_resp.status_code == 400
-    assert "two current owners" in form_resp.body_html
-
-
-def test_handle_add_enforces_owner1_conflict(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    existing_id = _seed_owner(conn, "Existing Primary")
-    _assign(conn, lot_id, existing_id, is_primary=True)
-
-    redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={
-            "owner_type": "PERSON",
-            "display_name": "Duplicate Primary",
-            "lot_id": str(lot_id),
-            "start_date": "2026-01-01",
-            "is_primary_contact": "1",
-        },
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url is None
-    assert form_resp is not None
-    assert form_resp.status_code == 400
-    assert "Owner 1" in form_resp.body_html
-
-
-# ── handle_edit ────────────────────────────────────────────────────────
 
 
 def test_handle_edit_success_redirects(conn: sqlite3.Connection) -> None:
@@ -350,52 +195,3 @@ def test_handle_edit_missing_display_name_returns_error(
 
 
 # ── handle_mark_previous ───────────────────────────────────────────────
-
-
-def test_handle_mark_previous_success_redirects(conn: sqlite3.Connection) -> None:
-    lot_id = _seed_lot(conn)
-    owner_id = _seed_owner(conn)
-    _assign(conn, lot_id, owner_id)
-
-    redirect_url, form_resp = OwnerPages(conn).handle_mark_previous(
-        owner_id=owner_id,
-        form_data={"end_date": "2026-03-31"},
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url == "/owners?msg=Owner+marked+as+previous."
-    assert form_resp is None
-
-    ownership = LotOwnershipRepository(conn).get_current_ownership_by_owner(owner_id)
-    assert ownership is None  # no longer current
-
-
-def test_handle_mark_previous_missing_date_returns_error(
-    conn: sqlite3.Connection,
-) -> None:
-    lot_id = _seed_lot(conn)
-    owner_id = _seed_owner(conn)
-    _assign(conn, lot_id, owner_id)
-
-    redirect_url, form_resp = OwnerPages(conn).handle_mark_previous(
-        owner_id=owner_id,
-        form_data={},
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url is None
-    assert form_resp is not None
-    assert "End Date" in form_resp.body_html
-
-
-def test_handle_mark_previous_no_ownership_returns_error(
-    conn: sqlite3.Connection,
-) -> None:
-    owner_id = _seed_owner(conn)
-
-    redirect_url, form_resp = OwnerPages(conn).handle_mark_previous(
-        owner_id=owner_id,
-        form_data={"end_date": "2026-03-31"},
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url is None
-    assert form_resp is not None
-    assert form_resp.status_code == 200  # re-renders list with error

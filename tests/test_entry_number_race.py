@@ -20,7 +20,7 @@ import pytest
 from hoa_accounting.exceptions import AccountingError
 from hoa_accounting.services.factory import ServiceFactory
 
-from tests.test_payment_service import build_conn
+from test_payment_service import build_conn
 
 
 def test_retry_recovers_from_one_entry_number_collision(monkeypatch: pytest.MonkeyPatch) -> None:

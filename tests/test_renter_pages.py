@@ -49,9 +49,8 @@ def _seed(conn: sqlite3.Connection) -> tuple[int, int]:
         "'TX', '78701', 1)"
     )
     conn.execute(
-        "INSERT INTO lot_ownership (id, lot_id, owner_id, start_date, end_date, "
-        "ownership_percent, is_primary_contact) "
-        "VALUES (1, 1, 1, '2020-01-01', NULL, 100.0, 1)"
+        "INSERT INTO lot_ownership (id, lot_id, owner_id, start_date, end_date) "
+        "VALUES (1, 1, 1, '2020-01-01', NULL)"
     )
     conn.commit()
     return 1, 1

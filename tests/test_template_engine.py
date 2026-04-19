@@ -5,27 +5,25 @@ def test_render_template_uses_jinja_templates() -> None:
     output = render_template(
         "home.html",
         {
-            "api_status": "READY",
-            "report_cards": [
-                {
-                    "name": "trial-balance",
-                    "title": "Trial Balance",
-                    "description": "Basic financial balance check.",
-                    "example_query": "&as_of_date=2026-01-31",
-                }
-            ],
             "org": {
                 "name": "Test HOA",
                 "legal_name": "Test HOA Inc.",
                 "environment": "local",
                 "fiscal_year_start_month": 1,
             },
+            "theme": "warm",
             "active_nav": "home",
+            "heading": "Dashboard",
             "breadcrumb": "Overview",
-            "selected_report": "",
+            "hoa_name": "Test HOA Inc.",
+            "bank_tiles": [],
+            "last_recon": None,
+            "budget_tile": None,
+            "last_auto_backup": None,
+            "cards": [],
+            "fiscal_year": 2026,
         },
     )
 
     assert "Test HOA" in output
-    assert "Trial Balance" in output
-    assert "READY" in output
+    assert "Dashboard" in output

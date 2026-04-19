@@ -275,7 +275,7 @@ class NonDuesIncomePages:
 
 def _lot_label(row: sqlite3.Row) -> str:
     street = row["street_address_1"] or ""
-    owner = row["owner_name"] or "(no current owner)"
+    owner = row["owner_names"] or "(no current owner)"
     bits = [str(row["lot_number"])]
     if street:
         bits.append(street)

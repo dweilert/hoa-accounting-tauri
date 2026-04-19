@@ -153,7 +153,7 @@ class AssessmentBillingPages:
         lot_options = []
         for r in LotsRepository(self.conn).list_lots():
             street = r["street_address_1"] or ""
-            owner = r["owner_name"] or "(no current owner)"
+            owner = r["owner_names"] or "(no current owner)"
             bits = [str(r["lot_number"])]
             if street:
                 bits.append(street)
@@ -161,7 +161,7 @@ class AssessmentBillingPages:
             lot_options.append({
                 "id": r["id"],
                 "label": " · ".join(bits),
-                "has_owner": r["owner_id"] is not None,
+                "has_owner": bool(r["owner_names"]),
             })
 
         # Individual-billing rows — preserve whatever the user typed on

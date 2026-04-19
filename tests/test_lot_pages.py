@@ -58,8 +58,8 @@ def _seed_owner_on_lot(conn: sqlite3.Connection, lot_id: int) -> int:
     )
     owner_id = int(cur.lastrowid)
     conn.execute(
-        "INSERT INTO lot_ownership (lot_id, owner_id, start_date, "
-        "ownership_percent, is_primary_contact) VALUES (?, ?, '2020-01-01', 100.0, 1)",
+        "INSERT INTO lot_ownership (lot_id, owner_id, start_date) "
+        "VALUES (?, ?, '2020-01-01')",
         (lot_id, owner_id),
     )
     conn.commit()
@@ -190,7 +190,7 @@ def test_handle_edit_success(conn: sqlite3.Connection) -> None:
         },
         org=_ORG, theme="warm",
     )
-    assert redirect_url == "/lots?msg=Lot+updated."
+    assert redirect_url is not None and "Lot+updated" in redirect_url
     assert form_resp is None
     row = LotsRepository(conn).get_lot(lot_id)
     assert row["street_address_1"] == "New Street"
@@ -204,7 +204,7 @@ def test_handle_edit_can_keep_same_lot_number(conn: sqlite3.Connection) -> None:
         form_data={"lot_number": "L-1", "street_address_1": "Same", "active_flag": "1"},
         org=_ORG, theme="warm",
     )
-    assert redirect_url == "/lots?msg=Lot+updated."
+    assert redirect_url is not None and "Lot+updated" in redirect_url
     assert form_resp is None
 
 

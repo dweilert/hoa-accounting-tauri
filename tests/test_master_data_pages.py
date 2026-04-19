@@ -51,9 +51,8 @@ def _seed_owners_and_lots(conn: sqlite3.Connection) -> None:
         "VALUES (1, 'L-1', '100 Pine', 'Austin', 'TX', '78701', 1)"
     )
     conn.execute(
-        "INSERT INTO lot_ownership (id, lot_id, owner_id, start_date, end_date, "
-        "ownership_percent, is_primary_contact) "
-        "VALUES (1, 1, 1, '2020-01-01', NULL, 100.0, 1)"
+        "INSERT INTO lot_ownership (id, lot_id, owner_id, start_date, end_date) "
+        "VALUES (1, 1, 1, '2020-01-01', NULL)"
     )
     conn.execute(
         "INSERT INTO lots (id, lot_number, active_flag) VALUES (2, 'L-2', 1)"
@@ -110,8 +109,8 @@ def test_lots_repo_joins_current_primary_owner(conn: sqlite3.Connection) -> None
     rows = LotsRepository(conn).list_lots()
     by_lot = {r["lot_number"]: r for r in rows}
     # L-1 has a current primary owner, L-2 does not — repo must still return both.
-    assert by_lot["L-1"]["owner_name"] == "Alice Park"
-    assert by_lot["L-2"]["owner_name"] is None
+    assert "Alice Park" in (by_lot["L-1"]["owner_names"] or "")
+    assert not (by_lot["L-2"]["owner_names"] or "").strip()
 
 
 def test_vendors_repo_lists_active(conn: sqlite3.Connection) -> None:

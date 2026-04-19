@@ -16,7 +16,7 @@ from hoa_accounting.exceptions import UnbalancedJournalError
 from hoa_accounting.models.dto import JournalLineInput
 from hoa_accounting.services.factory import ServiceFactory
 
-from tests.test_payment_service import build_conn
+from test_payment_service import build_conn
 
 
 def test_cross_fund_journal_post_is_rejected_at_service_level() -> None:

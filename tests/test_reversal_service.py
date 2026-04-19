@@ -16,7 +16,7 @@ import pytest
 from hoa_accounting.exceptions import NotFoundError, ValidationError
 from hoa_accounting.services.factory import ServiceFactory
 
-from tests.test_payment_service import build_conn
+from test_payment_service import build_conn
 
 
 def _post_seed_assessment(factory: ServiceFactory) -> int:

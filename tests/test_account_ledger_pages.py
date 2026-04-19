@@ -204,7 +204,7 @@ def test_render_ledger_date_filter_end(conn: sqlite3.Connection) -> None:
         end_date="2030-01-15",
     )
     assert "Early" in resp.body_html
-    assert "Late" not in resp.body_html
+    assert ">Late<" not in resp.body_html  # memo "Late" filtered out; nav "Late Fees" is OK
 
 
 def test_render_ledger_row_count_in_topbar(conn: sqlite3.Connection) -> None:

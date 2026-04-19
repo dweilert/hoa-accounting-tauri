@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from hoa_accounting.bootstrap.migrator import Migrator
+
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.reporting.ar_aging import ARAgingReportService
 from hoa_accounting.reporting.balance_sheet import BalanceSheetReportService
@@ -39,90 +41,15 @@ CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_time TEXT NOT NULL DEFAULT
 def build_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript(SCHEMA_SQL)
+    Migrator().apply_all(conn)
 
-    conn.execute(
-        """
-        INSERT INTO accounting_periods
-            (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed)
-        VALUES
-            (1, '2026-01', '2026-01-01', '2026-01-31', 2026, 1, 0)
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO accounting_periods
-            (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed)
-        VALUES
-            (2, '2026-02', '2026-02-01', '2026-02-28', 2026, 2, 0)
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO accounting_periods
-            (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed)
-        VALUES
-            (3, '2026-03', '2026-03-01', '2026-03-31', 2026, 3, 0)
-        """
-    )
-
-    conn.execute(
-        """
-        INSERT INTO users (id, email, full_name, password_hash, is_active)
-        VALUES (1, 'a@example.com', 'Admin', 'x', 1)
-        """
-    )
+    conn.execute("INSERT INTO users (id, email, full_name, password_hash, is_active) VALUES (1, 'a@example.com', 'Admin', 'x', 1)")
     conn.execute("INSERT INTO lots (id, lot_number) VALUES (1, '1')")
-    conn.execute("INSERT INTO lots (id, lot_number) VALUES (2, '2')")
-    conn.execute(
-        """
-        INSERT INTO owners (id, display_name, owner_type, active_flag)
-        VALUES (1, 'Owner 1', 'PERSON', 1)
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO owners (id, display_name, owner_type, active_flag)
-        VALUES (2, 'Owner 2', 'PERSON', 1)
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO vendors (id, vendor_name, active_flag)
-        VALUES (1, 'Vendor 1', 1)
-        """
-    )
-
-    conn.execute(
-        """
-        INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group)
-        VALUES (1, 'ASSET', 'Asset', 'DEBIT', 'BALANCE_SHEET')
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group)
-        VALUES (2, 'LIABILITY', 'Liability', 'CREDIT', 'BALANCE_SHEET')
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group)
-        VALUES (3, 'EQUITY', 'Equity', 'CREDIT', 'BALANCE_SHEET')
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group)
-        VALUES (4, 'INCOME', 'Income', 'CREDIT', 'INCOME_STATEMENT')
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO account_types (id, code, name, normal_balance, financial_statement_group)
-        VALUES (5, 'EXPENSE', 'Expense', 'DEBIT', 'INCOME_STATEMENT')
-        """
-    )
+    conn.execute("INSERT INTO owners (id, display_name, owner_type, active_flag) VALUES (1, 'Owner 1', 'PERSON', 1)")
+    conn.execute("INSERT INTO vendors (id, vendor_name, active_flag) VALUES (1, 'Vendor 1', 1)")
+    conn.execute("INSERT INTO accounting_periods (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed) VALUES (1, '2026-01', '2026-01-01', '2026-01-31', 2026, 1, 0)")
+    conn.execute("INSERT INTO accounting_periods (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed) VALUES (2, '2026-02', '2026-02-01', '2026-02-28', 2026, 2, 0)")
+    conn.execute("INSERT INTO accounting_periods (id, period_name, start_date, end_date, fiscal_year, fiscal_period, is_closed) VALUES (3, '2026-03', '2026-03-01', '2026-03-31', 2026, 3, 0)")
 
     conn.execute(
         """

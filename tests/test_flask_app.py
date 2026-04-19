@@ -22,7 +22,7 @@ from hoa_accounting.web.app import _flatten_query_params
 from hoa_accounting.web.ui_server import HomePageService, ReportConsolePageService
 
 # Reuse the in-memory DB fixture from the broader UI test module.
-from tests.test_web_ui import build_conn
+from test_web_ui import build_conn
 
 
 def _build_app_with_conn(conn: sqlite3.Connection):
