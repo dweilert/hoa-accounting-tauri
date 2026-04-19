@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Bill Templates · {{ org.name }}{% endblock %}
+{% block heading %}Bill Templates{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/bill-templates/new" class="btn btn--primary">+ New Template</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash }}<button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">Recurring Bill Templates</div>
+      <div class="panel__description">
+        Save common vendor bills as templates for one-click pre-fill on the New Vendor Bill form.
+        Great for monthly utilities, management fees, landscaping, and insurance.
+      </div>
+    </div>
+
+    {% if not templates %}
+      <div style="padding:2rem;text-align:center;color:var(--text-muted);">
+        No templates yet. Click <strong>+ New Template</strong> to create one.
+      </div>
+    {% else %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Template Name</th>
+            <th>Vendor</th>
+            <th>Expense Account</th>
+            <th>Fund</th>
+            <th class="num">Default Amount</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in templates %}
+          <tr>
+            <td><strong>{{ t.template_name }}</strong></td>
+            <td>{{ t.vendor_name }}</td>
+            <td style="font-size:.82rem;">{{ t.expense_account_label }}</td>
+            <td><span class="pill">{{ t.fund_code }}</span></td>
+            <td class="num">
+              {% if t.default_amount %}${{ "%.2f"|format(t.default_amount|float) }}{% else %}—{% endif %}
+            </td>
+            <td style="color:var(--text-muted);font-size:.82rem;">{{ t.description or '—' }}</td>
+            <td>
+              {% if t.active_flag %}
+                <span class="pill pill--ok">Active</span>
+              {% else %}
+                <span class="pill">Inactive</span>
+              {% endif %}
+            </td>
+            <td style="text-align:right;white-space:nowrap;">
+              <a href="/bill-templates/{{ t.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}

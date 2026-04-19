@@ -2595,6 +2595,65 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    # ── Delinquency report ────────────────────────────────────────────────
+
+    @app.get("/delinquency-report")
+    def delinquency_report() -> Response:
+        conn = _open_db()
+        theme = str(org_context.get("theme", "warm"))
+        resp = ARPages(conn).render_delinquency_report(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    # ── Bill templates ───────────────────────────────────────────────────
+
+    from hoa_accounting.web.bill_template_pages import BillTemplatePages as _BillTemplatePages
+
+    def _open_bill_template_pages() -> _BillTemplatePages:
+        return _BillTemplatePages(_open_db())
+
+    @app.get("/bill-templates")
+    def list_bill_templates() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("msg") or "").strip() or None
+        resp = _open_bill_template_pages().render_list(org=org_context, theme=theme, flash=flash)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/bill-templates/new")
+    def new_bill_template_form() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_bill_template_pages().render_new_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/bill-templates/new")
+    def submit_new_bill_template() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = _open_bill_template_pages().handle_new(
+            {k: v for k, v in request.form.items()}, org=org_context, theme=theme,
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/bill-templates/<int:template_id>/edit")
+    def edit_bill_template_form(template_id: int) -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_bill_template_pages().render_edit_form(template_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/bill-templates/<int:template_id>/edit")
+    def submit_edit_bill_template(template_id: int) -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = _open_bill_template_pages().handle_edit(
+            template_id, {k: v for k, v in request.form.items()}, org=org_context, theme=theme,
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code, mimetype="text/html; charset=utf-8")
+
     # ── Global search ─────────────────────────────────────────────────────
 
     def _open_search_pages() -> SearchPages:

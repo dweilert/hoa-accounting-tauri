@@ -15,6 +15,32 @@
     </div>
   {% endif %}
 
+  {% if templates %}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header" style="padding-bottom:.5rem;">
+      <div class="panel__title" style="font-size:.95rem;">Load from Template</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+      <select id="template-picker" style="max-width:28rem;">
+        <option value="">— Select a recurring bill template —</option>
+        {% for t in templates %}
+          <option value="{{ t.id }}"
+                  data-vendor="{{ t.vendor_id }}"
+                  data-expense-account="{{ t.expense_account_id }}"
+                  data-payable-account="{{ t.payable_account_id }}"
+                  data-fund="{{ t.fund_code }}"
+                  data-classification="{{ t.expense_classification }}"
+                  data-amount="{{ t.default_amount or '' }}"
+                  data-description="{{ t.description or '' }}">
+            {{ t.template_name }}
+          </option>
+        {% endfor %}
+      </select>
+      <button type="button" class="btn btn--ghost" id="load-template-btn">Load</button>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="panel">
     <div class="panel__header">
       <div>
@@ -147,4 +173,38 @@
       </div>
     </form>
   </div>
+
+  {% if templates %}
+  <script>
+  (function() {
+    var btn = document.getElementById('load-template-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      var picker = document.getElementById('template-picker');
+      var opt = picker.options[picker.selectedIndex];
+      if (!opt || !opt.value) return;
+
+      function setSelect(name, val) {
+        var el = document.querySelector('select[name="' + name + '"]');
+        if (!el) return;
+        for (var i = 0; i < el.options.length; i++) {
+          if (String(el.options[i].value) === String(val)) { el.selectedIndex = i; break; }
+        }
+      }
+      function setInput(name, val) {
+        var el = document.querySelector('input[name="' + name + '"]');
+        if (el && val) el.value = val;
+      }
+
+      setSelect('vendor_id',              opt.dataset.vendor);
+      setSelect('expense_account_id',     opt.dataset.expenseAccount);
+      setSelect('payable_account_id',     opt.dataset.payableAccount);
+      setSelect('fund_code',              opt.dataset.fund);
+      setSelect('expense_classification', opt.dataset.classification);
+      if (opt.dataset.amount) setInput('amount', opt.dataset.amount);
+      if (opt.dataset.description) setInput('description', opt.dataset.description);
+    });
+  })();
+  </script>
+  {% endif %}
 {% endblock %}
