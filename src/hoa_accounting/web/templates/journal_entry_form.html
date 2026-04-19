@@ -15,118 +15,109 @@
     </div>
   {% endif %}
 
-  {# ── Accounting help panel ─────────────────────────────────────────── #}
-  <details id="je-help" style="margin-bottom:1rem;">
-    <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);
-                    padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius);
-                    background:var(--surface);user-select:none;">
-      ℹ How double-entry accounting works — click to expand
-    </summary>
-    <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);
-                background:var(--surface);padding:1rem 1.25rem;font-size:12.5px;line-height:1.6;">
-
-      <p style="margin:0 0 .75rem;">
-        Every journal entry must have <strong>at least two lines</strong> and the total of all
-        <strong>Debit</strong> amounts must equal the total of all <strong>Credit</strong> amounts.
-        This is the fundamental rule of double-entry bookkeeping — one account goes up,
-        another goes down by the same amount.
-      </p>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem;">
-        <div>
-          <div style="font-weight:600;margin-bottom:.4rem;">Which direction increases each account type?</div>
-          <table style="font-size:12px;width:100%;border-collapse:collapse;">
-            <thead>
-              <tr style="background:var(--surface-muted);">
-                <th style="text-align:left;padding:.3rem .5rem;border:1px solid var(--border);">Account Type</th>
-                <th style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);">Increases with</th>
-                <th style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);">Decreases with</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Asset (cash, receivables)</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
-              </tr>
-              <tr style="background:var(--surface-muted);">
-                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Liability (payables)</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
-              </tr>
-              <tr>
-                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Income / Revenue</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
-              </tr>
-              <tr style="background:var(--surface-muted);">
-                <td style="padding:.3rem .5rem;border:1px solid var(--border);">Expense</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
-                <td style="text-align:center;padding:.3rem .5rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div>
-          <div style="font-weight:600;margin-bottom:.4rem;">Common HOA examples</div>
-          <ul style="margin:0;padding-left:1.1rem;font-size:12px;">
-            <li style="margin-bottom:.4rem;">
-              <strong>Move expense between categories:</strong><br>
-              Debit new expense account, Credit old expense account
-            </li>
-            <li style="margin-bottom:.4rem;">
-              <strong>Write off an owner that won't pay:</strong><br>
-              Debit Bad Debt Expense, Credit Dues Receivable
-            </li>
-            <li style="margin-bottom:.4rem;">
-              <strong>Record bank interest:</strong><br>
-              Debit Cash, Credit Interest Income
-            </li>
-            <li style="margin-bottom:.4rem;">
-              <strong>Reserve project payment:</strong><br>
-              Debit Reserve Expense, Credit Reserve Cash
-            </li>
-            <li>
-              <strong>Accrue an unpaid expense:</strong><br>
-              Debit Expense, Credit Accounts Payable
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <p style="margin:0;color:var(--text-muted);font-size:12px;">
-        <strong>Tip:</strong> Use the <em>Quick Start</em> dropdown below to pre-fill a common
-        adjustment pattern — it will select the right accounts and suggest a memo for you.
-      </p>
-    </div>
-  </details>
-
   <form id="je-form" method="post" action="/journal-entries/new">
     <input type="hidden" name="line_count" id="line-count-field" value="{{ lines|length }}">
 
-    {# ── Quick-start template picker ──────────────────────────────── #}
-    <div class="panel" style="margin-bottom:1rem;">
-      <div class="panel__header" style="margin-bottom:.5rem;">
+    {# ── Scenario picker ──────────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;border:2px solid var(--accent-border);">
+      <div class="panel__header" style="background:var(--accent-subtle);margin:-1px -1px 0;border-radius:var(--radius) var(--radius) 0 0;padding:.75rem 1rem;">
         <div>
-          <div class="panel__title">Quick Start</div>
-          <div class="panel__description">Choose a common adjustment to pre-fill the form, or fill it in manually below.</div>
+          <div class="panel__title" style="font-size:1rem;">What are you trying to do?</div>
+          <div class="panel__description" style="margin-top:.2rem;">
+            Pick the situation that matches yours and we'll set up the accounts for you.
+            Or skip this and fill in the form below manually.
+          </div>
         </div>
       </div>
-      <label class="field" style="max-width:520px;">
-        <span class="field__label">Common Adjustment Templates</span>
-        <select id="template-picker">
+
+      <div style="padding:.75rem 1rem 1rem;">
+        <select id="template-picker" style="max-width:540px;font-size:13px;">
           {% for t in adjustment_templates %}
-            <option value="{{ t.id }}">{{ t.name }}</option>
+            <option value="{{ t.id }}"
+                    data-plain="{{ t.plain_english | default('') }}"
+                    data-desc="{{ t.description | default('') }}"
+                    data-flow="{{ t.flow | tojson }}">
+              {{ t.name }}
+            </option>
           {% endfor %}
         </select>
-      </label>
-      <div id="template-description"
-           style="display:none;margin-top:.6rem;padding:.6rem .75rem;
-                  background:var(--accent-subtle);border:1px solid var(--accent-border);
-                  border-radius:var(--radius-sm);font-size:12.5px;line-height:1.5;
-                  max-width:640px;">
+
+        {# Plain-English callout — shown when a scenario is selected #}
+        <div id="scenario-callout" style="display:none;margin-top:.85rem;max-width:640px;">
+          <div style="padding:.7rem .9rem;border-radius:var(--radius-sm);
+                      background:var(--surface);border:1px solid var(--border);">
+
+            {# Big plain-English summary #}
+            <div id="scenario-plain"
+                 style="font-size:13.5px;font-weight:600;color:var(--text);
+                        line-height:1.5;margin-bottom:.6rem;"></div>
+
+            {# Visual flow — shows which account gets debited and credited #}
+            <div id="scenario-flow"
+                 style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;
+                        margin-bottom:.6rem;font-size:12px;"></div>
+
+            {# Detailed example in muted text #}
+            <div id="scenario-desc"
+                 style="font-size:12px;color:var(--text-muted);line-height:1.5;
+                        border-top:1px solid var(--border);padding-top:.5rem;"></div>
+          </div>
+        </div>
       </div>
     </div>
+
+    {# ── Accounting reference (collapsed by default) ───────────────── #}
+    <details id="je-help" style="margin-bottom:1rem;">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);
+                      padding:.4rem .75rem;border:1px solid var(--border);border-radius:var(--radius);
+                      background:var(--surface);user-select:none;">
+        ℹ How debits &amp; credits work — click to expand
+      </summary>
+      <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);
+                  background:var(--surface);padding:1rem 1.25rem;font-size:12px;line-height:1.6;">
+        <p style="margin:0 0 .6rem;">
+          Every adjustment needs <strong>at least two lines</strong>.
+          The total of all <strong>Debits</strong> must equal the total of all <strong>Credits</strong>
+          — one account goes up, another goes down by the same amount.
+        </p>
+        <table style="font-size:12px;width:auto;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--surface-muted);">
+              <th style="text-align:left;padding:.3rem .6rem;border:1px solid var(--border);">Account Type</th>
+              <th style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);">To increase it</th>
+              <th style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);">To decrease it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:.3rem .6rem;border:1px solid var(--border);">Cash &amp; bank accounts (Asset)</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+            </tr>
+            <tr style="background:var(--surface-muted);">
+              <td style="padding:.3rem .6rem;border:1px solid var(--border);">What owners owe us (Asset)</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+            </tr>
+            <tr>
+              <td style="padding:.3rem .6rem;border:1px solid var(--border);">What we owe vendors (Liability)</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+            </tr>
+            <tr style="background:var(--surface-muted);">
+              <td style="padding:.3rem .6rem;border:1px solid var(--border);">Dues &amp; fee income</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+            </tr>
+            <tr>
+              <td style="padding:.3rem .6rem;border:1px solid var(--border);">Expenses (landscaping, utilities…)</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#2d7a2d;font-weight:600;">Debit</td>
+              <td style="text-align:center;padding:.3rem .6rem;border:1px solid var(--border);color:#a0522d;">Credit</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
 
     {# ── Entry header ─────────────────────────────────────────────── #}
     <div class="panel">
@@ -504,7 +495,7 @@
     updateTotals();
   }
 
-  // ── Template picker ───────────────────────────────────────────────
+  // ── Scenario picker ───────────────────────────────────────────────
   function findAccountId(match) {
     if (!match) return null;
     if (match.by === "number") {
@@ -520,21 +511,52 @@
     return null;
   }
 
+  function renderFlow(flowSteps) {
+    var el = document.getElementById("scenario-flow");
+    el.innerHTML = "";
+    if (!flowSteps || !flowSteps.length) return;
+    flowSteps.forEach(function (step, idx) {
+      if (idx > 0) {
+        var sep = document.createElement("span");
+        sep.style.color = "var(--text-subtle)";
+        sep.style.fontWeight = "600";
+        sep.textContent = "→";
+        el.appendChild(sep);
+      }
+      var chip = document.createElement("span");
+      var isDebit = step.side === "DEBIT";
+      chip.style.cssText = [
+        "display:inline-flex;align-items:center;gap:.25rem;",
+        "padding:.2rem .55rem;border-radius:999px;font-size:11.5px;font-weight:600;",
+        isDebit
+          ? "background:#e6f4ea;color:#1a6e33;border:1px solid #b4d9bc;"
+          : "background:#fde8d8;color:#8a3a10;border:1px solid #e8b898;"
+      ].join("");
+      chip.innerHTML =
+        "<span style='font-size:10px;'>" + (isDebit ? "DR" : "CR") + "</span> " +
+        step.label +
+        "<span style='font-size:10px;color:inherit;opacity:.7;'> (" + step.note + ")</span>";
+      el.appendChild(chip);
+    });
+  }
+
   function applyTemplate(templateId) {
     var tpl = null;
     for (var i = 0; i < adjustmentTemplates.length; i++) {
       if (adjustmentTemplates[i].id === templateId) { tpl = adjustmentTemplates[i]; break; }
     }
 
-    var descEl = document.getElementById("template-description");
+    var callout = document.getElementById("scenario-callout");
     if (!tpl || tpl.id === "blank") {
-      descEl.style.display = "none";
+      callout.style.display = "none";
       return;
     }
 
-    // Show description
-    descEl.textContent = tpl.description;
-    descEl.style.display = tpl.description ? "block" : "none";
+    // Populate callout
+    document.getElementById("scenario-plain").textContent = tpl.plain_english || "";
+    renderFlow(tpl.flow || []);
+    document.getElementById("scenario-desc").textContent = tpl.description || "";
+    callout.style.display = "block";
 
     // Pre-fill memo (only if currently empty)
     var memoEl = document.getElementById("memo");
@@ -542,35 +564,19 @@
 
     // Rebuild lines from template
     var tbody = document.getElementById("lines-body");
-    // Remove existing rows down to 0
     while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
     document.getElementById("line-count-field").value = 0;
 
     tpl.lines.forEach(function (lineDef) {
       var accountId = findAccountId(lineDef.account_match);
-      var opts = {
-        accountId: accountId || "",
-        description: lineDef.hint || "",
-        debit: lineDef.side === "debit" ? "" : "",
-        credit: "",
-      };
-      var tr = addLine(opts);
-
-      // If auto-matched, clear the description hint since the account speaks for itself
-      if (accountId) {
-        var descInput = tr.querySelector("input[type=text]");
-        if (descInput) descInput.value = "";
-      } else {
-        // Show placeholder hint in description field
-        var descInput = tr.querySelector("input[type=text]");
-        if (descInput) {
-          descInput.value = "";
-          descInput.placeholder = lineDef.hint || "";
-        }
+      var tr = addLine({ accountId: accountId || "" });
+      var descInput = tr.querySelector("input[type=text]");
+      if (descInput) {
+        descInput.value = "";
+        descInput.placeholder = lineDef.hint || "";
       }
     });
 
-    // Ensure at least 2 rows
     while (currentLineCount() < 2) addLine({});
     updateTotals();
   }

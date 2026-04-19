@@ -52,47 +52,66 @@ _MAX_LINES = 30
 _ADJUSTMENT_TEMPLATES: list[dict] = [
     {
         "id": "blank",
-        "name": "— choose a common adjustment —",
+        "name": "— What do you need to do? —",
+        "plain_english": "",
         "description": "",
+        "flow": [],
         "memo": "",
         "lines": [],
     },
+    # ── Common corrections ─────────────────────────────────────────────────
     {
         "id": "expense_reclassify",
-        "name": "Correct a misclassified expense",
-        "description": (
-            "Use when a payment was posted to the wrong expense account. "
-            "Debit the correct account (increases it) and credit the wrong one "
-            "(decreases it). Both are Expense accounts."
+        "name": "I paid a bill to the wrong expense category",
+        "plain_english": (
+            "Moves an expense from the wrong category to the right one. "
+            "No money changes hands — only the category label changes."
         ),
-        "memo": "Expense reclassification",
+        "description": (
+            "Example: you posted the pool repair bill to Landscaping by mistake. "
+            "This entry moves it to Pool & Spa. Pick the CORRECT category first, "
+            "then the WRONG one."
+        ),
+        "flow": [
+            {"label": "Correct expense account", "side": "DEBIT", "note": "increases"},
+            {"label": "Wrong expense account", "side": "CREDIT", "note": "decreases"},
+        ],
+        "memo": "Expense reclassification — correct category",
         "lines": [
             {
                 "side": "debit",
                 "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Pick the CORRECT expense account (the one it should have gone to)",
+                "hint": "CORRECT expense account (where it should have gone)",
             },
             {
                 "side": "credit",
                 "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Pick the WRONG expense account (the one it was incorrectly posted to)",
+                "hint": "WRONG expense account (where it was posted by mistake)",
             },
         ],
     },
     {
-        "id": "write_off_bad_debt",
-        "name": "Write off an uncollectible assessment",
-        "description": (
-            "Use when an owner will never pay and you want to remove the "
-            "balance from Dues Receivable. Debit a Bad Debt or Write-Off "
-            "expense account, and credit Dues Receivable."
+        "id": "write_off_owner",
+        "name": "I need to write off an owner who will never pay",
+        "plain_english": (
+            "Removes the uncollectible balance from your books so your records "
+            "don't show money you'll never actually receive."
         ),
-        "memo": "Write off uncollectible assessment",
+        "description": (
+            "Example: an owner moved away and left a $620 balance you've been "
+            "unable to collect. This clears the balance from Dues Receivable and "
+            "records it as a bad-debt expense."
+        ),
+        "flow": [
+            {"label": "Bad Debt / Write-Off Expense", "side": "DEBIT", "note": "records the loss"},
+            {"label": "Dues Receivable", "side": "CREDIT", "note": "clears the balance"},
+        ],
+        "memo": "Write off uncollectible owner balance",
         "lines": [
             {
                 "side": "debit",
                 "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Pick your Bad Debt Expense or Write-Off Expense account",
+                "hint": "Bad Debt Expense or Write-Off Expense account",
             },
             {
                 "side": "credit",
@@ -102,19 +121,86 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
         ],
     },
     {
-        "id": "bank_interest",
-        "name": "Record bank interest earned",
-        "description": (
-            "Use when the bank statement shows interest credited to your "
-            "account that hasn't been recorded yet. Debit your cash account "
-            "and credit Interest Income."
+        "id": "waive_late_fee",
+        "name": "I need to waive a late fee for an owner",
+        "plain_english": (
+            "Forgives a late fee that was already charged. The board voted to "
+            "waive it, so you need to reverse the income and reduce what the owner owes."
         ),
+        "description": (
+            "Example: the board approved waiving a $25 late fee for an owner "
+            "who paid late due to a medical emergency. This reverses the fee."
+        ),
+        "flow": [
+            {"label": "Late Fee Income", "side": "DEBIT", "note": "reverses the fee"},
+            {"label": "Dues Receivable", "side": "CREDIT", "note": "reduces what owner owes"},
+        ],
+        "memo": "Late fee waiver — board approved",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "number", "value": "4100"},
+                "hint": "Late Fee Income account (usually 4100)",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1100"},
+                "hint": "Dues Receivable (usually account 1100)",
+            },
+        ],
+    },
+    {
+        "id": "refund_homeowner",
+        "name": "I need to refund money to a homeowner",
+        "plain_english": (
+            "Records a refund check written to an owner who overpaid or was "
+            "charged incorrectly. Money leaves your checking account."
+        ),
+        "description": (
+            "Example: an owner paid their dues twice by accident. You wrote them "
+            "a refund check. This records that the receivable went up (since they "
+            "now owe less net) and cash went down."
+        ),
+        "flow": [
+            {"label": "Dues Receivable", "side": "DEBIT", "note": "reduces credit on account"},
+            {"label": "Operating Checking", "side": "CREDIT", "note": "money leaves the bank"},
+        ],
+        "memo": "Homeowner refund",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "number", "value": "1100"},
+                "hint": "Dues Receivable (usually account 1100)",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1000"},
+                "hint": "Operating Checking / Cash (usually account 1000)",
+            },
+        ],
+    },
+    # ── Recording income & bank items ──────────────────────────────────────
+    {
+        "id": "bank_interest",
+        "name": "I need to record interest we earned at the bank",
+        "plain_english": (
+            "Your bank statement shows interest deposited but it's not in the "
+            "books yet. This adds it to both your cash balance and income."
+        ),
+        "description": (
+            "Example: the bank credited $42.18 interest to your operating account. "
+            "Enter that amount as a debit to Cash and a credit to Interest Income."
+        ),
+        "flow": [
+            {"label": "Operating Checking", "side": "DEBIT", "note": "cash goes up"},
+            {"label": "Interest Income", "side": "CREDIT", "note": "income goes up"},
+        ],
         "memo": "Bank interest earned",
         "lines": [
             {
                 "side": "debit",
                 "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Cash (usually account 1000)",
+                "hint": "Operating Checking / Cash (usually account 1000)",
             },
             {
                 "side": "credit",
@@ -124,12 +210,79 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
         ],
     },
     {
-        "id": "reserve_project",
-        "name": "Reserve fund project payment",
-        "description": (
-            "Use when a reserve-funded project is paid from the Reserve "
-            "savings account. Debit Reserve Expense and credit Reserve Cash."
+        "id": "bank_fee",
+        "name": "I need to record a bank fee or service charge",
+        "plain_english": (
+            "Your bank statement shows a fee that wasn't entered as a bill. "
+            "This records the expense and reduces your cash balance."
         ),
+        "description": (
+            "Example: the bank charged a $15 monthly service fee or an NSF fee. "
+            "Debit Bank Service Charges expense and credit Operating Cash."
+        ),
+        "flow": [
+            {"label": "Bank Service Charges (Expense)", "side": "DEBIT", "note": "expense goes up"},
+            {"label": "Operating Checking", "side": "CREDIT", "note": "cash goes down"},
+        ],
+        "memo": "Bank service fee",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "type", "value": "EXPENSE"},
+                "hint": "Bank Service Charges or Bank Fees expense account",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1000"},
+                "hint": "Operating Checking / Cash (usually account 1000)",
+            },
+        ],
+    },
+    {
+        "id": "income_tax_payment",
+        "name": "I need to record income tax paid on interest earned",
+        "plain_english": (
+            "The HOA owed tax on interest income and you wrote a check to the IRS "
+            "or state. This records that payment as an expense."
+        ),
+        "description": (
+            "Example: you mailed a $78 check to the IRS for Form 1120-H taxes "
+            "on reserve interest. Debit Income Tax Expense and credit Cash."
+        ),
+        "flow": [
+            {"label": "Income Tax Expense", "side": "DEBIT", "note": "expense goes up"},
+            {"label": "Operating Checking", "side": "CREDIT", "note": "cash goes down"},
+        ],
+        "memo": "Income tax payment — interest earned",
+        "lines": [
+            {
+                "side": "debit",
+                "account_match": {"by": "type", "value": "EXPENSE"},
+                "hint": "Income Tax Expense account",
+            },
+            {
+                "side": "credit",
+                "account_match": {"by": "number", "value": "1000"},
+                "hint": "Operating Checking / Cash (usually account 1000)",
+            },
+        ],
+    },
+    # ── Reserve fund ───────────────────────────────────────────────────────
+    {
+        "id": "reserve_project",
+        "name": "I need to record a payment for a reserve project",
+        "plain_english": (
+            "Money was paid from the Reserve savings account for a planned "
+            "capital project (roof, pavement, pool, etc.)."
+        ),
+        "description": (
+            "Example: you paid a roofer $8,400 from the Reserve account. "
+            "Debit Reserve Expense and credit Reserve Cash/Savings."
+        ),
+        "flow": [
+            {"label": "Reserve Expense", "side": "DEBIT", "note": "expense goes up"},
+            {"label": "Reserve Savings / Cash", "side": "CREDIT", "note": "reserve cash goes down"},
+        ],
         "memo": "Reserve fund project payment",
         "lines": [
             {
@@ -144,48 +297,64 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
             },
         ],
     },
+    # ── Month-end adjustments ──────────────────────────────────────────────
     {
         "id": "accrue_expense",
-        "name": "Accrue an unpaid expense (bill not yet entered)",
-        "description": (
-            "Use at month-end when you know an expense was incurred but the "
-            "vendor bill hasn't been entered yet. Debit the expense account "
-            "and credit Accounts Payable."
+        "name": "I know we owe money for a bill that hasn't arrived yet",
+        "plain_english": (
+            "Records an expense in the correct month even though the vendor "
+            "hasn't sent the invoice yet. You'll enter the actual bill later."
         ),
-        "memo": "Accrued expense",
+        "description": (
+            "Example: it's December 31 and you haven't received the December "
+            "landscaping invoice yet, but the service was done. Debit the expense "
+            "and credit Accounts Payable to record it in December."
+        ),
+        "flow": [
+            {"label": "Expense account", "side": "DEBIT", "note": "expense in right month"},
+            {"label": "Accounts Payable", "side": "CREDIT", "note": "we owe this amount"},
+        ],
+        "memo": "Accrued expense — bill not yet received",
         "lines": [
             {
                 "side": "debit",
                 "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Pick the applicable expense account",
+                "hint": "The applicable expense account (landscaping, utilities, etc.)",
             },
             {
                 "side": "credit",
                 "account_match": {"by": "type", "value": "LIABILITY"},
-                "hint": "Accounts Payable or Accrued Liabilities account",
+                "hint": "Accounts Payable or Accrued Liabilities",
             },
         ],
     },
     {
         "id": "prepaid_expense",
-        "name": "Record a prepaid expense (paid in advance)",
-        "description": (
-            "Use when you pay for something that covers future months "
-            "(e.g. annual insurance premium). Debit the Prepaid asset account "
-            "and credit Cash. Then in each future month, debit the expense "
-            "and credit Prepaid."
+        "name": "I prepaid something that covers several future months",
+        "plain_english": (
+            "You paid the full amount upfront (like annual insurance) but the "
+            "expense should be spread across future months, not all at once."
         ),
-        "memo": "Prepaid expense",
+        "description": (
+            "Example: you paid $1,200 for the year's insurance policy in January. "
+            "Debit Prepaid Insurance (an asset) so you can expense $100/month "
+            "going forward. Credit Cash since money left the bank."
+        ),
+        "flow": [
+            {"label": "Prepaid Expenses (Asset)", "side": "DEBIT", "note": "asset goes up"},
+            {"label": "Operating Checking", "side": "CREDIT", "note": "cash goes down"},
+        ],
+        "memo": "Prepaid expense — spread over future months",
         "lines": [
             {
                 "side": "debit",
                 "account_match": {"by": "type", "value": "ASSET"},
-                "hint": "Prepaid Expenses (an Asset account)",
+                "hint": "Prepaid Expenses or Prepaid Insurance (an Asset account)",
             },
             {
                 "side": "credit",
                 "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Cash (usually account 1000)",
+                "hint": "Operating Checking / Cash (usually account 1000)",
             },
         ],
     },
