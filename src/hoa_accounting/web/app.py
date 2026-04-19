@@ -205,7 +205,19 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from hoa_accounting.auth.local import LocalBackend
         auth_manager = AuthManager(AuthConfig(), LocalBackend(":memory:"))
 
-    app.secret_key = raw_config.get("auth", {}).get("session_secret", "dev-secret-change-me")
+    _DEFAULT_SECRET = "change-me-to-a-random-secret"
+    session_secret = raw_config.get("auth", {}).get("session_secret", _DEFAULT_SECRET)
+    if session_secret == _DEFAULT_SECRET and org_context.get("environment") != "local":
+        raise RuntimeError(
+            "auth.session_secret must be changed from the default value before running outside local mode."
+        )
+    app.secret_key = session_secret
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB cap on uploads
+    if org_context.get("environment") != "local":
+        app.config["SESSION_COOKIE_SECURE"] = True
+
     init_auth(auth_manager, org_context)
     app.register_blueprint(auth_bp)
 
@@ -216,6 +228,25 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from hoa_accounting.web.auth_pages import _get_current_user
         g.org = org_context
         g.current_user = _get_current_user()
+
+    # ── CSRF enforcement ──────────────────────────────────────────────────
+    _CSRF_EXEMPT = {"/login", "/logout", "/auth/callback"}
+
+    @app.before_request
+    def _enforce_csrf() -> Response | None:
+        if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            return None
+        if request.path in _CSRF_EXEMPT:
+            return None
+        from flask import session as _session, abort as _abort
+        expected = _session.get("_csrf_token")
+        provided = (
+            request.form.get("_csrf_token")
+            or request.headers.get("X-CSRF-Token")
+        )
+        if not expected or expected != provided:
+            _abort(403)
+        return None
 
     setup_auth_guard(app, org_context)
 
@@ -228,7 +259,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         import traceback as tb
         from hoa_accounting.web.template_engine import render_template as _render
 
-        show_traceback = org_context.get("environment") == "local"
+        _is_local_env = org_context.get("environment") == "local"
+        _is_local_request = request.remote_addr in ("127.0.0.1", "::1", "localhost")
+        show_traceback = _is_local_env and _is_local_request
         trace_str = tb.format_exc() if show_traceback else None
         theme = str(org_context.get("theme", "warm"))
         html = _render("error_500.html", {

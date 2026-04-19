@@ -596,7 +596,7 @@
         previewLoading.style.display = "";
         var fd = new FormData();
         fd.append("backup_file", file);
-        fetch("/admin/database/restore-preview", { method: "POST", body: fd })
+        fetch("/admin/database/restore-preview", { method: "POST", body: fd, headers: { "X-CSRF-Token": window.csrfToken } })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             previewLoading.style.display = "none";
@@ -657,7 +657,7 @@
 
               fetch("/admin/database/restore", {
                 method:  "POST",
-                headers: { "X-Restore-Fetch": "1" },
+                headers: { "X-Restore-Fetch": "1", "X-CSRF-Token": window.csrfToken },
                 body:    fd,
               })
                 .then(function (r) { return r.json(); })

@@ -33,11 +33,15 @@ def get_template_env() -> Environment:
 
 def render_template(template_name: str, context: dict[str, Any] | None = None) -> str:
     """Render a named template with the provided context."""
-    from flask import g
+    import secrets as _secrets
+    from flask import g, session
     ctx = dict(context or {})
     try:
         ctx.setdefault("current_user", getattr(g, "current_user", None))
+        if "_csrf_token" not in session:
+            session["_csrf_token"] = _secrets.token_hex(32)
+        ctx.setdefault("csrf_token", session["_csrf_token"])
     except RuntimeError:
-        pass  # outside Flask request context (e.g. tests)
+        ctx.setdefault("csrf_token", "")  # outside Flask request context (e.g. tests)
     template = get_template_env().get_template(template_name)
     return template.render(**ctx)

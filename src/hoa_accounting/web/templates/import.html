@@ -789,7 +789,7 @@
     form.append("csv_content",  csvContent);
     form.append("filter_field", filterField);
 
-    fetch("/admin/import/validate", { method: "POST", body: form })
+    fetch("/admin/import/validate", { method: "POST", body: form, headers: { "X-CSRF-Token": window.csrfToken } })
       .then(function (r) {
         if (!r.ok) throw new Error("Server returned " + r.status);
         return r.json();

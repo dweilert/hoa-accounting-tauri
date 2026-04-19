@@ -7,6 +7,7 @@
     {% block title %}{{ org.name }} — Accounting{% endblock %}
   </title>
   <link rel="stylesheet" href="/static/app.css" />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
   {#
     Apply a persisted theme override (if any) before first paint so
     switching themes in a future toggle never flashes the wrong palette.
@@ -672,6 +673,26 @@
         e.preventDefault();
         var box = document.getElementById("global-search");
         if (box) { box.focus(); box.select(); }
+      });
+    })();
+  </script>
+  <script>
+    /* Auto-inject CSRF token into every non-GET form and expose it for
+       fetch() calls via window.csrfToken. */
+    (function () {
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      var token = meta ? meta.getAttribute("content") : "";
+      window.csrfToken = token;
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("form").forEach(function (f) {
+          if (f.method.toLowerCase() === "get") return;
+          if (f.querySelector('[name="_csrf_token"]')) return;
+          var inp = document.createElement("input");
+          inp.type = "hidden";
+          inp.name = "_csrf_token";
+          inp.value = token;
+          f.appendChild(inp);
+        });
       });
     })();
   </script>

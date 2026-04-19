@@ -281,7 +281,7 @@
 
         fetch("/reconciliations/" + reconId + "/toggle", {
           method: "POST",
-          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          headers: {"Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": window.csrfToken},
           body: "line_id=" + lineId + "&cleared=" + cleared,
         })
         .then(function (r) { return r.json(); })

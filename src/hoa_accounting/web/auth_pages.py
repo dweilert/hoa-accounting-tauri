@@ -64,7 +64,9 @@ def login():
             if user:
                 _set_current_user(user)
                 next_path = request.args.get("next", "/")
-                if not next_path.startswith("/"):
+                from urllib.parse import urlparse as _urlparse
+                _p = _urlparse(next_path)
+                if _p.scheme or _p.netloc or not next_path.startswith("/") or next_path.startswith("//"):
                     next_path = "/"
                 return redirect(next_path)
             error = "Invalid email or password."
