@@ -3,8 +3,8 @@
 {% block heading %}{% if scenario_id %}Edit Scenario{% else %}New Scenario{% endif %}{% endblock %}
 
 {% block content %}
-  {% if error %}
-    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+  {% if error_message or error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error_message or error }}</div>
   {% endif %}
 
   <form method="post"

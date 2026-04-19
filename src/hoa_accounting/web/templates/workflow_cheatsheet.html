@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Treasurer's Cheat Sheet · {{ org.name }}{% endblock %}
+{% block heading %}Treasurer's Cheat Sheet{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">Printable Quick Reference</span>
+  <button onclick="window.print()" class="btn btn--sm btn--ghost" style="margin-left:.5rem;">🖨 Print</button>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Screen styles ─────────────────────────────────────────────── */
+  .cs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .cs-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .cs-card__head {
+    padding: .6rem 1rem;
+    font-weight: 700;
+    font-size: .82rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .cs-card__body { padding: .75rem 1rem; }
+  .cs-step {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    padding: .35rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .82rem;
+    line-height: 1.4;
+  }
+  .cs-step:last-child { border-bottom: none; }
+  .cs-step__num {
+    flex-shrink: 0;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .68rem;
+    font-weight: 700;
+    color: #fff;
+    margin-top: .05rem;
+  }
+  .cs-step__text { flex: 1; color: var(--text); }
+  .cs-step__text a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .cs-rule {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    font-size: .82rem;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .cs-rule__title {
+    font-weight: 700;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    margin-bottom: .4rem;
+  }
+  .cs-rule ul { margin: 0; padding-left: 1.1rem; }
+  .cs-rule li { margin-bottom: .25rem; }
+
+  /* ── Print styles ──────────────────────────────────────────────── */
+  @media print {
+    .app-sidebar, .app-topbar, .app-breadcrumb,
+    .alert, button, .btn { display: none !important; }
+    .app-content { margin: 0 !important; padding: 0 !important; }
+    body { font-size: 10pt; color: #000; background: #fff; }
+    .cs-grid { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+    .cs-card { border: 1pt solid #888; border-radius: 4pt; break-inside: avoid; }
+    .cs-card__head { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cs-rule { border: 1pt solid #888; break-inside: avoid; }
+    a[href]::after { content: none; }
+    .cs-step__text a { color: #000; font-weight: 700; }
+    h2.print-title { display: block !important; }
+  }
+  h2.print-title { display: none; }
+</style>
+
+<h2 class="print-title" style="margin:0 0 .5rem;font-size:14pt;">
+  HOA Treasurer's Quick Reference · {{ org.name }}
+</h2>
+
+<div style="margin-bottom:1rem;font-size:.85rem;color:var(--text-subtle);">
+  Click any link to open that page in the app. Use the <strong>Print</strong> button above to print a one-page desk reference.
+</div>
+
+<div class="cs-grid">
+
+  {# ── Monthly ── #}
+  <div class="cs-card">
+    <div class="cs-card__head" style="background:#1f6b3a;">📅 Monthly Cycle</div>
+    <div class="cs-card__body">
+      {% set monthly = [
+        ("1","#1f6b3a","Bill dues for all active lots","/dues-billing"),
+        ("2","#1f6b3a","Post any special assessments","/bill-assessments"),
+        ("3","#b45309","Run late-fee sweep","/late-fees"),
+        ("4","#1f4d7a","Record owner payments","/deposit-batch"),
+        ("5","#1f4d7a","Post other income (interest, fees)","/income-batch"),
+        ("6","#9a3a38","Enter vendor bills","/vendor-bill-new"),
+        ("7","#9a3a38","Pay vendor bills","/vendor-bills"),
+        ("8","#0f7173","Reconcile bank statement","/reconciliation-new"),
+        ("9","#0f7173","Publish owner PDF statements","/batch-pdf"),
+        ("10","#4a5462","Close the accounting period","/accounting-periods"),
+      ] %}
+      {% for num, color, label, href in monthly %}
+      <div class="cs-step">
+        <div class="cs-step__num" style="background:{{ color }};">{{ num }}</div>
+        <div class="cs-step__text"><a href="{{ href }}">{{ label }}</a></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Quarter-end additions ── #}
+  <div class="cs-card">
+    <div class="cs-card__head" style="background:#1f4d7a;">📊 Add at Quarter End</div>
+    <div class="cs-card__body">
+      {% set qtr = [
+        ("Q1","#1f4d7a","Review AR aging — follow up on 30/60/90+ balances","/ar-lots"),
+        ("Q2","#5a3a7a","Run Budget vs Actual report","/reports?report_name=expenses-vs-budget"),
+        ("Q3","#5a3a7a","Scan All Transactions for miscoding","/all-transactions"),
+        ("Q4","#5a3a7a","Spot-check Ledger by Account","/account-ledger"),
+        ("Q5","#0f7173","Transfer budgeted amount to Reserve account","/reserve-transfer-new"),
+        ("Q6","#0f7173","Review Reserve Study funding plan","/reserve-study"),
+      ] %}
+      {% for num, color, label, href in qtr %}
+      <div class="cs-step">
+        <div class="cs-step__num" style="background:{{ color }};">{{ num }}</div>
+        <div class="cs-step__text"><a href="{{ href }}">{{ label }}</a></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Year-end ── #}
+  <div class="cs-card">
+    <div class="cs-card__head" style="background:#5a3a7a;">🏁 Add at Year-End</div>
+    <div class="cs-card__body">
+      {% set ye = [
+        ("Y1","#1f4d7a","Final AR sweep — confirm all payments posted","/ar-lots"),
+        ("Y2","#9a3a38","Clear or void remaining open vendor bills","/vendor-bills"),
+        ("Y3","#4a5462","Verify all 12 periods are closed","/accounting-periods"),
+        ("Y4","#5a3a7a","Run Year-End Close","/year-end-close"),
+        ("Y5","#0f7173","Update Reserve Study components","/reserve-study"),
+        ("Y6","#5a3a7a","Enter new fiscal year budget","/budgets"),
+        ("Y7","#b45309","Set new default annual dues","/system-settings"),
+        ("Y8","#4a5462","Download full database backup","/admin/database"),
+        ("Y9","#1f6b3a","Open January accounting period","/accounting-period-new"),
+        ("Y10","#1f6b3a","Bill first dues of new year","/dues-billing"),
+      ] %}
+      {% for num, color, label, href in ye %}
+      <div class="cs-step">
+        <div class="cs-step__num" style="background:{{ color }};">{{ num }}</div>
+        <div class="cs-step__text"><a href="{{ href }}">{{ label }}</a></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Write-offs & adjustments ── #}
+  <div class="cs-card">
+    <div class="cs-card__head" style="background:#9a3a38;">✏️ Adjustments &amp; Write-Offs</div>
+    <div class="cs-card__body">
+      {% set adj = [
+        ("#1f4d7a","Owner write-off: get board approval, then DR Bad Debt Expense / CR AR","/journal-entry-new"),
+        ("#b45309","Late fee billing: posts DR AR / CR Late Fee Income — income is at billing, not payment","/late-fees"),
+        ("#b45309","Late fee waiver: reversing JE DR Late Fee Income / CR AR","/journal-entry-new"),
+        ("#9a3a38","Reclassify expense: reverse original JE, post correcting JE to right account","/journal-entry-new"),
+        ("#0f7173","Accrual: DR Expense / CR Accrued Liabilities at month-end; reverse on 1st","/journal-entry-new"),
+        ("#0f7173","Reserve interest earned: DR Reserve Cash / CR Interest Income","/journal-entry-new"),
+      ] %}
+      {% for color, label, href in adj %}
+      <div class="cs-step">
+        <div class="cs-step__num" style="background:{{ color }};">•</div>
+        <div class="cs-step__text"><a href="{{ href }}">{{ label }}</a></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+{# ── Golden rules ── #}
+<div class="cs-rule">
+  <div class="cs-rule__title">Golden Rules</div>
+  <ul>
+    <li><strong>Income is recognized when billed</strong>, not when cash arrives. Collecting a late fee reduces AR — it does not post new income.</li>
+    <li><strong>Never edit a posted entry</strong> — always reverse-then-correct. The Audit Log tracks every change.</li>
+    <li><strong>Reserve funds need a board resolution</strong> before any transfer back to operating.</li>
+    <li><strong>Close periods promptly</strong> — open periods from prior months are a red flag. Closing locks the books and prevents accidental edits.</li>
+    <li><strong>Reconcile every month</strong> — a reconciled balance is the only way to know your book balance matches the bank.</li>
+    <li><strong>Backup before year-end close</strong> — download a full database backup before running the Year-End Close. It cannot be undone without reopening the year.</li>
+  </ul>
+</div>
+{% endblock %}

@@ -8,9 +8,9 @@
 {% endblock %}
 
 {% block content %}
-  {% if error %}
+  {% if error_message or error %}
     <div class="alert alert--error" style="margin-bottom:1rem;">
-      <div class="alert__content">{{ error }}</div>
+      <div class="alert__content">{{ error_message or error }}</div>
       <button type="button" class="alert__close" aria-label="Dismiss">×</button>
     </div>
   {% endif %}

@@ -61,6 +61,7 @@ class DashboardPages:
         budget_tile = self._repo.get_budget_tile(self._fiscal_year, self._fy_start_month)
         last_auto_backup = self._repo.get_last_auto_backup()
         cards = self._repo.get_dashboard_cards()
+        nudges = self._repo.get_next_action_nudges()
 
         hoa_name = (profile["legal_name"] if profile else org.get("legal_name", org.get("name", "")))
 
@@ -75,6 +76,7 @@ class DashboardPages:
             budget_tile=budget_tile,
             last_auto_backup=last_auto_backup,
             cards=cards,
+            nudges=nudges,
             fiscal_year=self._fiscal_year,
         )
 

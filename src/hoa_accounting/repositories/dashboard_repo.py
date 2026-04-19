@@ -165,6 +165,71 @@ class DashboardRepository:
             actual_spent=Decimal(str(actual_row["spent"] if actual_row else 0)),
         )
 
+    def get_next_action_nudges(self) -> list[dict]:
+        """Return a prioritised list of actionable nudges for the dashboard prompt."""
+        nudges: list[dict] = []
+        try:
+            # Unclosed periods whose end_date has already passed
+            row = self._conn.execute(
+                "SELECT COUNT(*) c FROM accounting_periods "
+                "WHERE is_closed = 0 AND end_date < DATE('now')"
+            ).fetchone()
+            if row and row["c"] > 0:
+                nudges.append({
+                    "level": "warn",
+                    "icon": "🔒",
+                    "text": f"{row['c']} accounting period{'s' if row['c'] != 1 else ''} "
+                            "still open from a prior month — close them to lock the books.",
+                    "href": "/accounting-periods",
+                    "link": "Accounting Periods",
+                })
+        except Exception:
+            pass
+        try:
+            # Open (in-progress) bank reconciliations
+            row = self._conn.execute(
+                "SELECT COUNT(*) c FROM bank_reconciliations WHERE status = 'OPEN'"
+            ).fetchone()
+            if row and row["c"] > 0:
+                nudges.append({
+                    "level": "warn",
+                    "icon": "🏦",
+                    "text": f"{row['c']} bank reconciliation{'s' if row['c'] != 1 else ''} "
+                            "in progress — finish reconciling to close the month.",
+                    "href": "/reconciliations",
+                    "link": "Reconciliations",
+                })
+        except Exception:
+            pass
+        try:
+            # Overdue assessments 60+ days past due with a remaining balance
+            row = self._conn.execute(
+                """
+                SELECT COUNT(*) c FROM (
+                    SELECT a.id,
+                           a.amount - COALESCE(SUM(pa.applied_amount), 0) AS remaining
+                    FROM assessments a
+                    LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
+                    WHERE a.status NOT IN ('VOID')
+                      AND a.due_date < DATE('now', '-60 days')
+                    GROUP BY a.id
+                    HAVING remaining > 0
+                )
+                """
+            ).fetchone()
+            if row and row["c"] > 0:
+                nudges.append({
+                    "level": "info",
+                    "icon": "📬",
+                    "text": f"{row['c']} assessment{'s' if row['c'] != 1 else ''} "
+                            "60+ days overdue with an outstanding balance.",
+                    "href": "/ar-lots",
+                    "link": "AR by Lot",
+                })
+        except Exception:
+            pass
+        return nudges
+
     def get_last_auto_backup(self) -> sqlite3.Row | None:
         try:
             return self._conn.execute(

@@ -635,6 +635,33 @@
         <span><strong>Common accruals for HOAs:</strong> management fee not yet invoiced, annual insurance premium split across months, or landscaping done in December but billed in January. Accruals match the expense to the month it was incurred — important for accurate budget-vs-actual reporting.</span>
       </div>
 
+      {# ── Late fee lifecycle ── #}
+      <div class="wf-section-label" style="margin-top:2rem;">Late Fees — Full Lifecycle</div>
+      <div class="wf-flow">
+        {% set lf_steps = [
+          ("1", "⏰", "Bill the Late Fee", "Run the Late Fees sweep. Posts DR Accounts Receivable / CR Late Fee Income per delinquent owner.", "/late-fees", "Late Fees", "amber"),
+          ("2", "💳", "Owner Pays in Full", "Record payment via Deposits. Apply to the open late fee charge. AR is cleared; income was already recognized in step 1.", "/deposit-batch", "Deposits", "green"),
+          ("3", "⚖️", "Partial Payment", "Owner pays dues but not the fee. The unpaid late fee ages. It can trigger another late fee next cycle if policy allows.", "/ar-lots", "AR by Lot", "blue"),
+          ("4", "🗳️", "Board Waiver", "Board votes to waive the fee. Get written resolution, then post a reversing JE: DR Late Fee Income, CR Accounts Receivable.", "/journal-entry-new", "New JE", "rose"),
+        ] %}
+        {% for num, icon, title, desc, href, link_label, color in lf_steps %}
+        <div class="wf-step-wrap">
+          <div class="wf-step wf-step--{{ color }}">
+            <div class="wf-step__num">{{ num }}</div>
+            <div class="wf-step__icon">{{ icon }}</div>
+            <div class="wf-step__title">{{ title }}</div>
+            <div class="wf-step__desc">{{ desc }}</div>
+            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
+          </div>
+          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="wf-tip">
+        <span class="wf-tip__icon">💡</span>
+        <span><strong>Key accounting rule:</strong> Income is recognized at billing time (step 1), not when cash is received. When an owner pays the late fee, you are reducing AR — you are <em>not</em> posting new income. This is the most common late-fee bookkeeping mistake. If you waive a fee after billing it, the reversing JE in step 4 removes the income already recognized.</span>
+      </div>
+
       {# ── Reserve fund adjustment ── #}
       <div class="wf-section-label" style="margin-top:2rem;">Reserve Fund — When to Use a Journal Entry</div>
       <div class="wf-flow">

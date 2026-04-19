@@ -16,8 +16,8 @@
       <div class="alert alert--warn" style="margin-bottom:1rem;">Override removed.</div>
     {% endif %}
 
-    {% if error %}
-      <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+    {% if error_message or error %}
+      <div class="alert alert--err" style="margin-bottom:1rem;">{{ error_message or error }}</div>
     {% endif %}
 
     <form method="post" style="margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);">

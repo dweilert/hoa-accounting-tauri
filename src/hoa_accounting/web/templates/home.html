@@ -152,6 +152,30 @@
 </div>
 {% endif %}
 
+{% if nudges %}
+<div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem;">
+  {% for n in nudges %}
+  <div style="
+    display:flex;align-items:center;gap:.85rem;
+    padding:.65rem 1rem;
+    border-radius:8px;
+    background:{% if n.level == 'warn' %}var(--surface){% else %}var(--surface-muted){% endif %};
+    border:1.5px solid {% if n.level == 'warn' %}#d97706{% else %}var(--border){% endif %};
+    font-size:.84rem;line-height:1.4;
+  ">
+    <span style="font-size:1.3rem;flex-shrink:0;">{{ n.icon }}</span>
+    <span style="flex:1;color:var(--text);">{{ n.text }}</span>
+    <a href="{{ n.href }}"
+       style="flex-shrink:0;font-weight:600;font-size:.8rem;
+              color:{% if n.level == 'warn' %}#b45309{% else %}var(--accent){% endif %};
+              text-decoration:none;white-space:nowrap;">
+      {{ n.link }} →
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="act-grid">
   {% for card in act_cards %}
     {% if card.card_type == 'SECTION' %}

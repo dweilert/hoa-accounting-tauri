@@ -9,9 +9,9 @@
       <div class="panel__title">Create Budget</div>
     </div>
 
-    {% if error %}
+    {% if error_message or error %}
       <div class="alert alert--error" style="margin:.75rem .75rem 0;">
-        {{ error }}
+        {{ error_message or error }}
         <button type="button" class="alert__close" aria-label="Dismiss">×</button>
       </div>
     {% endif %}

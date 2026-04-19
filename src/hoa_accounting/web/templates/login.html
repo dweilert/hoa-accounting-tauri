@@ -143,8 +143,8 @@
     {% endif %}
   </div>
 
-  {% if error %}
-    <div class="alert alert--err" style="margin-bottom:1rem;font-size:.88rem;">{{ error }}</div>
+  {% if error_message or error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;font-size:.88rem;">{{ error_message or error }}</div>
   {% endif %}
 
   {# ── Cognito button ───────────────────────────────────────────────── #}

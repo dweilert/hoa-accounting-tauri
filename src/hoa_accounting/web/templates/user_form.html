@@ -14,8 +14,8 @@
       <div class="alert alert--err" style="margin-bottom:1rem;">Password update failed — passwords must match and be at least 8 characters.</div>
     {% endif %}
 
-    {% if error %}
-      <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+    {% if error_message or error %}
+      <div class="alert alert--err" style="margin-bottom:1rem;">{{ error_message or error }}</div>
     {% endif %}
 
     <form method="post" action="{{ form_action }}">
