@@ -775,8 +775,9 @@ class ManualJournalPages:
                 "memo": form_data.get("memo", ""),
             }
         else:
+            from datetime import date
             lines = self._empty_form_lines(2)
-            values = {"entry_date": "", "memo": ""}
+            values = {"entry_date": date.today().strftime("%Y-%m-%d"), "memo": ""}
 
         ctx = {
             **_BASE_CTX,

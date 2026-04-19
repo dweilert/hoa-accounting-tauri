@@ -120,26 +120,21 @@
     </details>
 
     {# ── Entry header ─────────────────────────────────────────────── #}
-    <div class="panel">
-      <div class="panel__header">
-        <div>
-          <div class="panel__title">Entry Header</div>
-          <div class="panel__description">Date and description of this adjustment.</div>
-        </div>
-      </div>
-      <div class="form" style="padding-bottom:var(--sp-2);">
-        <label class="field">
-          <span class="field__label">Entry Date *</span>
+    <div class="panel" style="margin-bottom:1rem;">
+      <div style="padding:.6rem 1rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:.4rem;white-space:nowrap;font-size:13px;font-weight:600;">
+          Date
           <input type="date" id="entry_date" name="entry_date"
                  value="{{ values.entry_date }}"
-                 style="max-width:16rem;"
+                 style="font-size:13px;padding:.25rem .4rem;"
                  required>
         </label>
-        <label class="field form__row--full">
-          <span class="field__label">Memo *</span>
+        <label style="display:flex;align-items:center;gap:.4rem;flex:1;min-width:200px;font-size:13px;font-weight:600;">
+          Note
           <input type="text" id="memo" name="memo"
                  value="{{ values.memo }}"
                  placeholder="What is this adjustment for?"
+                 style="flex:1;font-size:13px;"
                  maxlength="255" required>
         </label>
       </div>
