@@ -687,6 +687,35 @@
         <span><strong>Common accruals for HOAs:</strong> management fee not yet invoiced, annual insurance premium split across months, or landscaping done in December but billed in January. Accruals match the expense to the month it was incurred — important for accurate budget-vs-actual reporting.</span>
       </div>
 
+      {# ── Tax payment on interest income ── #}
+      <div class="wf-section-label" style="margin-top:2rem;">Income Tax Payment — Tax on Interest &amp; Non-Dues Income</div>
+      <div class="wf-flow">
+        {% set tax_steps = [
+          ("1", "✅", "Confirm Income Posted", "Verify the interest income journal entry is already posted. The income was recognized when the bank credited it — this tax payment is a separate expense.", "/all-transactions", "All Transactions", "blue"),
+          ("2", "📒", "Add Tax Expense Account", "If you don't have one, add 'Income Tax Expense' to the Chart of Accounts (type: Expense, fund: OPERATING).", "/accounts", "Chart of Accounts", "slate"),
+          ("3", "🏢", "Set Up Tax Vendor", "Add the IRS and/or your state taxing authority as a vendor if not already in the system.", "/vendors", "Vendors", "slate"),
+          ("4", "🧾", "Enter the Vendor Bill", "Vendor = IRS (or state). Expense account = Income Tax Expense. Amount = tax owed. Invoice # = your tax return or notice number.", "/vendor-bill-new", "Vendor Bills", "rose"),
+          ("5", "💸", "Pay the Bill", "Record the check payment against the open bill. Enter the check number for the paper trail.", "/vendor-bills", "Pay Bills", "rose"),
+          ("6", "📁", "File the Return", "Attach a copy of the filed return to your HOA records. The paid bill in the system is your books entry; the return is your legal filing.", "#", "Document only", "amber"),
+        ] %}
+        {% for num, icon, title, desc, href, link_label, color in tax_steps %}
+        <div class="wf-step-wrap">
+          <div class="wf-step wf-step--{{ color }}">
+            <div class="wf-step__num">{{ num }}</div>
+            <div class="wf-step__icon">{{ icon }}</div>
+            <div class="wf-step__title">{{ title }}</div>
+            <div class="wf-step__desc">{{ desc }}</div>
+            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
+          </div>
+          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="wf-tip">
+        <span class="wf-tip__icon">💡</span>
+        <span><strong>Why HOAs pay tax on interest:</strong> Most HOAs are exempt from federal income tax on dues, assessments, and late fees — those are considered member income. But <em>interest income</em> earned on reserve or operating accounts, and any income from non-members (facility rentals, resale fees, etc.), is typically taxable. Consult your CPA each year; the threshold and rate depend on your HOA's filing status (Form 1120-H vs 1120).</span>
+      </div>
+
       {# ── Reserve fund adjustment ── #}
       <div class="wf-section-label" style="margin-top:2rem;">Reserve Fund — When to Use a Journal Entry</div>
       <div class="wf-flow">
