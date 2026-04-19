@@ -51,17 +51,17 @@ class DashboardRepository:
             "SELECT * FROM hoa_profile LIMIT 1"
         ).fetchone()
 
-    def save_hoa_profile(self, legal_name: str, display_name: str) -> None:
+    def save_hoa_profile(self, legal_name: str, display_name: str, theme: str = "warm") -> None:
         existing = self._conn.execute("SELECT id FROM hoa_profile LIMIT 1").fetchone()
         if existing:
             self._conn.execute(
-                "UPDATE hoa_profile SET legal_name=?, display_name=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (legal_name, display_name, existing["id"]),
+                "UPDATE hoa_profile SET legal_name=?, display_name=?, theme=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (legal_name, display_name, theme, existing["id"]),
             )
         else:
             self._conn.execute(
-                "INSERT INTO hoa_profile (legal_name, display_name) VALUES (?,?)",
-                (legal_name, display_name),
+                "INSERT INTO hoa_profile (legal_name, display_name, theme) VALUES (?,?,?)",
+                (legal_name, display_name, theme),
             )
         self._conn.commit()
 

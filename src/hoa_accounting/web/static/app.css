@@ -75,6 +75,126 @@
   --info-subtle: #dfe8f1;
 }
 
+[data-theme="sage"] {
+  /* Soft sage-green background, deep teal accent. */
+  --bg: #f2f5f1;
+  --surface: #ffffff;
+  --surface-muted: #e8ede6;
+  --surface-sunken: #dce3d9;
+  --border: #cdd6c9;
+  --border-strong: #adb8a8;
+
+  --text: #1a2118;
+  --text-muted: #4d5e49;
+  --text-subtle: #7a8a76;
+  --text-inverse: #f2f5f1;
+
+  --accent: #2a6b5e;
+  --accent-hover: #1f5449;
+  --accent-subtle: #d9ede9;
+  --accent-border: #a3cdc6;
+
+  --danger: #8c3a38;
+  --danger-subtle: #f0dedd;
+  --danger-border: #cba8a6;
+
+  --warning: #7a5612;
+  --warning-subtle: #f0e4c4;
+
+  --info: #2a6b5e;
+  --info-subtle: #d9ede9;
+}
+
+[data-theme="ocean"] {
+  /* Light blue-tinted background, deep teal accent. */
+  --bg: #f2f6fa;
+  --surface: #ffffff;
+  --surface-muted: #e6eef5;
+  --surface-sunken: #d8e5ef;
+  --border: #c8d8e6;
+  --border-strong: #a5bece;
+
+  --text: #0f1e2d;
+  --text-muted: #3a5268;
+  --text-subtle: #6a8499;
+  --text-inverse: #f2f6fa;
+
+  --accent: #1a5f7a;
+  --accent-hover: #134a60;
+  --accent-subtle: #d4e8f0;
+  --accent-border: #96c2d4;
+
+  --danger: #8c3030;
+  --danger-subtle: #f0dcdc;
+  --danger-border: #c9a4a4;
+
+  --warning: #704e10;
+  --warning-subtle: #ede2c0;
+
+  --info: #1a5f7a;
+  --info-subtle: #d4e8f0;
+}
+
+[data-theme="sand"] {
+  /* Warm beige background, terracotta accent. */
+  --bg: #faf5ee;
+  --surface: #ffffff;
+  --surface-muted: #f3ece1;
+  --surface-sunken: #eae0d0;
+  --border: #ddd3bf;
+  --border-strong: #c4b89e;
+
+  --text: #221c14;
+  --text-muted: #66563d;
+  --text-subtle: #968570;
+  --text-inverse: #faf5ee;
+
+  --accent: #a04a2a;
+  --accent-hover: #833b20;
+  --accent-subtle: #f0e0d6;
+  --accent-border: #d4a68e;
+
+  --danger: #8c2a2a;
+  --danger-subtle: #f0dbdb;
+  --danger-border: #c9a0a0;
+
+  --warning: #7a500e;
+  --warning-subtle: #f0e2be;
+
+  --info: #a04a2a;
+  --info-subtle: #f0e0d6;
+}
+
+[data-theme="dusk"] {
+  /* Dark mode — charcoal background, sky-blue accent. */
+  --bg: #16181a;
+  --surface: #1f2224;
+  --surface-muted: #272b2e;
+  --surface-sunken: #2e3336;
+  --border: #363c40;
+  --border-strong: #4a5258;
+
+  --text: #e8e2d8;
+  --text-muted: #a09890;
+  --text-subtle: #6e6860;
+  --text-inverse: #16181a;
+
+  --accent: #4da6e8;
+  --accent-hover: #5cb8f8;
+  --accent-subtle: #182533;
+  --accent-border: #2a5070;
+
+  --danger: #e05858;
+  --danger-subtle: #2e1a1a;
+  --danger-border: #6a2a2a;
+
+  --warning: #d4a030;
+  --warning-subtle: #2e2410;
+
+  --info: #4da6e8;
+  --info-subtle: #182533;
+}
+
 :root {
   /* Typography */
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,

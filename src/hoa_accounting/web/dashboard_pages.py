@@ -94,14 +94,20 @@ class DashboardPages:
             error=error,
         )
 
+    _VALID_THEMES = {"warm", "slate", "sage", "ocean", "sand", "dusk"}
+
     def handle_save_settings(self, form: dict, org: dict, theme: str) -> tuple[str | None, PageResponse | None]:
         legal_name = form.get("legal_name", "").strip()
         display_name = form.get("display_name", "").strip()
+        new_theme = form.get("theme", theme).strip()
+        if new_theme not in self._VALID_THEMES:
+            new_theme = theme
         if not legal_name:
-            return None, self.render_settings(org, theme, error="Full HOA name is required.")
+            return None, self.render_settings(org, new_theme, error="Full HOA name is required.")
         if not display_name:
-            return None, self.render_settings(org, theme, error="Abbreviated name is required.")
-        self._repo.save_hoa_profile(legal_name, display_name)
+            return None, self.render_settings(org, new_theme, error="Abbreviated name is required.")
+        self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme)
+        org["theme"] = new_theme
         return "/system-settings?msg=Settings+saved.", None
 
     # ── Card Catalog ───────────────────────────────────────────────────

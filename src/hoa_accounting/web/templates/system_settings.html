@@ -49,5 +49,123 @@
       </div>
     </div>
 
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">UI Theme</div>
+        <div class="panel__description">Choose a color palette for the application.</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:1.25rem;padding:.25rem 0 1rem;">
+        {% set current_theme = theme %}
+        {% for t_id, t_label, t_bg, t_surface, t_accent, t_text in [
+            ('warm',  'Warm',  '#faf7f1', '#ffffff', '#2f6046', '#1d211f'),
+            ('slate', 'Slate', '#f5f7fa', '#ffffff', '#1f4d7a', '#111827'),
+            ('sage',  'Sage',  '#f2f5f1', '#ffffff', '#2a6b5e', '#1a2118'),
+            ('ocean', 'Ocean', '#f2f6fa', '#ffffff', '#1a5f7a', '#0f1e2d'),
+            ('sand',  'Sand',  '#faf5ee', '#ffffff', '#a04a2a', '#221c14'),
+            ('dusk',  'Dusk',  '#16181a', '#1f2224', '#4da6e8', '#e8e2d8'),
+        ] %}
+        <label class="theme-option" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.5rem;">
+          <input type="radio" name="theme" value="{{ t_id }}"
+                 {% if current_theme == t_id %}checked{% endif %}
+                 style="position:absolute;opacity:0;width:0;height:0;" />
+          <div class="theme-swatch {% if current_theme == t_id %}theme-swatch--active{% endif %}"
+               style="--sw-bg:{{ t_bg }};--sw-surface:{{ t_surface }};--sw-accent:{{ t_accent }};--sw-text:{{ t_text }};">
+            <div class="theme-swatch__sidebar"></div>
+            <div class="theme-swatch__body">
+              <div class="theme-swatch__bar theme-swatch__bar--accent"></div>
+              <div class="theme-swatch__bar"></div>
+              <div class="theme-swatch__bar"></div>
+            </div>
+            <div class="theme-swatch__check">✓</div>
+          </div>
+          <span class="theme-option__label {% if current_theme == t_id %}theme-option__label--active{% endif %}">{{ t_label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div style="margin-top:.25rem;display:flex;align-items:center;gap:1rem;">
+        <button type="submit" class="btn btn--primary">Save Settings</button>
+        <span class="theme-hint" style="font-size:.8rem;color:var(--text-subtle);">Select a theme above, then click Save Settings to apply.</span>
+      </div>
+    </div>
+
   </form>
+
+  <style>
+    .theme-swatch {
+      position: relative;
+      width: 88px; height: 64px;
+      border-radius: 8px;
+      border: 3px solid var(--border);
+      background: var(--sw-bg);
+      display: flex;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: border-color .15s, box-shadow .15s, transform .1s;
+    }
+    .theme-swatch:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow);
+      transform: translateY(-1px);
+    }
+    .theme-swatch--active {
+      border-width: 4px;
+      border-color: var(--sw-accent) !important;
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--sw-accent) 30%, transparent) !important;
+      transform: translateY(-2px);
+    }
+    .theme-swatch__check {
+      display: none;
+      position: absolute;
+      bottom: 4px; right: 5px;
+      font-size: .75rem;
+      font-weight: 900;
+      color: var(--sw-accent);
+      background: var(--sw-bg);
+      border-radius: 50%;
+      width: 16px; height: 16px;
+      line-height: 16px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    }
+    .theme-swatch--active .theme-swatch__check { display: block; }
+    .theme-swatch__sidebar {
+      width: 24px; height: 100%;
+      background: var(--sw-accent);
+      opacity: .9;
+    }
+    .theme-swatch__body {
+      flex: 1; padding: 8px 6px;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .theme-swatch__bar {
+      height: 6px; border-radius: 3px;
+      background: var(--sw-text); opacity: .15;
+    }
+    .theme-swatch__bar--accent {
+      background: var(--sw-accent); opacity: .7; width: 70%;
+    }
+    .theme-option__label {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .theme-option__label--active {
+      color: var(--accent);
+    }
+  </style>
+  <script>
+    document.querySelectorAll('input[name="theme"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        document.querySelectorAll('.theme-swatch').forEach(function(s) {
+          s.classList.remove('theme-swatch--active');
+        });
+        document.querySelectorAll('.theme-option__label').forEach(function(l) {
+          l.classList.remove('theme-option__label--active');
+        });
+        var lbl = this.closest('label');
+        lbl.querySelector('.theme-swatch').classList.add('theme-swatch--active');
+        lbl.querySelector('.theme-option__label').classList.add('theme-option__label--active');
+      });
+    });
+  </script>
 {% endblock %}
