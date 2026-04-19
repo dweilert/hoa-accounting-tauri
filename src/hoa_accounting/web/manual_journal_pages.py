@@ -56,97 +56,118 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
         "plain_english": "",
         "description": "",
         "flow": [],
+        "questions": [],
         "memo": "",
         "lines": [],
     },
-    # ── Common corrections ─────────────────────────────────────────────────
+
+    # ── Corrections ────────────────────────────────────────────────────────
     {
         "id": "expense_reclassify",
-        "name": "I paid a bill to the wrong expense category",
+        "name": "I posted a bill to the wrong expense category",
         "plain_english": (
             "Moves an expense from the wrong category to the right one. "
             "No money changes hands — only the category label changes."
         ),
         "description": (
-            "Example: you posted the pool repair bill to Landscaping by mistake. "
-            "This entry moves it to Pool & Spa. Pick the CORRECT category first, "
-            "then the WRONG one."
+            "Example: the pool repair bill was posted to Landscaping by mistake. "
+            "This moves it to Pool & Spa."
         ),
         "flow": [
             {"label": "Correct expense account", "side": "DEBIT", "note": "increases"},
             {"label": "Wrong expense account", "side": "CREDIT", "note": "decreases"},
         ],
-        "memo": "Expense reclassification — correct category",
+        "questions": [
+            {
+                "id": "q_correct",
+                "label": "What is the CORRECT expense category?",
+                "sub": "Where should this expense have been posted?",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 0,
+            },
+            {
+                "id": "q_wrong",
+                "label": "What is the WRONG category it was posted to?",
+                "sub": "The account you want to remove it from",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 1,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much needs to move?",
+                "type": "amount",
+            },
+        ],
+        "memo": "Expense reclassification",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "CORRECT expense account (where it should have gone)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "WRONG expense account (where it was posted by mistake)",
-            },
+            {"side": "debit",  "account_match": {"by": "type", "value": "EXPENSE"}, "hint": "CORRECT expense account"},
+            {"side": "credit", "account_match": {"by": "type", "value": "EXPENSE"}, "hint": "WRONG expense account"},
         ],
     },
     {
         "id": "write_off_owner",
         "name": "I need to write off an owner who will never pay",
         "plain_english": (
-            "Removes the uncollectible balance from your books so your records "
-            "don't show money you'll never actually receive."
+            "Removes an uncollectible balance from your books so your records "
+            "don't show money you'll never receive."
         ),
         "description": (
-            "Example: an owner moved away and left a $620 balance you've been "
-            "unable to collect. This clears the balance from Dues Receivable and "
-            "records it as a bad-debt expense."
+            "Example: an owner moved away leaving a $620 balance. "
+            "This clears it from Dues Receivable and records it as a bad-debt expense."
         ),
         "flow": [
             {"label": "Bad Debt / Write-Off Expense", "side": "DEBIT", "note": "records the loss"},
             {"label": "Dues Receivable", "side": "CREDIT", "note": "clears the balance"},
         ],
+        "questions": [
+            {
+                "id": "q_expense",
+                "label": "Which expense account records this write-off?",
+                "sub": "Usually 'Bad Debt Expense' or 'Uncollectible Accounts'",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 0,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much is being written off?",
+                "type": "amount",
+            },
+        ],
         "memo": "Write off uncollectible owner balance",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Bad Debt Expense or Write-Off Expense account",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1100"},
-                "hint": "Dues Receivable (usually account 1100)",
-            },
+            {"side": "debit",  "account_match": {"by": "type", "value": "EXPENSE"},  "hint": "Bad Debt Expense account"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1100"},   "hint": "Dues Receivable (1100)"},
         ],
     },
     {
         "id": "waive_late_fee",
-        "name": "I need to waive a late fee for an owner",
+        "name": "I need to waive a late fee the board approved",
         "plain_english": (
-            "Forgives a late fee that was already charged. The board voted to "
-            "waive it, so you need to reverse the income and reduce what the owner owes."
+            "Forgives a late fee already charged to an owner. "
+            "Reverses the income and reduces what the owner owes."
         ),
         "description": (
             "Example: the board approved waiving a $25 late fee for an owner "
-            "who paid late due to a medical emergency. This reverses the fee."
+            "who had a medical emergency."
         ),
         "flow": [
             {"label": "Late Fee Income", "side": "DEBIT", "note": "reverses the fee"},
             {"label": "Dues Receivable", "side": "CREDIT", "note": "reduces what owner owes"},
         ],
+        "questions": [
+            {
+                "id": "q_amount",
+                "label": "How much is the late fee being waived?",
+                "type": "amount",
+            },
+        ],
         "memo": "Late fee waiver — board approved",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "number", "value": "4100"},
-                "hint": "Late Fee Income account (usually 4100)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1100"},
-                "hint": "Dues Receivable (usually account 1100)",
-            },
+            {"side": "debit",  "account_match": {"by": "number", "value": "4100"}, "hint": "Late Fee Income (4100)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1100"}, "hint": "Dues Receivable (1100)"},
         ],
     },
     {
@@ -157,56 +178,105 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
             "charged incorrectly. Money leaves your checking account."
         ),
         "description": (
-            "Example: an owner paid their dues twice by accident. You wrote them "
-            "a refund check. This records that the receivable went up (since they "
-            "now owe less net) and cash went down."
+            "Example: an owner paid their dues twice by accident. "
+            "You wrote them a refund check."
         ),
         "flow": [
-            {"label": "Dues Receivable", "side": "DEBIT", "note": "reduces credit on account"},
-            {"label": "Operating Checking", "side": "CREDIT", "note": "money leaves the bank"},
+            {"label": "Dues Receivable", "side": "DEBIT", "note": "reduces their credit balance"},
+            {"label": "Bank account", "side": "CREDIT", "note": "money leaves the bank"},
+        ],
+        "questions": [
+            {
+                "id": "q_bank",
+                "label": "Which bank account will the refund come from?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much are you refunding?",
+                "type": "amount",
+            },
         ],
         "memo": "Homeowner refund",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "number", "value": "1100"},
-                "hint": "Dues Receivable (usually account 1100)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Checking / Cash (usually account 1000)",
-            },
+            {"side": "debit",  "account_match": {"by": "number", "value": "1100"}, "hint": "Dues Receivable (1100)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1000"}, "hint": "Operating Checking (1000)"},
         ],
     },
-    # ── Recording income & bank items ──────────────────────────────────────
+    {
+        "id": "nsf_check",
+        "name": "A homeowner's check bounced (NSF / returned)",
+        "plain_english": (
+            "The bank returned a homeowner's check unpaid. "
+            "This reverses the deposit so the owner's balance is back where it was."
+        ),
+        "description": (
+            "Example: you deposited a $300 dues check but the bank returned it "
+            "NSF three days later. The $300 must come back out of cash and "
+            "go back onto the owner's balance."
+        ),
+        "flow": [
+            {"label": "Dues Receivable", "side": "DEBIT", "note": "owner owes again"},
+            {"label": "Bank account", "side": "CREDIT", "note": "bank took the money back"},
+        ],
+        "questions": [
+            {
+                "id": "q_bank",
+                "label": "Which bank account was the check deposited into?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much was the bounced check?",
+                "type": "amount",
+            },
+        ],
+        "memo": "NSF returned check — homeowner",
+        "lines": [
+            {"side": "debit",  "account_match": {"by": "number", "value": "1100"}, "hint": "Dues Receivable (1100)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1000"}, "hint": "Operating Checking (1000)"},
+        ],
+    },
+
+    # ── Bank & income items ────────────────────────────────────────────────
     {
         "id": "bank_interest",
-        "name": "I need to record interest we earned at the bank",
+        "name": "I need to record interest the bank paid us",
         "plain_english": (
             "Your bank statement shows interest deposited but it's not in the "
-            "books yet. This adds it to both your cash balance and income."
+            "books yet. This adds it to your cash balance and income."
         ),
         "description": (
             "Example: the bank credited $42.18 interest to your operating account. "
-            "Enter that amount as a debit to Cash and a credit to Interest Income."
+            "The money is already in the bank — this just records it in the books."
         ),
         "flow": [
-            {"label": "Operating Checking", "side": "DEBIT", "note": "cash goes up"},
+            {"label": "Bank account", "side": "DEBIT", "note": "cash goes up"},
             {"label": "Interest Income", "side": "CREDIT", "note": "income goes up"},
+        ],
+        "questions": [
+            {
+                "id": "q_bank",
+                "label": "Which bank account received the interest?",
+                "sub": "Pick from your checking and savings accounts",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 0,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much interest did the bank credit?",
+                "type": "amount",
+            },
         ],
         "memo": "Bank interest earned",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Checking / Cash (usually account 1000)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "4200"},
-                "hint": "Interest Income (usually account 4200)",
-            },
+            {"side": "debit",  "account_match": {"by": "number", "value": "1000"}, "hint": "Operating Checking (1000)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "4200"}, "hint": "Interest Income (4200)"},
         ],
     },
     {
@@ -217,25 +287,81 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
             "This records the expense and reduces your cash balance."
         ),
         "description": (
-            "Example: the bank charged a $15 monthly service fee or an NSF fee. "
-            "Debit Bank Service Charges expense and credit Operating Cash."
+            "Example: the bank charged a $15 monthly service fee or an NSF processing fee."
         ),
         "flow": [
-            {"label": "Bank Service Charges (Expense)", "side": "DEBIT", "note": "expense goes up"},
-            {"label": "Operating Checking", "side": "CREDIT", "note": "cash goes down"},
+            {"label": "Bank fee expense", "side": "DEBIT", "note": "expense goes up"},
+            {"label": "Bank account", "side": "CREDIT", "note": "cash goes down"},
+        ],
+        "questions": [
+            {
+                "id": "q_bank",
+                "label": "Which bank account was charged the fee?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_expense",
+                "label": "What type of expense is this?",
+                "sub": "Usually 'Bank Service Charges' or 'Bank Fees'",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 0,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much was the fee?",
+                "type": "amount",
+            },
         ],
         "memo": "Bank service fee",
         "lines": [
+            {"side": "debit",  "account_match": {"by": "type", "value": "EXPENSE"},  "hint": "Bank Service Charges expense"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1000"},   "hint": "Operating Checking (1000)"},
+        ],
+    },
+    {
+        "id": "vendor_refund",
+        "name": "A vendor gave us a refund or sent us a credit",
+        "plain_english": (
+            "A vendor returned money — maybe they overbilled or you returned something. "
+            "Cash came back in and the expense goes down."
+        ),
+        "description": (
+            "Example: the landscaper overcharged by $75 and sent a refund check. "
+            "Deposit it to checking and reduce the landscaping expense."
+        ),
+        "flow": [
+            {"label": "Bank account", "side": "DEBIT", "note": "cash comes in"},
+            {"label": "Expense account", "side": "CREDIT", "note": "expense goes down"},
+        ],
+        "questions": [
             {
-                "side": "debit",
-                "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Bank Service Charges or Bank Fees expense account",
+                "id": "q_bank",
+                "label": "Which bank account did the refund go into?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 0,
             },
             {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Checking / Cash (usually account 1000)",
+                "id": "q_expense",
+                "label": "Which expense category should be reduced?",
+                "sub": "Pick the same category the original bill was posted to",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 1,
             },
+            {
+                "id": "q_amount",
+                "label": "How much was the refund?",
+                "type": "amount",
+            },
+        ],
+        "memo": "Vendor refund received",
+        "lines": [
+            {"side": "debit",  "account_match": {"by": "number", "value": "1000"},  "hint": "Operating Checking (1000)"},
+            {"side": "credit", "account_match": {"by": "type", "value": "EXPENSE"}, "hint": "The expense originally charged"},
         ],
     },
     {
@@ -247,26 +373,125 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
         ),
         "description": (
             "Example: you mailed a $78 check to the IRS for Form 1120-H taxes "
-            "on reserve interest. Debit Income Tax Expense and credit Cash."
+            "on reserve interest."
         ),
         "flow": [
             {"label": "Income Tax Expense", "side": "DEBIT", "note": "expense goes up"},
-            {"label": "Operating Checking", "side": "CREDIT", "note": "cash goes down"},
+            {"label": "Bank account", "side": "CREDIT", "note": "cash goes down"},
+        ],
+        "questions": [
+            {
+                "id": "q_bank",
+                "label": "Which bank account did you pay the tax from?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_expense",
+                "label": "Which expense account records income tax?",
+                "sub": "Usually 'Income Tax Expense'",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 0,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much tax was paid?",
+                "type": "amount",
+            },
         ],
         "memo": "Income tax payment — interest earned",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "Income Tax Expense account",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Checking / Cash (usually account 1000)",
-            },
+            {"side": "debit",  "account_match": {"by": "type", "value": "EXPENSE"}, "hint": "Income Tax Expense account"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1000"},  "hint": "Operating Checking (1000)"},
         ],
     },
+
+    # ── Moving money ───────────────────────────────────────────────────────
+    {
+        "id": "bank_transfer",
+        "name": "I moved money between our bank accounts",
+        "plain_english": (
+            "Records a transfer between two HOA bank accounts — for example, "
+            "moving operating funds into the reserve savings account."
+        ),
+        "description": (
+            "Example: you wrote a $5,000 check from Operating Checking and deposited "
+            "it into Reserve Savings. This records both sides of that move."
+        ),
+        "flow": [
+            {"label": "Account receiving funds", "side": "DEBIT", "note": "money arrives"},
+            {"label": "Account sending funds", "side": "CREDIT", "note": "money leaves"},
+        ],
+        "questions": [
+            {
+                "id": "q_to",
+                "label": "Money was transferred TO which account?",
+                "sub": "The account that received the funds",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 0,
+            },
+            {
+                "id": "q_from",
+                "label": "Money was transferred FROM which account?",
+                "sub": "The account the funds came out of",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much was transferred?",
+                "type": "amount",
+            },
+        ],
+        "memo": "Transfer between bank accounts",
+        "lines": [
+            {"side": "debit",  "account_match": {"by": "number", "value": "1010"}, "hint": "Destination account (e.g. Reserve Savings)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1000"}, "hint": "Source account (e.g. Operating Checking)"},
+        ],
+    },
+
+    # ── Special charges ────────────────────────────────────────────────────
+    {
+        "id": "special_assessment",
+        "name": "I need to charge owners a special assessment",
+        "plain_english": (
+            "The board approved a one-time special assessment — an extra charge "
+            "to all owners for an unexpected or major expense."
+        ),
+        "description": (
+            "Example: the board voted a $500 special assessment per unit for "
+            "emergency roof repairs. This records what all owners now owe."
+        ),
+        "flow": [
+            {"label": "Dues Receivable", "side": "DEBIT", "note": "owners now owe this"},
+            {"label": "Special Assessment Income", "side": "CREDIT", "note": "income recorded"},
+        ],
+        "questions": [
+            {
+                "id": "q_income",
+                "label": "Which income account should receive the special assessment?",
+                "sub": "Usually 'Special Assessment Income' or similar",
+                "type": "account",
+                "filter": {"by": "type", "value": "INCOME"},
+                "line": 1,
+            },
+            {
+                "id": "q_amount",
+                "label": "What is the total special assessment amount for all owners combined?",
+                "type": "amount",
+            },
+        ],
+        "memo": "Special assessment charge",
+        "lines": [
+            {"side": "debit",  "account_match": {"by": "number", "value": "1100"}, "hint": "Dues Receivable (1100)"},
+            {"side": "credit", "account_match": {"by": "type", "value": "INCOME"}, "hint": "Special Assessment Income"},
+        ],
+    },
+
     # ── Reserve fund ───────────────────────────────────────────────────────
     {
         "id": "reserve_project",
@@ -276,56 +501,76 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
             "capital project (roof, pavement, pool, etc.)."
         ),
         "description": (
-            "Example: you paid a roofer $8,400 from the Reserve account. "
-            "Debit Reserve Expense and credit Reserve Cash/Savings."
+            "Example: you paid a roofer $8,400 from the Reserve account."
         ),
         "flow": [
-            {"label": "Reserve Expense", "side": "DEBIT", "note": "expense goes up"},
-            {"label": "Reserve Savings / Cash", "side": "CREDIT", "note": "reserve cash goes down"},
+            {"label": "Reserve project expense", "side": "DEBIT", "note": "expense goes up"},
+            {"label": "Reserve savings account", "side": "CREDIT", "note": "reserve cash goes down"},
+        ],
+        "questions": [
+            {
+                "id": "q_reserve_bank",
+                "label": "Which reserve bank account was the payment made from?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_expense",
+                "label": "Which expense account covers this project?",
+                "sub": "Usually 'Reserve Expense' or a specific project category",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 0,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much was paid?",
+                "type": "amount",
+            },
         ],
         "memo": "Reserve fund project payment",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "number", "value": "6100"},
-                "hint": "Reserve Expense (usually account 6100)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1010"},
-                "hint": "Reserve Savings / Cash (usually account 1010)",
-            },
+            {"side": "debit",  "account_match": {"by": "number", "value": "6100"}, "hint": "Reserve Expense (6100)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1010"}, "hint": "Reserve Savings (1010)"},
         ],
     },
+
     # ── Month-end adjustments ──────────────────────────────────────────────
     {
         "id": "accrue_expense",
-        "name": "I know we owe money for a bill that hasn't arrived yet",
+        "name": "I owe money for a bill that hasn't arrived yet",
         "plain_english": (
             "Records an expense in the correct month even though the vendor "
             "hasn't sent the invoice yet. You'll enter the actual bill later."
         ),
         "description": (
-            "Example: it's December 31 and you haven't received the December "
-            "landscaping invoice yet, but the service was done. Debit the expense "
-            "and credit Accounts Payable to record it in December."
+            "Example: it's December 31, the landscaping service was done, but the "
+            "invoice hasn't arrived. This records the expense in December."
         ),
         "flow": [
             {"label": "Expense account", "side": "DEBIT", "note": "expense in right month"},
             {"label": "Accounts Payable", "side": "CREDIT", "note": "we owe this amount"},
         ],
+        "questions": [
+            {
+                "id": "q_expense",
+                "label": "What kind of expense is this?",
+                "sub": "Pick the category the invoice will eventually be posted to",
+                "type": "account",
+                "filter": {"by": "type", "value": "EXPENSE"},
+                "line": 0,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much do you estimate the bill will be?",
+                "type": "amount",
+            },
+        ],
         "memo": "Accrued expense — bill not yet received",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "type", "value": "EXPENSE"},
-                "hint": "The applicable expense account (landscaping, utilities, etc.)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "type", "value": "LIABILITY"},
-                "hint": "Accounts Payable or Accrued Liabilities",
-            },
+            {"side": "debit",  "account_match": {"by": "type", "value": "EXPENSE"},   "hint": "Expense account (landscaping, utilities, etc.)"},
+            {"side": "credit", "account_match": {"by": "type", "value": "LIABILITY"}, "hint": "Accounts Payable or Accrued Liabilities"},
         ],
     },
     {
@@ -337,25 +582,30 @@ _ADJUSTMENT_TEMPLATES: list[dict] = [
         ),
         "description": (
             "Example: you paid $1,200 for the year's insurance policy in January. "
-            "Debit Prepaid Insurance (an asset) so you can expense $100/month "
-            "going forward. Credit Cash since money left the bank."
+            "This parks it as a Prepaid asset so you can expense $100/month going forward."
         ),
         "flow": [
             {"label": "Prepaid Expenses (Asset)", "side": "DEBIT", "note": "asset goes up"},
-            {"label": "Operating Checking", "side": "CREDIT", "note": "cash goes down"},
+            {"label": "Bank account", "side": "CREDIT", "note": "cash goes down"},
+        ],
+        "questions": [
+            {
+                "id": "q_bank",
+                "label": "Which bank account did you pay from?",
+                "type": "account",
+                "filter": {"by": "type", "value": "ASSET"},
+                "line": 1,
+            },
+            {
+                "id": "q_amount",
+                "label": "How much did you pay upfront?",
+                "type": "amount",
+            },
         ],
         "memo": "Prepaid expense — spread over future months",
         "lines": [
-            {
-                "side": "debit",
-                "account_match": {"by": "type", "value": "ASSET"},
-                "hint": "Prepaid Expenses or Prepaid Insurance (an Asset account)",
-            },
-            {
-                "side": "credit",
-                "account_match": {"by": "number", "value": "1000"},
-                "hint": "Operating Checking / Cash (usually account 1000)",
-            },
+            {"side": "debit",  "account_match": {"by": "type", "value": "ASSET"},   "hint": "Prepaid Expenses or Prepaid Insurance (Asset)"},
+            {"side": "credit", "account_match": {"by": "number", "value": "1000"},  "hint": "Operating Checking (1000)"},
         ],
     },
 ]

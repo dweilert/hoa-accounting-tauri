@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}New Manual Journal Entry · {{ org.name }}{% endblock %}
-{% block heading %}New Manual Journal Entry{% endblock %}
+{% block title %}Record an Adjustment · {{ org.name }}{% endblock %}
+{% block heading %}Record an Adjustment{% endblock %}
 
 {% block topbar_meta %}
   <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
@@ -145,314 +145,438 @@
       </div>
     </div>
 
-    {# ── Lines ────────────────────────────────────────────────────── #}
-    <div class="panel">
-      <div class="panel__header">
-        <div class="panel__title" id="lines-panel-title">Lines
-          <span id="lines-panel-sub" style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:.5rem;">
-            Each line is either a Debit <em>or</em> a Credit — not both.
-          </span>
+    {# ── Guided questions panel (shown when a scenario is active) ──── #}
+    <div id="guided-panel" style="display:none;">
+      <div class="panel" style="border:2px solid var(--accent-border);">
+        <div class="panel__header" style="background:var(--accent-subtle);">
+          <div>
+            <div class="panel__title" id="guided-panel-title" style="font-size:.95rem;"></div>
+          </div>
+          <div id="balance-indicator" class="pill pill--error" style="font-size:.8rem;font-weight:600;">
+            Not complete
+          </div>
         </div>
-        <div id="balance-indicator" class="pill pill--error" style="font-size:.8rem;font-weight:600;">
-          Unbalanced
+        <div id="guided-questions-container" style="padding:1.25rem 1.25rem .5rem;"></div>
+
+        {# Collapsible accounting detail #}
+        <details id="accounting-detail" style="margin:.5rem 1.25rem 1rem;">
+          <summary style="cursor:pointer;font-size:12px;color:var(--text-muted);
+                          padding:.35rem .5rem;border-radius:var(--radius-sm);
+                          background:var(--surface-muted);user-select:none;list-style:none;">
+            ▸ Show me the accounting entries (what's happening behind the scenes)
+          </summary>
+          <div style="margin-top:.5rem;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead>
+                <tr style="background:var(--surface-muted);">
+                  <th style="padding:.3rem .6rem;text-align:left;width:50px;border-bottom:1px solid var(--border);">DR / CR</th>
+                  <th style="padding:.3rem .6rem;text-align:left;border-bottom:1px solid var(--border);">Account</th>
+                  <th style="padding:.3rem .6rem;text-align:right;width:100px;border-bottom:1px solid var(--border);">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="preview-tbody"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <div style="padding:.5rem 1.25rem .9rem;border-top:1px solid var(--border);">
+          <a href="#" id="use-advanced-mode" style="font-size:12px;color:var(--text-muted);">
+            Switch to advanced mode — enter debits &amp; credits manually
+          </a>
         </div>
       </div>
+    </div>
 
-      {# Guidance bar — updates dynamically #}
-      <div id="balance-guidance" style="display:none;padding:.4rem .75rem;
-           font-size:12px;background:var(--accent-subtle);border-bottom:1px solid var(--accent-border);">
-      </div>
+    {# ── Manual lines table (always in DOM for form submission; hidden in guided mode) #}
+    <div id="manual-panel">
+      <div class="panel">
+        <div class="panel__header">
+          <div class="panel__title">
+            Accounting Entries
+            <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:.5rem;">
+              Each line is either a Debit <em>or</em> a Credit — not both.
+            </span>
+          </div>
+          <div id="balance-indicator-manual" class="pill pill--error" style="font-size:.8rem;font-weight:600;">
+            Unbalanced
+          </div>
+        </div>
 
-      <div class="table-wrap">
-        <table id="lines-table">
-          <thead>
-            <tr>
-              <th class="col-role" style="display:none;width:22%;font-size:11px;color:var(--text-muted);">Role</th>
-              <th style="width:35%;">Account</th>
-              <th class="col-desc" style="width:24%;">Description</th>
-              <th class="col-amount" style="display:none;width:15%;text-align:right;">Amount</th>
-              <th class="col-debit" style="width:13%;text-align:right;">Debit</th>
-              <th class="col-credit" style="width:13%;text-align:right;">Credit</th>
-              <th class="col-hint" style="width:11%;">Type hint</th>
-              <th style="width:4%;"></th>
-            </tr>
-          </thead>
-          <tbody id="lines-body">
-            {% for i in range(lines|length) %}
-              {% set n = i + 1 %}
-              {% set ln = lines[i] %}
-              <tr data-line="{{ n }}" data-side="">
-                <td class="col-role" style="display:none;">
-                  <span class="je-role-label" style="font-size:11px;font-weight:600;color:var(--text-muted);"></span>
-                </td>
-                <td>
-                  <select name="account_id_{{ n }}" class="je-account" style="font-size:12px;">
-                    <option value="">— select account —</option>
-                    {% for type_code in ["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"] %}
-                      <optgroup label="
-                        {%- if type_code == 'ASSET' -%}Assets  (↑ Debit / ↓ Credit)
-                        {%- elif type_code == 'LIABILITY' -%}Liabilities  (↑ Credit / ↓ Debit)
-                        {%- elif type_code == 'EQUITY' -%}Equity  (↑ Credit / ↓ Debit)
-                        {%- elif type_code == 'INCOME' -%}Income  (↑ Credit / ↓ Debit)
-                        {%- elif type_code == 'EXPENSE' -%}Expenses  (↑ Debit / ↓ Credit)
-                        {%- endif -%}
-                      ">
-                        {% for a in account_options if a.account_type_code == type_code %}
-                          <option value="{{ a.id }}"
-                                  data-type="{{ a.account_type_code }}"
-                                  data-number="{{ a.account_number }}"
-                                  {% if ln.account_id|string == a.id|string %}selected{% endif %}>
-                            {{ a.label }}
-                          </option>
-                        {% endfor %}
-                      </optgroup>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td class="col-desc">
-                  <input type="text" name="description_{{ n }}"
-                         value="{{ ln.description }}" maxlength="255"
-                         style="font-size:12px;">
-                </td>
-                <td class="col-amount" style="display:none;">
-                  <input type="number" class="je-amount"
-                         style="text-align:right;font-size:13px;font-weight:600;"
-                         min="0" step="0.01" placeholder="0.00">
-                </td>
-                <td class="col-debit">
-                  <input type="number" name="debit_{{ n }}"
-                         class="je-debit"
-                         style="text-align:right;font-size:12px;"
-                         value="{{ ln.debit }}"
-                         min="0" step="0.01" placeholder="0.00">
-                </td>
-                <td class="col-credit">
-                  <input type="number" name="credit_{{ n }}"
-                         class="je-credit"
-                         style="text-align:right;font-size:12px;"
-                         value="{{ ln.credit }}"
-                         min="0" step="0.01" placeholder="0.00">
-                </td>
-                <td class="col-hint">
-                  <span class="je-type-hint" style="font-size:11px;color:var(--text-muted);"></span>
-                </td>
-                <td style="text-align:center;">
-                  <button type="button" class="btn btn--sm btn--ghost je-remove-line"
-                          title="Remove line">×</button>
-                </td>
+        <div id="balance-guidance" style="display:none;padding:.4rem .75rem;
+             font-size:12px;background:var(--accent-subtle);border-bottom:1px solid var(--accent-border);">
+        </div>
+
+        <div class="table-wrap">
+          <table id="lines-table">
+            <thead>
+              <tr>
+                <th style="width:35%;">Account</th>
+                <th style="width:24%;">Description</th>
+                <th style="width:13%;text-align:right;">Debit</th>
+                <th style="width:13%;text-align:right;">Credit</th>
+                <th style="width:11%;">Type hint</th>
+                <th style="width:4%;"></th>
               </tr>
-            {% endfor %}
-          </tbody>
-          <tfoot id="lines-tfoot">
-            <tr>
-              <td colspan="2" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
-              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-debits">0.00</td>
-              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-credits">0.00</td>
-              <td colspan="2"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+            </thead>
+            <tbody id="lines-body">
+              {% for i in range(lines|length) %}
+                {% set n = i + 1 %}
+                {% set ln = lines[i] %}
+                <tr data-line="{{ n }}" data-side="">
+                  <td>
+                    <select name="account_id_{{ n }}" class="je-account" style="font-size:12px;">
+                      <option value="">— select account —</option>
+                      {% for type_code in ["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"] %}
+                        <optgroup label="
+                          {%- if type_code == 'ASSET' -%}Assets  (↑ Debit / ↓ Credit)
+                          {%- elif type_code == 'LIABILITY' -%}Liabilities  (↑ Credit / ↓ Debit)
+                          {%- elif type_code == 'EQUITY' -%}Equity  (↑ Credit / ↓ Debit)
+                          {%- elif type_code == 'INCOME' -%}Income  (↑ Credit / ↓ Debit)
+                          {%- elif type_code == 'EXPENSE' -%}Expenses  (↑ Debit / ↓ Credit)
+                          {%- endif -%}
+                        ">
+                          {% for a in account_options if a.account_type_code == type_code %}
+                            <option value="{{ a.id }}"
+                                    data-type="{{ a.account_type_code }}"
+                                    data-number="{{ a.account_number }}"
+                                    {% if ln.account_id|string == a.id|string %}selected{% endif %}>
+                              {{ a.label }}
+                            </option>
+                          {% endfor %}
+                        </optgroup>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <input type="text" name="description_{{ n }}"
+                           value="{{ ln.description }}" maxlength="255"
+                           style="font-size:12px;">
+                  </td>
+                  <td>
+                    <input type="number" name="debit_{{ n }}" class="je-debit"
+                           style="text-align:right;font-size:12px;"
+                           value="{{ ln.debit }}" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                  <td>
+                    <input type="number" name="credit_{{ n }}" class="je-credit"
+                           style="text-align:right;font-size:12px;"
+                           value="{{ ln.credit }}" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                  <td>
+                    <span class="je-type-hint" style="font-size:11px;color:var(--text-muted);"></span>
+                  </td>
+                  <td style="text-align:center;">
+                    <button type="button" class="btn btn--sm btn--ghost je-remove-line"
+                            title="Remove line">×</button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
+                <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-debits">0.00</td>
+                <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-credits">0.00</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
 
-      <div style="padding:.75rem 1rem;display:flex;gap:.5rem;align-items:center;border-top:1px solid var(--border);">
-        <button type="button" id="add-line-btn" class="btn btn--ghost btn--sm">+ Add Line</button>
-        <span id="lines-footer-hint" style="font-size:.8rem;color:var(--text-muted);">Minimum 2 lines · Total debits must equal total credits</span>
+        <div style="padding:.75rem 1rem;display:flex;gap:.5rem;align-items:center;border-top:1px solid var(--border);">
+          <button type="button" id="add-line-btn" class="btn btn--ghost btn--sm">+ Add Line</button>
+          <span style="font-size:.8rem;color:var(--text-muted);">Minimum 2 lines · Total debits must equal total credits</span>
+        </div>
       </div>
     </div>
   </form>
 
   <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
-    <button type="submit" form="je-form" class="btn btn--primary">Post Entry</button>
+    <button type="submit" form="je-form" class="btn btn--primary">Save Entry</button>
     <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
   </div>
 
 <script>
 (function () {
-  // ── Data passed from server ───────────────────────────────────────
-  var accountOptions = {{ account_options | tojson }};
+  var accountOptions     = {{ account_options | tojson }};
   var adjustmentTemplates = {{ adjustment_templates | tojson }};
+  var currentTemplate    = null;
 
-  // Normal balance direction per account type
-  var normalBalance = {
-    "ASSET":     "DEBIT",
-    "LIABILITY": "CREDIT",
-    "EQUITY":    "CREDIT",
-    "INCOME":    "CREDIT",
-    "EXPENSE":   "DEBIT",
-  };
+  // ── Account lookup helpers ────────────────────────────────────────
+  function findAccountId(match) {
+    if (!match) return null;
+    if (match.by === "number") {
+      for (var i = 0; i < accountOptions.length; i++)
+        if (accountOptions[i].account_number === match.value) return accountOptions[i].id;
+    }
+    if (match.by === "type") {
+      for (var i = 0; i < accountOptions.length; i++)
+        if (accountOptions[i].account_type_code === match.value) return accountOptions[i].id;
+    }
+    return null;
+  }
 
-  var typeLabels = {
-    "ASSET":     "Asset",
-    "LIABILITY": "Liability",
-    "EQUITY":    "Equity",
-    "INCOME":    "Income",
-    "EXPENSE":   "Expense",
-  };
+  function accountLabel(id) {
+    for (var i = 0; i < accountOptions.length; i++)
+      if (String(accountOptions[i].id) === String(id)) return accountOptions[i].label;
+    return "—";
+  }
 
-  // Build optgroups HTML (for dynamically added rows)
+  // ── Build the full account <select> (for manual mode) ─────────────
   var typeOrder = ["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"];
   var typeGroupLabels = {
-    "ASSET":     "Assets  (↑ Debit / ↓ Credit)",
-    "LIABILITY": "Liabilities  (↑ Credit / ↓ Debit)",
-    "EQUITY":    "Equity  (↑ Credit / ↓ Debit)",
-    "INCOME":    "Income  (↑ Credit / ↓ Debit)",
-    "EXPENSE":   "Expenses  (↑ Debit / ↓ Credit)",
+    ASSET:     "Assets  (↑ Debit / ↓ Credit)",
+    LIABILITY: "Liabilities  (↑ Credit / ↓ Debit)",
+    EQUITY:    "Equity  (↑ Credit / ↓ Debit)",
+    INCOME:    "Income  (↑ Credit / ↓ Debit)",
+    EXPENSE:   "Expenses  (↑ Debit / ↓ Credit)",
   };
+  var normalBalance = { ASSET:"DEBIT", LIABILITY:"CREDIT", EQUITY:"CREDIT", INCOME:"CREDIT", EXPENSE:"DEBIT" };
+  var typeLabels    = { ASSET:"Asset", LIABILITY:"Liability", EQUITY:"Equity", INCOME:"Income", EXPENSE:"Expense" };
 
-  function buildSelect(name, selectedId) {
+  function buildFullSelect(name, selectedId) {
     var sel = document.createElement("select");
-    sel.name = name;
-    sel.className = "je-account";
-    sel.style.fontSize = "12px";
-
-    var blank = document.createElement("option");
-    blank.value = "";
-    blank.textContent = "— select account —";
+    sel.name = name; sel.className = "je-account"; sel.style.fontSize = "12px";
+    var blank = document.createElement("option"); blank.value = ""; blank.textContent = "— select account —";
     sel.appendChild(blank);
-
-    typeOrder.forEach(function (typeCode) {
-      var group = document.createElement("optgroup");
-      group.label = typeGroupLabels[typeCode];
+    typeOrder.forEach(function (tc) {
+      var grp = document.createElement("optgroup"); grp.label = typeGroupLabels[tc];
       accountOptions.forEach(function (a) {
-        if (a.account_type_code !== typeCode) return;
+        if (a.account_type_code !== tc) return;
         var opt = document.createElement("option");
-        opt.value = a.id;
-        opt.textContent = a.label;
+        opt.value = a.id; opt.textContent = a.label;
         opt.setAttribute("data-type", a.account_type_code);
         opt.setAttribute("data-number", a.account_number);
         if (String(a.id) === String(selectedId)) opt.selected = true;
-        group.appendChild(opt);
+        grp.appendChild(opt);
       });
-      sel.appendChild(group);
+      sel.appendChild(grp);
     });
     return sel;
   }
 
-  // ── Type hint display ─────────────────────────────────────────────
-  function updateTypeHint(tr) {
-    var sel = tr.querySelector(".je-account");
-    var hintEl = tr.querySelector(".je-type-hint");
-    if (!sel || !hintEl) return;
-    var opt = sel.options[sel.selectedIndex];
-    var typeCode = opt ? opt.getAttribute("data-type") : null;
-    if (!typeCode) { hintEl.textContent = ""; return; }
-    var nb = normalBalance[typeCode] || "";
-    hintEl.innerHTML =
-      "<span style='font-weight:600;'>" + (typeLabels[typeCode] || typeCode) + "</span>" +
-      "<br><span style='color:var(--text-subtle);'>normal balance: " + nb + "</span>";
+  // ── Build a filtered account <select> (for guided questions) ──────
+  function buildFilteredSelect(id, filter, selectedId) {
+    var sel = document.createElement("select");
+    sel.id = id; sel.style.cssText = "max-width:420px;font-size:13px;";
+    var blank = document.createElement("option"); blank.value = ""; blank.textContent = "— select —";
+    sel.appendChild(blank);
+    var filtered = accountOptions.filter(function (a) {
+      if (!filter) return true;
+      if (filter.by === "type")  return a.account_type_code === filter.value;
+      if (filter.by === "types") return filter.values.indexOf(a.account_type_code) >= 0;
+      return true;
+    });
+    filtered.forEach(function (a) {
+      var opt = document.createElement("option");
+      opt.value = a.id; opt.textContent = a.label;
+      if (String(a.id) === String(selectedId)) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (filtered.length === 1) sel.value = String(filtered[0].id);
+    return sel;
   }
 
-  // ── Balance guidance bar ──────────────────────────────────────────
-  function updateGuidance() {
-    var rows = document.querySelectorAll("#lines-body tr");
-    var guidanceEl = document.getElementById("balance-guidance");
+  // ── Mode toggle ───────────────────────────────────────────────────
+  function showGuidedMode(tpl) {
+    currentTemplate = tpl;
+    document.getElementById("guided-panel").style.display = "";
+    document.getElementById("manual-panel").style.display = "none";
+    document.getElementById("guided-panel-title").textContent = tpl.plain_english || tpl.name;
+    renderGuidedQuestions(tpl);
+    syncGuidedToLines();
+  }
 
-    // Collect sides chosen so far
-    var hasDr = false, hasCr = false;
-    rows.forEach(function (tr) {
-      var d = parseNum(tr.querySelector(".je-debit")  && tr.querySelector(".je-debit").value);
-      var c = parseNum(tr.querySelector(".je-credit") && tr.querySelector(".je-credit").value);
-      if (d > 0) hasDr = true;
-      if (c > 0) hasCr = true;
+  function showManualMode() {
+    currentTemplate = null;
+    document.getElementById("guided-panel").style.display = "none";
+    document.getElementById("manual-panel").style.display = "";
+    // Clear lines and reset to 2 blank rows
+    var tbody = document.getElementById("lines-body");
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+    document.getElementById("line-count-field").value = 0;
+    addLine({}); addLine({});
+    updateTotals();
+  }
+
+  // ── Render plain-English questions ────────────────────────────────
+  function renderGuidedQuestions(tpl) {
+    var container = document.getElementById("guided-questions-container");
+    container.innerHTML = "";
+
+    (tpl.questions || []).forEach(function (q) {
+      var wrapper = document.createElement("div");
+      wrapper.style.cssText = "margin-bottom:1.1rem;";
+
+      var lbl = document.createElement("div");
+      lbl.style.cssText = "font-weight:600;font-size:14px;margin-bottom:.3rem;color:var(--text);";
+      lbl.textContent = q.label;
+      wrapper.appendChild(lbl);
+
+      if (q.sub) {
+        var sub = document.createElement("div");
+        sub.style.cssText = "font-size:12px;color:var(--text-muted);margin-bottom:.4rem;";
+        sub.textContent = q.sub;
+        wrapper.appendChild(sub);
+      }
+
+      if (q.type === "account") {
+        var sel = buildFilteredSelect("gq_" + q.id, q.filter, findAccountId((tpl.lines[q.line] || {}).account_match));
+        sel.dataset.qline = q.line;
+        sel.addEventListener("change", function () { syncGuidedToLines(); });
+        wrapper.appendChild(sel);
+      } else if (q.type === "amount") {
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.id = "gq_" + q.id;
+        inp.style.cssText = "max-width:200px;font-size:16px;font-weight:700;text-align:right;";
+        inp.min = "0"; inp.step = "0.01"; inp.placeholder = "0.00";
+        inp.addEventListener("input", function () { syncGuidedToLines(); });
+        inp.addEventListener("focus", function () { inp.select(); });
+        wrapper.appendChild(inp);
+      }
+
+      container.appendChild(wrapper);
+    });
+  }
+
+  // ── Read guided answers and push to hidden lines table ────────────
+  function syncGuidedToLines() {
+    if (!currentTemplate) return;
+    var tpl = currentTemplate;
+
+    // Collect answers
+    var amount = null;
+    var accountByLine = {};
+
+    (tpl.questions || []).forEach(function (q) {
+      var el = document.getElementById("gq_" + q.id);
+      if (!el) return;
+      if (q.type === "amount") {
+        var v = parseFloat(el.value);
+        if (!isNaN(v) && v > 0) amount = v;
+      } else if (q.type === "account") {
+        if (el.value) accountByLine[q.line] = el.value;
+      }
     });
 
-    var debits = parseNum(document.getElementById("total-debits").textContent);
-    var credits = parseNum(document.getElementById("total-credits").textContent);
-    var diff = Math.abs(debits - credits);
+    // Rebuild lines table to match template
+    var tbody = document.getElementById("lines-body");
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+    document.getElementById("line-count-field").value = 0;
 
-    if (diff < 0.005 && debits > 0) {
-      guidanceEl.style.display = "none";
+    tpl.lines.forEach(function (lineDef, idx) {
+      // Account: question answer overrides auto-match
+      var accId = accountByLine[idx] || findAccountId(lineDef.account_match) || "";
+      var side  = lineDef.side;
+      var debit  = (side === "debit"  && amount) ? amount.toFixed(2) : "";
+      var credit = (side === "credit" && amount) ? amount.toFixed(2) : "";
+      addLine({ accountId: accId, side: side, debit: debit, credit: credit, description: lineDef.hint || "" });
+    });
+
+    updateTotals();
+    updatePreviewTable(tpl, accountByLine, amount);
+    updateBalanceIndicatorGuided(amount);
+  }
+
+  // ── Update collapsible DR/CR preview ─────────────────────────────
+  function updatePreviewTable(tpl, accountByLine, amount) {
+    var tbody = document.getElementById("preview-tbody");
+    tbody.innerHTML = "";
+    (tpl.lines || []).forEach(function (lineDef, idx) {
+      var accId  = accountByLine[idx] || findAccountId(lineDef.account_match);
+      var label  = accId ? accountLabel(accId) : "— pick above —";
+      var amt    = amount ? "$" + amount.toFixed(2) : "—";
+      var isDebit = lineDef.side === "debit";
+      var tr = document.createElement("tr");
+      tr.style.borderTop = idx ? "1px solid var(--border)" : "";
+      tr.innerHTML =
+        "<td style='padding:.35rem .6rem;font-weight:700;font-size:11px;color:" +
+          (isDebit ? "#1a6e33" : "#8a3a10") + ";'>" + (isDebit ? "DR" : "CR") + "</td>" +
+        "<td style='padding:.35rem .6rem;font-size:12px;'>" + label + "</td>" +
+        "<td style='padding:.35rem .6rem;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;'>" + amt + "</td>";
+      tbody.appendChild(tr);
+    });
+  }
+
+  function updateBalanceIndicatorGuided(amount) {
+    var ind = document.getElementById("balance-indicator");
+    var ok = amount && amount > 0;
+    ind.textContent = ok ? "✓ Ready" : "Not complete";
+    ind.className   = ok ? "pill pill--ok" : "pill pill--error";
+  }
+
+  // ── Flow chips (scenario callout) ─────────────────────────────────
+  function renderFlow(flowSteps) {
+    var el = document.getElementById("scenario-flow");
+    el.innerHTML = "";
+    if (!flowSteps || !flowSteps.length) return;
+    flowSteps.forEach(function (step, idx) {
+      if (idx > 0) {
+        var sep = document.createElement("span");
+        sep.style.cssText = "color:var(--text-subtle);font-weight:600;";
+        sep.textContent = "→"; el.appendChild(sep);
+      }
+      var chip = document.createElement("span");
+      var dr = step.side === "DEBIT";
+      chip.style.cssText = "display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .55rem;" +
+        "border-radius:999px;font-size:11.5px;font-weight:600;" +
+        (dr ? "background:#e6f4ea;color:#1a6e33;border:1px solid #b4d9bc;"
+            : "background:#fde8d8;color:#8a3a10;border:1px solid #e8b898;");
+      chip.innerHTML = "<span style='font-size:10px;'>" + (dr?"DR":"CR") + "</span> " +
+        step.label + "<span style='font-size:10px;opacity:.7;'> (" + step.note + ")</span>";
+      el.appendChild(chip);
+    });
+  }
+
+  // ── Scenario picker ───────────────────────────────────────────────
+  function applyTemplate(templateId) {
+    var tpl = null;
+    for (var i = 0; i < adjustmentTemplates.length; i++)
+      if (adjustmentTemplates[i].id === templateId) { tpl = adjustmentTemplates[i]; break; }
+
+    var callout = document.getElementById("scenario-callout");
+
+    if (!tpl || tpl.id === "blank") {
+      callout.style.display = "none";
+      showManualMode();
       return;
     }
 
-    var msg = "";
-    if (debits > 0 && credits === 0) {
-      msg = "✏️ Now add a <strong>Credit</strong> line for the same amount (" + debits.toFixed(2) + ") to balance the entry.";
-    } else if (credits > 0 && debits === 0) {
-      msg = "✏️ Now add a <strong>Debit</strong> line for the same amount (" + credits.toFixed(2) + ") to balance the entry.";
-    } else if (debits > credits) {
-      msg = "⚠️ Debits exceed credits by <strong>" + diff.toFixed(2) + "</strong>. Add a Credit line or increase an existing one.";
-    } else if (credits > debits) {
-      msg = "⚠️ Credits exceed debits by <strong>" + diff.toFixed(2) + "</strong>. Add a Debit line or increase an existing one.";
-    }
+    // Populate scenario callout above
+    document.getElementById("scenario-plain").textContent = tpl.plain_english || "";
+    renderFlow(tpl.flow || []);
+    document.getElementById("scenario-desc").textContent = tpl.description || "";
+    callout.style.display = "block";
 
-    if (msg) {
-      guidanceEl.innerHTML = msg;
-      guidanceEl.style.display = "block";
+    // Pre-fill memo if empty
+    var memoEl = document.getElementById("memo");
+    if (!memoEl.value.trim() && tpl.memo) memoEl.value = tpl.memo;
+
+    if (tpl.questions && tpl.questions.length) {
+      showGuidedMode(tpl);
+      // Focus first amount input
+      setTimeout(function () {
+        var amt = document.querySelector("#guided-questions-container input[type=number]");
+        if (amt) { amt.focus(); amt.select(); }
+      }, 60);
     } else {
-      guidanceEl.style.display = "none";
+      // No questions defined — fall back to old single-amount guided table
+      showManualMode();
     }
   }
 
-  // ── Totals + balance indicator ────────────────────────────────────
-  function parseNum(val) {
-    var n = parseFloat(val);
-    return isNaN(n) ? 0 : n;
-  }
+  document.getElementById("template-picker").addEventListener("change", function () {
+    applyTemplate(this.value);
+  });
 
-  function updateTotals() {
-    var debits = 0, credits = 0;
-    document.querySelectorAll(".je-debit").forEach(function (el) {
-      debits += parseNum(el.value);
-    });
-    document.querySelectorAll(".je-credit").forEach(function (el) {
-      credits += parseNum(el.value);
-    });
-    document.getElementById("total-debits").textContent = debits.toFixed(2);
-    document.getElementById("total-credits").textContent = credits.toFixed(2);
+  document.getElementById("use-advanced-mode").addEventListener("click", function (e) {
+    e.preventDefault();
+    showManualMode();
+    document.getElementById("scenario-callout").style.display = "none";
+    document.getElementById("template-picker").value = "blank";
+  });
 
-    var ind = document.getElementById("balance-indicator");
-    var balanced = Math.abs(debits - credits) < 0.005 && debits > 0;
-    ind.textContent = balanced ? "✓ Balanced" : "Unbalanced";
-    ind.className = balanced ? "pill pill--ok" : "pill pill--error";
-
-    updateGuidance();
-  }
-
-  // ── Guided mode state ─────────────────────────────────────────────
-  var guidedMode = false;
-
-  function setGuidedMode(on) {
-    guidedMode = on;
-    var cols = ["col-role", "col-amount", "col-debit", "col-credit", "col-hint", "col-desc"];
-    // toggle header cells
-    document.querySelectorAll("#lines-table thead th").forEach(function (th) {
-      if (th.classList.contains("col-role"))   th.style.display = on ? "" : "none";
-      if (th.classList.contains("col-amount")) th.style.display = on ? "" : "none";
-      if (th.classList.contains("col-debit"))  th.style.display = on ? "none" : "";
-      if (th.classList.contains("col-credit")) th.style.display = on ? "none" : "";
-      if (th.classList.contains("col-hint"))   th.style.display = on ? "none" : "";
-      if (th.classList.contains("col-desc"))   th.style.display = on ? "none" : "";
-    });
-    // toggle body cells
-    document.querySelectorAll("#lines-body tr").forEach(function (tr) {
-      _applyGuidedCells(tr, on);
-    });
-    // footer / hints
-    document.getElementById("lines-tfoot").style.display = on ? "none" : "";
-    var sub = document.getElementById("lines-panel-sub");
-    sub.style.display = on ? "none" : "";
-    var footHint = document.getElementById("lines-footer-hint");
-    footHint.style.display = on ? "none" : "";
-    document.getElementById("add-line-btn").style.display = on ? "none" : "";
-  }
-
-  function _applyGuidedCells(tr, on) {
-    var role   = tr.querySelector(".col-role");
-    var amount = tr.querySelector(".col-amount");
-    var debit  = tr.querySelector(".col-debit");
-    var credit = tr.querySelector(".col-credit");
-    var hint   = tr.querySelector(".col-hint");
-    var desc   = tr.querySelector(".col-desc");
-    if (role)   role.style.display   = on ? "" : "none";
-    if (amount) amount.style.display = on ? "" : "none";
-    if (debit)  debit.style.display  = on ? "none" : "";
-    if (credit) credit.style.display = on ? "none" : "";
-    if (hint)   hint.style.display   = on ? "none" : "";
-    if (desc)   desc.style.display   = on ? "none" : "";
-  }
-
-  // ── Add / remove lines ────────────────────────────────────────────
+  // ── Manual-mode line management ───────────────────────────────────
   function currentLineCount() {
     return document.querySelectorAll("#lines-body tr").length;
   }
@@ -468,38 +592,52 @@
     document.getElementById("line-count-field").value = currentLineCount();
   }
 
-  function wireRow(tr) {
-    tr.querySelector(".je-account").addEventListener("change", function () {
-      updateTypeHint(tr);
-      updateGuidance();
-    });
-    tr.querySelector(".je-debit").addEventListener("input", updateTotals);
-    tr.querySelector(".je-credit").addEventListener("input", updateTotals);
-    // Amount input (guided mode) — mirrors to all rows and routes to DR/CR
-    var amtInp = tr.querySelector(".je-amount");
-    if (amtInp) {
-      amtInp.addEventListener("input", function () {
-        onAmountInput(tr, amtInp.value);
-      });
-      amtInp.addEventListener("focus", function () { amtInp.select(); });
-    }
+  function updateTypeHint(tr) {
+    var sel = tr.querySelector(".je-account");
+    var el  = tr.querySelector(".je-type-hint");
+    if (!sel || !el) return;
+    var opt = sel.options[sel.selectedIndex];
+    var tc  = opt ? opt.getAttribute("data-type") : null;
+    if (!tc) { el.textContent = ""; return; }
+    el.innerHTML = "<span style='font-weight:600;'>" + (typeLabels[tc]||tc) + "</span>" +
+      "<br><span style='color:var(--text-subtle);'>normal balance: " + (normalBalance[tc]||"") + "</span>";
   }
 
-  function onAmountInput(sourceTr, rawVal) {
-    var val = rawVal;
-    var rows = document.querySelectorAll("#lines-body tr");
-    rows.forEach(function (tr) {
-      var side   = tr.dataset.side || "debit";
-      var dInp   = tr.querySelector(".je-debit");
-      var cInp   = tr.querySelector(".je-credit");
-      var aInp   = tr.querySelector(".je-amount");
-      // mirror amount to every row in guided mode
-      if (tr !== sourceTr && aInp) aInp.value = val;
-      // route to correct DR/CR hidden input
-      if (side === "debit")  { if (dInp) dInp.value = val; if (cInp) cInp.value = ""; }
-      else                   { if (cInp) cInp.value = val; if (dInp) dInp.value = ""; }
-    });
-    updateTotals();
+  function updateGuidance() {
+    var el = document.getElementById("balance-guidance");
+    var dr = parseNum(document.getElementById("total-debits").textContent);
+    var cr = parseNum(document.getElementById("total-credits").textContent);
+    var diff = Math.abs(dr - cr);
+    if (diff < 0.005 && dr > 0) { el.style.display = "none"; return; }
+    var msg = "";
+    if (dr > 0 && cr === 0)  msg = "✏️ Now add a <strong>Credit</strong> for " + dr.toFixed(2) + " to balance.";
+    else if (cr > 0 && dr===0) msg = "✏️ Now add a <strong>Debit</strong> for " + cr.toFixed(2) + " to balance.";
+    else if (dr > cr) msg = "⚠️ Debits exceed credits by <strong>" + diff.toFixed(2) + "</strong>.";
+    else if (cr > dr) msg = "⚠️ Credits exceed debits by <strong>" + diff.toFixed(2) + "</strong>.";
+    if (msg) { el.innerHTML = msg; el.style.display = "block"; } else el.style.display = "none";
+  }
+
+  function parseNum(val) { var n = parseFloat(val); return isNaN(n) ? 0 : n; }
+
+  function updateTotals() {
+    var dr = 0, cr = 0;
+    document.querySelectorAll(".je-debit").forEach(function (el)  { dr += parseNum(el.value); });
+    document.querySelectorAll(".je-credit").forEach(function (el) { cr += parseNum(el.value); });
+    document.getElementById("total-debits").textContent  = dr.toFixed(2);
+    document.getElementById("total-credits").textContent = cr.toFixed(2);
+    var ind = document.getElementById("balance-indicator-manual");
+    if (ind) {
+      var ok = Math.abs(dr - cr) < 0.005 && dr > 0;
+      ind.textContent = ok ? "✓ Balanced" : "Unbalanced";
+      ind.className   = ok ? "pill pill--ok" : "pill pill--error";
+    }
+    updateGuidance();
+  }
+
+  function wireRow(tr) {
+    tr.querySelector(".je-account").addEventListener("change", function () { updateTypeHint(tr); updateGuidance(); });
+    tr.querySelector(".je-debit").addEventListener("input",  updateTotals);
+    tr.querySelector(".je-credit").addEventListener("input", updateTotals);
   }
 
   function addLine(opts) {
@@ -510,90 +648,42 @@
     tr.setAttribute("data-line", n);
     if (opts.side) tr.dataset.side = opts.side;
 
-    // Role cell
-    var tdRole = document.createElement("td");
-    tdRole.className = "col-role";
-    tdRole.style.display = guidedMode ? "" : "none";
-    var roleSpan = document.createElement("span");
-    roleSpan.className = "je-role-label";
-    roleSpan.style.cssText = "font-size:11px;font-weight:600;color:var(--text-muted);";
-    roleSpan.textContent = opts.roleLabel || "";
-    tdRole.appendChild(roleSpan);
+    var tdAcc = document.createElement("td");
+    tdAcc.appendChild(buildFullSelect("account_id_" + n, opts.accountId || ""));
 
-    var tdAccount = document.createElement("td");
-    tdAccount.appendChild(buildSelect("account_id_" + n, opts.accountId || ""));
-
-    // Desc cell
     var tdDesc = document.createElement("td");
-    tdDesc.className = "col-desc";
-    tdDesc.style.display = guidedMode ? "none" : "";
-    var dscInp = document.createElement("input");
-    dscInp.type = "text"; dscInp.name = "description_" + n;
-    dscInp.style.fontSize = "12px"; dscInp.maxLength = 255;
-    dscInp.value = opts.description || "";
-    tdDesc.appendChild(dscInp);
+    var dsc = document.createElement("input");
+    dsc.type = "text"; dsc.name = "description_" + n; dsc.maxLength = 255;
+    dsc.style.fontSize = "12px"; dsc.value = opts.description || "";
+    tdDesc.appendChild(dsc);
 
-    // Amount cell (guided)
-    var tdAmount = document.createElement("td");
-    tdAmount.className = "col-amount";
-    tdAmount.style.display = guidedMode ? "" : "none";
-    var aInp = document.createElement("input");
-    aInp.type = "number"; aInp.className = "je-amount";
-    aInp.style.cssText = "text-align:right;font-size:13px;font-weight:600;";
-    aInp.min = "0"; aInp.step = "0.01"; aInp.placeholder = "0.00";
-    tdAmount.appendChild(aInp);
-
-    // Debit cell
-    var tdDebit = document.createElement("td");
-    tdDebit.className = "col-debit";
-    tdDebit.style.display = guidedMode ? "none" : "";
+    var tdDr = document.createElement("td");
     var dInp = document.createElement("input");
-    dInp.type = "number"; dInp.name = "debit_" + n;
-    dInp.className = "je-debit";
+    dInp.type = "number"; dInp.name = "debit_" + n; dInp.className = "je-debit";
     dInp.style.cssText = "text-align:right;font-size:12px;";
     dInp.min = "0"; dInp.step = "0.01"; dInp.placeholder = "0.00";
     dInp.value = opts.debit || "";
-    tdDebit.appendChild(dInp);
+    tdDr.appendChild(dInp);
 
-    // Credit cell
-    var tdCredit = document.createElement("td");
-    tdCredit.className = "col-credit";
-    tdCredit.style.display = guidedMode ? "none" : "";
+    var tdCr = document.createElement("td");
     var cInp = document.createElement("input");
-    cInp.type = "number"; cInp.name = "credit_" + n;
-    cInp.className = "je-credit";
+    cInp.type = "number"; cInp.name = "credit_" + n; cInp.className = "je-credit";
     cInp.style.cssText = "text-align:right;font-size:12px;";
     cInp.min = "0"; cInp.step = "0.01"; cInp.placeholder = "0.00";
     cInp.value = opts.credit || "";
-    tdCredit.appendChild(cInp);
+    tdCr.appendChild(cInp);
 
-    // Hint cell
     var tdHint = document.createElement("td");
-    tdHint.className = "col-hint";
-    tdHint.style.display = guidedMode ? "none" : "";
-    var hintSpan = document.createElement("span");
-    hintSpan.className = "je-type-hint";
-    hintSpan.style.fontSize = "11px";
-    hintSpan.style.color = "var(--text-muted)";
-    tdHint.appendChild(hintSpan);
+    var hs = document.createElement("span"); hs.className = "je-type-hint";
+    hs.style.cssText = "font-size:11px;color:var(--text-muted);"; tdHint.appendChild(hs);
 
-    var tdBtn = document.createElement("td");
-    tdBtn.style.textAlign = "center";
+    var tdBtn = document.createElement("td"); tdBtn.style.textAlign = "center";
     var btn = document.createElement("button");
     btn.type = "button"; btn.className = "btn btn--sm btn--ghost je-remove-line";
-    btn.title = "Remove line"; btn.textContent = "×";
-    tdBtn.appendChild(btn);
+    btn.title = "Remove line"; btn.textContent = "×"; tdBtn.appendChild(btn);
 
-    tr.appendChild(tdRole);
-    tr.appendChild(tdAccount);
-    tr.appendChild(tdDesc);
-    tr.appendChild(tdAmount);
-    tr.appendChild(tdDebit);
-    tr.appendChild(tdCredit);
-    tr.appendChild(tdHint);
-    tr.appendChild(tdBtn);
+    tr.append(tdAcc, tdDesc, tdDr, tdCr, tdHint, tdBtn);
     tbody.appendChild(tr);
-
     document.getElementById("line-count-field").value = currentLineCount();
     wireRow(tr);
     updateTypeHint(tr);
@@ -603,131 +693,20 @@
 
   function removeLine(tr) {
     if (currentLineCount() <= 2) return;
-    tr.remove();
-    renumber();
-    updateTotals();
+    tr.remove(); renumber(); updateTotals();
   }
 
-  // ── Scenario picker ───────────────────────────────────────────────
-  function findAccountId(match) {
-    if (!match) return null;
-    if (match.by === "number") {
-      for (var i = 0; i < accountOptions.length; i++) {
-        if (accountOptions[i].account_number === match.value) return accountOptions[i].id;
-      }
-    }
-    if (match.by === "type") {
-      for (var j = 0; j < accountOptions.length; j++) {
-        if (accountOptions[j].account_type_code === match.value) return accountOptions[j].id;
-      }
-    }
-    return null;
-  }
-
-  function renderFlow(flowSteps) {
-    var el = document.getElementById("scenario-flow");
-    el.innerHTML = "";
-    if (!flowSteps || !flowSteps.length) return;
-    flowSteps.forEach(function (step, idx) {
-      if (idx > 0) {
-        var sep = document.createElement("span");
-        sep.style.color = "var(--text-subtle)";
-        sep.style.fontWeight = "600";
-        sep.textContent = "→";
-        el.appendChild(sep);
-      }
-      var chip = document.createElement("span");
-      var isDebit = step.side === "DEBIT";
-      chip.style.cssText = [
-        "display:inline-flex;align-items:center;gap:.25rem;",
-        "padding:.2rem .55rem;border-radius:999px;font-size:11.5px;font-weight:600;",
-        isDebit
-          ? "background:#e6f4ea;color:#1a6e33;border:1px solid #b4d9bc;"
-          : "background:#fde8d8;color:#8a3a10;border:1px solid #e8b898;"
-      ].join("");
-      chip.innerHTML =
-        "<span style='font-size:10px;'>" + (isDebit ? "DR" : "CR") + "</span> " +
-        step.label +
-        "<span style='font-size:10px;color:inherit;opacity:.7;'> (" + step.note + ")</span>";
-      el.appendChild(chip);
-    });
-  }
-
-  function applyTemplate(templateId) {
-    var tpl = null;
-    for (var i = 0; i < adjustmentTemplates.length; i++) {
-      if (adjustmentTemplates[i].id === templateId) { tpl = adjustmentTemplates[i]; break; }
-    }
-
-    var callout = document.getElementById("scenario-callout");
-    if (!tpl || tpl.id === "blank") {
-      callout.style.display = "none";
-      setGuidedMode(false);
-      return;
-    }
-
-    // Populate callout
-    document.getElementById("scenario-plain").textContent = tpl.plain_english || "";
-    renderFlow(tpl.flow || []);
-    document.getElementById("scenario-desc").textContent = tpl.description || "";
-    callout.style.display = "block";
-
-    // Pre-fill memo (only if currently empty)
-    var memoEl = document.getElementById("memo");
-    if (!memoEl.value.trim() && tpl.memo) memoEl.value = tpl.memo;
-
-    // Enter guided mode BEFORE building rows so addLine() uses correct display
-    setGuidedMode(true);
-
-    // Rebuild lines from template
-    var tbody = document.getElementById("lines-body");
-    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-    document.getElementById("line-count-field").value = 0;
-
-    tpl.lines.forEach(function (lineDef, idx) {
-      var accountId = findAccountId(lineDef.account_match);
-      var flowStep  = (tpl.flow || [])[idx];
-      var roleLabel = flowStep
-        ? (flowStep.side === "DEBIT" ? "DR · " : "CR · ") + flowStep.label
-        : (lineDef.side === "debit" ? "DR" : "CR");
-      var tr = addLine({
-        accountId: accountId || "",
-        side: lineDef.side,
-        roleLabel: roleLabel,
-      });
-      // set placeholder on the desc input (still in DOM, just hidden)
-      var descInput = tr.querySelector(".col-desc input");
-      if (descInput) descInput.placeholder = lineDef.hint || "";
-    });
-
-    while (currentLineCount() < 2) addLine({});
-    updateTotals();
-
-    // Focus the first amount input
-    var firstAmt = document.querySelector(".je-amount");
-    if (firstAmt) setTimeout(function () { firstAmt.focus(); firstAmt.select(); }, 50);
-  }
-
-  document.getElementById("template-picker").addEventListener("change", function () {
-    applyTemplate(this.value);
-  });
-
-  // ── Wire up existing rows ─────────────────────────────────────────
+  // ── Wire existing rows and buttons ────────────────────────────────
   document.querySelectorAll("#lines-body tr").forEach(wireRow);
+  document.querySelectorAll("#lines-body tr").forEach(updateTypeHint);
 
-  document.getElementById("add-line-btn").addEventListener("click", function () {
-    addLine({});
-  });
+  document.getElementById("add-line-btn").addEventListener("click", function () { addLine({}); });
 
   document.getElementById("lines-body").addEventListener("click", function (e) {
     var btn = e.target.closest(".je-remove-line");
-    if (!btn) return;
-    var tr = btn.closest("tr");
-    if (tr) removeLine(tr);
+    if (btn) removeLine(btn.closest("tr"));
   });
 
-  // Initial state
-  document.querySelectorAll("#lines-body tr").forEach(updateTypeHint);
   updateTotals();
 })();
 </script>
