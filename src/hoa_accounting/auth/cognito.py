@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 import time
 from typing import Any
 from urllib.parse import urlencode
+
+_log = logging.getLogger(__name__)
 
 from hoa_accounting.auth.base import ROLE_ADMIN, ROLE_REPORTS, AuthUser
 
@@ -105,7 +108,8 @@ class CognitoBackend:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return _json.loads(resp.read())
-        except Exception:
+        except Exception as exc:
+            _log.warning("Cognito token exchange failed: %s", exc)
             return None
 
     def _get_jwks(self) -> dict:
@@ -125,8 +129,8 @@ class CognitoBackend:
                 data = _json.loads(resp.read())
             self._jwks_cache = {k["kid"]: k for k in data.get("keys", [])}
             self._jwks_expires = now + 3600
-        except Exception:
-            pass
+        except Exception as exc:
+            _log.warning("Cognito JWKS fetch failed: %s", exc)
         return self._jwks_cache
 
     def _user_from_id_token(self, id_token: str) -> AuthUser | None:
@@ -135,7 +139,8 @@ class CognitoBackend:
 
         try:
             header = jwt.get_unverified_header(id_token)
-        except Exception:
+        except Exception as exc:
+            _log.warning("Cognito id_token header decode failed: %s", exc)
             return None
 
         jwks = self._get_jwks()
@@ -155,7 +160,8 @@ class CognitoBackend:
                 audience=self._client_id,
                 issuer=issuer,
             )
-        except Exception:
+        except Exception as exc:
+            _log.warning("Cognito JWT verification failed: %s", exc)
             return None
 
         email = claims.get("email", "").lower()

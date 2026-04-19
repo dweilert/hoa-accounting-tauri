@@ -49,7 +49,6 @@ from hoa_accounting.web.reserve_transfer_pages import ReserveTransferPages
 from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
-    HomePageService,
     ReportConsolePageService,
     UIResponse,
 )
@@ -157,7 +156,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     runner = ReportRunner(config_path=resolved_config_path)
     api_service = ReportAPIService(runner)
-    home_service = HomePageService(api_service)
     report_page_service = ReportConsolePageService(api_service)
 
     # The existing UI services render via their own Jinja environment and
