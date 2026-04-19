@@ -249,7 +249,7 @@
   <button class="wf-tab active" data-panel="monthly">📅 Monthly Cycle</button>
   <button class="wf-tab" data-panel="quarter">📊 Quarter Close</button>
   <button class="wf-tab" data-panel="yearend">🏁 Year-End</button>
-  <button class="wf-tab" data-panel="adjustments">✏️ Adjustments &amp; Write-Offs</button>
+  <button class="wf-tab" data-panel="adjustments">⚡ Exceptions</button>
 </div>
 
 {# ════════════════════════════════════════════════════════════════════════
@@ -260,18 +260,15 @@
     <div class="panel__header">
       <div>
         <div class="panel__title">Monthly Cycle</div>
-        <div class="panel__description">Run these steps every month, roughly in order. Most months take less than an hour once you're in a rhythm.</div>
+        <div class="panel__description">Run these 8 steps every month, roughly in order. Special assessments, late fees, and one-off adjustments live in the <strong>Exceptions</strong> tab — only use those when needed.</div>
       </div>
     </div>
     <div class="panel__body" style="padding:1rem 1.25rem 1.5rem;">
 
       <div class="wf-section-label">Billing</div>
       <div class="wf-flow">
-
         {% set monthly_billing = [
           ("1", "🏠", "Bill Dues", "Post monthly assessment for every active lot.", "/dues-billing", "Bill Dues", "blue", "Billing"),
-          ("2", "📋", "Special Assessments", "Any extra charges this month? Post per-lot or bulk amounts.", "/bill-assessments", "Bill Assessments", "blue", "Billing"),
-          ("3", "⏰", "Late Fees", "Run late-fee sweep for balances past due.", "/late-fees", "Late Fees", "amber", "Billing"),
         ] %}
         {% for num, icon, title, desc, href, link_label, color, tag in monthly_billing %}
         <div class="wf-step-wrap">
@@ -290,8 +287,8 @@
       <div class="wf-section-label">Cash Receipts</div>
       <div class="wf-flow">
         {% set monthly_cash = [
-          ("4", "💳", "Post Payments", "Record owner payments and apply to open charges.", "/deposit-batch", "Deposits", "green", "Cash"),
-          ("5", "💰", "Other Income", "Interest, resale fees, or any non-dues income.", "/income-batch", "Non-Dues Income", "green", "Cash"),
+          ("2", "💳", "Post Payments", "Record owner payments and apply to open charges.", "/deposit-batch", "Deposits", "green", "Cash"),
+          ("3", "💰", "Other Income", "Interest, resale fees, or any non-dues income.", "/income-batch", "Non-Dues Income", "green", "Cash"),
         ] %}
         {% for num, icon, title, desc, href, link_label, color, tag in monthly_cash %}
         <div class="wf-step-wrap">
@@ -310,8 +307,8 @@
       <div class="wf-section-label">Vendor Payables</div>
       <div class="wf-flow">
         {% set monthly_vendors = [
-          ("6", "🧾", "Enter Bills", "Record invoices from landscaping, management, utilities, etc.", "/vendor-bill-new", "Vendor Bills", "rose", "Payables"),
-          ("7", "💸", "Pay Bills", "Record checks or ACH payments against open bills.", "/vendor-bills", "Pay Bills", "rose", "Payables"),
+          ("4", "🧾", "Enter Bills", "Record invoices from landscaping, management, utilities, etc.", "/vendor-bill-new", "Vendor Bills", "rose", "Payables"),
+          ("5", "💸", "Pay Bills", "Record checks or ACH payments against open bills.", "/vendor-bills", "Pay Bills", "rose", "Payables"),
         ] %}
         {% for num, icon, title, desc, href, link_label, color, tag in monthly_vendors %}
         <div class="wf-step-wrap">
@@ -330,9 +327,9 @@
       <div class="wf-section-label">Month-End Close</div>
       <div class="wf-flow">
         {% set monthly_close = [
-          ("8", "🏦", "Reconcile Bank", "Match your book balance to the bank statement.", "/reconciliation-new", "Reconcile", "teal", "Close"),
-          ("9", "📨", "Owner PDFs", "Generate and publish monthly owner ledger statements.", "/batch-pdf", "Publish PDFs", "teal", "Close"),
-          ("10", "🔒", "Close Period", "Lock the accounting period so no entries can be changed.", "/accounting-periods", "Periods", "slate", "Close"),
+          ("6", "🏦", "Reconcile Bank", "Match your book balance to the bank statement.", "/reconciliation-new", "Reconcile", "teal", "Close"),
+          ("7", "📨", "Owner PDFs", "Generate and publish monthly owner ledger statements.", "/batch-pdf", "Publish PDFs", "teal", "Close"),
+          ("8", "🔒", "Close Period", "Lock the accounting period so no entries can be changed.", "/accounting-periods", "Periods", "slate", "Close"),
         ] %}
         {% for num, icon, title, desc, href, link_label, color, tag in monthly_close %}
         <div class="wf-step-wrap">
@@ -352,7 +349,7 @@
 
       <div class="wf-tip">
         <span class="wf-tip__icon">💡</span>
-        <span><strong>Tip:</strong> Steps 1–3 can be done as early as the 1st of the month. Steps 4–7 happen throughout the month as payments and bills arrive. Steps 8–10 wait until you have the bank statement in hand, usually by the 10th of the following month.</span>
+        <span><strong>Tip:</strong> Step 1 can be done as early as the 1st of the month. Steps 2–5 happen throughout the month as payments and bills arrive. Steps 6–8 wait until you have the bank statement in hand, usually by the 10th of the following month. For special assessments or late fees, use the <strong>Exceptions</strong> tab.</span>
       </div>
     </div>
   </div>
@@ -373,7 +370,7 @@
 
       <div class="wf-tip" style="margin-top:0;margin-bottom:1rem;">
         <span class="wf-tip__icon">↩</span>
-        <span>First, complete all <strong>10 Monthly Cycle steps</strong> through "Close Period." Then continue here.</span>
+        <span>First, complete all <strong>8 Monthly Cycle steps</strong> through "Close Period." Then continue here.</span>
       </div>
 
       <div class="wf-section-label">Receivables Review</div>
@@ -549,14 +546,69 @@
   <div class="panel">
     <div class="panel__header">
       <div>
-        <div class="panel__title">Adjustments &amp; Write-Offs</div>
-        <div class="panel__description">These situations don't happen every month, but every treasurer encounters them. Each one requires a manual journal entry to keep the books accurate.</div>
+        <div class="panel__title">Exceptions</div>
+        <div class="panel__description">These workflows don't happen every month — only run them when the situation calls for it. Keeping these out of the Monthly Cycle prevents confusion about what's routine vs. occasional.</div>
       </div>
     </div>
     <div class="panel__body" style="padding:1rem 1.25rem 1.5rem;">
 
+      {# ── Special Assessments ── #}
+      <div class="wf-section-label">Special Assessments — Extra Charges Beyond Monthly Dues</div>
+      <div class="wf-flow">
+        {% set sa_steps = [
+          ("1", "🗳️", "Board Approval", "Obtain board resolution authorizing the special assessment — amount, purpose, and due date.", "#", "Document only", "amber"),
+          ("2", "📋", "Bill All or Select Lots", "Use 'Bill All' for a flat amount across every lot, or enter individual amounts per lot.", "/bill-assessments", "Bill Assessments", "blue"),
+          ("3", "💳", "Post Payments", "As owners pay, record deposits and apply to the open special assessment charge.", "/deposit-batch", "Deposits", "green"),
+          ("4", "📬", "Follow Up on Overdue", "Check AR by Lot after the due date — treat unpaid special assessments the same as overdue dues.", "/ar-lots", "AR by Lot", "rose"),
+        ] %}
+        {% for num, icon, title, desc, href, link_label, color in sa_steps %}
+        <div class="wf-step-wrap">
+          <div class="wf-step wf-step--{{ color }}">
+            <div class="wf-step__num">{{ num }}</div>
+            <div class="wf-step__icon">{{ icon }}</div>
+            <div class="wf-step__title">{{ title }}</div>
+            <div class="wf-step__desc">{{ desc }}</div>
+            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
+          </div>
+          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="wf-tip">
+        <span class="wf-tip__icon">💡</span>
+        <span><strong>Accounting:</strong> A special assessment posts DR Accounts Receivable / CR Assessment Income — identical to monthly dues, just a different description. The board resolution is your paper trail; keep it on file.</span>
+      </div>
+
+      {# ── Late Fee Sweep ── #}
+      <div class="wf-section-label" style="margin-top:2rem;">Late Fee Sweep — Charge Delinquent Owners</div>
+      <div class="wf-flow">
+        {% set lfs_steps = [
+          ("1", "📬", "Review AR Aging", "Check AR by Lot to identify which owners are past due by your policy threshold (e.g. 30 days).", "/ar-lots", "AR by Lot", "blue"),
+          ("2", "⏰", "Run Late Fee Sweep", "Posts DR Accounts Receivable / CR Late Fee Income per delinquent owner. Income is recognized now.", "/late-fees", "Late Fees", "amber"),
+          ("3", "📨", "Notify Owners", "Publish updated owner statements so each owner sees the late fee charge.", "/batch-pdf", "Publish PDFs", "teal"),
+          ("4", "💳", "Post Payment if Received", "When the owner pays, record it via Deposits — this reduces AR, it does not post new income.", "/deposit-batch", "Deposits", "green"),
+          ("5", "🗳️", "Waiver if Board Approves", "Reversing JE: DR Late Fee Income / CR Accounts Receivable. Attach the board resolution.", "/journal-entry-new", "New JE", "rose"),
+        ] %}
+        {% for num, icon, title, desc, href, link_label, color in lfs_steps %}
+        <div class="wf-step-wrap">
+          <div class="wf-step wf-step--{{ color }}">
+            <div class="wf-step__num">{{ num }}</div>
+            <div class="wf-step__icon">{{ icon }}</div>
+            <div class="wf-step__title">{{ title }}</div>
+            <div class="wf-step__desc">{{ desc }}</div>
+            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
+          </div>
+          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="wf-tip">
+        <span class="wf-tip__icon">💡</span>
+        <span><strong>Key rule:</strong> Income is recognized at billing time (step 2). Collecting the fee in step 4 reduces AR — it does not post new income. This is the most common late-fee bookkeeping mistake.</span>
+      </div>
+
       {# ── Write-off scenario ── #}
-      <div class="wf-section-label">Owner Write-Off — Uncollectable Balance</div>
+      <div class="wf-section-label" style="margin-top:2rem;">Owner Write-Off — Uncollectable Balance</div>
       <div class="wf-flow">
         {% set wo_steps = [
           ("1", "📬", "Age the Balance", "Confirm the amount is genuinely uncollectable — typically 90+ days with no payment or response.", "/ar-lots", "AR by Lot", "blue"),
@@ -633,33 +685,6 @@
       <div class="wf-tip">
         <span class="wf-tip__icon">📘</span>
         <span><strong>Common accruals for HOAs:</strong> management fee not yet invoiced, annual insurance premium split across months, or landscaping done in December but billed in January. Accruals match the expense to the month it was incurred — important for accurate budget-vs-actual reporting.</span>
-      </div>
-
-      {# ── Late fee lifecycle ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Late Fees — Full Lifecycle</div>
-      <div class="wf-flow">
-        {% set lf_steps = [
-          ("1", "⏰", "Bill the Late Fee", "Run the Late Fees sweep. Posts DR Accounts Receivable / CR Late Fee Income per delinquent owner.", "/late-fees", "Late Fees", "amber"),
-          ("2", "💳", "Owner Pays in Full", "Record payment via Deposits. Apply to the open late fee charge. AR is cleared; income was already recognized in step 1.", "/deposit-batch", "Deposits", "green"),
-          ("3", "⚖️", "Partial Payment", "Owner pays dues but not the fee. The unpaid late fee ages. It can trigger another late fee next cycle if policy allows.", "/ar-lots", "AR by Lot", "blue"),
-          ("4", "🗳️", "Board Waiver", "Board votes to waive the fee. Get written resolution, then post a reversing JE: DR Late Fee Income, CR Accounts Receivable.", "/journal-entry-new", "New JE", "rose"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in lf_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Key accounting rule:</strong> Income is recognized at billing time (step 1), not when cash is received. When an owner pays the late fee, you are reducing AR — you are <em>not</em> posting new income. This is the most common late-fee bookkeeping mistake. If you waive a fee after billing it, the reversing JE in step 4 removes the income already recognized.</span>
       </div>
 
       {# ── Reserve fund adjustment ── #}
