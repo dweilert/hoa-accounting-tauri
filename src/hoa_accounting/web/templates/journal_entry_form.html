@@ -68,11 +68,11 @@
     {# ── Guided questions panel (shown when a scenario is active) ──── #}
     <div id="guided-panel" style="display:none;">
       <div class="panel" style="border:2px solid var(--accent-border);">
-        <div class="panel__header" style="background:var(--accent-subtle);">
-          <div>
-            <div class="panel__title" id="guided-panel-title" style="font-size:.95rem;"></div>
+        <div class="panel__header" style="background:var(--accent-subtle);padding:.75rem 1rem;gap:1rem;align-items:flex-start;">
+          <div style="flex:1;">
+            <div class="panel__title" id="guided-panel-title" style="font-size:.95rem;line-height:1.5;"></div>
           </div>
-          <div id="balance-indicator" class="pill pill--error" style="font-size:.8rem;font-weight:600;">
+          <div id="balance-indicator" class="pill pill--error" style="font-size:.8rem;font-weight:600;white-space:nowrap;flex-shrink:0;margin-top:.1rem;">
             Not complete
           </div>
         </div>
