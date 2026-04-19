@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log · {{ org.name }}{% endblock %}
+{% block heading %}Audit Log{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ total }} record{% if total != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Audit Log</div>
+      <div class="panel__description">Every insert, update, and delete on financial and master-data tables, attributed to the user who made the change.</div>
+    </div>
+  </div>
+
+  {# Filter bar #}
+  <form method="get" action="/admin/audit-log"
+        style="display:flex;flex-wrap:wrap;gap:.5rem;padding:.75rem 1rem;border-bottom:1px solid var(--border);align-items:flex-end;">
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;">Table</div>
+      <select name="table" class="btn btn--sm btn--ghost" style="cursor:pointer;">
+        <option value="">All tables</option>
+        {% for t in table_names %}
+          <option value="{{ t }}" {% if t == table_filter %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;">Action</div>
+      <select name="action" class="btn btn--sm btn--ghost" style="cursor:pointer;">
+        <option value="">All actions</option>
+        {% for a in actions %}
+          <option value="{{ a }}" {% if a == action_filter %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;">User</div>
+      <input type="text" name="user" value="{{ user_filter }}" placeholder="email…"
+             style="padding:.3rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:.85rem;width:160px;">
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;">From</div>
+      <input type="date" name="date_from" value="{{ date_from }}"
+             style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:.85rem;">
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;">To</div>
+      <input type="date" name="date_to" value="{{ date_to }}"
+             style="padding:.3rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:.85rem;">
+    </div>
+    <button type="submit" class="btn btn--sm btn--primary">Filter</button>
+    {% if table_filter or action_filter or user_filter or date_from or date_to %}
+      <a href="/admin/audit-log" class="btn btn--sm btn--ghost">Clear</a>
+    {% endif %}
+  </form>
+
+  {% if rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Table</th>
+          <th class="num">ID</th>
+          <th>Action</th>
+          <th>User</th>
+          <th>Before</th>
+          <th>After</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="mono" style="white-space:nowrap;font-size:.82rem;">{{ row.event_time }}</td>
+          <td class="mono" style="font-size:.82rem;">{{ row.entity_type }}</td>
+          <td class="num mono" style="font-size:.82rem;">{{ row.entity_id if row.entity_id else '—' }}</td>
+          <td>
+            {% set a = row.action %}
+            {% if a in ('INSERT', 'CREATE', 'CREATE_AND_POST', 'POST') %}
+              <span class="pill pill--ok" style="font-size:.72rem;">{{ a }}</span>
+            {% elif a in ('UPDATE', 'PARTIAL') %}
+              <span class="pill pill--warn" style="font-size:.72rem;">{{ a }}</span>
+            {% elif a in ('DELETE', 'VOID', 'WRITE_OFF') %}
+              <span class="pill pill--error" style="font-size:.72rem;">{{ a }}</span>
+            {% else %}
+              <span class="pill pill--muted" style="font-size:.72rem;">{{ a }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.82rem;">{{ row.changed_by or '—' }}</td>
+          <td style="max-width:260px;">
+            {% if row.before_json %}
+              <details>
+                <summary style="cursor:pointer;font-size:.78rem;color:var(--text-muted);">before</summary>
+                <pre style="font-size:.72rem;white-space:pre-wrap;word-break:break-all;margin:.25rem 0 0;padding:.4rem;background:var(--surface-muted);border-radius:4px;border:1px solid var(--border);">{{ row.before_json }}</pre>
+              </details>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td style="max-width:260px;">
+            {% if row.after_json %}
+              <details>
+                <summary style="cursor:pointer;font-size:.78rem;color:var(--text-muted);">after</summary>
+                <pre style="font-size:.72rem;white-space:pre-wrap;word-break:break-all;margin:.25rem 0 0;padding:.4rem;background:var(--surface-muted);border-radius:4px;border:1px solid var(--border);">{{ row.after_json }}</pre>
+              </details>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Pagination #}
+  {% if total_pages > 1 %}
+  <div style="display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:.85rem;">
+    {% if page > 1 %}
+      <a href="?table={{ table_filter }}&action={{ action_filter }}&user={{ user_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page - 1 }}"
+         class="btn btn--sm btn--ghost">← Prev</a>
+    {% endif %}
+    <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+      <a href="?table={{ table_filter }}&action={{ action_filter }}&user={{ user_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page + 1 }}"
+         class="btn btn--sm btn--ghost">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+    <div class="empty">No audit records match the current filters.</div>
+  {% endif %}
+</div>
+{% endblock %}

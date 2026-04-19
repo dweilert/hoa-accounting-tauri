@@ -67,6 +67,23 @@
         </ul>
       </div>
 
+      <div class="sidebar__section" data-section="receivables">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="receivables"
+                aria-expanded="true" aria-controls="sidebar-receivables">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Receivables</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-receivables">
+          <li>
+            <a href="/ar/lots"
+               class="sidebar__link{% if page_key == 'ar-lots' %} sidebar__link--active{% endif %}">
+              AR by Lot
+            </a>
+          </li>
+        </ul>
+      </div>
+
       <div class="sidebar__section" data-section="transactions">
         <button type="button" class="sidebar__section-header"
                 data-toggle-section="transactions"
@@ -254,6 +271,12 @@
         </button>
         <ul class="sidebar__nav" id="sidebar-system">
           <li>
+            <a href="/admin/audit-log"
+               class="sidebar__link{% if page_key == 'audit-log' %} sidebar__link--active{% endif %}">
+              Audit Log
+            </a>
+          </li>
+          <li>
             <a href="/admin/database"
                class="sidebar__link{% if page_key == 'database-admin' %} sidebar__link--active{% endif %}">
               Database
@@ -328,31 +351,48 @@
 
     <main class="main">
       <header class="topbar">
-        <button type="button" class="sidebar-toggle" id="sidebar-toggle"
-                aria-label="Toggle navigation" title="Toggle sidebar">☰</button>
-        <a href="/" class="home-shortcut" title="Go to Dashboard">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 1.5L1.5 7v7.5h4.5V10h4v4.5H14.5V7L8 1.5z"
-                  fill="currentColor" opacity=".85"/>
-          </svg>
-        </a>
-        <div class="topbar__title">
-          {% if breadcrumb %}
-            <div class="topbar__breadcrumb">{{ breadcrumb }}</div>
+        <div class="topbar__row">
+          <button type="button" class="sidebar-toggle" id="sidebar-toggle"
+                  aria-label="Toggle navigation" title="Toggle sidebar">☰</button>
+          <a href="/" class="home-shortcut" title="Go to Dashboard">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 1.5L1.5 7v7.5h4.5V10h4v4.5H14.5V7L8 1.5z"
+                    fill="currentColor" opacity=".85"/>
+            </svg>
+          </a>
+          <div class="topbar__title">
+            {% if breadcrumb %}
+              <div class="topbar__breadcrumb">{{ breadcrumb }}</div>
+            {% endif %}
+            <div class="topbar__heading">{% block heading %}{{ org.name }}{% endblock %}</div>
+          </div>
+          <div class="topbar__meta">
+            {% block topbar_meta %}{% endblock %}
+          </div>
+          {% if current_user %}
+          <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto;padding-right:.25rem;font-size:.82rem;">
+            <span style="color:var(--text-muted);">{{ current_user.display_name or current_user.email }}</span>
+            <span class="pill {% if current_user.role == 'admin' %}pill--ok{% else %}pill--warn{% endif %}"
+                  style="font-size:.72rem;padding:.15rem .5rem;">{{ current_user.role }}</span>
+            <a href="/logout" class="btn btn--sm btn--ghost" style="padding:.25rem .6rem;font-size:.8rem;">Sign out</a>
+          </div>
           {% endif %}
-          <div class="topbar__heading">{% block heading %}{{ org.name }}{% endblock %}</div>
         </div>
-        <div class="topbar__meta">
-          {% block topbar_meta %}{% endblock %}
+        <div class="topbar__search-row">
+          <form method="get" action="/search" role="search" style="display:contents;">
+            <div class="search-box">
+              <svg class="search-box__icon" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <input id="global-search" class="search-box__input" type="search" name="q"
+                     value="{{ search_q|default('') }}"
+                     placeholder="Search owners, lots, vendors, journal entries…"
+                     autocomplete="off" spellcheck="false" />
+              <kbd class="search-box__kbd" aria-label="Press / to focus search">/</kbd>
+            </div>
+          </form>
         </div>
-        {% if current_user %}
-        <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto;padding-right:.25rem;font-size:.82rem;">
-          <span style="color:var(--text-muted);">{{ current_user.display_name or current_user.email }}</span>
-          <span class="pill {% if current_user.role == 'admin' %}pill--ok{% else %}pill--warn{% endif %}"
-                style="font-size:.72rem;padding:.15rem .5rem;">{{ current_user.role }}</span>
-          <a href="/logout" class="btn btn--sm btn--ghost" style="padding:.25rem .6rem;font-size:.8rem;">Sign out</a>
-        </div>
-        {% endif %}
       </header>
 
       <div class="content">
@@ -620,6 +660,18 @@
             form.submit();
           },
         });
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "/") return;
+        var tag = (document.activeElement || {}).tagName || "";
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        e.preventDefault();
+        var box = document.getElementById("global-search");
+        if (box) { box.focus(); box.select(); }
       });
     })();
   </script>

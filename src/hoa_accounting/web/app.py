@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import yaml
 from flask import Flask, Response, g, request
 
 from hoa_accounting.api.report_api import ReportAPIService
@@ -58,6 +59,9 @@ from hoa_accounting.web.budget_pages import BudgetPages
 from hoa_accounting.web.batch_pdf_pages import BatchPdfPages
 from hoa_accounting.web.resale_fee_pages import ResaleFeePages
 from hoa_accounting.web.reserve_study_pages import ReserveStudyPages
+from hoa_accounting.web.ar_pages import ARPages
+from hoa_accounting.web.audit_log_pages import AuditLogPages
+from hoa_accounting.web.search_pages import SearchPages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -139,6 +143,7 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "resale_fee_income_account_number": getattr(
             config.accounting, "resale_fee_income_account_number", "4070"
         ),
+        "backup_config": (yaml.safe_load(Path(config_path).read_text()) or {}).get("backup") or {},
     }
 
 
@@ -168,9 +173,15 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # every page that touches a missing column.
     db_path = org_context.get("db_path")
     if db_path:
+        from hoa_accounting.bootstrap.audit_triggers import install_audit_triggers
+        from hoa_accounting.bootstrap.backup_service import BackupService
         boot_conn = connect_sqlite(str(db_path))
         try:
             Migrator().apply_all(boot_conn)
+            install_audit_triggers(boot_conn)
+            backup_cfg = org_context.get("backup_config") or {}
+            if backup_cfg.get("dir"):
+                BackupService(str(db_path), backup_cfg).run(boot_conn)
         finally:
             boot_conn.close()
 
@@ -188,19 +199,11 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         pass
 
     if db_path:
-        import sqlite3 as _sq3
-        auth_conn = _sq3.connect(str(db_path), check_same_thread=False)
-        auth_conn.row_factory = _sq3.Row
-        auth_conn.execute("PRAGMA journal_mode = WAL")
-        auth_conn.execute("PRAGMA busy_timeout = 5000")
-        auth_manager = build_auth_manager(raw_config, auth_conn)
+        auth_manager = build_auth_manager(raw_config, str(db_path))
     else:
         from hoa_accounting.auth.factory import AuthManager, AuthConfig
         from hoa_accounting.auth.local import LocalBackend
-        import sqlite3 as _sq3
-        _mem = _sq3.connect(":memory:")
-        _mem.row_factory = _sq3.Row
-        auth_manager = AuthManager(AuthConfig(), LocalBackend(_mem))
+        auth_manager = AuthManager(AuthConfig(), LocalBackend(":memory:"))
 
     app.secret_key = raw_config.get("auth", {}).get("session_secret", "dev-secret-change-me")
     init_auth(auth_manager, org_context)
@@ -249,6 +252,21 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         static_dir = Path(__file__).resolve().parent / "static"
         return send_from_directory(static_dir, "app.css")
 
+    # ── Audited DB connection helper ─────────────────────────────────────
+    def _open_db() -> sqlite3.Connection:
+        """Open a connection tagged with the current request user for audit triggers."""
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        try:
+            user = getattr(g, "current_user", None)
+            email = user.email if user else "system"
+            conn.create_function("audit_user", 0, lambda: email)
+        except Exception:
+            pass
+        return conn
+
     # ── API helpers ───────────────────────────────────────────────────────
 
     @app.get("/api/lots/<int:lot_id>/open-charges")
@@ -268,7 +286,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return Response(json.dumps({"error": "no db"}), status=500,
                             mimetype="application/json")
 
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         try:
             owner_id = LotsRepository(conn).get_current_owner_id(lot_id)
             if owner_id is None:
@@ -299,7 +317,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # ── Page routes ───────────────────────────────────────────────────────
 
     def _open_dashboard() -> DashboardPages:
-        conn = connect_sqlite(str(org_context["db_path"]))
+        conn = _open_db()
         fiscal_year = int(org_context.get("fiscal_year_start_month", 1))
         from datetime import date
         fy = date.today().year
@@ -369,7 +387,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             return {}
         try:
-            conn = connect_sqlite(str(db_path))
+            conn = _open_db()
             try:
                 owners = conn.execute(
                     """
@@ -516,7 +534,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; account pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._acct_conn = conn
         return AccountPages(conn)
 
@@ -589,7 +607,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/accounts/<int:account_id>/ledger")
     def view_account_ledger(account_id: int) -> Response:
-        conn = connect_sqlite(str(org_context["db_path"]))
+        conn = _open_db()
         try:
             pages = AccountLedgerPages(conn)
             theme = str(org_context.get("theme", "warm"))
@@ -629,7 +647,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; period pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._period_conn = conn
         return AccountingPeriodPages(conn)
 
@@ -748,7 +766,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; bank account pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._ba_conn = conn
         return BankAccountPages(conn)
 
@@ -840,7 +858,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._recon_conn = conn
         return ReconciliationPages(conn)
 
@@ -961,7 +979,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; lot pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._lot_conn = conn
         return LotPages(conn)
 
@@ -1109,7 +1127,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; renter pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._renter_conn = conn
         return LotRentersPages(conn)
 
@@ -1204,7 +1222,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; vendor pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._vendor_conn = conn
         return VendorPages(conn)
 
@@ -1299,7 +1317,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; owner pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._owner_conn = conn
         return OwnerPages(conn)
 
@@ -1397,7 +1415,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; transaction pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._tx_conn = conn
         return VendorBillPages(conn)
 
@@ -1450,7 +1468,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; transaction pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._tx_conn = conn
         return DepositBatchPages(conn)
 
@@ -1494,7 +1512,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; income pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._tx_conn = conn
         return NonDuesIncomePages(conn)
 
@@ -1536,7 +1554,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._all_ledger_conn = conn
         return AllLedgerPages(conn)
 
@@ -1583,7 +1601,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; journal entry pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._je_conn = conn
         return ManualJournalPages(conn)
 
@@ -1650,7 +1668,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; budget pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._budget_conn = conn
         return BudgetPages(conn)
 
@@ -1774,7 +1792,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; billing pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._tx_conn = conn
         return AssessmentBillingPages(conn)
 
@@ -1828,7 +1846,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; reserve transfer pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._rt_conn = conn
         return ReserveTransferPages(conn)
 
@@ -1899,7 +1917,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config; late fee pages need it.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._lf_conn = conn
         return LateFeePages(conn)
 
@@ -1950,7 +1968,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; dues billing pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._dues_conn = conn
         return DuesBillingPages(conn)
 
@@ -1998,7 +2016,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError(
                 "database.path missing from config; opening balance pages need it."
             )
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._ob_conn = conn
         ar_num = str(org_context.get("dues_receivable_account_number", "1100"))
         return OpeningBalancesPages(conn, ar_account_number=ar_num)
@@ -2045,7 +2063,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._dba_conn = conn
         return DatabaseAdminPages(conn, db_path=str(db_path))
 
@@ -2189,7 +2207,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._export_conn = conn
         return ExportPages(conn)
 
@@ -2236,7 +2254,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._import_conn = conn
         return ImportPages(conn)
 
@@ -2291,7 +2309,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._gl_import_conn = conn
         return GlImportPages(conn)
 
@@ -2333,7 +2351,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._yec_conn = conn
         return YearEndClosePages(conn)
 
@@ -2348,7 +2366,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     # ── Batch PDF ─────────────────────────────────────────────────────────────
     def _open_batch_pdf_pages() -> BatchPdfPages:
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._batch_pdf_conn = conn
         return BatchPdfPages(conn=conn)
 
@@ -2386,7 +2404,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     # ── Resale Certificate Fee ────────────────────────────────────────────────
     def _open_resale_fee_pages() -> ResaleFeePages:
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._resale_fee_conn = conn
         return ResaleFeePages(conn=conn)
 
@@ -2497,7 +2515,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config; reserve study pages need it.")
-        conn = connect_sqlite(str(db_path))
+        conn = _open_db()
         g._rs_conn = conn
         return ReserveStudyPages(conn)
 
@@ -2683,5 +2701,108 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+
+    # ── AR / Receivables pages ───────────────────────────────────────
+
+    def _open_ar_pages() -> ARPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config; AR pages need it.")
+        conn = _open_db()
+        g._ar_conn = conn
+        return ARPages(conn)
+
+    @app.teardown_request
+    def _close_ar_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_ar_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._ar_conn = None
+
+    @app.get("/ar/lots")
+    def ar_lots_list() -> Response:
+        pages = _open_ar_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_list(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/ar/lots/<int:lot_id>")
+    def ar_lot_detail(lot_id: int) -> Response:
+        from datetime import date as _date
+        pages = _open_ar_pages()
+        theme = str(org_context.get("theme", "warm"))
+        try:
+            year = int(request.args.get("year") or _date.today().year)
+        except (ValueError, TypeError):
+            year = _date.today().year
+        resp = pages.render_lot_detail(
+            lot_id=lot_id, year=year, org=org_context, theme=theme
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Audit log pages ──────────────────────────────────────────────
+
+    def _open_audit_pages() -> AuditLogPages:
+        conn = _open_db()
+        g._audit_conn = conn
+        return AuditLogPages(conn)
+
+    @app.teardown_request
+    def _close_audit_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_audit_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._audit_conn = None
+
+    @app.get("/admin/audit-log")
+    def audit_log_page() -> Response:
+        pages = _open_audit_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render(
+            org=org_context,
+            theme=theme,
+            table_filter=(request.args.get("table") or "").strip(),
+            action_filter=(request.args.get("action") or "").strip(),
+            user_filter=(request.args.get("user") or "").strip(),
+            date_from=(request.args.get("date_from") or "").strip(),
+            date_to=(request.args.get("date_to") or "").strip(),
+            page=max(1, int(request.args.get("page") or 1)),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Global search ─────────────────────────────────────────────────────
+
+    def _open_search_pages() -> SearchPages:
+        conn = _open_db()
+        g._search_conn = conn
+        return SearchPages(conn)
+
+    @app.teardown_request
+    def _close_search_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_search_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._search_conn = None
+
+    @app.get("/search")
+    def search_page() -> Response:
+        pages = _open_search_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render(
+            q=(request.args.get("q") or "").strip(),
+            org=org_context,
+            theme=theme,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     return app

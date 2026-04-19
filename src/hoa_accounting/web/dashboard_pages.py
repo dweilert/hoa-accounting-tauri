@@ -58,6 +58,7 @@ class DashboardPages:
         bank_tiles = self._repo.get_bank_tiles()
         last_recon = self._repo.get_last_reconciliation()
         budget_tile = self._repo.get_budget_tile(self._fiscal_year)
+        last_auto_backup = self._repo.get_last_auto_backup()
         cards = self._repo.get_dashboard_cards()
 
         hoa_name = (profile["legal_name"] if profile else org.get("legal_name", org.get("name", "")))
@@ -71,6 +72,7 @@ class DashboardPages:
             bank_tiles=bank_tiles,
             last_recon=last_recon,
             budget_tile=budget_tile,
+            last_auto_backup=last_auto_backup,
             cards=cards,
             fiscal_year=self._fiscal_year,
         )

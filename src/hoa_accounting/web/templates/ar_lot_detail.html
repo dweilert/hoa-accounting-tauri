@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Lot {{ report.lot_number }} Ledger · {{ org.name }}{% endblock %}
+{% block heading %}Lot {{ report.lot_number }} — AR Ledger{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill {% if report.closing_balance > 0 %}pill--warn{% else %}pill--ok{% endif %}">
+    Balance: ${{ "%.2f"|format(report.closing_balance) }}
+  </span>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;gap:1rem;">
+
+  {# Lot header card #}
+  <div class="panel">
+    <div class="panel__header" style="flex-wrap:wrap;gap:.75rem;">
+      <div>
+        <div class="panel__title">Lot {{ report.lot_number }}</div>
+        {% if report.lot_address %}
+          <div class="panel__description">{{ report.lot_address }}</div>
+        {% endif %}
+        {% if report.owners %}
+          <div style="font-size:.85rem;color:var(--text-muted);margin-top:.25rem;">
+            {% for owner in report.owners %}{{ owner.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      {# Year selector #}
+      <form method="get" action="/ar/lots/{{ report.lot_id }}" style="display:flex;align-items:center;gap:.5rem;">
+        <label for="year-select" style="font-size:.85rem;color:var(--text-muted);">Year:</label>
+        <select id="year-select" name="year" onchange="this.form.submit()"
+                class="btn btn--sm btn--ghost" style="cursor:pointer;">
+          {% for yr in available_years %}
+            <option value="{{ yr }}" {% if yr == year %}selected{% endif %}>{{ yr }}</option>
+          {% endfor %}
+        </select>
+      </form>
+
+      <a href="/ar/lots" class="btn btn--sm btn--ghost">← All Lots</a>
+    </div>
+
+    {# Balance summary strip #}
+    <div style="display:flex;gap:2rem;padding:.75rem 1rem;background:var(--surface-muted);border-top:1px solid var(--border);flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Opening Balance</div>
+        <div style="font-family:var(--font-mono);font-size:1rem;">${{ "%.2f"|format(report.opening_balance) }}</div>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Period</div>
+        <div style="font-size:.9rem;">{{ report.from_date }} — {{ report.to_date }}</div>
+      </div>
+      <div style="margin-left:auto;">
+        <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Closing Balance</div>
+        <div style="font-family:var(--font-mono);font-size:1.2rem;font-weight:700;{% if report.closing_balance > 0 %}color:var(--danger);{% else %}color:var(--accent);{% endif %}">
+          ${{ "%.2f"|format(report.closing_balance) }}
+        </div>
+      </div>
+    </div>
+
+    {# Opening balance breakdown #}
+    {% if report.opening_balance_lines %}
+    <div style="padding:.5rem 1rem;border-bottom:1px solid var(--border);font-size:.82rem;color:var(--text-muted);">
+      Opening balance detail:
+      {% for line in report.opening_balance_lines %}
+        {% if line.amount != 0 %}
+          <span style="margin-left:.75rem;">{{ line.label }}: <span class="mono">${{ "%.2f"|format(line.amount) }}</span></span>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {# Transaction ledger #}
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">Ledger — {{ year }}</div>
+    </div>
+
+    {% if report.rows %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th class="num">Charges</th>
+            <th class="num">Credits</th>
+            <th class="num">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {# Opening balance row #}
+          <tr style="background:var(--surface-muted);font-size:.85rem;">
+            <td colspan="7" style="color:var(--text-muted);font-style:italic;">Opening balance — {{ report.from_date }}</td>
+            <td class="num mono"><strong>${{ "%.2f"|format(report.opening_balance) }}</strong></td>
+          </tr>
+
+          {% for row in report.rows %}
+          <tr>
+            <td class="mono" style="white-space:nowrap;">{{ row.entry_date }}</td>
+            <td>
+              {% if row.entry_type == 'CHARGE' %}
+                <span class="pill pill--warn" style="font-size:.72rem;">Charge</span>
+              {% elif row.entry_type == 'PAYMENT' %}
+                <span class="pill pill--ok" style="font-size:.72rem;">Payment</span>
+              {% else %}
+                <span class="pill pill--muted" style="font-size:.72rem;">Adj</span>
+              {% endif %}
+            </td>
+            <td>
+              {{ row.description }}
+              {% if row.receipt_number %}
+                <span class="muted" style="font-size:.8rem;">· #{{ row.receipt_number }}</span>
+              {% endif %}
+            </td>
+            <td class="mono" style="font-size:.85rem;white-space:nowrap;">{{ row.due_date or '—' }}</td>
+            <td>
+              {% if row.status %}
+                {% if row.status == 'PAID' %}
+                  <span class="pill pill--ok" style="font-size:.7rem;">Paid</span>
+                {% elif row.status == 'PARTIAL' %}
+                  <span class="pill pill--warn" style="font-size:.7rem;">Partial</span>
+                {% elif row.status == 'OPEN' %}
+                  <span class="pill pill--error" style="font-size:.7rem;">Open</span>
+                {% elif row.status == 'VOID' %}
+                  <span class="pill pill--muted" style="font-size:.7rem;">Void</span>
+                {% else %}
+                  <span class="pill pill--muted" style="font-size:.7rem;">{{ row.status }}</span>
+                {% endif %}
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td class="num mono">
+              {% if row.debit_amount > 0 %}${{ "%.2f"|format(row.debit_amount) }}{% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td class="num mono">
+              {% if row.credit_amount > 0 %}${{ "%.2f"|format(row.credit_amount) }}{% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td class="num mono" style="{% if row.running_balance > 0 %}color:var(--danger);{% elif row.running_balance < 0 %}color:var(--accent);{% endif %}font-weight:600;">
+              ${{ "%.2f"|format(row.running_balance) }}
+            </td>
+          </tr>
+          {% endfor %}
+
+          {# Closing balance row #}
+          <tr style="background:var(--surface-muted);font-weight:700;">
+            <td colspan="7" style="font-size:.85rem;">Closing balance — {{ report.to_date }}</td>
+            <td class="num mono" style="{% if report.closing_balance > 0 %}color:var(--danger);{% else %}color:var(--accent);{% endif %}">
+              ${{ "%.2f"|format(report.closing_balance) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="empty">No transactions recorded for {{ year }}.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

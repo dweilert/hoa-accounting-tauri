@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Receivables · {{ org.name }}{% endblock %}
+{% block heading %}Receivables{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">As of {{ as_of_date }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">AR Balance by Lot</div>
+      <div class="panel__description">Open charges and aging for every active lot. Click a lot to see the full ledger.</div>
+    </div>
+  </div>
+
+  {# Totals summary bar #}
+  <div style="display:flex;gap:1.5rem;padding:.75rem 1rem;background:var(--surface-muted);border-bottom:1px solid var(--border);flex-wrap:wrap;">
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Total AR</div>
+      <div style="font-size:1.1rem;font-weight:700;font-family:var(--font-mono);">${{ "%.2f"|format(total_balance) }}</div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Current</div>
+      <div style="font-size:1rem;font-family:var(--font-mono);">${{ "%.2f"|format(total_current) }}</div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">1–30 days</div>
+      <div style="font-size:1rem;font-family:var(--font-mono);{% if total_1_30 > 0 %}color:var(--warning);{% endif %}">${{ "%.2f"|format(total_1_30) }}</div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">31–60 days</div>
+      <div style="font-size:1rem;font-family:var(--font-mono);{% if total_31_60 > 0 %}color:var(--warning);{% endif %}">${{ "%.2f"|format(total_31_60) }}</div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">61–90 days</div>
+      <div style="font-size:1rem;font-family:var(--font-mono);{% if total_61_90 > 0 %}color:var(--danger);{% endif %}">${{ "%.2f"|format(total_61_90) }}</div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">90+ days</div>
+      <div style="font-size:1rem;font-weight:700;font-family:var(--font-mono);{% if total_90_plus > 0 %}color:var(--danger);{% endif %}">${{ "%.2f"|format(total_90_plus) }}</div>
+    </div>
+  </div>
+
+  {% if summaries %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Lot #</th>
+          <th>Owner(s)</th>
+          <th class="num">Balance</th>
+          <th class="num">Current</th>
+          <th class="num">1–30 days</th>
+          <th class="num">31–60 days</th>
+          <th class="num">61–90 days</th>
+          <th class="num">90+ days</th>
+          <th>Last Payment</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in summaries %}
+        <tr>
+          <td class="mono">{{ s.lot_number }}</td>
+          <td>{{ s.owners }}</td>
+          <td class="num mono">
+            {% if s.total_balance > 0 %}
+              <strong>${{ "%.2f"|format(s.total_balance) }}</strong>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td class="num mono">
+            {% if s.current_amount > 0 %}${{ "%.2f"|format(s.current_amount) }}{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="num mono">
+            {% if s.amount_1_30 > 0 %}<span style="color:var(--warning);">${{ "%.2f"|format(s.amount_1_30) }}</span>{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="num mono">
+            {% if s.amount_31_60 > 0 %}<span style="color:var(--warning);">${{ "%.2f"|format(s.amount_31_60) }}</span>{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="num mono">
+            {% if s.amount_61_90 > 0 %}<span style="color:var(--danger);">${{ "%.2f"|format(s.amount_61_90) }}</span>{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="num mono">
+            {% if s.amount_90_plus > 0 %}<strong style="color:var(--danger);">${{ "%.2f"|format(s.amount_90_plus) }}</strong>{% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="mono" style="font-size:.85rem;">
+            {{ s.last_payment_date or '—' }}
+          </td>
+          <td>
+            <a href="/ar/lots/{{ s.lot_id }}" class="btn btn--sm btn--ghost">Ledger</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">No active lots found.</div>
+  {% endif %}
+</div>
+{% endblock %}

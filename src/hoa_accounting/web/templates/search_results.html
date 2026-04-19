@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Search · {{ org.name }}{% endblock %}
+{% block heading %}Search{% endblock %}
+
+{% block topbar_meta %}
+  {% if q %}
+    <span class="pill pill--muted">{{ total_hits }} result{% if total_hits != 1 %}s{% endif %}</span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        {% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search{% endif %}
+      </div>
+      {% if not q %}
+        <div class="panel__description">Enter a term above to search across owners, lots, vendors, journal entries, payments, and assessments.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if q %}
+    {% if total_hits == 0 %}
+      <div class="empty">No results found for &ldquo;{{ q }}&rdquo;. Try a shorter or different term.</div>
+    {% else %}
+      {% for group in groups %}
+        {% if group.total > 0 %}
+        <div style="border-top: 1px solid var(--border);">
+          <div style="display:flex;align-items:baseline;gap:.5rem;padding:.6rem 1rem .3rem;background:var(--surface-muted);">
+            <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">{{ group.label }}</span>
+            <span class="pill pill--muted" style="font-size:.68rem;">{{ group.total }}</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                {% for hit in group.hits %}
+                <tr>
+                  <td>
+                    <a href="{{ hit.url }}" style="text-decoration:none;color:inherit;">
+                      <div style="font-weight:500;font-size:.88rem;">{{ hit.title }}</div>
+                      {% if hit.subtitle %}
+                        <div style="font-size:.78rem;color:var(--text-muted);margin-top:.1rem;">{{ hit.subtitle }}</div>
+                      {% endif %}
+                    </a>
+                  </td>
+                  <td style="text-align:right;white-space:nowrap;">
+                    {% if hit.badge %}
+                      {% set b = hit.badge %}
+                      {% if b in ('POSTED', 'PAID', 'CLEARED') %}
+                        <span class="pill pill--ok" style="font-size:.68rem;">{{ b }}</span>
+                      {% elif b in ('DRAFT', 'OPEN', 'PARTIAL') %}
+                        <span class="pill pill--warn" style="font-size:.68rem;">{{ b }}</span>
+                      {% elif b in ('VOID', 'WRITE_OFF', 'REVERSED') %}
+                        <span class="pill pill--error" style="font-size:.68rem;">{{ b }}</span>
+                      {% else %}
+                        <span class="pill pill--muted" style="font-size:.68rem;">{{ b }}</span>
+                      {% endif %}
+                    {% endif %}
+                    <a href="{{ hit.url }}" class="btn btn--sm btn--ghost" style="margin-left:.25rem;">Open →</a>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% if group.has_more %}
+                <tr>
+                  <td colspan="2" style="font-size:.78rem;color:var(--text-muted);padding:.5rem 1rem;">
+                    {{ group.total - group.hits|length }} more {{ group.label|lower }} match — refine your search to narrow results.
+                  </td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

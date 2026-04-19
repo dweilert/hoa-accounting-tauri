@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 import time
 from typing import Any
 from urllib.parse import urlencode
@@ -29,6 +30,7 @@ class CognitoBackend:
         region: str,
         domain: str,
         group_role_map: dict[str, str],
+        override_db_path: str | None = None,
         override_conn: sqlite3.Connection | None = None,
     ) -> None:
         self._pool_id = user_pool_id
@@ -37,9 +39,21 @@ class CognitoBackend:
         self._region = region
         self._domain = domain.rstrip("/")
         self._group_role_map = {**DEFAULT_GROUP_ROLE_MAP, **group_role_map}
-        self._override_conn = override_conn
+        self._override_db_path = override_db_path or (None if override_conn is None else None)
+        self._override_conn = override_conn  # kept for backwards compat
+        self._override_tl = threading.local()
         self._jwks_cache: dict[str, Any] = {}
         self._jwks_expires: float = 0.0
+
+    def _get_override_conn(self) -> sqlite3.Connection | None:
+        if self._override_db_path:
+            conn = getattr(self._override_tl, "conn", None)
+            if conn is None:
+                conn = sqlite3.connect(self._override_db_path)
+                conn.row_factory = sqlite3.Row
+                self._override_tl.conn = conn
+            return conn
+        return self._override_conn
 
     # ── AuthBackend protocol ──────────────────────────────────────────────
 
@@ -165,8 +179,9 @@ class CognitoBackend:
 
     def _resolve_role(self, email: str, groups: list[str]) -> str:
         # Local override takes highest priority
-        if self._override_conn:
-            row = self._override_conn.execute(
+        _oc = self._get_override_conn()
+        if _oc:
+            row = _oc.execute(
                 "SELECT role FROM local_role_overrides WHERE email = ? COLLATE NOCASE",
                 (email,),
             ).fetchone()

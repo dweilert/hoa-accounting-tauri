@@ -32,4 +32,7 @@ def connect_sqlite(
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA busy_timeout = 5000")
+    # Register audit_user() UDF so triggers can call it to record who made the change.
+    # Defaults to 'system'; overwritten per-request by _open_db() in app.py.
+    conn.create_function("audit_user", 0, lambda: "system")
     return conn

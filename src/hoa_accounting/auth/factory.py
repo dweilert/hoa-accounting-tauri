@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -97,7 +96,7 @@ class AuthManager:
         return self._local
 
 
-def build_auth_manager(raw_config: dict, conn: sqlite3.Connection) -> AuthManager:
+def build_auth_manager(raw_config: dict, db_path: str) -> AuthManager:
     auth_cfg_raw = raw_config.get("auth", {})
     cfg = AuthConfig(
         backend=auth_cfg_raw.get("backend", "local"),
@@ -107,8 +106,7 @@ def build_auth_manager(raw_config: dict, conn: sqlite3.Connection) -> AuthManage
         local_fallback=auth_cfg_raw.get("local_fallback", True),
     )
 
-    conn.row_factory = sqlite3.Row
-    local = LocalBackend(conn)
+    local = LocalBackend(db_path)
 
     cognito_backend = None
     cognito_cfg = cfg.cognito
@@ -121,7 +119,7 @@ def build_auth_manager(raw_config: dict, conn: sqlite3.Connection) -> AuthManage
             region=cognito_cfg.get("region", "us-east-1"),
             domain=cognito_cfg.get("domain", ""),
             group_role_map=cfg.group_role_map,
-            override_conn=conn,
+            override_db_path=db_path,
         )
 
     return AuthManager(cfg, local, cognito_backend)

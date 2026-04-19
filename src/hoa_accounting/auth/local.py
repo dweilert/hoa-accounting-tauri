@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from datetime import datetime, timezone
 
 from hoa_accounting.auth.base import ROLE_ADMIN, ROLE_REPORTS, AuthUser
@@ -25,8 +26,20 @@ class LocalBackend:
     supports_password = True
     supports_oauth = False
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
-        self._conn = conn
+    def __init__(self, db_path: str) -> None:
+        self._db_path = db_path
+        self._tl = threading.local()
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        conn = getattr(self._tl, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self._db_path)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA busy_timeout = 5000")
+            self._tl.conn = conn
+        return conn
 
     # ── AuthBackend protocol ──────────────────────────────────────────────
 

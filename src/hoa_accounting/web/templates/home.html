@@ -135,6 +135,18 @@
         <div class="fin-tile__value">${{ '{:,.0f}'.format(last_recon.ending_balance) }}</div>
         <div class="fin-tile__sub">{{ last_recon.account_name }} · {{ last_recon.ending_date }}</div>
       </div>
+
+    {% elif card.report_name == 'last_auto_backup' %}
+      <a class="fin-tile" style="background:{{ bg }};text-decoration:none;" href="/admin/database">
+        <div class="fin-tile__label">Last Auto-Backup</div>
+        {% if last_auto_backup %}
+          <div class="fin-tile__value" style="font-size:1rem;">{{ last_auto_backup.backed_up_at[:16] }}</div>
+          <div class="fin-tile__sub">{{ '%.1f'|format(last_auto_backup.file_size_bytes / 1048576) }} MB</div>
+        {% else %}
+          <div class="fin-tile__value" style="font-size:1rem;">No backup yet</div>
+          <div class="fin-tile__sub">Runs at next startup</div>
+        {% endif %}
+      </a>
     {% endif %}
   {% endfor %}
 </div>

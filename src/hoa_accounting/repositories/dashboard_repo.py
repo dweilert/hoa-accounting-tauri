@@ -143,6 +143,14 @@ class DashboardRepository:
             actual_spent=Decimal(str(actual_row["spent"] if actual_row else 0)),
         )
 
+    def get_last_auto_backup(self) -> sqlite3.Row | None:
+        try:
+            return self._conn.execute(
+                "SELECT backed_up_at, file_path, file_size_bytes FROM startup_backups ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        except Exception:
+            return None
+
     # ── Dashboard Cards ────────────────────────────────────────────────
 
     def get_dashboard_cards(self) -> list[sqlite3.Row]:
