@@ -287,7 +287,7 @@
       <div class="wf-section-label">Cash Receipts</div>
       <div class="wf-flow">
         {% set monthly_cash = [
-          ("2", "💳", "Post Payments", "Record owner payments and apply to open charges.", "/deposit-batch", "Deposits", "green", "Cash"),
+          ("2", "💳", "Post Payments", "Record all owner payments — checks, ACH auto-deposits, and online payments. Use 'ACH' or the bank ref number in the Check # / Ref field.", "/deposit-batch", "Deposits", "green", "Cash"),
           ("3", "💰", "Other Income", "Interest, resale fees, or any non-dues income.", "/income-batch", "Non-Dues Income", "green", "Cash"),
         ] %}
         {% for num, icon, title, desc, href, link_label, color, tag in monthly_cash %}
@@ -307,8 +307,8 @@
       <div class="wf-section-label">Vendor Payables</div>
       <div class="wf-flow">
         {% set monthly_vendors = [
-          ("4", "🧾", "Enter Bills", "Record invoices from landscaping, management, utilities, etc.", "/vendor-bill-new", "Vendor Bills", "rose", "Payables"),
-          ("5", "💸", "Pay Bills", "Record checks or ACH payments against open bills.", "/vendor-bills", "Pay Bills", "rose", "Payables"),
+          ("4", "🧾", "Enter Bills", "Record invoices — landscaping, management, utilities, etc. For auto-drafts enter the bill when the invoice arrives, or on the draft date if no invoice.", "/vendor-bill-new", "Vendor Bills", "rose", "Payables"),
+          ("5", "💸", "Pay Bills", "Record check or ACH payment against open bills. Use 'ACH' or 'AUTO-DRAFT' as the check number for electronic payments.", "/vendor-bills", "Pay Bills", "rose", "Payables"),
         ] %}
         {% for num, icon, title, desc, href, link_label, color, tag in monthly_vendors %}
         <div class="wf-step-wrap">
@@ -714,6 +714,37 @@
       <div class="wf-tip">
         <span class="wf-tip__icon">💡</span>
         <span><strong>Why HOAs pay tax on interest:</strong> Most HOAs are exempt from federal income tax on dues, assessments, and late fees — those are considered member income. But <em>interest income</em> earned on reserve or operating accounts, and any income from non-members (facility rentals, resale fees, etc.), is typically taxable. Consult your CPA each year; the threshold and rate depend on your HOA's filing status (Form 1120-H vs 1120).</span>
+      </div>
+
+      {# ── ACH / auto-draft tips ── #}
+      <div class="wf-section-label" style="margin-top:2rem;">ACH &amp; Auto-Drafts — Outgoing Bills and Incoming Owner Payments</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem;">
+
+        <div style="background:var(--surface-muted);border:1.5px solid var(--border);border-radius:8px;padding:.9rem 1rem;">
+          <div style="font-weight:700;font-size:.82rem;margin-bottom:.5rem;color:var(--text);">🏦 Auto-Draft Bills (Outgoing ACH)</div>
+          <div style="font-size:.8rem;color:var(--text-subtle);line-height:1.6;">
+            <p style="margin:.25rem 0;"><strong>Invoice arrives before draft:</strong> Enter the vendor bill when the invoice arrives. On the draft date, go to Pay Bills and record the payment — use <code>ACH</code> or <code>AUTO-DRAFT</code> as the check number.</p>
+            <p style="margin:.25rem 0;"><strong>No invoice, found at reconciliation:</strong> Enter the vendor bill <em>and</em> payment together on the draft date. Use the bank transaction description as the memo.</p>
+            <p style="margin:.25rem 0;"><strong>Recurring monthly (utilities, management fee):</strong> Same process every month — enter bill, pay bill, use <code>ACH</code>. The vendor history builds up naturally.</p>
+          </div>
+          <a href="/vendor-bill-new" style="font-size:.78rem;font-weight:600;color:var(--accent);text-decoration:none;margin-top:.5rem;display:inline-block;">Enter Vendor Bill →</a>
+        </div>
+
+        <div style="background:var(--surface-muted);border:1.5px solid var(--border);border-radius:8px;padding:.9rem 1rem;">
+          <div style="font-weight:700;font-size:.82rem;margin-bottom:.5rem;color:var(--text);">💳 Owner ACH Payments (Incoming)</div>
+          <div style="font-size:.8rem;color:var(--text-subtle);line-height:1.6;">
+            <p style="margin:.25rem 0;"><strong>How it works:</strong> Owner auto-pays via their bank's bill pay or ACH. The money lands in your checking account just like a check deposit.</p>
+            <p style="margin:.25rem 0;"><strong>How to record it:</strong> Use the normal Deposits / Payments page. Select the owner's lot, enter the amount, and put <code>ACH</code> or the bank's confirmation number in the Check # / Ref field.</p>
+            <p style="margin:.25rem 0;"><strong>Timing:</strong> Record it on the date the bank received it (the settlement date shown in online banking), not the date the owner initiated it.</p>
+          </div>
+          <a href="/deposit-batch" style="font-size:.78rem;font-weight:600;color:var(--accent);text-decoration:none;margin-top:.5rem;display:inline-block;">Post Payments →</a>
+        </div>
+
+      </div>
+      <div class="wf-tip">
+        <span class="wf-tip__icon">💡</span>
+        <span><strong>At reconciliation:</strong> Both auto-drafts and owner ACH payments show up on the bank statement exactly like checks and deposits. Match them the same way — your book entry date should match the bank's settlement date, and the amount must be exact. If an auto-draft amount changed (e.g. utility bill was higher), update the vendor bill amount before marking it paid.</span>
       </div>
 
       {# ── Reserve fund adjustment ── #}
