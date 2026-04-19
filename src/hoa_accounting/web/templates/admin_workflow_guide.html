@@ -137,6 +137,62 @@
 .wge-modal__actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-4); }
 </style>
 
+{# ── Card fields macro ─────────────────────────────────────────── #}
+{% macro card_fields(sections, card) %}
+  <div class="wge-grid-3" style="margin-bottom:var(--sp-2);">
+    <div class="wge-field" style="margin:0;">
+      <label>Step # / Label</label>
+      <input type="text" name="num_label" placeholder="1, Q2, Y5…" maxlength="6"
+             value="{{ card.num_label if card else '' }}">
+    </div>
+    <div class="wge-field" style="margin:0;">
+      <label>Icon (emoji)</label>
+      <input type="text" name="icon" placeholder="📋" maxlength="4"
+             value="{{ card.icon if card else '' }}">
+    </div>
+    <div class="wge-field" style="margin:0;">
+      <label>Color</label>
+      <select name="color">
+        {% for c in ['blue','green','amber','rose','violet','teal','slate'] %}
+          <option value="{{ c }}" {% if card and card.color == c %}selected{% endif %}>{{ c | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="wge-field">
+    <label>Title *</label>
+    <input type="text" name="title" required placeholder="e.g. Post ACH Payment"
+           value="{{ card.title if card else '' }}">
+  </div>
+  <div class="wge-field">
+    <label>Description</label>
+    <textarea name="description" rows="2" placeholder="What this step does and why">{{ card.description if card else '' }}</textarea>
+  </div>
+  <div class="wge-grid-2">
+    <div class="wge-field" style="margin:0;">
+      <label>Link URL <span style="font-weight:400;color:var(--text-subtle)">(leave blank for manual tasks)</span></label>
+      <input type="text" name="href" placeholder="/deposit-batch or https://bank.com"
+             value="{{ card.href if card and card.href != '#' else '' }}">
+    </div>
+    <div class="wge-field" style="margin:0;">
+      <label>Button Label <span style="font-weight:400;color:var(--text-subtle)">(e.g. "Post Payments")</span></label>
+      <input type="text" name="link_label" placeholder="Post Payments"
+             value="{{ card.link_label if card else '' }}">
+    </div>
+  </div>
+  <div class="wge-field">
+    <label>Section</label>
+    <select name="section_id">
+      {% for sec in sections %}
+        <option value="{{ sec.id }}"
+          {% if card and card.section_id == sec.id %}selected{% endif %}>
+          {{ sec.tab_label }} → {{ sec.label }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
 <div class="wge-wrap">
 
   {% if flash %}
@@ -365,62 +421,6 @@
     </form>
   </div>
 </div>
-
-{# ── Card fields macro ─────────────────────────────────────────── #}
-{% macro card_fields(sections, card) %}
-  <div class="wge-grid-3" style="margin-bottom:var(--sp-2);">
-    <div class="wge-field" style="margin:0;">
-      <label>Step # / Label</label>
-      <input type="text" name="num_label" placeholder="1, Q2, Y5…" maxlength="6"
-             value="{{ card.num_label if card else '' }}">
-    </div>
-    <div class="wge-field" style="margin:0;">
-      <label>Icon (emoji)</label>
-      <input type="text" name="icon" placeholder="📋" maxlength="4"
-             value="{{ card.icon if card else '' }}">
-    </div>
-    <div class="wge-field" style="margin:0;">
-      <label>Color</label>
-      <select name="color">
-        {% for c in ['blue','green','amber','rose','violet','teal','slate'] %}
-          <option value="{{ c }}" {% if card and card.color == c %}selected{% endif %}>{{ c | capitalize }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-  <div class="wge-field">
-    <label>Title *</label>
-    <input type="text" name="title" required placeholder="e.g. Post ACH Payment"
-           value="{{ card.title if card else '' }}">
-  </div>
-  <div class="wge-field">
-    <label>Description</label>
-    <textarea name="description" rows="2" placeholder="What this step does and why">{{ card.description if card else '' }}</textarea>
-  </div>
-  <div class="wge-grid-2">
-    <div class="wge-field" style="margin:0;">
-      <label>Link URL <span style="font-weight:400;color:var(--text-subtle)">(leave blank for manual tasks)</span></label>
-      <input type="text" name="href" placeholder="/deposit-batch or https://bank.com"
-             value="{{ card.href if card and card.href != '#' else '' }}">
-    </div>
-    <div class="wge-field" style="margin:0;">
-      <label>Button Label <span style="font-weight:400;color:var(--text-subtle)">(e.g. "Post Payments")</span></label>
-      <input type="text" name="link_label" placeholder="Post Payments"
-             value="{{ card.link_label if card else '' }}">
-    </div>
-  </div>
-  <div class="wge-field">
-    <label>Section</label>
-    <select name="section_id">
-      {% for sec in sections %}
-        <option value="{{ sec.id }}"
-          {% if card and card.section_id == sec.id %}selected{% endif %}>
-          {{ sec.tab_label }} → {{ sec.label }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
-{% endmacro %}
 
 <script>
 var activeTabId = {{ active_tab_id }};
