@@ -148,8 +148,8 @@
     {# ── Lines ────────────────────────────────────────────────────── #}
     <div class="panel">
       <div class="panel__header">
-        <div class="panel__title">Lines
-          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:.5rem;">
+        <div class="panel__title" id="lines-panel-title">Lines
+          <span id="lines-panel-sub" style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:.5rem;">
             Each line is either a Debit <em>or</em> a Credit — not both.
           </span>
         </div>
@@ -158,7 +158,7 @@
         </div>
       </div>
 
-      {# Guidance bar — updates dynamically after line 1 account is selected #}
+      {# Guidance bar — updates dynamically #}
       <div id="balance-guidance" style="display:none;padding:.4rem .75rem;
            font-size:12px;background:var(--accent-subtle);border-bottom:1px solid var(--accent-border);">
       </div>
@@ -167,11 +167,13 @@
         <table id="lines-table">
           <thead>
             <tr>
+              <th class="col-role" style="display:none;width:22%;font-size:11px;color:var(--text-muted);">Role</th>
               <th style="width:35%;">Account</th>
-              <th style="width:24%;">Description</th>
-              <th style="width:13%;text-align:right;">Debit</th>
-              <th style="width:13%;text-align:right;">Credit</th>
-              <th style="width:11%;">Type hint</th>
+              <th class="col-desc" style="width:24%;">Description</th>
+              <th class="col-amount" style="display:none;width:15%;text-align:right;">Amount</th>
+              <th class="col-debit" style="width:13%;text-align:right;">Debit</th>
+              <th class="col-credit" style="width:13%;text-align:right;">Credit</th>
+              <th class="col-hint" style="width:11%;">Type hint</th>
               <th style="width:4%;"></th>
             </tr>
           </thead>
@@ -179,7 +181,10 @@
             {% for i in range(lines|length) %}
               {% set n = i + 1 %}
               {% set ln = lines[i] %}
-              <tr data-line="{{ n }}">
+              <tr data-line="{{ n }}" data-side="">
+                <td class="col-role" style="display:none;">
+                  <span class="je-role-label" style="font-size:11px;font-weight:600;color:var(--text-muted);"></span>
+                </td>
                 <td>
                   <select name="account_id_{{ n }}" class="je-account" style="font-size:12px;">
                     <option value="">— select account —</option>
@@ -204,26 +209,31 @@
                     {% endfor %}
                   </select>
                 </td>
-                <td>
+                <td class="col-desc">
                   <input type="text" name="description_{{ n }}"
                          value="{{ ln.description }}" maxlength="255"
                          style="font-size:12px;">
                 </td>
-                <td>
+                <td class="col-amount" style="display:none;">
+                  <input type="number" class="je-amount"
+                         style="text-align:right;font-size:13px;font-weight:600;"
+                         min="0" step="0.01" placeholder="0.00">
+                </td>
+                <td class="col-debit">
                   <input type="number" name="debit_{{ n }}"
                          class="je-debit"
                          style="text-align:right;font-size:12px;"
                          value="{{ ln.debit }}"
                          min="0" step="0.01" placeholder="0.00">
                 </td>
-                <td>
+                <td class="col-credit">
                   <input type="number" name="credit_{{ n }}"
                          class="je-credit"
                          style="text-align:right;font-size:12px;"
                          value="{{ ln.credit }}"
                          min="0" step="0.01" placeholder="0.00">
                 </td>
-                <td>
+                <td class="col-hint">
                   <span class="je-type-hint" style="font-size:11px;color:var(--text-muted);"></span>
                 </td>
                 <td style="text-align:center;">
@@ -233,7 +243,7 @@
               </tr>
             {% endfor %}
           </tbody>
-          <tfoot>
+          <tfoot id="lines-tfoot">
             <tr>
               <td colspan="2" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
               <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;" id="total-debits">0.00</td>
@@ -246,7 +256,7 @@
 
       <div style="padding:.75rem 1rem;display:flex;gap:.5rem;align-items:center;border-top:1px solid var(--border);">
         <button type="button" id="add-line-btn" class="btn btn--ghost btn--sm">+ Add Line</button>
-        <span style="font-size:.8rem;color:var(--text-muted);">Minimum 2 lines · Total debits must equal total credits</span>
+        <span id="lines-footer-hint" style="font-size:.8rem;color:var(--text-muted);">Minimum 2 lines · Total debits must equal total credits</span>
       </div>
     </div>
   </form>
@@ -399,6 +409,49 @@
     updateGuidance();
   }
 
+  // ── Guided mode state ─────────────────────────────────────────────
+  var guidedMode = false;
+
+  function setGuidedMode(on) {
+    guidedMode = on;
+    var cols = ["col-role", "col-amount", "col-debit", "col-credit", "col-hint", "col-desc"];
+    // toggle header cells
+    document.querySelectorAll("#lines-table thead th").forEach(function (th) {
+      if (th.classList.contains("col-role"))   th.style.display = on ? "" : "none";
+      if (th.classList.contains("col-amount")) th.style.display = on ? "" : "none";
+      if (th.classList.contains("col-debit"))  th.style.display = on ? "none" : "";
+      if (th.classList.contains("col-credit")) th.style.display = on ? "none" : "";
+      if (th.classList.contains("col-hint"))   th.style.display = on ? "none" : "";
+      if (th.classList.contains("col-desc"))   th.style.display = on ? "none" : "";
+    });
+    // toggle body cells
+    document.querySelectorAll("#lines-body tr").forEach(function (tr) {
+      _applyGuidedCells(tr, on);
+    });
+    // footer / hints
+    document.getElementById("lines-tfoot").style.display = on ? "none" : "";
+    var sub = document.getElementById("lines-panel-sub");
+    sub.style.display = on ? "none" : "";
+    var footHint = document.getElementById("lines-footer-hint");
+    footHint.style.display = on ? "none" : "";
+    document.getElementById("add-line-btn").style.display = on ? "none" : "";
+  }
+
+  function _applyGuidedCells(tr, on) {
+    var role   = tr.querySelector(".col-role");
+    var amount = tr.querySelector(".col-amount");
+    var debit  = tr.querySelector(".col-debit");
+    var credit = tr.querySelector(".col-credit");
+    var hint   = tr.querySelector(".col-hint");
+    var desc   = tr.querySelector(".col-desc");
+    if (role)   role.style.display   = on ? "" : "none";
+    if (amount) amount.style.display = on ? "" : "none";
+    if (debit)  debit.style.display  = on ? "none" : "";
+    if (credit) credit.style.display = on ? "none" : "";
+    if (hint)   hint.style.display   = on ? "none" : "";
+    if (desc)   desc.style.display   = on ? "none" : "";
+  }
+
   // ── Add / remove lines ────────────────────────────────────────────
   function currentLineCount() {
     return document.querySelectorAll("#lines-body tr").length;
@@ -422,6 +475,31 @@
     });
     tr.querySelector(".je-debit").addEventListener("input", updateTotals);
     tr.querySelector(".je-credit").addEventListener("input", updateTotals);
+    // Amount input (guided mode) — mirrors to all rows and routes to DR/CR
+    var amtInp = tr.querySelector(".je-amount");
+    if (amtInp) {
+      amtInp.addEventListener("input", function () {
+        onAmountInput(tr, amtInp.value);
+      });
+      amtInp.addEventListener("focus", function () { amtInp.select(); });
+    }
+  }
+
+  function onAmountInput(sourceTr, rawVal) {
+    var val = rawVal;
+    var rows = document.querySelectorAll("#lines-body tr");
+    rows.forEach(function (tr) {
+      var side   = tr.dataset.side || "debit";
+      var dInp   = tr.querySelector(".je-debit");
+      var cInp   = tr.querySelector(".je-credit");
+      var aInp   = tr.querySelector(".je-amount");
+      // mirror amount to every row in guided mode
+      if (tr !== sourceTr && aInp) aInp.value = val;
+      // route to correct DR/CR hidden input
+      if (side === "debit")  { if (dInp) dInp.value = val; if (cInp) cInp.value = ""; }
+      else                   { if (cInp) cInp.value = val; if (dInp) dInp.value = ""; }
+    });
+    updateTotals();
   }
 
   function addLine(opts) {
@@ -430,18 +508,45 @@
     var n = currentLineCount() + 1;
     var tr = document.createElement("tr");
     tr.setAttribute("data-line", n);
+    if (opts.side) tr.dataset.side = opts.side;
+
+    // Role cell
+    var tdRole = document.createElement("td");
+    tdRole.className = "col-role";
+    tdRole.style.display = guidedMode ? "" : "none";
+    var roleSpan = document.createElement("span");
+    roleSpan.className = "je-role-label";
+    roleSpan.style.cssText = "font-size:11px;font-weight:600;color:var(--text-muted);";
+    roleSpan.textContent = opts.roleLabel || "";
+    tdRole.appendChild(roleSpan);
 
     var tdAccount = document.createElement("td");
     tdAccount.appendChild(buildSelect("account_id_" + n, opts.accountId || ""));
 
+    // Desc cell
     var tdDesc = document.createElement("td");
+    tdDesc.className = "col-desc";
+    tdDesc.style.display = guidedMode ? "none" : "";
     var dscInp = document.createElement("input");
     dscInp.type = "text"; dscInp.name = "description_" + n;
     dscInp.style.fontSize = "12px"; dscInp.maxLength = 255;
     dscInp.value = opts.description || "";
     tdDesc.appendChild(dscInp);
 
+    // Amount cell (guided)
+    var tdAmount = document.createElement("td");
+    tdAmount.className = "col-amount";
+    tdAmount.style.display = guidedMode ? "" : "none";
+    var aInp = document.createElement("input");
+    aInp.type = "number"; aInp.className = "je-amount";
+    aInp.style.cssText = "text-align:right;font-size:13px;font-weight:600;";
+    aInp.min = "0"; aInp.step = "0.01"; aInp.placeholder = "0.00";
+    tdAmount.appendChild(aInp);
+
+    // Debit cell
     var tdDebit = document.createElement("td");
+    tdDebit.className = "col-debit";
+    tdDebit.style.display = guidedMode ? "none" : "";
     var dInp = document.createElement("input");
     dInp.type = "number"; dInp.name = "debit_" + n;
     dInp.className = "je-debit";
@@ -450,7 +555,10 @@
     dInp.value = opts.debit || "";
     tdDebit.appendChild(dInp);
 
+    // Credit cell
     var tdCredit = document.createElement("td");
+    tdCredit.className = "col-credit";
+    tdCredit.style.display = guidedMode ? "none" : "";
     var cInp = document.createElement("input");
     cInp.type = "number"; cInp.name = "credit_" + n;
     cInp.className = "je-credit";
@@ -459,7 +567,10 @@
     cInp.value = opts.credit || "";
     tdCredit.appendChild(cInp);
 
+    // Hint cell
     var tdHint = document.createElement("td");
+    tdHint.className = "col-hint";
+    tdHint.style.display = guidedMode ? "none" : "";
     var hintSpan = document.createElement("span");
     hintSpan.className = "je-type-hint";
     hintSpan.style.fontSize = "11px";
@@ -473,8 +584,10 @@
     btn.title = "Remove line"; btn.textContent = "×";
     tdBtn.appendChild(btn);
 
+    tr.appendChild(tdRole);
     tr.appendChild(tdAccount);
     tr.appendChild(tdDesc);
+    tr.appendChild(tdAmount);
     tr.appendChild(tdDebit);
     tr.appendChild(tdCredit);
     tr.appendChild(tdHint);
@@ -549,6 +662,7 @@
     var callout = document.getElementById("scenario-callout");
     if (!tpl || tpl.id === "blank") {
       callout.style.display = "none";
+      setGuidedMode(false);
       return;
     }
 
@@ -562,23 +676,36 @@
     var memoEl = document.getElementById("memo");
     if (!memoEl.value.trim() && tpl.memo) memoEl.value = tpl.memo;
 
+    // Enter guided mode BEFORE building rows so addLine() uses correct display
+    setGuidedMode(true);
+
     // Rebuild lines from template
     var tbody = document.getElementById("lines-body");
     while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
     document.getElementById("line-count-field").value = 0;
 
-    tpl.lines.forEach(function (lineDef) {
+    tpl.lines.forEach(function (lineDef, idx) {
       var accountId = findAccountId(lineDef.account_match);
-      var tr = addLine({ accountId: accountId || "" });
-      var descInput = tr.querySelector("input[type=text]");
-      if (descInput) {
-        descInput.value = "";
-        descInput.placeholder = lineDef.hint || "";
-      }
+      var flowStep  = (tpl.flow || [])[idx];
+      var roleLabel = flowStep
+        ? (flowStep.side === "DEBIT" ? "DR · " : "CR · ") + flowStep.label
+        : (lineDef.side === "debit" ? "DR" : "CR");
+      var tr = addLine({
+        accountId: accountId || "",
+        side: lineDef.side,
+        roleLabel: roleLabel,
+      });
+      // set placeholder on the desc input (still in DOM, just hidden)
+      var descInput = tr.querySelector(".col-desc input");
+      if (descInput) descInput.placeholder = lineDef.hint || "";
     });
 
     while (currentLineCount() < 2) addLine({});
     updateTotals();
+
+    // Focus the first amount input
+    var firstAmt = document.querySelector(".je-amount");
+    if (firstAmt) setTimeout(function () { firstAmt.focus(); firstAmt.select(); }, 50);
   }
 
   document.getElementById("template-picker").addEventListener("change", function () {
