@@ -360,11 +360,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # ── Page routes ───────────────────────────────────────────────────────
 
     def _open_dashboard() -> DashboardPages:
-        conn = _open_db()
-        fiscal_year = int(org_context.get("fiscal_year_start_month", 1))
         from datetime import date
-        fy = date.today().year
-        return DashboardPages(conn, fy)
+        conn = _open_db()
+        start_month = int(org_context.get("fiscal_year_start_month", 1))
+        today = date.today()
+        fy = today.year if today.month >= start_month else today.year - 1
+        return DashboardPages(conn, fiscal_year=fy, fy_start_month=start_month)
 
     @app.get("/")
     def home() -> Response:

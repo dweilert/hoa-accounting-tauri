@@ -111,7 +111,7 @@ class DashboardRepository:
             status=row["status"],
         )
 
-    def get_budget_tile(self, fiscal_year: int) -> BudgetTile | None:
+    def get_budget_tile(self, fiscal_year: int, fy_start_month: int = 1) -> BudgetTile | None:
         budget_row = self._conn.execute(
             """
             SELECT SUM(bl.budget_amount) AS total
@@ -124,6 +124,19 @@ class DashboardRepository:
         if not budget_row or not budget_row["total"]:
             return None
 
+        # Build fiscal-year date range: FY starts on fy_start_month/1 of fiscal_year.
+        # For a Jan-start FY this is Jan 1 – Dec 31 of fiscal_year.
+        # For a Jul-start FY this is Jul 1 of fiscal_year – Jun 30 of fiscal_year+1.
+        fy_start = f"{fiscal_year}-{fy_start_month:02d}-01"
+        if fy_start_month == 1:
+            fy_end = f"{fiscal_year}-12-31"
+        else:
+            end_year = fiscal_year + 1
+            end_month = fy_start_month - 1
+            import calendar as _cal
+            last_day = _cal.monthrange(end_year, end_month)[1]
+            fy_end = f"{end_year}-{end_month:02d}-{last_day:02d}"
+
         actual_row = self._conn.execute(
             """
             SELECT COALESCE(SUM(jl.debit_amount - jl.credit_amount), 0) AS spent
@@ -132,9 +145,10 @@ class DashboardRepository:
             JOIN account_types at ON at.id = a.account_type_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE at.code = 'EXPENSE'
-              AND strftime('%Y', je.entry_date) = ?
+              AND je.entry_date >= ?
+              AND je.entry_date <= ?
             """,
-            (str(fiscal_year),),
+            (fy_start, fy_end),
         ).fetchone()
 
         return BudgetTile(

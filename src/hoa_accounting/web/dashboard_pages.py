@@ -43,10 +43,11 @@ class PageResponse:
 
 
 class DashboardPages:
-    def __init__(self, conn: sqlite3.Connection, fiscal_year: int) -> None:
+    def __init__(self, conn: sqlite3.Connection, fiscal_year: int, fy_start_month: int = 1) -> None:
         self._conn = conn
         self._repo = DashboardRepository(conn)
         self._fiscal_year = fiscal_year
+        self._fy_start_month = fy_start_month
 
     def _render(self, template: str, **ctx) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
@@ -57,7 +58,7 @@ class DashboardPages:
         profile = self._repo.get_hoa_profile()
         bank_tiles = self._repo.get_bank_tiles()
         last_recon = self._repo.get_last_reconciliation()
-        budget_tile = self._repo.get_budget_tile(self._fiscal_year)
+        budget_tile = self._repo.get_budget_tile(self._fiscal_year, self._fy_start_month)
         last_auto_backup = self._repo.get_last_auto_backup()
         cards = self._repo.get_dashboard_cards()
 
