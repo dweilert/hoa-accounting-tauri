@@ -4,794 +4,192 @@
 
 {% block topbar_meta %}
   <span class="pill pill--muted">HOA Treasurer's Playbook</span>
+  <a href="/admin/workflow-guide" style="font-size:12px;font-weight:500;color:var(--text-subtle);text-decoration:none;margin-left:var(--sp-3);">⚙ Edit</a>
 {% endblock %}
 
 {% block content %}
 <style>
-  /* ── Tab nav ────────────────────────────────────────────────────── */
   .wf-tabs {
-    display: flex;
-    gap: .5rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 2px solid var(--border);
-    padding-bottom: 0;
+    display: flex; gap: .5rem; margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border); padding-bottom: 0;
   }
   .wf-tab {
-    padding: .55rem 1.2rem;
-    border-radius: 6px 6px 0 0;
-    border: 1px solid transparent;
-    border-bottom: none;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: .9rem;
-    background: none;
-    color: var(--text-subtle);
-    position: relative;
-    bottom: -2px;
+    padding: .55rem 1.2rem; border-radius: 6px 6px 0 0;
+    border: 1px solid transparent; border-bottom: none;
+    cursor: pointer; font-weight: 600; font-size: .9rem;
+    background: none; color: var(--text-subtle);
+    position: relative; bottom: -2px;
     transition: color .15s, background .15s;
   }
   .wf-tab:hover { color: var(--accent); background: var(--surface-muted); }
   .wf-tab.active {
-    background: var(--surface);
-    border-color: var(--border);
-    color: var(--accent);
-    border-bottom-color: var(--surface);
+    background: var(--surface); border-color: var(--border);
+    color: var(--accent); border-bottom-color: var(--surface);
   }
   .wf-panel { display: none; }
   .wf-panel.active { display: block; }
 
-  /* ── Flow lane ──────────────────────────────────────────────────── */
   .wf-flow {
-    display: flex;
-    align-items: flex-start;
-    gap: 0;
-    overflow-x: auto;
-    padding: .5rem 0 1.5rem;
+    display: flex; align-items: flex-start; gap: 0;
+    overflow-x: auto; padding: .5rem 0 1.5rem;
   }
-  .wf-step-wrap {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  /* ── Step card ──────────────────────────────────────────────────── */
+  .wf-step-wrap { display: flex; align-items: center; flex-shrink: 0; }
   .wf-step {
-    width: 160px;
-    border-radius: 10px;
-    border: 2px solid var(--border);
-    background: var(--surface);
-    padding: 1rem .9rem .85rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: .4rem;
-    position: relative;
+    width: 160px; border-radius: 10px; border: 2px solid var(--border);
+    background: var(--surface); padding: 1rem .9rem .85rem;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; gap: .4rem; position: relative;
     transition: transform .15s, box-shadow .15s, border-color .15s;
   }
-  .wf-step:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 18px rgba(0,0,0,.12);
-    border-color: var(--accent);
-  }
-  .wf-step a {
-    text-decoration: none;
-    color: inherit;
-  }
-  .wf-step a::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 8px;
-  }
-
-  .wf-step__icon {
-    font-size: 1.8rem;
-    line-height: 1;
-    margin-bottom: .1rem;
-  }
+  .wf-step:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.12); border-color: var(--accent); }
+  .wf-step a { text-decoration: none; color: inherit; }
+  .wf-step a::after { content: ''; position: absolute; inset: 0; border-radius: 8px; }
+  .wf-step__icon { font-size: 1.8rem; line-height: 1; margin-bottom: .1rem; }
   .wf-step__num {
-    position: absolute;
-    top: -.7rem;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 1.4rem;
-    height: 1.4rem;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    font-size: .72rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute; top: -.7rem; left: 50%; transform: translateX(-50%);
+    width: 1.4rem; height: 1.4rem; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: .72rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
     box-shadow: 0 2px 6px rgba(0,0,0,.18);
   }
-  .wf-step__title {
-    font-weight: 700;
-    font-size: .85rem;
-    color: var(--text);
-    line-height: 1.2;
-  }
-  .wf-step__desc {
-    font-size: .73rem;
-    color: var(--text-subtle);
-    line-height: 1.4;
-  }
-  .wf-step__tag {
-    font-size: .65rem;
-    font-weight: 700;
-    letter-spacing: .04em;
-    padding: .15rem .5rem;
-    border-radius: 20px;
-    margin-top: .2rem;
-  }
-  .wf-step__link {
-    font-size: .72rem;
-    color: var(--accent);
-    font-weight: 600;
-    margin-top: .25rem;
-  }
+  .wf-step__title { font-weight: 700; font-size: .85rem; color: var(--text); line-height: 1.2; }
+  .wf-step__desc { font-size: .73rem; color: var(--text-subtle); line-height: 1.4; }
+  .wf-step__link { font-size: .72rem; color: var(--accent); font-weight: 600; margin-top: .25rem; }
 
-  /* color variants */
-  .wf-step--blue  { border-color: #3b82f6; }
-  .wf-step--blue .wf-step__num { background: #3b82f6; }
-  .wf-step--green { border-color: #16a34a; }
-  .wf-step--green .wf-step__num { background: #16a34a; }
-  .wf-step--amber { border-color: #d97706; }
-  .wf-step--amber .wf-step__num { background: #d97706; }
-  .wf-step--rose  { border-color: #e11d48; }
-  .wf-step--rose .wf-step__num { background: #e11d48; }
-  .wf-step--violet{ border-color: #7c3aed; }
-  .wf-step--violet .wf-step__num { background: #7c3aed; }
-  .wf-step--teal  { border-color: #0d9488; }
-  .wf-step--teal .wf-step__num { background: #0d9488; }
-  .wf-step--slate { border-color: #475569; }
-  .wf-step--slate .wf-step__num { background: #475569; }
+  .wf-step--blue   { border-color: #3b82f6; }  .wf-step--blue   .wf-step__num { background: #3b82f6; }
+  .wf-step--green  { border-color: #16a34a; }  .wf-step--green  .wf-step__num { background: #16a34a; }
+  .wf-step--amber  { border-color: #d97706; }  .wf-step--amber  .wf-step__num { background: #d97706; }
+  .wf-step--rose   { border-color: #e11d48; }  .wf-step--rose   .wf-step__num { background: #e11d48; }
+  .wf-step--violet { border-color: #7c3aed; }  .wf-step--violet .wf-step__num { background: #7c3aed; }
+  .wf-step--teal   { border-color: #0d9488; }  .wf-step--teal   .wf-step__num { background: #0d9488; }
+  .wf-step--slate  { border-color: #475569; }  .wf-step--slate  .wf-step__num { background: #475569; }
 
-  .tag--blue   { background:#eff6ff; color:#1d4ed8; }
-  .tag--green  { background:#f0fdf4; color:#15803d; }
-  .tag--amber  { background:#fffbeb; color:#b45309; }
-  .tag--rose   { background:#fff1f2; color:#be123c; }
-  .tag--violet { background:#f5f3ff; color:#5b21b6; }
-  .tag--teal   { background:#f0fdfa; color:#0f766e; }
-  .tag--slate  { background:#f1f5f9; color:#334155; }
+  .wf-arrow { display: flex; align-items: center; padding: 0 .35rem; color: var(--text-subtle); font-size: 1.3rem; flex-shrink: 0; margin-top: 1.2rem; }
 
-  /* ── Arrow connector ────────────────────────────────────────────── */
-  .wf-arrow {
-    display: flex;
-    align-items: center;
-    padding: 0 .35rem;
-    color: var(--text-subtle);
-    font-size: 1.3rem;
-    flex-shrink: 0;
-    margin-top: 1.2rem;
-  }
-
-  /* ── Section labels ─────────────────────────────────────────────── */
   .wf-section-label {
-    font-size: .7rem;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: var(--text-subtle);
+    font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-subtle);
     margin: 1.4rem 0 .6rem;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
+    display: flex; align-items: center; gap: .5rem;
   }
-  .wf-section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+  .wf-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  /* ── Summary legend ─────────────────────────────────────────────── */
-  .wf-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem 1.2rem;
-    margin-top: 1.5rem;
-    padding: .9rem 1rem;
-    background: var(--surface-muted);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-  }
-  .wf-legend__item {
-    display: flex;
-    align-items: center;
-    gap: .45rem;
-    font-size: .78rem;
-    color: var(--text-subtle);
-  }
-  .wf-legend__dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  /* ── Callout tips ───────────────────────────────────────────────── */
   .wf-tip {
-    display: flex;
-    align-items: flex-start;
-    gap: .7rem;
-    padding: .75rem 1rem;
-    background: var(--surface-muted);
-    border-left: 3px solid var(--accent);
-    border-radius: 0 6px 6px 0;
-    font-size: .82rem;
-    color: var(--text-subtle);
-    line-height: 1.5;
-    margin-top: .75rem;
+    display: flex; align-items: flex-start; gap: .7rem;
+    padding: .75rem 1rem; background: var(--surface-muted);
+    border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+    font-size: .82rem; color: var(--text-subtle); line-height: 1.5; margin-top: .75rem;
   }
   .wf-tip__icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .05rem; }
 
-  /* ── Milestone banner ───────────────────────────────────────────── */
   .wf-milestone {
-    display: inline-flex;
-    align-items: center;
-    gap: .5rem;
-    padding: .35rem .9rem;
-    border-radius: 20px;
-    font-size: .78rem;
-    font-weight: 700;
-    margin: .6rem 0 .2rem;
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .35rem .9rem; border-radius: 20px;
+    font-size: .78rem; font-weight: 700; margin: .6rem 0 .2rem;
   }
   .wf-milestone--green { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
   .wf-milestone--blue  { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
   .wf-milestone--amber { background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; }
+
+  .wf-no-link { font-size: .72rem; color: var(--text-subtle); margin-top: .25rem; font-style: italic; }
 </style>
 
-{# ── Tab switcher ──────────────────────────────────────────────────────── #}
 <div class="wf-tabs" id="wf-tabs">
-  <button class="wf-tab active" data-panel="monthly">📅 Monthly Cycle</button>
-  <button class="wf-tab" data-panel="quarter">📊 Quarter Close</button>
-  <button class="wf-tab" data-panel="yearend">🏁 Year-End</button>
-  <button class="wf-tab" data-panel="adjustments">⚡ Exceptions</button>
+  {% for tab in tabs %}
+    <button class="wf-tab{% if loop.first %} active{% endif %}" data-panel="{{ tab.tab_key }}">
+      {% if tab.icon %}{{ tab.icon }} {% endif %}{{ tab.label }}
+    </button>
+  {% endfor %}
 </div>
 
-{# ════════════════════════════════════════════════════════════════════════
-   PANEL 1 — MONTHLY CYCLE
-   ════════════════════════════════════════════════════════════════════════ #}
-<div class="wf-panel active" id="panel-monthly">
+{% for tab in tabs %}
+<div class="wf-panel{% if loop.first %} active{% endif %}" id="panel-{{ tab.tab_key }}">
   <div class="panel">
     <div class="panel__header">
       <div>
-        <div class="panel__title">Monthly Cycle</div>
-        <div class="panel__description">Run these 8 steps every month, roughly in order. Special assessments, late fees, and one-off adjustments live in the <strong>Exceptions</strong> tab — only use those when needed.</div>
+        <div class="panel__title">{{ tab.label }}</div>
+        {% if tab.description %}<div class="panel__description">{{ tab.description }}</div>{% endif %}
       </div>
     </div>
     <div class="panel__body" style="padding:1rem 1.25rem 1.5rem;">
 
-      <div class="wf-section-label">Billing</div>
-      <div class="wf-flow">
-        {% set monthly_billing = [
-          ("1", "🏠", "Bill Dues", "Post monthly assessment for every active lot.", "/dues-billing", "Bill Dues", "blue", "Billing"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in monthly_billing %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
+      {% if not loop.first and tab.tab_key in ('quarter', 'yearend') %}
+        <div class="wf-tip" style="margin-top:0;margin-bottom:1rem;">
+          <span class="wf-tip__icon">↩</span>
+          {% if tab.tab_key == 'quarter' %}
+            <span>First, complete all <strong>8 Monthly Cycle steps</strong> through "Close Period." Then continue here.</span>
+          {% else %}
+            <span>First, complete all <strong>Monthly</strong> and <strong>Quarter-End</strong> steps through the final period of the fiscal year. Then continue below.</span>
+          {% endif %}
         </div>
-        {% endfor %}
-      </div>
+      {% endif %}
 
-      <div class="wf-section-label">Cash Receipts</div>
-      <div class="wf-flow">
-        {% set monthly_cash = [
-          ("2", "💳", "Post Payments", "Record all owner payments — checks, ACH auto-deposits, and online payments. Use 'ACH' or the bank ref number in the Check # / Ref field.", "/deposit-batch", "Deposits", "green", "Cash"),
-          ("3", "💰", "Other Income", "Interest, resale fees, or any non-dues income.", "/income-batch", "Non-Dues Income", "green", "Cash"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in monthly_cash %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-section-label">Vendor Payables</div>
-      <div class="wf-flow">
-        {% set monthly_vendors = [
-          ("4", "🧾", "Enter Bills", "Record invoices — landscaping, management, utilities, etc. For auto-drafts enter the bill when the invoice arrives, or on the draft date if no invoice.", "/vendor-bill-new", "Vendor Bills", "rose", "Payables"),
-          ("5", "💸", "Pay Bills", "Record check or ACH payment against open bills. Use 'ACH' or 'AUTO-DRAFT' as the check number for electronic payments.", "/vendor-bills", "Pay Bills", "rose", "Payables"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in monthly_vendors %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-section-label">Month-End Close</div>
-      <div class="wf-flow">
-        {% set monthly_close = [
-          ("6", "🏦", "Reconcile Bank", "Match your book balance to the bank statement.", "/reconciliation-new", "Reconcile", "teal", "Close"),
-          ("7", "📨", "Owner PDFs", "Generate and publish monthly owner ledger statements.", "/batch-pdf", "Publish PDFs", "teal", "Close"),
-          ("8", "🔒", "Close Period", "Lock the accounting period so no entries can be changed.", "/accounting-periods", "Periods", "slate", "Close"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in monthly_close %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-milestone wf-milestone--green">✓ Month complete — rinse and repeat</div>
-
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Tip:</strong> Step 1 can be done as early as the 1st of the month. Steps 2–5 happen throughout the month as payments and bills arrive. Steps 6–8 wait until you have the bank statement in hand, usually by the 10th of the following month. For special assessments or late fees, use the <strong>Exceptions</strong> tab.</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ════════════════════════════════════════════════════════════════════════
-   PANEL 2 — QUARTER CLOSE
-   ════════════════════════════════════════════════════════════════════════ #}
-<div class="wf-panel" id="panel-quarter">
-  <div class="panel">
-    <div class="panel__header">
-      <div>
-        <div class="panel__title">Quarter Close</div>
-        <div class="panel__description">After completing the regular monthly cycle for March, June, September, or December, run these additional quarter-end steps.</div>
-      </div>
-    </div>
-    <div class="panel__body" style="padding:1rem 1.25rem 1.5rem;">
-
-      <div class="wf-tip" style="margin-top:0;margin-bottom:1rem;">
-        <span class="wf-tip__icon">↩</span>
-        <span>First, complete all <strong>8 Monthly Cycle steps</strong> through "Close Period." Then continue here.</span>
-      </div>
-
-      <div class="wf-section-label">Receivables Review</div>
-      <div class="wf-flow">
-        {% set qtr_ar = [
-          ("Q1", "📬", "AR Aging Review", "Check AR by Lot for balances 30/60/90+ days overdue.", "/ar-lots", "AR by Lot", "blue", "AR"),
-          ("Q2", "⚖️", "Collection Follow-up", "Document outreach for delinquent owners per HOA policy.", "#", "AR Detail", "amber", "AR"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in qtr_ar %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-section-label">Financial Reporting</div>
-      <div class="wf-flow">
-        {% set qtr_reports = [
-          ("Q3", "📊", "Budget vs Actual", "Compare YTD spending to the approved budget.", "/reports", "Reports", "violet", "Reporting"),
-          ("Q4", "📈", "All Transactions", "Scan the full GL for any unexpected or miscoded entries.", "/all-transactions", "All Transactions", "violet", "Reporting"),
-          ("Q5", "📒", "Ledger by Account", "Spot-check key accounts: cash, AP, dues income, reserves.", "/account-ledger", "Account Ledger", "violet", "Reporting"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in qtr_reports %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-section-label">Reserve Health</div>
-      <div class="wf-flow">
-        {% set qtr_reserve = [
-          ("Q6", "🏦", "Reserve Transfer", "Move budgeted monthly amount from Operating to Reserve account.", "/reserve-transfer-new", "Reserve Transfers", "teal", "Reserve"),
-          ("Q7", "📐", "Reserve Study Check", "Review funding plan vs actual reserve balance.", "/reserve-study", "Reserve Study", "teal", "Reserve"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in qtr_reserve %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-milestone wf-milestone--blue">✓ Quarter closed — ready for board report</div>
-
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Board packet tip:</strong> Export the Budget vs Actual and Ledger by Account reports from the Reports page and attach them to your quarterly board meeting agenda. Most boards want to see these within 15 days of quarter end.</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ════════════════════════════════════════════════════════════════════════
-   PANEL 3 — YEAR-END
-   ════════════════════════════════════════════════════════════════════════ #}
-<div class="wf-panel" id="panel-yearend">
-  <div class="panel">
-    <div class="panel__header">
-      <div>
-        <div class="panel__title">Year-End Cycle</div>
-        <div class="panel__description">Runs December–January. Complete the final monthly and quarter-close first, then work through these year-end steps before opening the new fiscal year.</div>
-      </div>
-    </div>
-    <div class="panel__body" style="padding:1rem 1.25rem 1.5rem;">
-
-      <div class="wf-tip" style="margin-top:0;margin-bottom:1rem;">
-        <span class="wf-tip__icon">↩</span>
-        <span>First, complete all <strong>Monthly</strong> and <strong>Quarter-End</strong> steps through the final period of the fiscal year. Then continue below.</span>
-      </div>
-
-      <div class="wf-section-label">Wrap Up the Closing Year</div>
-      <div class="wf-flow">
-        {% set ye_close = [
-          ("Y1", "🔍", "Final AR Sweep", "Confirm all owner payments posted; identify write-offs if any.", "/ar-lots", "AR by Lot", "blue", "Close"),
-          ("Y2", "🧾", "Clear Open Bills", "Pay or void any outstanding vendor bills before year-end.", "/vendor-bills", "Vendor Bills", "rose", "Close"),
-          ("Y3", "📋", "Verify All Periods", "All 12 accounting periods must be closed before year-end close.", "/accounting-periods", "Periods", "slate", "Close"),
-          ("Y4", "🏁", "Year-End Close", "Post closing journal entries and lock the fiscal year.", "/year-end-close", "Year-End Close", "violet", "Close"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in ye_close %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-milestone wf-milestone--green">✓ Prior year closed</div>
-
-      <div class="wf-section-label">Plan the New Year</div>
-      <div class="wf-flow">
-        {% set ye_plan = [
-          ("Y5", "📐", "Update Reserve Study", "Refresh component costs, useful life, and funding plan.", "/reserve-study", "Reserve Study", "teal", "Planning"),
-          ("Y6", "📊", "Set New Budget", "Enter account-level budget figures for the new fiscal year.", "/budgets", "Budgets", "violet", "Planning"),
-          ("Y7", "💲", "Set New Dues", "Update default annual dues in System Settings.", "/system-settings", "System Settings", "amber", "Planning"),
-          ("Y8", "📦", "Backup Database", "Download a full database backup before the new year begins.", "/database-admin", "Database", "slate", "Planning"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in ye_plan %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-section-label">Open the New Year</div>
-      <div class="wf-flow">
-        {% set ye_open = [
-          ("Y9", "📅", "Open New Period", "Create January accounting period for the new fiscal year.", "/accounting-period-new", "New Period", "green", "New Year"),
-          ("Y10", "🏠", "Bill January Dues", "Post the first dues billing of the new year.", "/dues-billing", "Bill Dues", "green", "New Year"),
-          ("Y11", "📨", "Notify Owners", "Publish December statements and new-year dues notice via PDF.", "/batch-pdf", "Publish PDFs", "green", "New Year"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color, tag in ye_open %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="wf-milestone wf-milestone--amber">🎉 New fiscal year is open — back to the monthly cycle</div>
-
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Timeline:</strong> Aim to complete Y1–Y4 by January 15. Steps Y5–Y8 can run in parallel with the first weeks of January. Present the new budget and dues to the board before billing owners in Y10.</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ════════════════════════════════════════════════════════════════════════
-   PANEL 4 — ADJUSTMENTS & WRITE-OFFS
-   ════════════════════════════════════════════════════════════════════════ #}
-<div class="wf-panel" id="panel-adjustments">
-  <div class="panel">
-    <div class="panel__header">
-      <div>
-        <div class="panel__title">Exceptions</div>
-        <div class="panel__description">These workflows don't happen every month — only run them when the situation calls for it. Keeping these out of the Monthly Cycle prevents confusion about what's routine vs. occasional.</div>
-      </div>
-    </div>
-    <div class="panel__body" style="padding:1rem 1.25rem 1.5rem;">
-
-      {# ── Special Assessments ── #}
-      <div class="wf-section-label">Special Assessments — Extra Charges Beyond Monthly Dues</div>
-      <div class="wf-flow">
-        {% set sa_steps = [
-          ("1", "🗳️", "Board Approval", "Obtain board resolution authorizing the special assessment — amount, purpose, and due date.", "#", "Document only", "amber"),
-          ("2", "📋", "Bill All or Select Lots", "Use 'Bill All' for a flat amount across every lot, or enter individual amounts per lot.", "/bill-assessments", "Bill Assessments", "blue"),
-          ("3", "💳", "Post Payments", "As owners pay, record deposits and apply to the open special assessment charge.", "/deposit-batch", "Deposits", "green"),
-          ("4", "📬", "Follow Up on Overdue", "Check AR by Lot after the due date — treat unpaid special assessments the same as overdue dues.", "/ar-lots", "AR by Lot", "rose"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in sa_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Accounting:</strong> A special assessment posts DR Accounts Receivable / CR Assessment Income — identical to monthly dues, just a different description. The board resolution is your paper trail; keep it on file.</span>
-      </div>
-
-      {# ── Late Fee Sweep ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Late Fee Sweep — Charge Delinquent Owners</div>
-      <div class="wf-flow">
-        {% set lfs_steps = [
-          ("1", "📬", "Review AR Aging", "Check AR by Lot to identify which owners are past due by your policy threshold (e.g. 30 days).", "/ar-lots", "AR by Lot", "blue"),
-          ("2", "⏰", "Run Late Fee Sweep", "Posts DR Accounts Receivable / CR Late Fee Income per delinquent owner. Income is recognized now.", "/late-fees", "Late Fees", "amber"),
-          ("3", "📨", "Notify Owners", "Publish updated owner statements so each owner sees the late fee charge.", "/batch-pdf", "Publish PDFs", "teal"),
-          ("4", "💳", "Post Payment if Received", "When the owner pays, record it via Deposits — this reduces AR, it does not post new income.", "/deposit-batch", "Deposits", "green"),
-          ("5", "🗳️", "Waiver if Board Approves", "Reversing JE: DR Late Fee Income / CR Accounts Receivable. Attach the board resolution.", "/journal-entry-new", "New JE", "rose"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in lfs_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Key rule:</strong> Income is recognized at billing time (step 2). Collecting the fee in step 4 reduces AR — it does not post new income. This is the most common late-fee bookkeeping mistake.</span>
-      </div>
-
-      {# ── Write-off scenario ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Owner Write-Off — Uncollectable Balance</div>
-      <div class="wf-flow">
-        {% set wo_steps = [
-          ("1", "📬", "Age the Balance", "Confirm the amount is genuinely uncollectable — typically 90+ days with no payment or response.", "/ar-lots", "AR by Lot", "blue"),
-          ("2", "🗳️", "Board Approval", "Obtain written board approval to write off the balance. File the resolution in your records.", "#", "Document only", "amber"),
-          ("3", "✏️", "Journal Entry", "DR Bad Debt Expense / CR Accounts Receivable for the approved amount.", "/journal-entry-new", "New JE", "rose"),
-          ("4", "📋", "Note on Account", "Post a memo assessment of $0 with a description noting the write-off date and board resolution.", "/bill-assessments", "Bill Assessments", "slate"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in wo_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">📘</span>
-        <span><strong>Journal entry:</strong> Debit <em>Bad Debt Expense</em> (expense account), Credit <em>Accounts Receivable</em> (asset account) for the exact balance being written off. This removes the receivable from your books without touching cash.</span>
-      </div>
-
-      {# ── Correction / reclassification ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Coding Error — Reclassify an Expense</div>
-      <div class="wf-flow">
-        {% set rc_steps = [
-          ("1", "🔍", "Find the Entry", "Locate the original journal entry in All Transactions or Ledger by Account.", "/all-transactions", "All Transactions", "blue"),
-          ("2", "✏️", "Reversing JE", "Post a new JE that is the mirror image of the original — same amount, accounts swapped.", "/journal-entry-new", "New JE", "rose"),
-          ("3", "✏️", "Correcting JE", "Post another JE with the correct accounts. Use a memo that references the entry being corrected.", "/journal-entry-new", "New JE", "green"),
-          ("4", "🔒", "Verify Balance", "Check the Ledger by Account for both old and new accounts to confirm the reclassification netted to zero.", "/account-ledger", "Account Ledger", "slate"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in rc_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Why two entries?</strong> Always reverse-then-correct rather than editing the original. This preserves the audit trail — the Audit Log shows who changed what and when. Editing posted entries breaks your reconciliation history.</span>
-      </div>
-
-      {# ── Accrual / prepaid ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Accrual — Expense Incurred but Not Yet Billed</div>
-      <div class="wf-flow">
-        {% set ac_steps = [
-          ("1", "✏️", "Accrual JE", "At month-end, DR the expense account, CR Accrued Liabilities for the estimated amount.", "/journal-entry-new", "New JE", "amber"),
-          ("2", "✏️", "Reversal JE", "On the 1st of the next month, post the exact reverse: DR Accrued Liabilities, CR Expense.", "/journal-entry-new", "New JE", "rose"),
-          ("3", "🧾", "Enter the Bill", "When the actual invoice arrives, enter it as a normal Vendor Bill.", "/vendor-bill-new", "Vendor Bills", "green"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in ac_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">📘</span>
-        <span><strong>Common accruals for HOAs:</strong> management fee not yet invoiced, annual insurance premium split across months, or landscaping done in December but billed in January. Accruals match the expense to the month it was incurred — important for accurate budget-vs-actual reporting.</span>
-      </div>
-
-      {# ── Tax payment on interest income ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Income Tax Payment — Tax on Interest &amp; Non-Dues Income</div>
-      <div class="wf-flow">
-        {% set tax_steps = [
-          ("1", "✅", "Confirm Income Posted", "Verify the interest income journal entry is already posted. The income was recognized when the bank credited it — this tax payment is a separate expense.", "/all-transactions", "All Transactions", "blue"),
-          ("2", "📒", "Add Tax Expense Account", "If you don't have one, add 'Income Tax Expense' to the Chart of Accounts (type: Expense, fund: OPERATING).", "/accounts", "Chart of Accounts", "slate"),
-          ("3", "🏢", "Set Up Tax Vendor", "Add the IRS and/or your state taxing authority as a vendor if not already in the system.", "/vendors", "Vendors", "slate"),
-          ("4", "🧾", "Enter the Vendor Bill", "Vendor = IRS (or state). Expense account = Income Tax Expense. Amount = tax owed. Invoice # = your tax return or notice number.", "/vendor-bill-new", "Vendor Bills", "rose"),
-          ("5", "💸", "Pay the Bill", "Record the check payment against the open bill. Enter the check number for the paper trail.", "/vendor-bills", "Pay Bills", "rose"),
-          ("6", "📁", "File the Return", "Attach a copy of the filed return to your HOA records. The paid bill in the system is your books entry; the return is your legal filing.", "#", "Document only", "amber"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in tax_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Why HOAs pay tax on interest:</strong> Most HOAs are exempt from federal income tax on dues, assessments, and late fees — those are considered member income. But <em>interest income</em> earned on reserve or operating accounts, and any income from non-members (facility rentals, resale fees, etc.), is typically taxable. Consult your CPA each year; the threshold and rate depend on your HOA's filing status (Form 1120-H vs 1120).</span>
-      </div>
-
-      {# ── ACH / auto-draft tips ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">ACH &amp; Auto-Drafts — Outgoing Bills and Incoming Owner Payments</div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem;">
-
-        <div style="background:var(--surface-muted);border:1.5px solid var(--border);border-radius:8px;padding:.9rem 1rem;">
-          <div style="font-weight:700;font-size:.82rem;margin-bottom:.5rem;color:var(--text);">🏦 Auto-Draft Bills (Outgoing ACH)</div>
-          <div style="font-size:.8rem;color:var(--text-subtle);line-height:1.6;">
-            <p style="margin:.25rem 0;"><strong>Invoice arrives before draft:</strong> Enter the vendor bill when the invoice arrives. On the draft date, go to Pay Bills and record the payment — use <code>ACH</code> or <code>AUTO-DRAFT</code> as the check number.</p>
-            <p style="margin:.25rem 0;"><strong>No invoice, found at reconciliation:</strong> Enter the vendor bill <em>and</em> payment together on the draft date. Use the bank transaction description as the memo.</p>
-            <p style="margin:.25rem 0;"><strong>Recurring monthly (utilities, management fee):</strong> Same process every month — enter bill, pay bill, use <code>ACH</code>. The vendor history builds up naturally.</p>
-          </div>
-          <a href="/vendor-bill-new" style="font-size:.78rem;font-weight:600;color:var(--accent);text-decoration:none;margin-top:.5rem;display:inline-block;">Enter Vendor Bill →</a>
+      {% for sec in tab.sections %}
+        <div class="wf-section-label">{{ sec.label }}</div>
+        <div class="wf-flow">
+          {% for card in sec.cards %}
+            <div class="wf-step-wrap">
+              <div class="wf-step wf-step--{{ card.color }}">
+                {% if card.num_label %}<div class="wf-step__num">{{ card.num_label }}</div>{% endif %}
+                <div class="wf-step__icon">{{ card.icon }}</div>
+                <div class="wf-step__title">{{ card.title }}</div>
+                <div class="wf-step__desc">{{ card.description }}</div>
+                {% if card.link_label and card.href and card.href != '#' %}
+                  <a href="{{ card.href }}" class="wf-step__link">{{ card.link_label }} →</a>
+                {% elif card.link_label %}
+                  <span class="wf-no-link">{{ card.link_label }}</span>
+                {% endif %}
+              </div>
+              {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
+            </div>
+          {% endfor %}
         </div>
 
-        <div style="background:var(--surface-muted);border:1.5px solid var(--border);border-radius:8px;padding:.9rem 1rem;">
-          <div style="font-weight:700;font-size:.82rem;margin-bottom:.5rem;color:var(--text);">💳 Owner ACH Payments (Incoming)</div>
-          <div style="font-size:.8rem;color:var(--text-subtle);line-height:1.6;">
-            <p style="margin:.25rem 0;"><strong>How it works:</strong> Owner auto-pays via their bank's bill pay or ACH. The money lands in your checking account just like a check deposit.</p>
-            <p style="margin:.25rem 0;"><strong>How to record it:</strong> Use the normal Deposits / Payments page. Select the owner's lot, enter the amount, and put <code>ACH</code> or the bank's confirmation number in the Check # / Ref field.</p>
-            <p style="margin:.25rem 0;"><strong>Timing:</strong> Record it on the date the bank received it (the settlement date shown in online banking), not the date the owner initiated it.</p>
+        {% if sec.tip_text %}
+          <div class="wf-tip">
+            <span class="wf-tip__icon">💡</span>
+            <span>{{ sec.tip_text }}</span>
           </div>
-          <a href="/deposit-batch" style="font-size:.78rem;font-weight:600;color:var(--accent);text-decoration:none;margin-top:.5rem;display:inline-block;">Post Payments →</a>
-        </div>
+        {% endif %}
 
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>At reconciliation:</strong> Both auto-drafts and owner ACH payments show up on the bank statement exactly like checks and deposits. Match them the same way — your book entry date should match the bank's settlement date, and the amount must be exact. If an auto-draft amount changed (e.g. utility bill was higher), update the vendor bill amount before marking it paid.</span>
-      </div>
+        {# Milestone banners after last section of each tab #}
+        {% if loop.last %}
+          {% if tab.tab_key == 'monthly' %}
+            <div class="wf-milestone wf-milestone--green">✓ Month complete — rinse and repeat</div>
+          {% elif tab.tab_key == 'quarter' %}
+            <div class="wf-milestone wf-milestone--blue">✓ Quarter closed — ready for board report</div>
+          {% elif tab.tab_key == 'yearend' %}
+            <div class="wf-milestone wf-milestone--amber">🎉 New fiscal year is open — back to the monthly cycle</div>
+          {% endif %}
+        {% endif %}
 
-      {# ── Reserve fund adjustment ── #}
-      <div class="wf-section-label" style="margin-top:2rem;">Reserve Fund — When to Use a Journal Entry</div>
-      <div class="wf-flow">
-        {% set res_steps = [
-          ("1", "💸", "Reserve Spending", "A reserve component is repaired or replaced. Pay the vendor bill against the Reserve fund expense account.", "/vendor-bill-new", "Vendor Bills", "rose"),
-          ("2", "🏦", "Reserve Transfer", "Move the budgeted monthly contribution from Operating → Reserve bank account.", "/reserve-transfer-new", "Reserve Transfers", "teal"),
-          ("3", "✏️", "Interest Earned", "Bank interest credited to the reserve account: DR Reserve Cash, CR Interest Income.", "/journal-entry-new", "New JE", "green"),
-          ("4", "📐", "Update Study", "After a major expenditure, update the Reserve Study component.", "/reserve-study", "Reserve Study", "violet"),
-        ] %}
-        {% for num, icon, title, desc, href, link_label, color in res_steps %}
-        <div class="wf-step-wrap">
-          <div class="wf-step wf-step--{{ color }}">
-            <div class="wf-step__num">{{ num }}</div>
-            <div class="wf-step__icon">{{ icon }}</div>
-            <div class="wf-step__title">{{ title }}</div>
-            <div class="wf-step__desc">{{ desc }}</div>
-            <a href="{{ href }}" class="wf-step__link">{{ link_label }} →</a>
-          </div>
-          {% if not loop.last %}<div class="wf-arrow">›</div>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="wf-tip">
-        <span class="wf-tip__icon">💡</span>
-        <span><strong>Rule of thumb:</strong> Use the Reserve Transfer workflow for routine monthly contributions. Use a manual Journal Entry only for one-time items like interest income, insurance reimbursements, or corrections. Never move reserve funds to operating without a board resolution.</span>
-      </div>
+        {# Milestone after "Wrap Up" section in year-end #}
+        {% if tab.tab_key == 'yearend' and sec.label == 'Wrap Up the Closing Year' %}
+          <div class="wf-milestone wf-milestone--green">✓ Prior year closed</div>
+        {% endif %}
+
+      {% endfor %}
 
     </div>
   </div>
 </div>
+{% endfor %}
 
 <script>
-  (function () {
-    var tabs   = document.querySelectorAll(".wf-tab");
-    var panels = document.querySelectorAll(".wf-panel");
-    tabs.forEach(function (tab) {
-      tab.addEventListener("click", function () {
-        var target = tab.getAttribute("data-panel");
-        tabs.forEach(function (t) { t.classList.remove("active"); });
-        panels.forEach(function (p) { p.classList.remove("active"); });
-        tab.classList.add("active");
-        var panel = document.getElementById("panel-" + target);
-        if (panel) panel.classList.add("active");
-      });
+(function() {
+  var tabs   = document.querySelectorAll('.wf-tab');
+  var panels = document.querySelectorAll('.wf-panel');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = tab.getAttribute('data-panel');
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      var panel = document.getElementById('panel-' + target);
+      if (panel) panel.classList.add('active');
     });
-  })();
+  });
+})();
 </script>
 {% endblock %}

@@ -59,6 +59,7 @@ class DashboardPages:
         bank_tiles = self._repo.get_bank_tiles()
         last_recon = self._repo.get_last_reconciliation()
         budget_tile = self._repo.get_budget_tile(self._fiscal_year, self._fy_start_month)
+        budget_cat_tile = self._repo.get_budget_category_tile(self._fiscal_year, self._fy_start_month)
         last_auto_backup = self._repo.get_last_auto_backup()
         cards = self._repo.get_dashboard_cards()
         nudges = self._repo.get_next_action_nudges()
@@ -74,6 +75,7 @@ class DashboardPages:
             bank_tiles=bank_tiles,
             last_recon=last_recon,
             budget_tile=budget_tile,
+            budget_cat_tile=budget_cat_tile,
             last_auto_backup=last_auto_backup,
             cards=cards,
             nudges=nudges,
@@ -126,6 +128,7 @@ class DashboardPages:
                              error: str | None = None) -> PageResponse:
         cards = self._repo.get_all_catalog_cards()
         layout_cards = self._repo.get_dashboard_cards()
+        alert_settings = self._repo.get_alert_settings_list()
         card_types = [
             ("NAV",       "Navigation link"),
             ("REPORT",    "Report"),
@@ -140,6 +143,7 @@ class DashboardPages:
             heading="Dashboard Configuration",
             cards=cards,
             layout_cards=layout_cards,
+            alert_settings=alert_settings,
             colors=CARD_COLORS,
             card_types=card_types,
             report_choices=REPORT_CHOICES,
@@ -184,3 +188,7 @@ class DashboardPages:
         card_ids = [int(x) for x in raw.split(",") if x.strip().isdigit()]
         self._repo.save_layout(card_ids)
         return "/dashboard-config?msg=Layout+saved."
+
+    def handle_reset_layout(self) -> str:
+        self._repo.reset_layout()
+        return "/dashboard-config?msg=Layout+reset+to+default."

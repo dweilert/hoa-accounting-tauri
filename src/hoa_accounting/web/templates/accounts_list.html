@@ -29,7 +29,10 @@
           Every general ledger account the system posts to.
         </div>
       </div>
-      <a href="/accounts/add" class="btn btn--primary btn--sm">Add Account</a>
+      <div style="display:flex;gap:var(--sp-2);align-items:center;">
+        <a href="/accounts/add" class="btn btn--ghost btn--sm">+ Advanced</a>
+        <a href="/accounts/wizard" class="btn btn--primary btn--sm">⚙ Setup Wizard</a>
+      </div>
     </div>
 
     {% if accounts %}

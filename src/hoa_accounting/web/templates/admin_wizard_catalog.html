@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Wizard Catalog · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+/* ── Layout ───────────────────────────────────────────────────── */
+.wc-wrap { max-width: 900px; margin: 0 auto; }
+
+/* ── Step tabs ────────────────────────────────────────────────── */
+.wc-tabs {
+  display: flex; gap: 2px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: var(--sp-5);
+}
+.wc-tab {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border: none; background: none; color: var(--text-subtle);
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color .12s, border-color .12s;
+}
+.wc-tab:hover { color: var(--text); }
+.wc-tab.active { color: var(--accent); border-color: var(--accent); }
+
+/* ── Step panels ──────────────────────────────────────────────── */
+.wc-panel { display: none; }
+.wc-panel.active { display: block; }
+
+/* ── Option row ───────────────────────────────────────────────── */
+.wc-group-header {
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+.wc-group-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text-subtle); white-space: nowrap;
+}
+.wc-group-rule { flex: 1; border-top: 1px solid var(--border); opacity: .4; }
+
+.wc-option {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-1);
+  background: var(--surface);
+  transition: opacity .15s;
+}
+.wc-option.inactive { opacity: .45; }
+.wc-option__main { flex: 1; min-width: 0; }
+.wc-option__label {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  display: flex; align-items: center; gap: var(--sp-2);
+}
+.wc-option__desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.wc-option__accounts {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--sp-1);
+}
+.wc-acct-pill {
+  font-size: 10px; font-weight: 600; font-family: var(--mono, monospace);
+  padding: 1px 7px; border-radius: 10px;
+  background: var(--surface-muted); color: var(--text-subtle);
+  border: 1px solid var(--border);
+}
+.wc-acct-pill--reserve { background: #eff6ff; color: #3b82f6; border-color: #bfdbfe; }
+.wc-badge--system {
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px;
+  background: var(--surface-muted); color: var(--text-subtle); border: 1px solid var(--border);
+}
+.wc-badge--always {
+  font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px;
+  background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;
+}
+
+/* ── Actions ──────────────────────────────────────────────────── */
+.wc-option__actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.wc-btn-toggle {
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  cursor: pointer; background: var(--surface); color: var(--text-subtle);
+  white-space: nowrap;
+}
+.wc-btn-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+.wc-btn-toggle.is-on { color: #166534; border-color: #86efac; background: #f0fdf4; }
+.wc-btn-toggle.is-on:hover { background: #fef2f2; color: var(--danger); border-color: var(--danger); }
+.wc-btn-delete {
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: var(--radius-sm); border: 1px solid transparent;
+  cursor: pointer; background: none; color: var(--text-subtle); white-space: nowrap;
+}
+.wc-btn-delete:hover { color: var(--danger); }
+
+/* ── Add option card ──────────────────────────────────────────── */
+.wc-add-card {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+  margin-top: var(--sp-4);
+  background: var(--surface-muted);
+}
+.wc-add-card__title {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: var(--sp-3);
+}
+.wc-field { margin-bottom: var(--sp-2); }
+.wc-field label { font-size: 12px; font-weight: 600; color: var(--text-subtle); display: block; margin-bottom: 3px; }
+.wc-field input, .wc-field select, .wc-field textarea {
+  width: 100%; font-size: 13px;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+}
+.wc-field textarea { resize: vertical; min-height: 48px; }
+
+/* Account sub-rows */
+.wc-acct-rows { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.wc-acct-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 110px 110px auto;
+  gap: var(--sp-1);
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-2);
+}
+.wc-acct-row input, .wc-acct-row select {
+  font-size: 12px; padding: 3px 6px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--text);
+}
+.wc-acct-row__remove {
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; color: var(--text-subtle); padding: 0 4px; line-height: 1;
+}
+.wc-acct-row__remove:hover { color: var(--danger); }
+</style>
+
+<div class="wc-wrap">
+
+  {% if flash %}
+  <div class="alert alert--success" style="margin-bottom:var(--sp-4);">
+    <div class="alert__content">{{ flash }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+  {% endif %}
+
+  <p style="font-size:13px;color:var(--text-muted);margin-bottom:var(--sp-4);">
+    Manage the questions shown in the
+    <a href="/accounts/wizard">COA Setup Wizard</a>.
+    Built-in options can be toggled on/off. Custom options can be added or deleted.
+  </p>
+
+  {# ── Step tabs ─────────────────────────────────────────────── #}
+  <div class="wc-tabs">
+    {% for s in steps_data %}
+      <button type="button" class="wc-tab{% if s.number == active_step %} active{% endif %}"
+              onclick="switchTab({{ s.number }})">
+        {{ s.number }}. {{ s.label }}
+      </button>
+    {% endfor %}
+  </div>
+
+  {# ── Step panels ───────────────────────────────────────────── #}
+  {% for s in steps_data %}
+  <div class="wc-panel{% if s.number == active_step %} active{% endif %}" id="panel-{{ s.number }}">
+
+    {# Group options by group_id #}
+    {% set seen_groups = [] %}
+    {% for opt in s.options %}
+      {% if opt.group_id not in seen_groups %}
+        {% if seen_groups.append(opt.group_id) %}{% endif %}
+        {% set grp = s.groups | selectattr('group_id','equalto',opt.group_id) | first | default(None) %}
+        {% if grp and s.number == 4 %}
+          <div class="wc-group-header">
+            <span class="wc-group-title">{{ grp.label }}</span>
+            <div class="wc-group-rule"></div>
+          </div>
+        {% endif %}
+      {% endif %}
+
+      <div class="wc-option{% if not opt.is_active %} inactive{% endif %}">
+        <div class="wc-option__main">
+          <div class="wc-option__label">
+            {{ opt.label }}
+            {% if opt.is_always %}<span class="wc-badge--always">Always On</span>{% endif %}
+            {% if opt.is_system and not opt.is_always %}<span class="wc-badge--system">Built-in</span>{% endif %}
+          </div>
+          {% if opt.description %}
+            <div class="wc-option__desc">{{ opt.description }}</div>
+          {% endif %}
+          {% if opt.accounts %}
+            <div class="wc-option__accounts">
+              {% for a in opt.accounts %}
+                <span class="wc-acct-pill{% if a.is_reserve_account %} wc-acct-pill--reserve{% endif %}">
+                  {{ a.account_number }} {{ a.account_name }}
+                </span>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+        {% if not opt.is_always %}
+        <div class="wc-option__actions">
+          <button type="button"
+                  class="wc-btn-toggle{% if opt.is_active %} is-on{% endif %}"
+                  onclick="toggleOption(this, {{ opt.id }})">
+            {% if opt.is_active %}✓ Active{% else %}Off{% endif %}
+          </button>
+          {% if not opt.is_system %}
+          <form method="post" action="/admin/wizard-catalog/delete"
+                onsubmit="return confirm('Delete this option?')" style="margin:0;">
+            <input type="hidden" name="option_id" value="{{ opt.id }}">
+            <input type="hidden" name="active_step" value="{{ s.number }}">
+            <button type="submit" class="wc-btn-delete">Delete</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <p style="color:var(--text-muted);font-size:13px;">No options yet.</p>
+    {% endfor %}
+
+    {# ── Add new option form ──────────────────────────────────── #}
+    <div class="wc-add-card">
+      <div class="wc-add-card__title">+ Add a new option to Step {{ s.number }}: {{ s.label }}</div>
+      <form method="post" action="/admin/wizard-catalog/add-option" id="add-form-{{ s.number }}">
+        <input type="hidden" name="step" value="{{ s.number }}">
+
+        <div style="display:grid;grid-template-columns:1fr{% if s.number == 4 %} 200px{% endif %};gap:var(--sp-2);">
+          <div class="wc-field">
+            <label>Label <span style="color:var(--danger)">*</span></label>
+            <input type="text" name="label" placeholder="e.g. Rooftop Deck" required>
+          </div>
+          {% if s.number == 4 and s.groups %}
+          <div class="wc-field">
+            <label>Group</label>
+            <select name="group_id">
+              {% for g in s.groups %}
+                <option value="{{ g.group_id }}">{{ g.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% else %}
+          <input type="hidden" name="group_id" value="{{ s.groups[0].group_id if s.groups else '' }}">
+          {% endif %}
+        </div>
+
+        <div class="wc-field">
+          <label>Description</label>
+          <textarea name="description" rows="2" placeholder="Short description shown in the wizard"></textarea>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--text-subtle);margin:var(--sp-2) 0 var(--sp-1);">
+          Accounts to create when this option is selected
+          <button type="button" onclick="addAccountRow({{ s.number }})"
+                  style="margin-left:var(--sp-2);font-size:11px;font-weight:600;
+                         color:var(--accent);background:none;border:none;cursor:pointer;">
+            + Add account
+          </button>
+        </div>
+        <div class="wc-acct-rows" id="acct-rows-{{ s.number }}"></div>
+
+        <div style="margin-top:var(--sp-3);display:flex;justify-content:flex-end;">
+          <button type="submit" class="btn btn--primary btn--sm">Save Option</button>
+        </div>
+      </form>
+
+      {% if s.number == 4 %}
+      <div style="border-top:1px solid var(--border);margin-top:var(--sp-4);padding-top:var(--sp-3);">
+        <div style="font-size:12px;font-weight:700;color:var(--text-subtle);margin-bottom:var(--sp-2);">
+          + Add a new expense group
+        </div>
+        <form method="post" action="/admin/wizard-catalog/add-group"
+              style="display:flex;gap:var(--sp-2);align-items:flex-end;">
+          <input type="hidden" name="step" value="4">
+          <div class="wc-field" style="flex:1;margin:0;">
+            <input type="text" name="label" placeholder="Group name (e.g. Special Projects)">
+          </div>
+          <button type="submit" class="btn btn--ghost btn--sm">Add Group</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+
+</div>
+
+<script>
+var activeTab = {{ active_step }};
+
+function switchTab(n) {
+  document.querySelectorAll('.wc-tab').forEach(function(t, i) {
+    t.classList.toggle('active', i + 1 === n);
+  });
+  document.querySelectorAll('.wc-panel').forEach(function(p, i) {
+    p.classList.toggle('active', i + 1 === n);
+  });
+  activeTab = n;
+  history.replaceState(null, '', '/admin/wizard-catalog?step=' + n);
+}
+
+// Dynamic account row builder
+function toggleOption(btn, optionId) {
+  var fd = new FormData();
+  fd.append('option_id', optionId);
+  fd.append('active_step', activeTab);
+  fetch('/admin/wizard-catalog/toggle', {method: 'POST', body: fd})
+    .then(function() {
+      var on = btn.classList.toggle('is-on');
+      btn.textContent = on ? '✓ Active' : 'Off';
+      btn.closest('.wc-option').classList.toggle('inactive', !on);
+    });
+}
+
+var acctCounters = {};
+
+function addAccountRow(step) {
+  var container = document.getElementById('acct-rows-' + step);
+  var idx = acctCounters[step] || 0;
+  acctCounters[step] = idx + 1;
+
+  var row = document.createElement('div');
+  row.className = 'wc-acct-row';
+  row.innerHTML = [
+    '<input type="text" name="account_number_' + idx + '" placeholder="e.g. 5990" required>',
+    '<input type="text" name="account_name_' + idx + '" placeholder="Account name" required>',
+    '<select name="account_type_' + idx + '">',
+      '<option value="ASSET">Asset</option>',
+      '<option value="LIABILITY">Liability</option>',
+      '<option value="EQUITY">Equity</option>',
+      '<option value="INCOME">Income</option>',
+      '<option value="EXPENSE" selected>Expense</option>',
+    '</select>',
+    '<select name="fund_code_' + idx + '">',
+      '<option value="OPERATING" selected>Operating</option>',
+      '<option value="RESERVE">Reserve</option>',
+      '<option value="SPECIAL">Special</option>',
+    '</select>',
+    '<button type="button" class="wc-acct-row__remove" onclick="this.closest(\'.wc-acct-row\').remove()">×</button>',
+  ].join('');
+  container.appendChild(row);
+}
+</script>
+{% endblock %}

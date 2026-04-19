@@ -4,12 +4,56 @@
 
 {% block content %}
 <style>
-/* ── Two-panel layout ────────────────────────────────────────────── */
+/* ── Sticky zone 1: top bar with action buttons ──────────────── */
+.dc-topbar {
+  position: sticky;
+  top: var(--topbar-height, 56px);
+  z-index: 22;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: .45rem var(--sp-3);
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  align-items: center;
+}
+.dc-topbar__left  { display:flex; align-items:center; gap:var(--sp-2); }
+.dc-topbar__right { display:flex; align-items:center; gap:var(--sp-2); justify-content:flex-end; }
+.dc-topbar .btn { height: 28px; padding: 0 12px; font-size: 12px; line-height: 28px; white-space: nowrap; }
+
+/* ── Sticky zone 2: column sub-labels + section adder ───────── */
+.dc-subbar {
+  position: sticky;
+  top: calc(var(--topbar-height, 56px) + var(--dc-topbar-h, 42px));
+  z-index: 21;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  margin-bottom: var(--sp-3);
+  box-shadow: 0 2px 4px rgba(0,0,0,.06);
+}
+.dc-subbar__left  {
+  padding: var(--sp-2) var(--sp-3);
+  border-right: 1px solid var(--border);
+}
+.dc-subbar__right { padding: var(--sp-2) var(--sp-3); }
+
+/* ── Scrollable content columns ──────────────────────────────── */
 .dc-layout {
   display: grid;
   grid-template-columns: 420px 1fr;
   gap: var(--sp-4);
   align-items: start;
+}
+.dc-col {
+  overflow-y: auto;
+  max-height: calc(100vh - var(--topbar-height, 56px) - var(--dc-topbar-h, 42px) - var(--dc-subbar-h, 95px) - 2rem);
 }
 
 /* ── Catalog panel ───────────────────────────────────────────────── */
@@ -53,7 +97,9 @@
 .catalog-row__btn--add:hover  { background:var(--accent-subtle); }
 .catalog-row__btn--del  { color:var(--danger); border-color:var(--danger-border,#f5c2c2); }
 .catalog-row__btn--del:hover  { background:#fdf3f3; }
-.catalog-row__btn--on   { color:var(--text-subtle); cursor:default; }
+.catalog-row__btn--on   { color:#2d7a45; border-color:#2d7a45; cursor:pointer; }
+.catalog-row__btn--on:hover { background:#fdf3f3; color:var(--danger); border-color:var(--danger); }
+.catalog-row__btn--on:hover::before { content:'✕ '; }
 
 /* ── Dashboard list panel ────────────────────────────────────────── */
 .dc-list-panel { display:flex; flex-direction:column; gap:var(--sp-3); }
@@ -85,6 +131,18 @@
   border-style:dashed;
   border-left:4px solid var(--item-color,var(--text-subtle));
   font-style:italic;
+}
+.dc-item--fin {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:4px solid var(--item-color,var(--accent));
+  border-radius:var(--radius);
+  padding:6px var(--sp-2);
+  display:flex; align-items:center; gap:var(--sp-2);
+  font-size:13px; margin-bottom:4px;
+}
+.dc-fin-zone {
+  margin-bottom:2px;
 }
 .dc-item__handle { color:var(--text-subtle); font-size:14px; cursor:grab; flex-shrink:0; }
 .dc-item__dot    { flex-shrink:0; width:10px; height:10px; border-radius:50%; }
@@ -134,9 +192,9 @@
     {{ flash }}<button type="button" class="alert__close" aria-label="Dismiss">×</button>
   </div>
 {% endif %}
-{% if error_message or error %}
+{% if error %}
   <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
-    <div class="alert__content">{{ error_message or error }}</div>
+    <div class="alert__content">{{ error }}</div>
     <button type="button" class="alert__close" aria-label="Dismiss">×</button>
   </div>
 {% endif %}
@@ -153,7 +211,9 @@
     <div class="catalog-row__actions">
       {% if card.id in on_dash %}
         <button type="button" class="catalog-row__btn catalog-row__btn--on"
-                disabled id="add-btn-{{ card.id }}">✓ On</button>
+                onclick="removeCardById({{ card.id }})"
+                title="Click to remove from dashboard"
+                id="add-btn-{{ card.id }}">✓ On</button>
       {% else %}
         <button type="button" class="catalog-row__btn catalog-row__btn--add"
                 onclick="addCard({{ card.id }},'{{ card.title|e }}','{{ card.card_type }}','{{ card.color|e }}')"
@@ -175,116 +235,178 @@
   </div>
 {% endmacro %}
 
-<div class="panel" style="margin-bottom:1rem;">
-  <div class="panel__header">
-    <div class="panel__title">Dashboard Layout</div>
-    <div class="panel__description">
-      Click <strong>+</strong> to add a catalog card to the dashboard.
-      Drag the right column to reorder. Click <strong>×</strong> to remove.
-      Use <strong>Edit</strong> to change any card's title or border color.
-    </div>
+{# ── Sticky top bar: labels + action buttons ─────────────────── #}
+<div class="dc-topbar" id="dc-topbar">
+  <div class="dc-topbar__left">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">Card Catalog</span>
+    <button type="button" class="btn btn--ghost" onclick="showCardForm()">+ New Card</button>
   </div>
-
-  <div class="dc-layout">
-
-    {# ── Left: Card Catalog ──────────────────────────────────────── #}
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-2);">
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">Card Catalog</span>
-        <button type="button" class="btn btn--ghost" style="font-size:12px;padding:3px 10px;"
-                onclick="showCardForm()">+ New Card</button>
-      </div>
-
-      <div class="dc-catalog" id="catalog">
-
-        {% set fin_cards  = cards | selectattr('card_type','equalto','FINANCIAL') | list %}
-        {% set nav_sys    = cards | selectattr('card_type','equalto','NAV')       | selectattr('is_system','equalto',1) | list %}
-        {% set rpt_sys    = cards | selectattr('card_type','equalto','REPORT')    | selectattr('is_system','equalto',1) | list %}
-        {% set user_cards = cards | selectattr('is_system','equalto',0) | list %}
-
-        {% if fin_cards %}
-          <div class="dc-group-label">Financial Summary</div>
-          {% for card in fin_cards %}{{ cat_row(card,'FIN',false) }}{% endfor %}
-        {% endif %}
-
-        {% if nav_sys %}
-          <div class="dc-group-label">Quick Actions</div>
-          {% for card in nav_sys %}{{ cat_row(card,'NAV',false) }}{% endfor %}
-        {% endif %}
-
-        {% if rpt_sys %}
-          <div class="dc-group-label">Reports</div>
-          {% for card in rpt_sys %}{{ cat_row(card,'RPT',false) }}{% endfor %}
-        {% endif %}
-
-        {% if user_cards %}
-          <div class="dc-group-label">Custom Cards</div>
-          {% for card in user_cards %}{{ cat_row(card, card.card_type[:3]|upper, true) }}{% endfor %}
-        {% endif %}
-
-      </div>{# /catalog #}
-    </div>
-
-    {# ── Right: Cards on Dashboard ───────────────────────────────── #}
-    <div class="dc-list-panel">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">
-        Cards on Dashboard <span style="font-weight:400;">(drag to reorder)</span>
-      </div>
-
-      <div class="dc-list" id="dash-list">
-        {% if layout_cards %}
-          {% for card in layout_cards %}
-            <div class="dc-item{% if card.card_type=='SECTION' %} dc-item--section{% endif %}"
-                 draggable="true"
-                 data-card-id="{{ card.id }}"
-                 data-title="{{ card.title }}"
-                 data-type="{{ card.card_type }}"
-                 data-color="{{ card.color }}"
-                 style="--item-color:{{ card.color }};">
-              <span class="dc-item__handle">⠿</span>
-              <div class="dc-item__dot" style="background:{{ card.color }};"></div>
-              <span class="dc-item__title">{{ card.title }}</span>
-              <span class="dc-item__badge">{{ card.card_type[:3] }}</span>
-              <button type="button" class="dc-item__rm"
-                      onclick="removeCard(this, {{ card.id }})">×</button>
-            </div>
-          {% endfor %}
-        {% else %}
-          <div class="dc-list-empty" id="empty-msg">Click + on a catalog card to add it here</div>
-        {% endif %}
-      </div>
-
-      {# ── Section bar quick-add ─────────────────────────────────── #}
-      <form method="post" action="/dashboard-config/save-card" id="section-bar-form"
-            onsubmit="syncLayoutBeforeSubmit()">
-        <input type="hidden" name="card_type"          value="SECTION">
-        <input type="hidden" name="target_url"         value="">
-        <input type="hidden" name="report_name"        value="">
-        <input type="hidden" name="auto_add_to_layout" value="1">
-        <input type="hidden" name="current_layout"     id="current-layout-field" value="">
-        <div class="section-adder">
-          <span class="section-adder__label">Add section bar:</span>
-          <input type="color" name="color" value="#4a5462" id="section-color">
-          <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
-            <input type="text" name="title" placeholder="Bar label, e.g. BILLING" required
-                   style="font-weight:600;text-transform:uppercase;">
-            <input type="text" name="description" placeholder="Description shown above bar (optional)"
-                   style="font-size:11px;">
-          </div>
-          <button type="submit" class="btn btn--ghost"
-                  style="font-size:12px;padding:3px 10px;flex-shrink:0;align-self:flex-start;">
-            + Insert
-          </button>
-        </div>
-      </form>
-
-      <div style="display:flex;gap:var(--sp-2);">
-        <button type="button" class="btn btn--primary" id="save-layout-btn">Save Layout</button>
-        <a href="/" class="btn btn--ghost">View Dashboard</a>
-      </div>
-    </div>
+  <div class="dc-topbar__right">
+    <button type="button" class="btn btn--primary" id="save-layout-btn">Save Layout</button>
+    <button type="button" class="btn btn--ghost"
+            onclick="if(confirm('Reset to default layout? Your current layout will be replaced.')) { var f=document.createElement('form'); f.method='post'; f.action='/dashboard-config/reset-layout'; var c=document.createElement('input'); c.type='hidden'; c.name='_csrf_token'; c.value=window.csrfToken||''; f.appendChild(c); document.body.appendChild(f); f.submit(); }">
+      Reset to Default
+    </button>
+    <a href="/" class="btn btn--ghost">View Dashboard</a>
   </div>
 </div>
+
+{# ── Sticky sub-bar: column sub-labels + section adder ───────── #}
+<div class="dc-subbar" id="dc-subbar">
+  <div class="dc-subbar__left">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">Financial Summary &nbsp;·&nbsp; Quick Actions &nbsp;·&nbsp; Reports</span>
+  </div>
+  <div class="dc-subbar__right">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">
+      Cards on Dashboard <span style="font-weight:400;">(drag to reorder)</span>
+    </span>
+  </div>
+</div>
+
+{# ── Two-column content (each column scrolls independently) ──── #}
+<div class="dc-layout">
+
+  {# ── Left: Card Catalog ──────────────────────────────────────── #}
+  <div class="dc-col">
+    <div class="dc-catalog" id="catalog">
+      {% set fin_cards  = cards | selectattr('card_type','equalto','FINANCIAL') | sort(attribute='title') | list %}
+      {% set nav_sys    = cards | selectattr('card_type','equalto','NAV')       | selectattr('is_system','equalto',1) | sort(attribute='title') | list %}
+      {% set rpt_sys    = cards | selectattr('card_type','equalto','REPORT')    | selectattr('is_system','equalto',1) | sort(attribute='title') | list %}
+      {% set user_cards = cards | selectattr('is_system','equalto',0) | sort(attribute='title') | list %}
+
+      {% if fin_cards %}
+        <div class="dc-group-label">Financial Summary</div>
+        {% for card in fin_cards %}{{ cat_row(card,'FIN',false) }}{% endfor %}
+      {% endif %}
+      {% if nav_sys %}
+        <div class="dc-group-label">Quick Actions</div>
+        {% for card in nav_sys %}{{ cat_row(card,'NAV',false) }}{% endfor %}
+      {% endif %}
+      {% if rpt_sys %}
+        <div class="dc-group-label">Reports</div>
+        {% for card in rpt_sys %}{{ cat_row(card,'RPT',false) }}{% endfor %}
+      {% endif %}
+      {% if user_cards %}
+        <div class="dc-group-label">Custom Cards</div>
+        {% for card in user_cards %}{{ cat_row(card, card.card_type[:3]|upper, true) }}{% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Right: Cards on Dashboard ─────────────────────────────── #}
+  <div class="dc-col">
+    <form method="post" action="/dashboard-config/save-card" id="section-bar-form"
+          onsubmit="syncLayoutBeforeSubmit()" style="margin-bottom:var(--sp-2);">
+      <input type="hidden" name="card_type"          value="SECTION">
+      <input type="hidden" name="target_url"         value="">
+      <input type="hidden" name="report_name"        value="">
+      <input type="hidden" name="auto_add_to_layout" value="1">
+      <input type="hidden" name="current_layout"     id="current-layout-field" value="">
+      <div class="section-adder">
+        <span class="section-adder__label">Add section bar:</span>
+        <input type="color" name="color" value="#4a5462" id="section-color">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+          <input type="text" name="title" placeholder="Bar label, e.g. BILLING" required
+                 style="font-weight:600;text-transform:uppercase;">
+          <input type="text" name="description" placeholder="Description shown above bar (optional)"
+                 style="font-size:11px;">
+        </div>
+        <button type="submit" class="btn btn--ghost"
+                style="font-size:12px;padding:3px 10px;flex-shrink:0;align-self:flex-start;">
+          + Insert
+        </button>
+      </div>
+    </form>
+    {# ── Financial cards: always pinned at top ──────────────────── #}
+    {% set fin_layout = layout_cards | selectattr('card_type','equalto','FINANCIAL') | list %}
+    {% set act_layout = layout_cards | rejectattr('card_type','equalto','FINANCIAL') | list %}
+    <div class="dc-fin-zone" id="fin-zone">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);padding:4px 2px 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+        Financial Summary <span style="font-weight:400;font-style:italic;">(always first)</span>
+      </div>
+      {% for card in fin_layout %}
+        <div class="dc-item dc-item--fin"
+             data-card-id="{{ card.id }}"
+             data-title="{{ card.title }}"
+             data-type="{{ card.card_type }}"
+             data-color="{{ card.color }}"
+             style="--item-color:{{ card.color }};">
+          <div class="dc-item__dot" style="background:{{ card.color }};"></div>
+          <span class="dc-item__title">{{ card.title }}</span>
+          <span class="dc-item__badge">FIN</span>
+          <button type="button" class="dc-item__rm"
+                  onclick="removeCard(this, {{ card.id }})">×</button>
+        </div>
+      {% endfor %}
+      {% if not fin_layout %}
+        <div style="font-size:12px;color:var(--text-subtle);padding:6px 2px;">No financial tiles added — click + in the catalog</div>
+      {% endif %}
+    </div>
+
+    {# ── Divider ─────────────────────────────────────────────────── #}
+    <div style="display:flex;align-items:center;gap:var(--sp-2);margin:6px 0;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);white-space:nowrap;">Activity Cards</div>
+      <div style="flex:1;border-top:1px solid var(--border);opacity:.5;"></div>
+    </div>
+
+    {# ── Activity cards: draggable ────────────────────────────────── #}
+    <div class="dc-list" id="dash-list">
+      {% if act_layout %}
+        {% for card in act_layout %}
+          <div class="dc-item{% if card.card_type=='SECTION' %} dc-item--section{% endif %}"
+               draggable="true"
+               data-card-id="{{ card.id }}"
+               data-title="{{ card.title }}"
+               data-type="{{ card.card_type }}"
+               data-color="{{ card.color }}"
+               style="--item-color:{{ card.color }};">
+            <span class="dc-item__handle">⠿</span>
+            <div class="dc-item__dot" style="background:{{ card.color }};"></div>
+            <span class="dc-item__title">{{ card.title }}</span>
+            <span class="dc-item__badge">{{ card.card_type[:3] }}</span>
+            <button type="button" class="dc-item__rm"
+                    onclick="removeCard(this, {{ card.id }})">×</button>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="dc-list-empty" id="empty-msg">Click + on a catalog card to add it here</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{# ── Alert Banner Settings ────────────────────────────────────────── #}
+{% if alert_settings %}
+<div class="panel" style="margin-bottom:1rem;margin-top:var(--sp-4);">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Alert Banners</div>
+      <div class="panel__description">
+        Choose which alerts appear at the top of the dashboard. Alerts can be dismissed for the current session — they reappear the next time the app is opened.
+      </div>
+    </div>
+  </div>
+  <form method="post" action="/dashboard-config/save-alert-settings" style="padding:var(--sp-3) var(--sp-4);">
+    <div style="display:flex;flex-direction:column;gap:.6rem;margin-bottom:var(--sp-3);">
+      {% for a in alert_settings %}
+      <label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;">
+        <input type="checkbox" name="enabled_alerts" value="{{ a.alert_key }}"
+               {% if a.enabled %}checked{% endif %}
+               style="margin-top:.2rem;flex-shrink:0;">
+        <span>
+          <span style="font-weight:600;font-size:13px;">{{ a.label }}</span>
+          {% if a.description %}
+          <span style="display:block;font-size:12px;color:var(--text-muted);margin-top:.1rem;">{{ a.description }}</span>
+          {% endif %}
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn--primary btn--sm">Save Alert Settings</button>
+  </form>
+</div>
+{% endif %}
 
 {# ── Create / Edit Card Form ─────────────────────────────────────── #}
 <div class="panel" id="card-form-panel" style="display:none;margin-bottom:1rem;">
@@ -403,16 +525,34 @@ function editCard(id, title, desc, type, url, report, color) {
 }
 
 // ── Dashboard list management ────────────────────────────────────────
-var listEl = document.getElementById('dash-list');
+var listEl  = document.getElementById('dash-list');
+var finZone = document.getElementById('fin-zone');
 
 function syncLayoutField() {
-  var order = Array.from(listEl.querySelectorAll('[data-card-id]'))
-                   .map(function(s){ return s.dataset.cardId; }).join(',');
-  document.getElementById('current-layout-field').value = order;
+  // Financial IDs always first, then activity cards in drag order
+  var finIds = Array.from(finZone.querySelectorAll('[data-card-id]'))
+                    .map(function(s){ return s.dataset.cardId; });
+  var actIds = Array.from(listEl.querySelectorAll('[data-card-id]'))
+                    .map(function(s){ return s.dataset.cardId; });
+  document.getElementById('current-layout-field').value = finIds.concat(actIds).join(',');
 }
 syncLayoutField(); // init
 
 function syncLayoutBeforeSubmit() { syncLayoutField(); }
+
+function makeFinItem(cardId, title, color) {
+  var div = document.createElement('div');
+  div.className = 'dc-item dc-item--fin';
+  div.dataset.cardId = String(cardId);
+  div.dataset.type = 'FINANCIAL';
+  div.style.setProperty('--item-color', color);
+  div.innerHTML =
+    '<div class="dc-item__dot" style="background:' + color + ';"></div>' +
+    '<span class="dc-item__title">' + title + '</span>' +
+    '<span class="dc-item__badge">FIN</span>' +
+    '<button type="button" class="dc-item__rm" onclick="removeCard(this,' + cardId + ')">×</button>';
+  return div;
+}
 
 function makeItem(cardId, title, type, color) {
   var div = document.createElement('div');
@@ -434,19 +574,39 @@ function makeItem(cardId, title, type, color) {
 }
 
 function addCard(cardId, title, type, color) {
-  if (listEl.querySelector('[data-card-id="' + cardId + '"]')) return;
-  var empty = document.getElementById('empty-msg');
-  if (empty) empty.remove();
-  listEl.appendChild(makeItem(cardId, title, type, color));
+  // Route financial cards to the pinned top zone
+  if (type === 'FINANCIAL') {
+    if (finZone.querySelector('[data-card-id="' + cardId + '"]')) return;
+    // Remove "no financial tiles" placeholder if present
+    var ph = finZone.querySelector('div[style*="font-size:12px"]');
+    if (ph) ph.remove();
+    finZone.appendChild(makeFinItem(cardId, title, color));
+  } else {
+    if (listEl.querySelector('[data-card-id="' + cardId + '"]')) return;
+    var empty = document.getElementById('empty-msg');
+    if (empty) empty.remove();
+    listEl.appendChild(makeItem(cardId, title, type, color));
+  }
   syncLayoutField();
   var btn = document.getElementById('add-btn-' + cardId);
-  if (btn) { btn.textContent = '✓ On'; btn.className = 'catalog-row__btn catalog-row__btn--on'; btn.disabled = true; btn.onclick = null; }
+  if (btn) { btn.textContent = '✓ On'; btn.className = 'catalog-row__btn catalog-row__btn--on'; btn.onclick = function(){ removeCardById(cardId); }; }
+}
+
+function removeCardById(cardId) {
+  // Check both zones
+  var item = finZone.querySelector('[data-card-id="' + cardId + '"]') ||
+             listEl.querySelector('[data-card-id="' + cardId + '"]');
+  if (item) {
+    var rmBtn = item.querySelector('.dc-item__rm');
+    if (rmBtn) rmBtn.click();
+  }
 }
 
 function removeCard(btn, cardId) {
   var item = btn.closest('.dc-item');
+  var inFinZone = item && finZone.contains(item);
   if (item) item.remove();
-  if (!listEl.querySelector('.dc-item')) {
+  if (!inFinZone && !listEl.querySelector('.dc-item')) {
     var empty = document.createElement('div');
     empty.id = 'empty-msg'; empty.className = 'dc-list-empty';
     empty.textContent = 'Click + on a catalog card to add it here';
@@ -503,6 +663,18 @@ listEl.addEventListener('drop', function(e) {
   e.preventDefault(); listEl.classList.remove('dc-list--over');
 });
 
+// ── Measure sticky bars so columns get correct max-height ─────────────
+(function () {
+  function measureBars() {
+    var t = document.getElementById('dc-topbar');
+    var s = document.getElementById('dc-subbar');
+    if (t) document.documentElement.style.setProperty('--dc-topbar-h', t.offsetHeight + 'px');
+    if (s) document.documentElement.style.setProperty('--dc-subbar-h', s.offsetHeight + 'px');
+  }
+  measureBars();
+  window.addEventListener('resize', measureBars);
+})();
+
 // ── Save layout ──────────────────────────────────────────────────────
 document.getElementById('save-layout-btn').addEventListener('click', function() {
   syncLayoutField();
@@ -512,6 +684,9 @@ document.getElementById('save-layout-btn').addEventListener('click', function() 
   var inp = document.createElement('input');
   inp.type = 'hidden'; inp.name = 'layout_order'; inp.value = order;
   form.appendChild(inp);
+  var csrf = document.createElement('input');
+  csrf.type = 'hidden'; csrf.name = '_csrf_token'; csrf.value = window.csrfToken || '';
+  form.appendChild(csrf);
   document.body.appendChild(form);
   form.submit();
 });

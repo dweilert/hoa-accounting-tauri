@@ -119,13 +119,22 @@
         </div>
       {% endfor %}
 
-    {% elif card.report_name == 'budget_ytd' and budget_tile %}
+    {% elif card.report_name == 'budget_categories' and budget_cat_tile %}
       <div class="fin-tile" style="background:{{ bg }};">
-        <div class="fin-tile__label">{{ fiscal_year }} Budget</div>
-        <div class="fin-tile__value">${{ '{:,.0f}'.format(budget_tile.actual_spent) }}</div>
-        <div class="fin-tile__sub">of ${{ '{:,.0f}'.format(budget_tile.total_budget) }} budget</div>
+        <div class="fin-tile__label">{{ fiscal_year }} Expenses vs Budget</div>
+        <div class="fin-tile__value">{{ budget_cat_tile.pct_used | round(1) }}%</div>
         <div class="fin-tile__bar-bg">
-          <div class="fin-tile__bar-fill" style="width:{{ [budget_tile.pct_used, 100]|min|round|int }}%"></div>
+          <div class="fin-tile__bar-fill" style="width:{{ [budget_cat_tile.pct_used, 100]|min|round|int }}%;{% if budget_cat_tile.pct_used > 100 %}background:#f87171;{% endif %}"></div>
+        </div>
+        <div style="display:flex;gap:.75rem;margin-top:6px;">
+          <div class="fin-tile__sub" style="display:flex;align-items:center;gap:.3rem;">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0;"></span>
+            {{ budget_cat_tile.over_budget }} over budget
+          </div>
+          <div class="fin-tile__sub" style="display:flex;align-items:center;gap:.3rem;">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);flex-shrink:0;"></span>
+            {{ budget_cat_tile.under_budget }} on track
+          </div>
         </div>
       </div>
 
@@ -136,44 +145,117 @@
         <div class="fin-tile__sub">{{ last_recon.account_name }} · {{ last_recon.ending_date }}</div>
       </div>
 
-    {% elif card.report_name == 'last_auto_backup' %}
-      <a class="fin-tile" style="background:{{ bg }};text-decoration:none;" href="/admin/database">
-        <div class="fin-tile__label">Last Auto-Backup</div>
-        {% if last_auto_backup %}
-          <div class="fin-tile__value" style="font-size:1rem;">{{ last_auto_backup.backed_up_at[:16] }}</div>
-          <div class="fin-tile__sub">{{ '%.1f'|format(last_auto_backup.file_size_bytes / 1048576) }} MB</div>
-        {% else %}
-          <div class="fin-tile__value" style="font-size:1rem;">No backup yet</div>
-          <div class="fin-tile__sub">Runs at next startup</div>
-        {% endif %}
-      </a>
     {% endif %}
   {% endfor %}
 </div>
 {% endif %}
 
-{% if nudges %}
-<div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem;">
-  {% for n in nudges %}
-  <div style="
-    display:flex;align-items:center;gap:.85rem;
-    padding:.65rem 1rem;
-    border-radius:8px;
-    background:{% if n.level == 'warn' %}var(--surface){% else %}var(--surface-muted){% endif %};
-    border:1.5px solid {% if n.level == 'warn' %}#d97706{% else %}var(--border){% endif %};
-    font-size:.84rem;line-height:1.4;
-  ">
-    <span style="font-size:1.3rem;flex-shrink:0;">{{ n.icon }}</span>
-    <span style="flex:1;color:var(--text);">{{ n.text }}</span>
-    <a href="{{ n.href }}"
-       style="flex-shrink:0;font-weight:600;font-size:.8rem;
-              color:{% if n.level == 'warn' %}#b45309{% else %}var(--accent){% endif %};
-              text-decoration:none;white-space:nowrap;">
-      {{ n.link }} →
-    </a>
-  </div>
-  {% endfor %}
+{% if fin_cards %}
+<div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4);margin-top:calc(-1 * var(--sp-2));">
+  <div style="flex:1;border-top:2px solid var(--border);"></div>
+  <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-subtle);white-space:nowrap;">Activity</span>
+  <div style="flex:1;border-top:2px solid var(--border);"></div>
 </div>
+{% endif %}
+
+{% if nudges %}
+<div style="margin-bottom:1.25rem;">
+  {# ── Collapsible header ───────────────────────────────────────── #}
+  <button type="button" id="alerts-toggle"
+          onclick="toggleAlerts()"
+          style="display:flex;align-items:center;gap:.6rem;width:100%;
+                 background:none;border:none;cursor:pointer;padding:.3rem 0;
+                 font-size:11px;font-weight:700;text-transform:uppercase;
+                 letter-spacing:.07em;color:var(--text-subtle);text-align:left;">
+    <span id="alerts-chevron" style="font-size:10px;transition:transform .2s;">▼</span>
+    Alerts
+    <span id="alerts-count-badge"
+          style="display:none;background:var(--danger,#c0392b);color:#fff;
+                 font-size:10px;font-weight:700;border-radius:10px;
+                 padding:1px 7px;line-height:1.6;">
+      {{ nudges | length }}
+    </span>
+    <div style="flex:1;border-top:1px solid var(--border);opacity:.4;margin-left:.25rem;"></div>
+  </button>
+
+  {# ── Alert list ───────────────────────────────────────────────── #}
+  <div id="alerts-body" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.4rem;">
+    {% for n in nudges %}
+    {% set bg = 'var(--surface)' if n.level in ('warn','urgent') else 'var(--surface-muted)' %}
+    {% set border = '#c0392b' if n.level == 'urgent' else ('#d97706' if n.level == 'warn' else 'var(--border)') %}
+    {% set link_color = '#c0392b' if n.level == 'urgent' else ('#b45309' if n.level == 'warn' else 'var(--accent)') %}
+    <div id="nudge-{{ n.key }}" style="
+      display:flex;align-items:center;gap:.85rem;
+      padding:.65rem 1rem;
+      border-radius:8px;
+      background:{{ bg }};
+      border:1.5px solid {{ border }};
+      font-size:.84rem;line-height:1.4;
+    ">
+      <span style="font-size:1.3rem;flex-shrink:0;">{{ n.icon }}</span>
+      <span style="flex:1;color:var(--text);">{{ n.text }}</span>
+      <a href="{{ n.href }}"
+         style="flex-shrink:0;font-weight:600;font-size:.8rem;
+                color:{{ link_color }};
+                text-decoration:none;white-space:nowrap;margin-right:.5rem;">
+        {{ n.link }} →
+      </a>
+      <button type="button"
+              onclick="dismissAlert('{{ n.key }}')"
+              title="Dismiss until next time you open the app"
+              style="flex-shrink:0;background:none;border:none;cursor:pointer;
+                     font-size:1rem;color:var(--text-muted);padding:0 .25rem;line-height:1;">
+        ×
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<script>
+var ALERTS_KEY = 'dashboard_alerts_collapsed';
+
+function toggleAlerts() {
+  var collapsed = sessionStorage.getItem(ALERTS_KEY) === '1';
+  setAlertsCollapsed(!collapsed);
+}
+
+function setAlertsCollapsed(collapse) {
+  var body    = document.getElementById('alerts-body');
+  var chevron = document.getElementById('alerts-chevron');
+  var badge   = document.getElementById('alerts-count-badge');
+  if (collapse) {
+    body.style.display    = 'none';
+    chevron.style.transform = 'rotate(-90deg)';
+    badge.style.display   = 'inline';
+    sessionStorage.setItem(ALERTS_KEY, '1');
+  } else {
+    body.style.display    = 'flex';
+    chevron.style.transform = '';
+    badge.style.display   = 'none';
+    sessionStorage.removeItem(ALERTS_KEY);
+  }
+}
+
+// On load: default expanded; restore if user collapsed this session
+(function() {
+  if (sessionStorage.getItem(ALERTS_KEY) === '1') setAlertsCollapsed(true);
+})();
+
+function dismissAlert(key) {
+  var el = document.getElementById('nudge-' + key);
+  if (el) el.style.display = 'none';
+  // Update badge count
+  var badge = document.getElementById('alerts-count-badge');
+  if (badge) {
+    var n = parseInt(badge.textContent, 10);
+    if (n > 1) badge.textContent = n - 1;
+    else badge.style.display = 'none';
+  }
+  var fd = new FormData();
+  fd.append('alert_key', key);
+  fetch('/dashboard/dismiss-alert', {method: 'POST', body: fd});
+}
+</script>
 {% endif %}
 
 <div class="act-grid">
@@ -198,10 +280,30 @@
         <div class="act-card__desc">{{ card.description }}</div>
         <div class="act-card__arrow">Open report →</div>
       </a>
+    {% elif card.report_name == 'last_auto_backup' %}
+      <a class="act-card" style="--act-color:{{ card.color }};" href="/admin/database">
+        <div class="act-card__title">{{ card.title }}</div>
+        {% if last_auto_backup %}
+          <div class="act-card__desc" style="font-size:13px;font-weight:600;color:var(--text);">
+            {{ last_auto_backup.backed_up_at[:16] }}
+          </div>
+          <div class="act-card__desc" style="margin-top:0;">
+            {{ '%.1f'|format(last_auto_backup.file_size_bytes / 1048576) }} MB
+          </div>
+        {% else %}
+          <div class="act-card__desc">No backup yet — runs at next startup</div>
+        {% endif %}
+        <div class="act-card__arrow">Go →</div>
+      </a>
     {% else %}
       <a class="act-card" style="--act-color:{{ card.color }};"
          href="{{ card.target_url }}">
-        <div class="act-card__title">{{ card.title }}</div>
+        <div class="act-card__title">
+          {% if card.target_url and '?scenario=' in card.target_url %}
+            <span style="font-size:11px;opacity:.75;margin-right:.25rem;">⚡</span>
+          {% endif %}
+          {{ card.title }}
+        </div>
         <div class="act-card__desc">{{ card.description }}</div>
         <div class="act-card__arrow">Go →</div>
       </a>

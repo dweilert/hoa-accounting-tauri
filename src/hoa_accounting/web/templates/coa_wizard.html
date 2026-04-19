@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% block title %}COA Setup Wizard · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+/* ── Wizard shell ─────────────────────────────────────────────────── */
+.wiz-wrap { max-width: 820px; margin: 0 auto; }
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+.wiz-progress {
+  display: flex; align-items: center;
+  margin-bottom: var(--sp-6);
+  gap: 0;
+}
+.wiz-step-dot {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; flex: 1; position: relative;
+}
+.wiz-step-dot::before {
+  content: '';
+  position: absolute; top: 14px; left: calc(-50%);
+  width: 100%; height: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+.wiz-step-dot:first-child::before { display: none; }
+.wiz-step-dot__circle {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--text-subtle);
+  position: relative; z-index: 1;
+  transition: background .2s, border-color .2s, color .2s;
+}
+.wiz-step-dot__label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-subtle);
+  text-align: center;
+}
+.wiz-step-dot.active .wiz-step-dot__circle {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.wiz-step-dot.active .wiz-step-dot__label { color: var(--accent); }
+.wiz-step-dot.done .wiz-step-dot__circle {
+  background: var(--success, #2d7a45); border-color: var(--success, #2d7a45); color: #fff;
+}
+.wiz-step-dot.done::before { background: var(--success, #2d7a45); }
+
+/* ── Step panel ───────────────────────────────────────────────────── */
+.wiz-step { display: none; }
+.wiz-step.active { display: block; }
+
+.wiz-step__title {
+  font-size: 20px; font-weight: 700; color: var(--text);
+  margin-bottom: 4px;
+}
+.wiz-step__subtitle {
+  font-size: 14px; color: var(--text-muted);
+  margin-bottom: var(--sp-4);
+}
+
+/* ── Option cards ─────────────────────────────────────────────────── */
+.wiz-options {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+}
+.wiz-option {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+  background: var(--surface);
+  user-select: none;
+}
+.wiz-option:hover { border-color: var(--accent-border); background: var(--accent-subtle); }
+.wiz-option input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+.wiz-option__text { flex: 1; }
+.wiz-option__label { font-size: 14px; font-weight: 600; color: var(--text); }
+.wiz-option__desc  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.wiz-option.checked { border-color: var(--accent); background: var(--accent-subtle); }
+
+/* ── Step 4 grouped options ───────────────────────────────────────── */
+.wiz-group { margin-bottom: var(--sp-4); }
+.wiz-group__header {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-2); cursor: pointer;
+}
+.wiz-group__title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text-subtle);
+}
+.wiz-group__toggle {
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--accent); padding: 0;
+  font-weight: 600;
+}
+.wiz-group__rule { flex: 1; border-top: 1px solid var(--border); opacity: .5; }
+.wiz-group__body { display: flex; flex-direction: column; gap: var(--sp-1); }
+.wiz-option--compact {
+  padding: var(--sp-2) var(--sp-3);
+  gap: var(--sp-2);
+}
+.wiz-option--compact .wiz-option__label { font-size: 13px; }
+
+/* ── Step 1 always-on info box ────────────────────────────────────── */
+.wiz-always-box {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3);
+  font-size: 12px; color: var(--text-muted);
+}
+.wiz-always-box strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+/* ── Navigation buttons ───────────────────────────────────────────── */
+.wiz-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  margin-top: var(--sp-2);
+}
+.wiz-nav__skip { font-size: 12px; color: var(--text-subtle); text-decoration: none; }
+.wiz-nav__skip:hover { color: var(--text); }
+
+/* ── Reserve hidden step notice ───────────────────────────────────── */
+.wiz-step-skipped {
+  padding: var(--sp-5);
+  text-align: center;
+  background: var(--surface-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: var(--sp-4);
+}
+</style>
+
+<div class="wiz-wrap">
+
+  {# ── Progress indicator ─────────────────────────────────────────── #}
+  <div class="wiz-progress" id="wiz-progress">
+    {% for s in steps %}
+      <div class="wiz-step-dot{% if loop.first %} active{% endif %}" id="dot-{{ s.number }}">
+        <div class="wiz-step-dot__circle">{{ s.number }}</div>
+        <div class="wiz-step-dot__label">{{ s.title }}</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <form method="post" action="/accounts/wizard/preview" id="wiz-form">
+
+    {# ════════════════════════════════════════════════════════════════
+       STEP 1 — Funds
+    ═════════════════════════════════════════════════════════════════ #}
+    <div class="wiz-step active" id="step-1">
+      <div class="wiz-step__title">Funds</div>
+      <div class="wiz-step__subtitle">Which funds does your HOA maintain?</div>
+
+      <div class="wiz-always-box">
+        <strong>Always included — Operating Fund core accounts:</strong>
+        Operating Checking, Assessments Receivable, Prepaid Expenses,
+        Accounts Payable, Accrued Expenses, Prepaid Assessments, Operating Fund Balance
+      </div>
+
+      <div class="wiz-options">
+        {% for opt in step1_options %}
+          <label class="wiz-option" onclick="toggleChecked(this)">
+            <input type="checkbox" name="step1" value="{{ opt.option_id }}">
+            <div class="wiz-option__text">
+              <div class="wiz-option__label">{{ opt.label }}</div>
+              <div class="wiz-option__desc">{{ opt.description }}</div>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+
+      <div class="wiz-nav">
+        <a href="/accounts" class="wiz-nav__skip">← Back to Accounts</a>
+        <button type="button" class="btn btn--primary" onclick="goStep(2)">Next: Income →</button>
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════════════
+       STEP 2 — Income
+    ═════════════════════════════════════════════════════════════════ #}
+    <div class="wiz-step" id="step-2">
+      <div class="wiz-step__title">Income Sources</div>
+      <div class="wiz-step__subtitle">How does your HOA collect money? Check all that apply.</div>
+
+      <div class="wiz-options">
+        {% for opt in step2_options %}
+          <label class="wiz-option" onclick="toggleChecked(this)">
+            <input type="checkbox" name="step2" value="{{ opt.option_id }}">
+            <div class="wiz-option__text">
+              <div class="wiz-option__label">{{ opt.label }}</div>
+              <div class="wiz-option__desc">{{ opt.description }}</div>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+
+      <div class="wiz-nav">
+        <button type="button" class="btn btn--ghost" onclick="goStep(1)">← Back</button>
+        <button type="button" class="btn btn--primary" onclick="goStep(3)">Next: Amenities →</button>
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════════════
+       STEP 3 — Amenities
+    ═════════════════════════════════════════════════════════════════ #}
+    <div class="wiz-step" id="step-3">
+      <div class="wiz-step__title">Amenities</div>
+      <div class="wiz-step__subtitle">
+        What does your community have? This adds the right maintenance expense accounts
+        (and reserve accounts if you selected a Reserve Fund).
+      </div>
+
+      <div class="wiz-options">
+        {% for opt in step3_options %}
+          <label class="wiz-option" onclick="toggleChecked(this)">
+            <input type="checkbox" name="step3" value="{{ opt.option_id }}">
+            <div class="wiz-option__text">
+              <div class="wiz-option__label">{{ opt.label }}</div>
+              <div class="wiz-option__desc">{{ opt.description }}</div>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+
+      <div class="wiz-nav">
+        <button type="button" class="btn btn--ghost" onclick="goStep(2)">← Back</button>
+        <button type="button" class="btn btn--primary" onclick="goStep(4)">Next: Operating Costs →</button>
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════════════
+       STEP 4 — Operating Expenses (grouped)
+    ═════════════════════════════════════════════════════════════════ #}
+    <div class="wiz-step" id="step-4">
+      <div class="wiz-step__title">Operating Expenses</div>
+      <div class="wiz-step__subtitle">What does your HOA pay for? Check everything that applies.</div>
+
+      {% for grp in step4_groups %}
+        <div class="wiz-group">
+          <div class="wiz-group__header" onclick="toggleGroup('grp-{{ grp.group_id }}')">
+            <span class="wiz-group__title">{{ grp.label }}</span>
+            <div class="wiz-group__rule"></div>
+            <button type="button" class="wiz-group__toggle" id="grp-{{ grp.group_id }}-btn">
+              Select All
+            </button>
+          </div>
+          <div class="wiz-group__body" id="grp-{{ grp.group_id }}">
+            {% for opt in grp.options %}
+              <label class="wiz-option wiz-option--compact" onclick="toggleChecked(this)">
+                <input type="checkbox" name="step4" value="{{ opt.option_id }}">
+                <div class="wiz-option__text">
+                  <div class="wiz-option__label">{{ opt.label }}</div>
+                  <div class="wiz-option__desc">{{ opt.description }}</div>
+                </div>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+
+      <div class="wiz-nav">
+        <button type="button" class="btn btn--ghost" onclick="goStep(3)">← Back</button>
+        <button type="button" class="btn btn--primary" onclick="goStep(5)">Next: Reserves →</button>
+      </div>
+    </div>
+
+    {# ════════════════════════════════════════════════════════════════
+       STEP 5 — Reserve Capital
+    ═════════════════════════════════════════════════════════════════ #}
+    <div class="wiz-step" id="step-5">
+      <div class="wiz-step__title">Reserve Accounts</div>
+      <div class="wiz-step__subtitle">
+        What major assets will eventually need replacement? Each item creates a reserve
+        expense account to track capital project spending.
+      </div>
+
+      <div id="step5-content">
+        <div class="wiz-always-box" id="step5-no-reserve" style="display:none;">
+          <strong>Reserve Fund not selected</strong>
+          You didn't select a Reserve Fund in Step 1. You can go back and add one,
+          or skip this step and proceed to the preview.
+        </div>
+
+        <div id="step5-options">
+          <div class="wiz-options">
+            {% for opt in step5_options %}
+              <label class="wiz-option" onclick="toggleChecked(this)">
+                <input type="checkbox" name="step5" value="{{ opt.option_id }}">
+                <div class="wiz-option__text">
+                  <div class="wiz-option__label">{{ opt.label }}</div>
+                  <div class="wiz-option__desc">{{ opt.description }}</div>
+                </div>
+              </label>
+            {% endfor %}
+            {% if step5_reserve_study %}
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-subtle);margin:var(--sp-3) 0 var(--sp-1);display:flex;align-items:center;gap:var(--sp-2);">
+                From Reserve Study <div style="flex:1;border-top:1px solid var(--border);opacity:.5;"></div>
+              </div>
+              {% for opt in step5_reserve_study %}
+                <label class="wiz-option" onclick="toggleChecked(this)">
+                  <input type="checkbox" name="step5" value="{{ opt.option_id }}">
+                  <div class="wiz-option__text">
+                    <div class="wiz-option__label">{{ opt.label }}</div>
+                    <div class="wiz-option__desc">{{ opt.description }}</div>
+                  </div>
+                </label>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="wiz-nav">
+        <button type="button" class="btn btn--ghost" onclick="goStep(4)">← Back</button>
+        <button type="button" class="btn btn--primary" onclick="submitWizard()">
+          Preview Accounts →
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+var currentStep = 1;
+var totalSteps  = {{ steps | length }};
+
+function goStep(n) {
+  // Hide current
+  var cur = document.getElementById('step-' + currentStep);
+  if (cur) cur.classList.remove('active');
+  var dot = document.getElementById('dot-' + currentStep);
+  if (dot) { dot.classList.remove('active'); dot.classList.add('done'); }
+
+  currentStep = n;
+
+  // Show new
+  var next = document.getElementById('step-' + n);
+  if (next) next.classList.add('active');
+  var ndot = document.getElementById('dot-' + n);
+  if (ndot) { ndot.classList.remove('done'); ndot.classList.add('active'); }
+
+  // Step 5: show/hide reserve notice
+  if (n === 5) updateStep5();
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleChecked(label) {
+  var cb = label.querySelector('input[type="checkbox"]');
+  if (cb) {
+    // Let native checkbox toggle, then sync visual
+    setTimeout(function() {
+      if (cb.checked) label.classList.add('checked');
+      else label.classList.remove('checked');
+    }, 0);
+  }
+}
+
+// Initialise checked state for pre-checked boxes on load
+document.querySelectorAll('.wiz-option input[type="checkbox"]').forEach(function(cb) {
+  cb.addEventListener('change', function() {
+    var lbl = cb.closest('.wiz-option');
+    if (lbl) { if (cb.checked) lbl.classList.add('checked'); else lbl.classList.remove('checked'); }
+  });
+});
+
+// "Select All" / "Clear" per group in Step 4
+function toggleGroup(groupId) {
+  var body = document.getElementById(groupId);
+  var btn  = document.getElementById(groupId + '-btn');
+  if (!body || !btn) return;
+  var boxes = body.querySelectorAll('input[type="checkbox"]');
+  var allChecked = Array.from(boxes).every(function(b){ return b.checked; });
+  boxes.forEach(function(b) {
+    b.checked = !allChecked;
+    var lbl = b.closest('.wiz-option');
+    if (lbl) { if (b.checked) lbl.classList.add('checked'); else lbl.classList.remove('checked'); }
+  });
+  btn.textContent = allChecked ? 'Select All' : 'Clear';
+}
+
+// Show/hide step 5 content based on whether Reserve was selected
+function updateStep5() {
+  var hasReserve = !!document.querySelector('input[name="step1"][value="reserve"]:checked');
+  document.getElementById('step5-no-reserve').style.display = hasReserve ? 'none' : '';
+  document.getElementById('step5-options').style.display    = hasReserve ? ''     : 'none';
+}
+
+function submitWizard() {
+  document.getElementById('wiz-form').submit();
+}
+</script>
+{% endblock %}

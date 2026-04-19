@@ -189,6 +189,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             backup_cfg = org_context.get("backup_config") or {}
             if backup_cfg.get("dir"):
                 BackupService(str(db_path), backup_cfg).run(boot_conn)
+            # Clear per-session alert dismissals so alerts reappear on each app start
+            from hoa_accounting.repositories.dashboard_repo import DashboardRepository
+            DashboardRepository(boot_conn).clear_alert_dismissals()
         finally:
             boot_conn.close()
 
@@ -416,16 +419,101 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/workflow-guide")
     def workflow_guide_page() -> Response:
-        from hoa_accounting.web.template_engine import render_template as _render
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowPages
         theme = str(org_context.get("theme", "warm"))
-        html = _render("workflow_guide.html", {
-            "org": org_context,
-            "theme": theme,
-            "active_nav": "system",
-            "breadcrumb": "System",
-            "page_key": "workflow-guide",
-        })
-        return Response(html, mimetype="text/html")
+        conn = g.db
+        status, html = WorkflowPages(conn).render_guide(org=org_context, theme=theme)
+        return Response(html, status=status, mimetype="text/html")
+
+    @app.get("/admin/workflow-guide")
+    def workflow_admin_page() -> Response:
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        theme = str(org_context.get("theme", "warm"))
+        conn = g.db
+        tab_id = int(request.args.get("tab", 1))
+        edit_card_id = request.args.get("edit")
+        edit_card_id = int(edit_card_id) if edit_card_id else None
+        flash = (request.args.get("flash") or "").replace("+", " ")
+        status, html = WorkflowAdminPages(conn).render_admin(
+            org=org_context, theme=theme,
+            active_tab_id=tab_id, edit_card_id=edit_card_id, flash=flash
+        )
+        return Response(html, status=status, mimetype="text/html")
+
+    @app.post("/admin/workflow-guide/add-card")
+    def workflow_add_card() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_add_card(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/update-card")
+    def workflow_update_card() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_update_card(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/move-card")
+    def workflow_move_card() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_move_card(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/toggle-card")
+    def workflow_toggle_card() -> Response:
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        card_id = int(request.form.get("card_id", 0))
+        tab_id = int(request.form.get("tab_id", 1))
+        WorkflowAdminPages(g.db).handle_toggle_card(card_id, tab_id)
+        return Response("ok", mimetype="text/plain")
+
+    @app.post("/admin/workflow-guide/delete-card")
+    def workflow_delete_card() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_delete_card(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/reorder-card")
+    def workflow_reorder_card() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_reorder_card(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/add-section")
+    def workflow_add_section() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_add_section(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/toggle-section")
+    def workflow_toggle_section() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        section_id = int(request.form.get("section_id", 0))
+        tab_id = int(request.form.get("tab_id", 1))
+        WorkflowAdminPages(g.db).handle_toggle_section(section_id, tab_id)
+        return redirect(f"/admin/workflow-guide?tab={tab_id}")
+
+    @app.post("/admin/workflow-guide/add-tab")
+    def workflow_add_tab() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        url = WorkflowAdminPages(g.db).handle_add_tab(request.form)
+        return redirect(url)
+
+    @app.post("/admin/workflow-guide/toggle-tab")
+    def workflow_toggle_tab() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.workflow_pages import WorkflowAdminPages
+        tab_id = int(request.form.get("tab_id", 1))
+        WorkflowAdminPages(g.db).handle_toggle_tab(tab_id)
+        return redirect(f"/admin/workflow-guide?tab={tab_id}")
 
     @app.get("/dashboard-config")
     def dashboard_config_page() -> Response:
@@ -459,6 +547,28 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         pages = _open_dashboard()
         redirect_url = pages.handle_save_layout(request.form)
         return redirect(redirect_url)
+
+    @app.post("/dashboard-config/reset-layout")
+    def dashboard_reset_layout() -> Response:
+        from flask import redirect
+        pages = _open_dashboard()
+        redirect_url = pages.handle_reset_layout()
+        return redirect(redirect_url)
+
+    @app.post("/dashboard/dismiss-alert")
+    def dashboard_dismiss_alert() -> Response:
+        from flask import jsonify
+        key = request.form.get("alert_key", "")
+        if key:
+            _open_dashboard()._repo.dismiss_alert(key)
+        return jsonify({"ok": True})
+
+    @app.post("/dashboard-config/save-alert-settings")
+    def dashboard_save_alert_settings() -> Response:
+        from flask import redirect
+        enabled = set(request.form.getlist("enabled_alerts"))
+        _open_dashboard()._repo.save_alert_settings(enabled)
+        return redirect("/dashboard-config?msg=Alert+settings+saved.")
 
     def _load_report_lookup_options() -> dict:
         """Load dropdown options for report parameter fields from the DB."""
@@ -692,6 +802,30 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             conn.close()
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
+
+    @app.get("/accounts/wizard")
+    def coa_wizard() -> Response:
+        from hoa_accounting.web.wizard_pages import WizardPages
+        conn = _open_db()
+        theme = str(org_context.get("theme", "warm"))
+        status, html = WizardPages(conn).render_wizard(org=org_context, theme=theme)
+        return Response(html, status=status, mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounts/wizard/preview")
+    def coa_wizard_preview() -> Response:
+        from hoa_accounting.web.wizard_pages import WizardPages
+        conn = _open_db()
+        theme = str(org_context.get("theme", "warm"))
+        status, html = WizardPages(conn).render_preview(form=request.form, org=org_context, theme=theme)
+        return Response(html, status=status, mimetype="text/html; charset=utf-8")
+
+    @app.post("/accounts/wizard/create")
+    def coa_wizard_create() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.wizard_pages import WizardPages
+        conn = _open_db()
+        url = WizardPages(conn).handle_create(form=request.form, org=org_context, theme=str(org_context.get("theme", "warm")))
+        return redirect(url, code=303)
 
     @app.post("/accounts/<int:account_id>/delete")
     def submit_delete_account(account_id: int) -> Response:
@@ -1983,6 +2117,54 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
         return DatabaseAdminPages(conn, db_path=str(db_path))
+
+    @app.get("/admin/wizard-catalog")
+    def wizard_catalog() -> Response:
+        from hoa_accounting.web.wizard_pages import WizardAdminPages
+        conn = _open_db()
+        theme = str(org_context.get("theme", "warm"))
+        active_step = int(request.args.get("step", 1))
+        flash = (request.args.get("flash") or "").replace("+", " ").strip()
+        status, html = WizardAdminPages(conn).render_catalog(
+            org=org_context, theme=theme, active_step=active_step, flash=flash
+        )
+        return Response(html, status=status, mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/wizard-catalog/toggle")
+    def wizard_catalog_toggle() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.wizard_pages import WizardAdminPages
+        conn = _open_db()
+        option_id = int(request.form.get("option_id", 0))
+        active_step = int(request.form.get("active_step", 1))
+        url = WizardAdminPages(conn).handle_toggle(option_id, org_context, str(org_context.get("theme", "warm")), active_step)
+        return redirect(url, code=303)
+
+    @app.post("/admin/wizard-catalog/add-option")
+    def wizard_catalog_add_option() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.wizard_pages import WizardAdminPages
+        conn = _open_db()
+        url = WizardAdminPages(conn).handle_add_option(request.form, org_context, str(org_context.get("theme", "warm")))
+        return redirect(url, code=303)
+
+    @app.post("/admin/wizard-catalog/delete")
+    def wizard_catalog_delete() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.wizard_pages import WizardAdminPages
+        conn = _open_db()
+        option_id = int(request.form.get("option_id", 0))
+        active_step = int(request.form.get("active_step", 1))
+        url = WizardAdminPages(conn).handle_delete_option(option_id, active_step)
+        return redirect(url, code=303)
+
+    @app.post("/admin/wizard-catalog/add-group")
+    def wizard_catalog_add_group() -> Response:
+        from flask import redirect
+        from hoa_accounting.web.wizard_pages import WizardAdminPages
+        conn = _open_db()
+        url = WizardAdminPages(conn).handle_add_group(request.form)
+        return redirect(url, code=303)
 
     @app.get("/admin/database")
     def database_admin_page() -> Response:

@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+{% block title %}Workflow Guide Editor · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+.wge-wrap { max-width: 960px; margin: 0 auto; }
+
+/* ── Top tab bar ─────────────────────────────────────────────── */
+.wge-tabs {
+  display: flex; gap: 2px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+.wge-tab {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border: none; background: none; color: var(--text-subtle);
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color .12s, border-color .12s;
+}
+.wge-tab:hover { color: var(--text); }
+.wge-tab.active { color: var(--accent); border-color: var(--accent); }
+.wge-tab.inactive { opacity: .45; }
+.wge-tab--add {
+  color: var(--accent); border: 1px dashed var(--border);
+  border-bottom: none; margin-left: var(--sp-2);
+}
+
+/* ── Tab panels ──────────────────────────────────────────────── */
+.wge-panel { display: none; }
+.wge-panel.active { display: block; }
+
+/* ── Section block ───────────────────────────────────────────── */
+.wge-section { margin-bottom: var(--sp-5); }
+.wge-section-header {
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.wge-section-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text-subtle); white-space: nowrap;
+}
+.wge-section-rule { flex: 1; border-top: 1px solid var(--border); opacity: .4; }
+.wge-section-toggle {
+  font-size: 11px; font-weight: 600; padding: 2px 8px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: none; cursor: pointer; color: var(--text-subtle); white-space: nowrap;
+}
+.wge-section-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── Card row ────────────────────────────────────────────────── */
+.wge-card {
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface); margin-bottom: var(--sp-1);
+  transition: opacity .15s;
+}
+.wge-card.inactive { opacity: .4; }
+.wge-card__color {
+  width: 4px; border-radius: 2px; align-self: stretch; flex-shrink: 0;
+}
+.wge-card__icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+.wge-card__body { flex: 1; min-width: 0; }
+.wge-card__title { font-size: 13px; font-weight: 600; color: var(--text); }
+.wge-card__desc  { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+.wge-card__meta  { font-size: 11px; color: var(--text-subtle); margin-top: 3px; }
+.wge-card__actions { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; align-items: flex-end; }
+.wge-card__actions-row { display: flex; gap: 3px; }
+
+.wge-btn {
+  font-size: 11px; font-weight: 600; padding: 2px 8px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-subtle);
+  cursor: pointer; white-space: nowrap;
+}
+.wge-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-subtle); }
+.wge-btn--danger:hover { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
+.wge-btn--on { color: #166534; border-color: #86efac; background: #f0fdf4; }
+.wge-btn--on:hover { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
+
+/* color strip map */
+.cc-blue   { background: #3b82f6; }
+.cc-green  { background: #16a34a; }
+.cc-amber  { background: #d97706; }
+.cc-rose   { background: #e11d48; }
+.cc-violet { background: #7c3aed; }
+.cc-teal   { background: #0d9488; }
+.cc-slate  { background: #475569; }
+
+/* ── Add card form ────────────────────────────────────────────── */
+.wge-add-card {
+  border: 1.5px dashed var(--border); border-radius: var(--radius-md);
+  padding: var(--sp-4); margin-top: var(--sp-3);
+  background: var(--surface-muted);
+}
+.wge-add-card__title {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: var(--sp-3);
+}
+.wge-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.wge-grid-3 { display: grid; grid-template-columns: 80px 1fr 1fr; gap: var(--sp-2); }
+.wge-field { margin-bottom: var(--sp-2); }
+.wge-field label { font-size: 12px; font-weight: 600; color: var(--text-subtle); display: block; margin-bottom: 3px; }
+.wge-field input, .wge-field select, .wge-field textarea {
+  width: 100%; font-size: 13px; padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+}
+.wge-field textarea { resize: vertical; min-height: 56px; }
+
+/* Color picker */
+.wge-color-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.wge-color-swatch {
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: transform .1s;
+}
+.wge-color-swatch:hover { transform: scale(1.2); }
+.wge-color-swatch.selected { border-color: var(--text); }
+
+/* ── Move modal ───────────────────────────────────────────────── */
+.wge-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.45); z-index: 100;
+  align-items: center; justify-content: center;
+}
+.wge-modal-overlay.open { display: flex; }
+.wge-modal {
+  background: var(--surface); border-radius: var(--radius-md);
+  border: 1px solid var(--border); padding: var(--sp-5);
+  min-width: 360px; max-width: 480px; box-shadow: var(--shadow);
+}
+.wge-modal__title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: var(--sp-3); }
+.wge-modal__actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-4); }
+</style>
+
+<div class="wge-wrap">
+
+  {% if flash %}
+  <div class="alert alert--success" style="margin-bottom:var(--sp-4);">
+    <div class="alert__content">{{ flash }}</div>
+    <button type="button" class="alert__close">×</button>
+  </div>
+  {% endif %}
+
+  <p style="font-size:13px;color:var(--text-muted);margin-bottom:var(--sp-4);">
+    Manage tabs, sections, and cards shown in the
+    <a href="/workflow-guide">Workflow Guide</a>.
+    Drag cards to reorder, or use Move to change section.
+  </p>
+
+  {# ── Tab bar ──────────────────────────────────────────────── #}
+  <div class="wge-tabs">
+    {% for tab in tabs_data %}
+      <button type="button"
+              class="wge-tab{% if tab.id == active_tab_id %} active{% endif %}{% if not tab.is_active %} inactive{% endif %}"
+              onclick="switchTab({{ tab.id }})">
+        {% if tab.icon %}{{ tab.icon }} {% endif %}{{ tab.label }}
+        {% if not tab.is_active %}<span style="font-size:10px;opacity:.7;"> (off)</span>{% endif %}
+      </button>
+    {% endfor %}
+    <button type="button" class="wge-tab wge-tab--add" onclick="document.getElementById('add-tab-form').classList.toggle('hidden')">
+      + New Tab
+    </button>
+  </div>
+
+  {# ── Add tab form ──────────────────────────────────────────── #}
+  <div id="add-tab-form" class="wge-add-card hidden" style="margin-bottom:var(--sp-4);">
+    <div class="wge-add-card__title">+ Add New Tab</div>
+    <form method="post" action="/admin/workflow-guide/add-tab">
+      <div class="wge-grid-2">
+        <div class="wge-field">
+          <label>Icon (emoji)</label>
+          <input type="text" name="icon" placeholder="📋" maxlength="4" style="width:80px;">
+        </div>
+        <div class="wge-field">
+          <label>Tab Label *</label>
+          <input type="text" name="label" placeholder="e.g. Cash Receipts – Auto Deposit" required>
+        </div>
+      </div>
+      <div class="wge-field">
+        <label>Description</label>
+        <textarea name="description" rows="2" placeholder="Brief description shown at the top of the tab"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:var(--sp-2);">
+        <button type="button" class="btn btn--ghost btn--sm" onclick="document.getElementById('add-tab-form').classList.add('hidden')">Cancel</button>
+        <button type="submit" class="btn btn--primary btn--sm">Add Tab</button>
+      </div>
+    </form>
+  </div>
+
+  {# ── Tab panels ────────────────────────────────────────────── #}
+  {% for tab in tabs_data %}
+  <div class="wge-panel{% if tab.id == active_tab_id %} active{% endif %}" id="tab-panel-{{ tab.id }}">
+
+    {# Tab controls #}
+    <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4);">
+      {% if not tab.is_system %}
+        <form method="post" action="/admin/workflow-guide/toggle-tab" style="margin:0;">
+          <input type="hidden" name="tab_id" value="{{ tab.id }}">
+          <button type="submit" class="wge-btn{% if tab.is_active %} wge-btn--on{% endif %}">
+            {% if tab.is_active %}✓ Tab Active{% else %}Tab Off{% endif %}
+          </button>
+        </form>
+      {% endif %}
+      <span style="font-size:12px;color:var(--text-muted);">{{ tab.description }}</span>
+    </div>
+
+    {# Sections #}
+    {% for sec in tab.sections %}
+    <div class="wge-section">
+      <div class="wge-section-header">
+        <span class="wge-section-title">{{ sec.label }}</span>
+        <div class="wge-section-rule"></div>
+        <form method="post" action="/admin/workflow-guide/toggle-section" style="margin:0;">
+          <input type="hidden" name="section_id" value="{{ sec.id }}">
+          <input type="hidden" name="tab_id" value="{{ tab.id }}">
+          <button type="submit" class="wge-section-toggle">
+            {% if sec.is_active %}Hide{% else %}Show{% endif %}
+          </button>
+        </form>
+      </div>
+
+      {% for card in sec.cards %}
+      <div class="wge-card{% if not card.is_active %} inactive{% endif %}" id="card-{{ card.id }}">
+        <div class="wge-card__color cc-{{ card.color }}"></div>
+        <div class="wge-card__icon">{{ card.icon or '📋' }}</div>
+        <div class="wge-card__body">
+          <div class="wge-card__title">
+            {% if card.num_label %}<span style="opacity:.6;font-size:11px;margin-right:4px;">{{ card.num_label }}</span>{% endif %}
+            {{ card.title }}
+          </div>
+          {% if card.description %}<div class="wge-card__desc">{{ card.description }}</div>{% endif %}
+          <div class="wge-card__meta">
+            {% if card.href and card.href != '#' %}
+              <a href="{{ card.href }}" style="color:var(--accent);font-size:11px;">{{ card.href }}</a>
+            {% else %}
+              <span>No link (manual task)</span>
+            {% endif %}
+            {% if card.link_label %} · "{{ card.link_label }}"{% endif %}
+          </div>
+        </div>
+        <div class="wge-card__actions">
+          <div class="wge-card__actions-row">
+            {# Reorder #}
+            <form method="post" action="/admin/workflow-guide/reorder-card" style="margin:0;">
+              <input type="hidden" name="card_id" value="{{ card.id }}">
+              <input type="hidden" name="tab_id" value="{{ tab.id }}">
+              <input type="hidden" name="direction" value="up">
+              <button type="submit" class="wge-btn" title="Move up">↑</button>
+            </form>
+            <form method="post" action="/admin/workflow-guide/reorder-card" style="margin:0;">
+              <input type="hidden" name="card_id" value="{{ card.id }}">
+              <input type="hidden" name="tab_id" value="{{ tab.id }}">
+              <input type="hidden" name="direction" value="down">
+              <button type="submit" class="wge-btn" title="Move down">↓</button>
+            </form>
+            {# Move to different section #}
+            <button type="button" class="wge-btn"
+                    onclick="openMoveModal({{ card.id }}, {{ tab.id }}, '{{ card.title | replace("'", "\\'") }}')">
+              Move
+            </button>
+            {# Edit #}
+            <a href="/admin/workflow-guide?tab={{ tab.id }}&edit={{ card.id }}"
+               class="wge-btn" style="text-decoration:none;">Edit</a>
+          </div>
+          <div class="wge-card__actions-row">
+            {# Toggle #}
+            <button type="button"
+                    class="wge-btn{% if card.is_active %} wge-btn--on{% endif %}"
+                    onclick="toggleCard(this, {{ card.id }}, {{ tab.id }})">
+              {% if card.is_active %}✓ On{% else %}Off{% endif %}
+            </button>
+            {# Delete (custom only) #}
+            {% if not card.is_system %}
+            <form method="post" action="/admin/workflow-guide/delete-card"
+                  onsubmit="return confirm('Delete this card?')" style="margin:0;">
+              <input type="hidden" name="card_id" value="{{ card.id }}">
+              <input type="hidden" name="tab_id" value="{{ tab.id }}">
+              <button type="submit" class="wge-btn wge-btn--danger">Delete</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+        <p style="font-size:12px;color:var(--text-muted);padding-left:var(--sp-2);">No cards in this section.</p>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    {# ── Add section ─────────────────────────────────────────── #}
+    <div class="wge-add-card" style="margin-bottom:var(--sp-4);">
+      <div class="wge-add-card__title">+ Add Section to this Tab</div>
+      <form method="post" action="/admin/workflow-guide/add-section">
+        <input type="hidden" name="tab_id" value="{{ tab.id }}">
+        <div class="wge-grid-2">
+          <div class="wge-field" style="margin:0;">
+            <label>Section Label *</label>
+            <input type="text" name="label" placeholder="e.g. Cash Receipts – Auto Deposit" required>
+          </div>
+          <div class="wge-field" style="margin:0;">
+            <label>Tip / Note (optional)</label>
+            <input type="text" name="tip_text" placeholder="Shown as a callout below the section cards">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:var(--sp-2);">
+          <button type="submit" class="btn btn--ghost btn--sm">Add Section</button>
+        </div>
+      </form>
+    </div>
+
+    {# ── Add / Edit card ─────────────────────────────────────── #}
+    <div class="wge-add-card">
+      {% if edit_card and edit_card.section_id in (tab.sections | map(attribute='id') | list) %}
+        <div class="wge-add-card__title">Edit Card: {{ edit_card.title }}</div>
+        <form method="post" action="/admin/workflow-guide/update-card">
+          <input type="hidden" name="card_id" value="{{ edit_card.id }}">
+          <input type="hidden" name="tab_id" value="{{ tab.id }}">
+          {{ card_fields(sections_for_move, edit_card) }}
+          <div style="display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-3);">
+            <a href="/admin/workflow-guide?tab={{ tab.id }}" class="btn btn--ghost btn--sm">Cancel</a>
+            <button type="submit" class="btn btn--primary btn--sm">Save Card</button>
+          </div>
+        </form>
+      {% else %}
+        <div class="wge-add-card__title">+ Add New Card</div>
+        <form method="post" action="/admin/workflow-guide/add-card">
+          <input type="hidden" name="tab_id" value="{{ tab.id }}">
+          {{ card_fields(sections_for_move, None) }}
+          <div style="display:flex;justify-content:flex-end;margin-top:var(--sp-3);">
+            <button type="submit" class="btn btn--primary btn--sm">Add Card</button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+
+</div>
+
+{# ── Move card modal ───────────────────────────────────────────── #}
+<div class="wge-modal-overlay" id="move-modal">
+  <div class="wge-modal">
+    <div class="wge-modal__title">Move Card: <span id="move-modal-title"></span></div>
+    <form method="post" action="/admin/workflow-guide/move-card" id="move-form">
+      <input type="hidden" name="card_id" id="move-card-id">
+      <input type="hidden" name="tab_id" id="move-tab-id">
+      <div class="wge-field">
+        <label>Move to section</label>
+        <select name="new_section_id" id="move-section-select">
+          {% for sec in sections_for_move %}
+            <option value="{{ sec.id }}">{{ sec.tab_label }} → {{ sec.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="wge-modal__actions">
+        <button type="button" class="btn btn--ghost btn--sm" onclick="closeMoveModal()">Cancel</button>
+        <button type="submit" class="btn btn--primary btn--sm">Move</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Card fields macro ─────────────────────────────────────────── #}
+{% macro card_fields(sections, card) %}
+  <div class="wge-grid-3" style="margin-bottom:var(--sp-2);">
+    <div class="wge-field" style="margin:0;">
+      <label>Step # / Label</label>
+      <input type="text" name="num_label" placeholder="1, Q2, Y5…" maxlength="6"
+             value="{{ card.num_label if card else '' }}">
+    </div>
+    <div class="wge-field" style="margin:0;">
+      <label>Icon (emoji)</label>
+      <input type="text" name="icon" placeholder="📋" maxlength="4"
+             value="{{ card.icon if card else '' }}">
+    </div>
+    <div class="wge-field" style="margin:0;">
+      <label>Color</label>
+      <select name="color">
+        {% for c in ['blue','green','amber','rose','violet','teal','slate'] %}
+          <option value="{{ c }}" {% if card and card.color == c %}selected{% endif %}>{{ c | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="wge-field">
+    <label>Title *</label>
+    <input type="text" name="title" required placeholder="e.g. Post ACH Payment"
+           value="{{ card.title if card else '' }}">
+  </div>
+  <div class="wge-field">
+    <label>Description</label>
+    <textarea name="description" rows="2" placeholder="What this step does and why">{{ card.description if card else '' }}</textarea>
+  </div>
+  <div class="wge-grid-2">
+    <div class="wge-field" style="margin:0;">
+      <label>Link URL <span style="font-weight:400;color:var(--text-subtle)">(leave blank for manual tasks)</span></label>
+      <input type="text" name="href" placeholder="/deposit-batch or https://bank.com"
+             value="{{ card.href if card and card.href != '#' else '' }}">
+    </div>
+    <div class="wge-field" style="margin:0;">
+      <label>Button Label <span style="font-weight:400;color:var(--text-subtle)">(e.g. "Post Payments")</span></label>
+      <input type="text" name="link_label" placeholder="Post Payments"
+             value="{{ card.link_label if card else '' }}">
+    </div>
+  </div>
+  <div class="wge-field">
+    <label>Section</label>
+    <select name="section_id">
+      {% for sec in sections %}
+        <option value="{{ sec.id }}"
+          {% if card and card.section_id == sec.id %}selected{% endif %}>
+          {{ sec.tab_label }} → {{ sec.label }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
+<script>
+var activeTabId = {{ active_tab_id }};
+
+function switchTab(id) {
+  document.querySelectorAll('.wge-tab').forEach(function(t, i) {
+    t.classList.toggle('active', parseInt(t.getAttribute('onclick').match(/\d+/)[0]) === id);
+  });
+  document.querySelectorAll('.wge-panel').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'tab-panel-' + id);
+  });
+  activeTabId = id;
+  history.replaceState(null, '', '/admin/workflow-guide?tab=' + id);
+}
+
+function toggleCard(btn, cardId, tabId) {
+  var fd = new FormData();
+  fd.append('card_id', cardId);
+  fd.append('tab_id', tabId);
+  fetch('/admin/workflow-guide/toggle-card', {method: 'POST', body: fd})
+    .then(function() {
+      var on = btn.classList.toggle('wge-btn--on');
+      btn.textContent = on ? '✓ On' : 'Off';
+      btn.closest('.wge-card').classList.toggle('inactive', !on);
+    });
+}
+
+function openMoveModal(cardId, tabId, title) {
+  document.getElementById('move-card-id').value = cardId;
+  document.getElementById('move-tab-id').value = tabId;
+  document.getElementById('move-modal-title').textContent = title;
+  document.getElementById('move-modal').classList.add('open');
+}
+function closeMoveModal() {
+  document.getElementById('move-modal').classList.remove('open');
+}
+document.getElementById('move-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeMoveModal();
+});
+
+// hidden class helper
+document.querySelectorAll('.hidden').forEach(function(el) { el.style.display = 'none'; });
+document.querySelectorAll('.wge-tab--add').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var form = document.getElementById('add-tab-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  });
+});
+</script>
+{% endblock %}

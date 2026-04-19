@@ -558,6 +558,19 @@
     applyTemplate(this.value);
   });
 
+  // Auto-select scenario from ?scenario= URL param (used by Quick Action dashboard cards)
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var sc = params.get("scenario");
+    if (sc) {
+      var picker = document.getElementById("template-picker");
+      if (picker && picker.querySelector('option[value="' + sc + '"]')) {
+        picker.value = sc;
+        picker.dispatchEvent(new Event("change"));
+      }
+    }
+  })();
+
   document.getElementById("use-advanced-mode").addEventListener("click", function (e) {
     e.preventDefault();
     showManualMode();
