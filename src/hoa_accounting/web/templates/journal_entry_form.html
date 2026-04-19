@@ -41,28 +41,6 @@
             </option>
           {% endfor %}
         </select>
-
-        {# Plain-English callout — shown when a scenario is selected #}
-        <div id="scenario-callout" style="display:none;margin-top:.85rem;max-width:640px;">
-          <div style="padding:.7rem .9rem;border-radius:var(--radius-sm);
-                      background:var(--surface);border:1px solid var(--border);">
-
-            {# Big plain-English summary #}
-            <div id="scenario-plain"
-                 style="font-size:13.5px;font-weight:600;color:var(--text);
-                        line-height:1.5;margin-bottom:.6rem;"></div>
-
-            {# Visual flow — shows which account gets debited and credited #}
-            <div id="scenario-flow"
-                 style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;
-                        margin-bottom:.6rem;font-size:12px;"></div>
-
-            {# Detailed example in muted text #}
-            <div id="scenario-desc"
-                 style="font-size:12px;color:var(--text-muted);line-height:1.5;
-                        border-top:1px solid var(--border);padding-top:.5rem;"></div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -231,9 +209,31 @@
         </div>
       </div>
     </div>
+
+    {# ── Save / Cancel ────────────────────────────────────────────── #}
+    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+      <button type="submit" class="btn btn--primary">Save Entry</button>
+      <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
+    </div>
   </form>
 
-  <details id="je-help" style="margin-top:1rem;">
+  {# ── Scenario explanation (shown when a scenario is selected) ─── #}
+  <div id="scenario-callout" style="display:none;margin-top:1.25rem;">
+    <div style="padding:.75rem 1rem;border-radius:var(--radius-sm);
+                background:var(--surface);border:1px solid var(--border);">
+      <div id="scenario-plain"
+           style="font-size:13px;font-weight:600;color:var(--text);
+                  line-height:1.5;margin-bottom:.5rem;"></div>
+      <div id="scenario-flow"
+           style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;
+                  margin-bottom:.5rem;font-size:12px;"></div>
+      <div id="scenario-desc"
+           style="font-size:12px;color:var(--text-muted);line-height:1.5;
+                  border-top:1px solid var(--border);padding-top:.45rem;"></div>
+    </div>
+  </div>
+
+  <details id="je-help" style="margin-top:.75rem;">
     <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);
                     padding:.4rem .75rem;border:1px solid var(--border);border-radius:var(--radius);
                     background:var(--surface);user-select:none;">
@@ -284,11 +284,6 @@
       </table>
     </div>
   </details>
-
-  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
-    <button type="submit" form="je-form" class="btn btn--primary">Save Entry</button>
-    <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
-  </div>
 
 <script>
 (function () {
