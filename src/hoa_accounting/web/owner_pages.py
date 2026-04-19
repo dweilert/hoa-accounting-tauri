@@ -221,16 +221,11 @@ class OwnerPages:
         theme: str,
     ) -> tuple[str | None, OwnerPageResponse | None]:
         try:
-            if self.repo.has_current_lot(owner_id):
-                raise ValidationError(
-                    "Cannot delete an owner who still has a current lot assignment. "
-                    "End the ownership from the Lot screen first."
-                )
-            self.repo.delete_owner(owner_id)
+            self.repo.deactivate_owner(owner_id)
             self.conn.commit()
-        except ValidationError as exc:
+        except Exception as exc:
             return None, self.render_form(
                 org=org, theme=theme,
                 owner_id=owner_id, error_message=str(exc),
             )
-        return "/owners?msg=Owner+deleted.", None
+        return "/owners?msg=Owner+deactivated.", None
