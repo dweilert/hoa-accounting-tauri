@@ -401,6 +401,19 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url)
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
 
+    @app.get("/workflow-guide")
+    def workflow_guide_page() -> Response:
+        from hoa_accounting.web.template_engine import render_template as _render
+        theme = str(org_context.get("theme", "warm"))
+        html = _render("workflow_guide.html", {
+            "org": org_context,
+            "theme": theme,
+            "active_nav": "system",
+            "breadcrumb": "System",
+            "page_key": "workflow-guide",
+        })
+        return Response(html, mimetype="text/html")
+
     @app.get("/dashboard-config")
     def dashboard_config_page() -> Response:
         theme = str(org_context.get("theme", "warm"))
