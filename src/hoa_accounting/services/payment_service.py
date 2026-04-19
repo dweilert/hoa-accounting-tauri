@@ -149,19 +149,6 @@ class PaymentService:
         payment_amount: Decimal,
         assessment_ids: Sequence[int],
     ) -> None:
-        # Guard: total outstanding across selected assessments must cover the payment.
-        total_outstanding = Decimal("0.00")
-        for assessment_id in assessment_ids:
-            row = self.assessment_repo.get_for_payment_application(assessment_id)
-            if row is not None and int(row["owner_id"]) == owner_id:
-                total_outstanding += q2(row["amount"]) - q2(row["already_applied"])
-        if payment_amount > total_outstanding:
-            raise ValidationError(
-                f"Payment amount ${payment_amount:,.2f} exceeds total outstanding "
-                f"${total_outstanding:,.2f} across the selected assessments. "
-                "Reduce the payment amount or select additional assessments."
-            )
-
         remaining = payment_amount
         for assessment_id in assessment_ids:
             row = self.assessment_repo.get_for_payment_application(assessment_id)

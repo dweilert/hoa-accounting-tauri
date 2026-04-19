@@ -287,7 +287,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     # ── Audited DB connection helper ─────────────────────────────────────
     def _open_db() -> sqlite3.Connection:
-        """Open a connection tagged with the current request user for audit triggers."""
+        """Return the per-request shared DB connection, creating it on first call."""
+        if hasattr(g, "db"):
+            return g.db
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")
@@ -298,7 +300,17 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             conn.create_function("audit_user", 0, lambda: email)
         except Exception:
             pass
+        g.db = conn
         return conn
+
+    @app.teardown_request
+    def _close_db(exc: BaseException | None) -> None:
+        conn = getattr(g, "db", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g.db = None
 
     # ── API helpers ───────────────────────────────────────────────────────
 
@@ -568,17 +580,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; account pages need it."
             )
         conn = _open_db()
-        g._acct_conn = conn
         return AccountPages(conn)
-
-    @app.teardown_request
-    def _close_acct_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_acct_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._acct_conn = None
 
     @app.get("/accounts")
     def list_accounts() -> Response:
@@ -681,17 +683,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; period pages need it."
             )
         conn = _open_db()
-        g._period_conn = conn
         return AccountingPeriodPages(conn)
-
-    @app.teardown_request
-    def _close_period_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_period_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._period_conn = None
 
     @app.get("/accounting-periods")
     def list_periods() -> Response:
@@ -800,17 +792,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; bank account pages need it."
             )
         conn = _open_db()
-        g._ba_conn = conn
         return BankAccountPages(conn)
-
-    @app.teardown_request
-    def _close_ba_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_ba_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._ba_conn = None
 
     @app.get("/bank-accounts")
     def list_bank_accounts() -> Response:
@@ -892,15 +874,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._recon_conn = conn
         return ReconciliationPages(conn)
-
-    @app.teardown_request
-    def _close_recon_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_recon_conn", None)
-        if conn is not None:
-            conn.close()
-            g._recon_conn = None
 
     @app.get("/reconciliations")
     def list_reconciliations() -> Response:
@@ -1013,17 +987,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; lot pages need it."
             )
         conn = _open_db()
-        g._lot_conn = conn
         return LotPages(conn)
-
-    @app.teardown_request
-    def _close_lot_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_lot_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._lot_conn = None
 
     @app.get("/lots")
     def list_lots() -> Response:
@@ -1161,17 +1125,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; renter pages need it."
             )
         conn = _open_db()
-        g._renter_conn = conn
         return LotRentersPages(conn)
-
-    @app.teardown_request
-    def _close_renter_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_renter_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._renter_conn = None
 
     @app.get("/renters")
     def list_renters() -> Response:
@@ -1256,17 +1210,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; vendor pages need it."
             )
         conn = _open_db()
-        g._vendor_conn = conn
         return VendorPages(conn)
-
-    @app.teardown_request
-    def _close_vendor_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_vendor_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._vendor_conn = None
 
     @app.get("/vendors")
     def list_vendors() -> Response:
@@ -1351,17 +1295,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; owner pages need it."
             )
         conn = _open_db()
-        g._owner_conn = conn
         return OwnerPages(conn)
-
-    @app.teardown_request
-    def _close_owner_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_owner_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._owner_conn = None
 
     @app.get("/owners")
     def list_owners() -> Response:
@@ -1449,17 +1383,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; transaction pages need it."
             )
         conn = _open_db()
-        g._tx_conn = conn
         return VendorBillPages(conn)
-
-    @app.teardown_request
-    def _close_tx_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_tx_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._tx_conn = None
 
     @app.get("/vendor-bills")
     def list_vendor_bills() -> Response:
@@ -1502,7 +1426,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; transaction pages need it."
             )
         conn = _open_db()
-        g._tx_conn = conn
         return DepositBatchPages(conn)
 
     @app.get("/deposits")
@@ -1546,7 +1469,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; income pages need it."
             )
         conn = _open_db()
-        g._tx_conn = conn
         return NonDuesIncomePages(conn)
 
     @app.get("/income")
@@ -1588,17 +1510,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._all_ledger_conn = conn
         return AllLedgerPages(conn)
-
-    @app.teardown_request
-    def _close_all_ledger_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_all_ledger_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._all_ledger_conn = None
 
     @app.get("/ledger/transactions")
     def all_transactions() -> Response:
@@ -1635,17 +1547,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; journal entry pages need it."
             )
         conn = _open_db()
-        g._je_conn = conn
         return ManualJournalPages(conn)
-
-    @app.teardown_request
-    def _close_je_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_je_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._je_conn = None
 
     @app.get("/journal-entries")
     def list_journal_entries() -> Response:
@@ -1702,17 +1604,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; budget pages need it."
             )
         conn = _open_db()
-        g._budget_conn = conn
         return BudgetPages(conn)
-
-    @app.teardown_request
-    def _close_budget_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_budget_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._budget_conn = None
 
     @app.get("/budgets")
     def list_budgets() -> Response:
@@ -1826,7 +1718,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; billing pages need it."
             )
         conn = _open_db()
-        g._tx_conn = conn
         return AssessmentBillingPages(conn)
 
     @app.get("/assessments/bill")
@@ -1880,17 +1771,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; reserve transfer pages need it."
             )
         conn = _open_db()
-        g._rt_conn = conn
         return ReserveTransferPages(conn)
-
-    @app.teardown_request
-    def _close_rt_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_rt_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._rt_conn = None
 
     @app.get("/reserve-transfers")
     def list_reserve_transfers() -> Response:
@@ -1951,17 +1832,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config; late fee pages need it.")
         conn = _open_db()
-        g._lf_conn = conn
         return LateFeePages(conn)
-
-    @app.teardown_request
-    def _close_lf_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_lf_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._lf_conn = None
 
     @app.get("/late-fees")
     def late_fees_page() -> Response:
@@ -2002,17 +1873,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; dues billing pages need it."
             )
         conn = _open_db()
-        g._dues_conn = conn
         return DuesBillingPages(conn)
-
-    @app.teardown_request
-    def _close_dues_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_dues_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._dues_conn = None
 
     @app.get("/dues-billing")
     def dues_billing_page() -> Response:
@@ -2050,18 +1911,8 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; opening balance pages need it."
             )
         conn = _open_db()
-        g._ob_conn = conn
         ar_num = str(org_context.get("dues_receivable_account_number", "1100"))
         return OpeningBalancesPages(conn, ar_account_number=ar_num)
-
-    @app.teardown_request
-    def _close_ob_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_ob_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._ob_conn = None
 
     @app.get("/opening-balances")
     def opening_balances_page() -> Response:
@@ -2097,17 +1948,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._dba_conn = conn
         return DatabaseAdminPages(conn, db_path=str(db_path))
-
-    @app.teardown_request
-    def _close_dba_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_dba_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._dba_conn = None
 
     @app.get("/admin/database")
     def database_admin_page() -> Response:
@@ -2241,17 +2082,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._export_conn = conn
         return ExportPages(conn)
-
-    @app.teardown_request
-    def _close_export_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_export_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._export_conn = None
 
     @app.get("/admin/export")
     def export_page() -> Response:
@@ -2288,17 +2119,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._import_conn = conn
         return ImportPages(conn)
-
-    @app.teardown_request
-    def _close_import_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_import_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._import_conn = None
 
     @app.get("/admin/import")
     def import_page() -> Response:
@@ -2343,17 +2164,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._gl_import_conn = conn
         return GlImportPages(conn)
-
-    @app.teardown_request
-    def _close_gl_import_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_gl_import_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._gl_import_conn = None
 
     @app.get("/admin/gl-import")
     def gl_import_page() -> Response:
@@ -2385,32 +2196,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = _open_db()
-        g._yec_conn = conn
         return YearEndClosePages(conn)
-
-    @app.teardown_request
-    def _close_yec_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_yec_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._yec_conn = None
 
     # ── Batch PDF ─────────────────────────────────────────────────────────────
     def _open_batch_pdf_pages() -> BatchPdfPages:
         conn = _open_db()
-        g._batch_pdf_conn = conn
         return BatchPdfPages(conn=conn)
-
-    @app.teardown_request
-    def _close_batch_pdf_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_batch_pdf_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._batch_pdf_conn = None
 
     @app.get("/batch-pdf")
     def batch_pdf_page() -> Response:
@@ -2438,17 +2229,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # ── Resale Certificate Fee ────────────────────────────────────────────────
     def _open_resale_fee_pages() -> ResaleFeePages:
         conn = _open_db()
-        g._resale_fee_conn = conn
         return ResaleFeePages(conn=conn)
-
-    @app.teardown_request
-    def _close_resale_fee_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_resale_fee_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._resale_fee_conn = None
 
     def _resale_fee_config() -> tuple[str, str]:
         """Return (default_amount, income_account_number) from config."""
@@ -2549,17 +2330,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config; reserve study pages need it.")
         conn = _open_db()
-        g._rs_conn = conn
         return ReserveStudyPages(conn)
-
-    @app.teardown_request
-    def _close_rs_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_rs_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._rs_conn = None
 
     def _rs_redirect(url: str) -> Response:
         from flask import redirect as _redir
@@ -2742,17 +2513,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config; AR pages need it.")
         conn = _open_db()
-        g._ar_conn = conn
         return ARPages(conn)
-
-    @app.teardown_request
-    def _close_ar_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_ar_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._ar_conn = None
 
     @app.get("/ar/lots")
     def ar_lots_list() -> Response:
@@ -2781,17 +2542,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     def _open_audit_pages() -> AuditLogPages:
         conn = _open_db()
-        g._audit_conn = conn
         return AuditLogPages(conn)
-
-    @app.teardown_request
-    def _close_audit_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_audit_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._audit_conn = None
 
     @app.get("/admin/audit-log")
     def audit_log_page() -> Response:
@@ -2814,17 +2565,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     def _open_search_pages() -> SearchPages:
         conn = _open_db()
-        g._search_conn = conn
         return SearchPages(conn)
-
-    @app.teardown_request
-    def _close_search_conn(exc: BaseException | None) -> None:
-        conn = getattr(g, "_search_conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            finally:
-                g._search_conn = None
 
     @app.get("/search")
     def search_page() -> Response:
