@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 from datetime import datetime, timezone
 
 from hoa_accounting.auth.base import ROLE_ADMIN, ROLE_REPORTS, AuthUser
+
+_log = logging.getLogger(__name__)
 
 
 def hash_password(password: str) -> str:
@@ -18,7 +21,8 @@ def _check_password(plain: str, hashed: str) -> bool:
     import bcrypt
     try:
         return bcrypt.checkpw(plain.encode(), hashed.encode())
-    except Exception:
+    except Exception as exc:
+        _log.warning("bcrypt check failed (corrupted hash?): %s", exc)
         return False
 
 
