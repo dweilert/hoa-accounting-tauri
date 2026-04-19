@@ -348,23 +348,25 @@ hr {
   gap: 6px;
   width: 100%;
   padding: 4px var(--sp-2);
+  padding-left: calc(var(--sp-2) - 3px); /* offset for left border */
   margin-bottom: var(--sp-1);
-  background: var(--surface-sunken);
+  background: var(--accent-subtle);
   border: none;
+  border-left: 3px solid var(--accent);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  letter-spacing: 0.09em;
+  color: var(--accent);
   text-align: left;
-  border-radius: var(--radius-sm);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   transition: color 100ms ease, background 100ms ease;
 }
 .sidebar__section-header:hover {
-  color: var(--text);
-  background: var(--border);
+  color: var(--accent-hover, var(--accent));
+  background: var(--accent-border);
 }
 .sidebar__section-header:focus-visible {
   outline: 2px solid var(--accent-border);
