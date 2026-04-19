@@ -164,22 +164,26 @@ class AccountsRepository(BaseRepository):
             ).fetchone()
         return int(row[0]) > 0
 
+    # Exhaustive list of (table, column) pairs that reference accounts.id.
+    # These are module-level constants — never user-supplied — so the
+    # f-string interpolation below is safe.
+    _ACCOUNT_REF_CHECKS: list[tuple[str, str]] = [
+        ("journal_entry_lines", "account_id"),
+        ("assessment_rules",    "income_account_id"),
+        ("assessment_rules",    "receivable_account_id"),
+        ("vendor_bills",        "expense_account_id"),
+        ("vendor_bills",        "payable_account_id"),
+        ("bank_accounts",       "gl_account_id"),
+        ("budget_lines",        "account_id"),
+        ("reserve_transfers",   "from_account_id"),
+        ("reserve_transfers",   "to_account_id"),
+    ]
+
     def has_activity(self, account_id: int) -> bool:
         """Return True if any records reference this account."""
-        checks = [
-            ("journal_entry_lines", "account_id"),
-            ("assessment_rules",    "income_account_id"),
-            ("assessment_rules",    "receivable_account_id"),
-            ("vendor_bills",        "expense_account_id"),
-            ("vendor_bills",        "payable_account_id"),
-            ("bank_accounts",       "gl_account_id"),
-            ("budget_lines",        "account_id"),
-            ("reserve_transfers",   "from_account_id"),
-            ("reserve_transfers",   "to_account_id"),
-        ]
-        for table, col in checks:
+        for table, col in self._ACCOUNT_REF_CHECKS:
             row = self.conn.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE {col} = ? LIMIT 1",
+                f"SELECT COUNT(*) FROM {table} WHERE {col} = ? LIMIT 1",  # noqa: S608 — table/col from constant above
                 (account_id,),
             ).fetchone()
             if int(row[0]) > 0:

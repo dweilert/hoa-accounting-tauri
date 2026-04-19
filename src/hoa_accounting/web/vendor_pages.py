@@ -180,6 +180,9 @@ class VendorPages:
                 form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/vendors?msg=Vendor+added.", None
 
     # ── Edit vendor (POST) ─────────────────────────────────────────
@@ -217,6 +220,9 @@ class VendorPages:
                 form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/vendors?msg=Vendor+updated.", None
 
     # ── Delete vendor (POST) ───────────────────────────────────────
@@ -242,4 +248,7 @@ class VendorPages:
                 vendor_id=vendor_id,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/vendors?msg=Vendor+deleted.", None

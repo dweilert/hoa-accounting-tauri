@@ -106,9 +106,10 @@
       <div class="form" style="grid-template-columns: minmax(220px, 360px) 1fr; align-items: start;">
         <label class="field">
           <span class="field__label">Amount per homeowner *</span>
-          <input type="number" name="bulk_amount"
+          <input type="text" name="bulk_amount"
+                 class="dollar-input"
                  value="{{ values.bulk_amount }}"
-                 step="0.01" min="0" inputmode="decimal"
+                 inputmode="decimal"
                  placeholder="0.00" />
           <span class="field__hint">Used only by the "Bill all" button.</span>
         </label>

@@ -175,6 +175,9 @@ class OwnerPages:
                 org=org, theme=theme,
                 form_values=form_data, error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/owners?msg=Owner+added.+Use+the+Lot+screen+to+assign+a+lot.", None
 
     # ── Edit owner (POST) ──────────────────────────────────────────────
@@ -209,6 +212,9 @@ class OwnerPages:
                 owner_id=owner_id, form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/owners?msg=Owner+updated.", None
 
     # ── Delete owner (POST) ────────────────────────────────────────────

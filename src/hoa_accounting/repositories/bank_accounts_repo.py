@@ -95,20 +95,23 @@ class BankAccountsRepository(BaseRepository):
             ).fetchall()
         )
 
+    # All tables that reference bank_accounts.id — module-level constant,
+    # never user-supplied, so f-string interpolation below is safe.
+    _BANK_ACCOUNT_REF_TABLES: list[str] = [
+        "payments",
+        "bill_payments",
+        "deposit_batches",
+        "income_batches",
+        "bank_transactions",
+        "bank_import_batches",
+        "bank_reconciliations",
+    ]
+
     def has_transactions(self, bank_account_id: int) -> bool:
         """Return True if any financial records exist for this bank account."""
-        tables = [
-            "payments",
-            "bill_payments",
-            "deposit_batches",
-            "income_batches",
-            "bank_transactions",
-            "bank_import_batches",
-            "bank_reconciliations",
-        ]
-        for table in tables:
+        for table in self._BANK_ACCOUNT_REF_TABLES:
             row = self.conn.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE bank_account_id = ? LIMIT 1",
+                f"SELECT COUNT(*) FROM {table} WHERE bank_account_id = ? LIMIT 1",  # noqa: S608 — table from constant above
                 (bank_account_id,),
             ).fetchone()
             if int(row[0]) > 0:

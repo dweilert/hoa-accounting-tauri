@@ -198,6 +198,9 @@ class LotRentersPages:
                 form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/renters?msg=Renter+added.", None
 
     # ── Edit renter (POST) ─────────────────────────────────────────
@@ -233,6 +236,9 @@ class LotRentersPages:
                 form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/renters?msg=Renter+updated.", None
 
     # ── End tenancy (POST) ─────────────────────────────────────────
@@ -253,4 +259,7 @@ class LotRentersPages:
             return None, self.render_list(
                 org=org, theme=theme, error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/renters?msg=Tenancy+ended.", None

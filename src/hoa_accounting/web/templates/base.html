@@ -696,5 +696,26 @@
       });
     })();
   </script>
+  <script>
+    /* Dollar input UX: select-all on focus so typing replaces the value;
+       auto-format to 2 decimal places on blur. Applies to .dollar-input. */
+    (function () {
+      function formatDollar(val) {
+        var n = parseFloat(val.replace(/[^0-9.-]/g, ""));
+        if (isNaN(n) || n < 0) n = 0;
+        return n.toFixed(2);
+      }
+      document.addEventListener("focusin", function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains("dollar-input")) {
+          e.target.select();
+        }
+      });
+      document.addEventListener("focusout", function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains("dollar-input")) {
+          e.target.value = formatDollar(e.target.value);
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

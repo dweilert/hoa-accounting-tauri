@@ -9,9 +9,12 @@ Panels
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 import tempfile
+
+_log = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from datetime import datetime
 from http import HTTPStatus
@@ -451,7 +454,8 @@ class DatabaseAdminPages:
                 conn.close()
 
         except Exception as exc:
-            return {"ok": False, "error": f"Could not read backup: {exc}"}
+            _log.warning("Could not read backup file for preview: %s", exc)
+            return {"ok": False, "error": "Could not read backup file. The file may be corrupted or not a valid database."}
         finally:
             if tmp_path:
                 try:

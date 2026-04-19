@@ -213,6 +213,9 @@ class LotPages:
                 form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/lots?msg=Lot+added.", None
 
     # ── Edit lot (POST) ────────────────────────────────────────────
@@ -254,6 +257,9 @@ class LotPages:
                 form_values=form_data,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/lots/{lot_id}/edit?msg=Lot+updated.", None
 
     # ── Delete lot (POST) ──────────────────────────────────────────
@@ -284,6 +290,9 @@ class LotPages:
                 lot_id=lot_id,
                 error_message=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/lots?msg=Lot+deleted.", None
 
     # ── Link owner (POST) ──────────────────────────────────────────
@@ -322,6 +331,9 @@ class LotPages:
                 lot_id=lot_id,
                 ownership_error=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/lots/{lot_id}/edit?msg=Owner+linked.", None
 
     # ── End ownership (POST) ───────────────────────────────────────
@@ -348,6 +360,9 @@ class LotPages:
                 lot_id=lot_id,
                 ownership_error=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/lots/{lot_id}/edit?msg=Ownership+ended.", None
 
     # ── Edit ownership dates (POST) ────────────────────────────────
@@ -376,4 +391,7 @@ class LotPages:
                 lot_id=lot_id,
                 ownership_error=str(exc),
             )
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/lots/{lot_id}/edit?msg=Ownership+dates+updated.", None

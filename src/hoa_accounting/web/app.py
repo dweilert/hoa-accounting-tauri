@@ -112,17 +112,22 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
     hoa_name = config.hoa.name
     hoa_legal = config.hoa.legal_name
     db_theme = getattr(config.app, "theme", "warm")
+    db_dues = "0.00"
     try:
         import sqlite3 as _sq3
         _c = _sq3.connect(config.database.path)
         _c.row_factory = _sq3.Row
-        _row = _c.execute("SELECT display_name, legal_name, theme FROM hoa_profile LIMIT 1").fetchone()
+        _row = _c.execute(
+            "SELECT display_name, legal_name, theme, default_annual_dues FROM hoa_profile LIMIT 1"
+        ).fetchone()
         if _row and _row["display_name"]:
             hoa_name = _row["display_name"]
         if _row and _row["legal_name"]:
             hoa_legal = _row["legal_name"]
         if _row and _row["theme"]:
             db_theme = _row["theme"]
+        if _row and _row["default_annual_dues"]:
+            db_dues = _row["default_annual_dues"]
         _c.close()
     except Exception:
         pass
@@ -132,6 +137,7 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "environment": config.app.environment,
         "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
         "theme": db_theme,
+        "default_annual_dues": db_dues,
         "db_path": config.database.path,
         "dues_receivable_account_number": getattr(
             config.accounting, "dues_receivable_account_number", "1100"

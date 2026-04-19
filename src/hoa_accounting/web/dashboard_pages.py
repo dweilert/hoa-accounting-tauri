@@ -106,8 +106,15 @@ class DashboardPages:
             return None, self.render_settings(org, new_theme, error="Full HOA name is required.")
         if not display_name:
             return None, self.render_settings(org, new_theme, error="Abbreviated name is required.")
-        self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme)
+        raw_dues = form.get("default_annual_dues", "0.00").strip() or "0.00"
+        try:
+            from decimal import Decimal, InvalidOperation
+            new_dues = str(Decimal(raw_dues).quantize(Decimal("0.01")))
+        except (ValueError, InvalidOperation):
+            new_dues = "0.00"
+        self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme, default_annual_dues=new_dues)
         org["theme"] = new_theme
+        org["default_annual_dues"] = new_dues
         return "/system-settings?msg=Settings+saved.", None
 
     # ── Card Catalog ───────────────────────────────────────────────────

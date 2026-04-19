@@ -158,12 +158,16 @@ class BudgetPages:
                 form_data=form_data,
             )
 
-        budget_id = self._repo.insert_budget(
-            fiscal_year=fiscal_year,
-            fund_code=fund_code,
-            notes=notes,
-        )
-        self.conn.commit()
+        try:
+            budget_id = self._repo.insert_budget(
+                fiscal_year=fiscal_year,
+                fund_code=fund_code,
+                notes=notes,
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/budgets/{budget_id}/edit?msg=Budget+created.", None
 
     # ── Edit (grid) form ──────────────────────────────────────────────
@@ -321,8 +325,12 @@ class BudgetPages:
                 continue
             self._repo.upsert_budget_line(budget_id, aid, period, amount)
 
-        self._repo.delete_zero_lines(budget_id)
-        self.conn.commit()
+        try:
+            self._repo.delete_zero_lines(budget_id)
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         msg = quote("Budget saved.")
         return f"/budgets/{budget_id}/edit?msg={msg}", None
 
@@ -340,8 +348,12 @@ class BudgetPages:
             return "/budgets?msg=Budget+not+found.", None
         if budget["status"] != "DRAFT":
             return f"/budgets/{budget_id}/edit?msg=Already+approved.", None
-        self._repo.set_status(budget_id, "APPROVED")
-        self.conn.commit()
+        try:
+            self._repo.set_status(budget_id, "APPROVED")
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/budgets/{budget_id}/edit?msg=Budget+approved.", None
 
     def handle_archive(
@@ -354,8 +366,12 @@ class BudgetPages:
         budget = self._repo.get_budget(budget_id)
         if budget is None:
             return "/budgets?msg=Budget+not+found.", None
-        self._repo.set_status(budget_id, "ARCHIVED")
-        self.conn.commit()
+        try:
+            self._repo.set_status(budget_id, "ARCHIVED")
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return f"/budgets/{budget_id}/edit?msg=Budget+archived.", None
 
     def handle_delete(
@@ -370,6 +386,10 @@ class BudgetPages:
             return "/budgets?msg=Budget+not+found.", None
         if budget["status"] != "DRAFT":
             return f"/budgets/{budget_id}/edit?msg=Only+DRAFT+budgets+can+be+deleted.", None
-        self._repo.delete_budget(budget_id)
-        self.conn.commit()
+        try:
+            self._repo.delete_budget(budget_id)
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return "/budgets?msg=Budget+deleted.", None

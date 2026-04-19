@@ -42,6 +42,14 @@
                  required />
           <span class="field__hint">Shown in the sidebar and page headings.</span>
         </label>
+        <label class="field">
+          <span class="field__label">Default Annual Dues ($)</span>
+          <input type="text" name="default_annual_dues"
+                 class="dollar-input"
+                 value="{{ org.default_annual_dues | default('0.00') }}"
+                 placeholder="0.00" />
+          <span class="field__hint">Pre-fills the bulk amount on the Bill Assessments page. Change once per year.</span>
+        </label>
       </div>
 
       <div style="margin-top:1rem;">
