@@ -281,7 +281,7 @@ class WorkflowAdminPages:
             link_label=(form.get("link_label") or "").strip(),
             color=(form.get("color") or "slate"),
         )
-        return f"/admin/workflow-guide?tab={tab_id}&flash=Card+saved"
+        return f"/admin/workflow-guide?tab={tab_id}&flash=Card+saved&scrollto={card_id}"
 
     def handle_move_card(self, form) -> str:
         card_id = int(form.get("card_id", 0))
