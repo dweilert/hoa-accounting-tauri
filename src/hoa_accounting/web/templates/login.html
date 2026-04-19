@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In · {{ org.name if org else "HOA Accounting" }}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      padding: 2.5rem 2rem 2rem;
+    }
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .login-logo__abbr {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      color: var(--accent);
+    }
+    .login-logo__name {
+      font-size: .9rem;
+      color: var(--text-muted);
+      margin-top: .2rem;
+    }
+    .login-logo__sub {
+      font-size: .75rem;
+      color: var(--text-subtle);
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin: 1.25rem 0;
+      color: var(--text-subtle);
+      font-size: .78rem;
+    }
+    .login-divider::before,
+    .login-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .btn--cognito {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      background: #232f3e;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: .65rem 1rem;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn--cognito:hover { background: #1a252f; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: .3rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .form-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: .55rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: .95rem;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-subtle, rgba(44,110,160,.15));
+    }
+
+    .btn--login {
+      width: 100%;
+      padding: .65rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .95rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: .5rem;
+      transition: opacity .15s;
+    }
+    .btn--login:hover { opacity: .88; }
+
+    .login-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: .75rem;
+      color: var(--text-subtle);
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-logo">
+    {% if org %}
+      <div class="login-logo__abbr">{{ org.short_name or org.name[:6] }}</div>
+      <div class="login-logo__name">{{ org.name }}</div>
+      {% if org.legal_name and org.legal_name != org.name %}
+        <div class="login-logo__sub">{{ org.legal_name }}</div>
+      {% endif %}
+    {% else %}
+      <div class="login-logo__abbr">HOA</div>
+      <div class="login-logo__name">HOA Accounting</div>
+    {% endif %}
+  </div>
+
+  {% if error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;font-size:.88rem;">{{ error }}</div>
+  {% endif %}
+
+  {# ── Cognito button ───────────────────────────────────────────────── #}
+  {% if cognito_enabled %}
+  <form method="post">
+    <button type="submit" name="action" value="cognito" class="btn--cognito">
+      <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 4L4 14v20l20 10 20-10V14L24 4z" fill="#FF9900"/>
+        <path d="M24 4v40M4 14l20 10 20-10" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+      Sign in with AWS Cognito
+    </button>
+  </form>
+  {% endif %}
+
+  {# ── Local login form ─────────────────────────────────────────────── #}
+  {% if local_enabled %}
+    {% if cognito_enabled %}
+      <div class="login-divider">or sign in locally</div>
+    {% endif %}
+
+    <form method="post" autocomplete="on">
+      <input type="hidden" name="action" value="local">
+      <div class="form-group">
+        <label class="form-label" for="email">Email</label>
+        <input class="form-input" type="email" id="email" name="email"
+               value="{{ prefill_email }}" autocomplete="email" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-input" type="password" id="password" name="password"
+               autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn--login">Sign In</button>
+    </form>
+  {% endif %}
+
+  <div class="login-footer">HOA Accounting System · Secure Access</div>
+</div>
+
+</body>
+</html>

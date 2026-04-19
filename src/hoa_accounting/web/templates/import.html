@@ -1,0 +1,891 @@
+{% extends "base.html" %}
+{% block title %}Import Data · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+/* ── Drop zone ─────────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: default;
+  transition: border-color .15s, background .15s;
+  color: var(--text-muted);
+  font-size: 15px;
+  user-select: none;
+}
+.drop-zone--over  { border-color: var(--primary); background: var(--surface-raised,var(--surface)); }
+.drop-zone--ready { border-style: solid; border-color: #4caf50; background: #f0faf0; color: #2e7d32; }
+.drop-zone--error { border-style: solid; border-color: #e57373; background: #fdf3f3; color: #c62828; }
+
+/* ── Table selector cards ──────────────────────────────────────────── */
+.tsel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: .5rem;
+}
+.tsel-card {
+  display: flex; align-items: center; gap: .55rem;
+  padding: .55rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  background: var(--surface-raised, var(--surface));
+  transition: border-color .12s, background .12s;
+}
+.tsel-card:hover               { border-color: var(--primary); }
+.tsel-card--selected           { border-color: var(--primary); background: #eef4ff; }
+.tsel-card input[type=radio]   { accent-color: var(--primary); }
+.tsel-order {
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: var(--text-muted);
+  border-radius: 50%; width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.tsel-card--selected .tsel-order { background: var(--primary); }
+.tsel-requires {
+  font-size: 10px; color: var(--text-muted);
+  margin-top: .1rem;
+}
+
+/* ── Field mapper ──────────────────────────────────────────────────── */
+.mapper-wrap   { position: relative; }
+.mapper        {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 260px;
+  max-height: 440px;
+}
+.mapper__svg   {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.mapper__line  {
+  fill: none;
+  stroke: var(--primary, #4a6cf7);
+  stroke-width: 2;
+  opacity: .75;
+}
+.mapper__line--temp {
+  stroke: var(--primary, #4a6cf7);
+  stroke-dasharray: 5 4;
+  opacity: .55;
+}
+.mapper__panel {
+  overflow-y: auto;
+  padding: 0;
+}
+.mapper__panel--table { border-right: 1px solid var(--border); }
+.mapper__panel--csv   { border-left:  2px solid var(--border); }
+.mapper__panel-hdr    {
+  position: sticky; top: 0;
+  background: var(--surface-raised, var(--surface));
+  border-bottom: 1px solid var(--border);
+  padding: .4rem .65rem;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted);
+  z-index: 2;
+}
+.mapper__row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .5rem .65rem;
+  font-size: 13px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+.mapper__row:last-child { border-bottom: none; }
+.mapper__row--connected { border-left: 3px solid var(--primary); }
+.mapper__row--csv       { cursor: default; }
+.mapper__dot {
+  flex-shrink: 0;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 2px solid var(--text-muted);
+  cursor: crosshair;
+  transition: background .1s, border-color .1s, transform .1s;
+  z-index: 3;
+}
+.mapper__dot:hover        { background: var(--primary); border-color: var(--primary); transform: scale(1.25); }
+.mapper__dot--connected   { background: var(--primary); border-color: var(--primary); }
+.mapper__label            { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapper__required         { color: #e53935; margin-left: .15rem; }
+.mapper__note             { font-size: 10px; color: var(--text-muted); margin-left: .25rem; }
+.mapper__mapped-tag {
+  font-size: 10px; background: #e8eeff; color: #1a3a8f;
+  border-radius: 3px; padding: .1rem .35rem;
+  max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex-shrink: 0;
+}
+.mapper__remove {
+  flex-shrink: 0; background: none; border: none;
+  color: var(--text-muted); cursor: pointer; padding: 0 .1rem;
+  font-size: 14px; line-height: 1;
+}
+.mapper__remove:hover { color: #e53935; }
+
+/* ── Per-field validate button ─────────────────────────────────────── */
+.mapper__val-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: .05rem .35rem;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.mapper__val-btn:hover       { border-color: var(--primary); color: var(--primary); }
+.mapper__val-btn--ok         { border-color: #4caf50; color: #2e7d32; background: #f0faf0; }
+.mapper__val-btn--err        { border-color: #e57373; color: #c62828; background: #fdf3f3; }
+
+/* ── Key badge ─────────────────────────────────────────────────────── */
+.mapper__key {
+  flex-shrink: 0;
+  font-size: 9px; font-weight: 800; letter-spacing: .04em;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 3px;
+  padding: .05rem .3rem;
+  cursor: help;
+}
+
+/* ── Validation results ─────────────────────────────────────────────── */
+.val-summary {
+  display: flex; gap: .75rem; align-items: center;
+  padding: .6rem .85rem;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: .75rem;
+}
+.val-summary--ok    { background:#f0faf0; border:1px solid #b7dfb8; color:#2e7d32; }
+.val-summary--warn  { background:#fdf3f3; border:1px solid #f5c2c2; color:#c62828; }
+.val-filter-row {
+  display: flex; gap: .6rem; align-items: center;
+  flex-wrap: wrap; margin-bottom: .6rem; font-size: 13px;
+}
+</style>
+
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+    <div class="alert__content">{{ error_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{# ── Step 1: Select table + Drop CSV ─────────────────────────────── #}
+<div id="step-upload">
+
+  {# Import order guide #}
+  <details class="panel" style="margin-bottom:1rem;">
+    <summary style="cursor:pointer;font-size:13px;padding:.65rem .85rem;
+                    font-weight:600;user-select:none;list-style:none;
+                    display:flex;align-items:center;gap:.5rem;">
+      <span style="font-size:11px;">▸</span> Import Order Guide
+    </summary>
+    <div style="padding:.25rem .85rem .75rem;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:.6rem;">
+        Import tables with no dependencies first. Tables lower in the list require
+        earlier ones to be loaded first.
+      </div>
+      <ol style="margin:0;padding-left:1.4rem;font-size:13px;line-height:2;">
+        {% for key, tdef in import_order %}
+          <li>
+            <strong>{{ tdef.label }}</strong>
+            {% if tdef.requires %}
+              <span style="font-size:11px;color:var(--text-muted);margin-left:.4rem;">
+                — requires: {{ tdef.requires | join(', ') }}
+              </span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </details>
+
+  {# Table selector #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">1 &nbsp;·&nbsp; Select Target Table</div>
+      <div class="panel__description">Which data are you importing?</div>
+    </div>
+    <div class="tsel-grid" id="tsel-grid">
+      {% for key, tdef in import_order %}
+        <label class="tsel-card" id="tsel-{{ key }}">
+          <input type="radio" name="data_type" value="{{ key }}"
+                 onchange="onTableSelect('{{ key }}')" style="display:none;" />
+          <span class="tsel-order">{{ tdef.order }}</span>
+          <span>
+            {{ tdef.label }}
+            {% if tdef.requires %}
+              <div class="tsel-requires">needs: {{ tdef.requires | join(', ') }}</div>
+            {% endif %}
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Drop zone #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">2 &nbsp;·&nbsp; Drop Your CSV File</div>
+      <div class="panel__description" id="drop-hint">
+        Select a table above first, then drag your CSV file onto the area below.
+      </div>
+    </div>
+    <div id="drop-zone" class="drop-zone">
+      <div style="font-size:2rem;margin-bottom:.5rem;">📂</div>
+      <div id="drop-label">Drag your CSV file here</div>
+      <div style="font-size:12px;margin-top:.3rem;" id="drop-sublabel">
+        Commas inside field values should be encoded as <code>&amp;#x2C;</code>
+        (as exported by this app), or the file may use standard CSV quoting.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Step 2: Field mapper ────────────────────────────────────────── #}
+<div id="step-map" style="display:none;">
+  <div class="panel">
+    <div class="panel__header" style="display:flex;align-items:flex-start;gap:1rem;">
+      <div style="flex:1;">
+        <div class="panel__title" id="mapper-heading">Map Fields</div>
+        <div class="panel__description">
+          Drag a dot on either side to draw a connection.
+          Click <strong>×</strong> on a mapped field to remove it.
+          Required fields (<span style="color:#e53935;">*</span>) must be mapped before importing.
+        </div>
+      </div>
+      <button type="button" class="btn btn--ghost btn--sm"
+              onclick="goBack()" style="flex-shrink:0;margin-top:.15rem;">
+        ← Change File or Table
+      </button>
+    </div>
+
+    <div class="mapper-wrap" id="mapper-wrap">
+      <svg class="mapper__svg" id="mapper-svg"></svg>
+      <div class="mapper" id="mapper">
+        <div class="mapper__panel mapper__panel--table" id="panel-table">
+          <div class="mapper__panel-hdr">Target Fields</div>
+        </div>
+        <div class="mapper__panel mapper__panel--csv" id="panel-csv">
+          <div class="mapper__panel-hdr">CSV Columns (your file)</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+      <button type="button" class="btn" id="val-all-btn" onclick="validateAll()">
+        Validate All
+      </button>
+      <button type="button" class="btn btn--primary" id="run-btn"
+              onclick="runImport()" disabled>
+        Run Import
+      </button>
+      <span style="font-size:12px;color:var(--text-muted);" id="map-status"></span>
+    </div>
+
+    {# ── Validation results (shown after any validate action) ──────── #}
+    <div id="val-section" style="display:none;margin-top:1.25rem;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:.5rem;"
+           id="val-title">Validation Results</div>
+      <div id="val-summary" class="val-summary"></div>
+      <div style="max-height:280px;overflow-y:auto;">
+        <table id="val-table" style="display:none;">
+          <thead>
+            <tr>
+              <th style="width:4.5rem;">Row #</th>
+              <th style="width:12rem;">Value in File</th>
+              <th>Issue</th>
+            </tr>
+          </thead>
+          <tbody id="val-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  // ── Injected server data ──────────────────────────────────────────
+  var TABLE_DEFS = {{ table_defs_json | safe }};
+
+  // ── State ─────────────────────────────────────────────────────────
+  var selectedType = null;   // e.g. "accounts"
+  var csvHeaders   = [];     // column names from the uploaded file
+  var csvContent   = "";     // raw CSV text
+  var fileName     = "";
+  var connections  = {};     // { tableField: csvColumn }
+  var dragFrom     = null;   // { side, key, dotEl }
+  var tempPath     = null;
+
+  // ── Step 1: Table selection ───────────────────────────────────────
+  window.onTableSelect = function (key) {
+    selectedType = key;
+    document.querySelectorAll(".tsel-card").forEach(function (c) {
+      c.classList.remove("tsel-card--selected");
+    });
+    var card = document.getElementById("tsel-" + key);
+    if (card) card.classList.add("tsel-card--selected");
+
+    var hint = document.getElementById("drop-hint");
+    if (hint) {
+      var def = TABLE_DEFS[key] || {};
+      hint.textContent = "Drop your " + (def.label || key) + " CSV file onto the area below.";
+    }
+    maybeShowMapper();
+  };
+
+  // ── Step 1: Drop zone ─────────────────────────────────────────────
+  var zone = document.getElementById("drop-zone");
+
+  zone.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    zone.classList.add("drop-zone--over");
+  });
+  zone.addEventListener("dragleave", function () {
+    zone.classList.remove("drop-zone--over");
+  });
+  zone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    zone.classList.remove("drop-zone--over");
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setZoneError("Only .csv files are accepted.");
+      return;
+    }
+    fileName = file.name;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var text = ev.target.result || "";
+      var info = parseCsvHeaders(text);
+      if (!info.headers.length) {
+        setZoneError("Could not read any column headers from this file.");
+        return;
+      }
+      csvContent = text;
+      csvHeaders = info.headers;
+      zone.classList.remove("drop-zone--error");
+      zone.classList.add("drop-zone--ready");
+      document.getElementById("drop-label").textContent =
+        "✓ " + file.name + " — " + info.rowCount + " data row(s)";
+      document.getElementById("drop-sublabel").textContent =
+        info.headers.length + " column(s): " + info.headers.slice(0, 5).join(", ") +
+        (info.headers.length > 5 ? " …" : "");
+      maybeShowMapper();
+    };
+    reader.readAsText(file);
+  });
+
+  function setZoneError(msg) {
+    zone.classList.add("drop-zone--error");
+    document.getElementById("drop-label").textContent = "⚠ " + msg;
+    document.getElementById("drop-sublabel").textContent = "Drop a different file to try again.";
+  }
+
+  // ── CSV header parser (client-side) ───────────────────────────────
+  function parseCsvHeaders(text) {
+    var lines = text.trim().split(/\r?\n/);
+    if (!lines.length) return { headers: [], rowCount: 0 };
+    // Simple CSV parse for header row (handles quoted fields)
+    var headers = parseCsvLine(lines[0]).map(function (h) {
+      return h.trim().replace(/&#x2C;/g, ",");
+    });
+    var rowCount = lines.slice(1).filter(function (l) { return l.trim(); }).length;
+    return { headers: headers, rowCount: rowCount };
+  }
+
+  function parseCsvLine(line) {
+    var result = [], cur = "", inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (c === ',' && !inQ) {
+        result.push(cur); cur = "";
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur);
+    return result;
+  }
+
+  // ── Transition to mapper ──────────────────────────────────────────
+  function maybeShowMapper() {
+    if (!selectedType || !csvHeaders.length) return;
+    buildMapper();
+    document.getElementById("step-upload").style.display = "none";
+    document.getElementById("step-map").style.display = "";
+  }
+
+  window.goBack = function () {
+    document.getElementById("step-map").style.display   = "none";
+    document.getElementById("step-upload").style.display = "";
+    // Reset state for a fresh attempt
+    connections = {};
+    csvHeaders = [];
+    csvContent = "";
+    fileName   = "";
+    zone.className = "drop-zone";
+    document.getElementById("drop-label").textContent    = "Drag your CSV file here";
+    document.getElementById("drop-sublabel").textContent =
+      "Commas inside field values should be encoded as &#x2C; (as exported by this app), " +
+      "or the file may use standard CSV quoting.";
+  };
+
+  // ── Build mapper panels ───────────────────────────────────────────
+  function buildMapper() {
+    connections = {};
+    var def     = TABLE_DEFS[selectedType] || { fields: [], label: selectedType };
+    var fields  = def.fields || [];
+
+    document.getElementById("mapper-heading").textContent =
+      "Map Fields: " + def.label + " ← " + fileName;
+
+    // Left panel: table fields
+    var panelT = document.getElementById("panel-table");
+    // Remove all rows (keep header)
+    Array.from(panelT.querySelectorAll(".mapper__row")).forEach(function (r) { r.remove(); });
+    fields.forEach(function (f) {
+      var row = document.createElement("div");
+      row.className = "mapper__row";
+      row.setAttribute("data-field", f.name);
+
+      var keyBadge = f.key
+        ? '<span class="mapper__key" title="' +
+            esc(f.note || "Unique identifier — duplicates will be rejected") +
+            '">KEY</span>'
+        : "";
+      var noteSpan = (f.note && !f.key)
+        ? '<span class="mapper__note">' + esc(f.note) + "</span>"
+        : "";
+
+      row.innerHTML =
+        // Per-field validate button — shown on all fields
+        '<button class="mapper__val-btn" id="vbtn-' + esc(f.name) + '" ' +
+          'title="Validate this column" ' +
+          'onclick="validateField(\'' + esc(f.name) + '\')">✓ Val</button>' +
+        // Label + required marker + note
+        '<span class="mapper__label">' +
+          esc(f.label) +
+          (f.required ? '<span class="mapper__required">*</span>' : "") +
+          noteSpan +
+        "</span>" +
+        // Key badge
+        keyBadge +
+        // Mapped CSV column tag
+        '<span class="mapper__mapped-tag" id="tag-' + esc(f.name) + '" style="display:none;"></span>' +
+        // Remove button — right side, next to dot
+        '<button class="mapper__remove" id="rm-' + esc(f.name) + '" style="display:none;" ' +
+          'onclick="removeConn(\'' + esc(f.name) + '\')">×</button>' +
+        // Drag dot — far right so lines originate from the panel edge
+        '<span class="mapper__dot" id="tdot-' + esc(f.name) + '" ' +
+          'data-side="table" data-key="' + esc(f.name) + '"></span>';
+      panelT.appendChild(row);
+    });
+
+    // Right panel: CSV columns
+    var panelC = document.getElementById("panel-csv");
+    Array.from(panelC.querySelectorAll(".mapper__row")).forEach(function (r) { r.remove(); });
+    csvHeaders.forEach(function (col) {
+      var row = document.createElement("div");
+      row.className = "mapper__row mapper__row--csv";
+      row.setAttribute("data-col", col);
+      var safeCol = col.replace(/'/g, "\\'");
+      row.innerHTML =
+        '<span class="mapper__dot" id="cdot-' + encodeColId(col) + '" ' +
+          'data-side="csv" data-key="' + esc(col) + '"></span>' +
+        '<span class="mapper__label">' + esc(col) + '</span>';
+      panelC.appendChild(row);
+    });
+
+    // Wire up dot drag events
+    document.querySelectorAll(".mapper__dot").forEach(function (dot) {
+      dot.addEventListener("mousedown", onDotDown);
+    });
+
+    // Auto-map by name
+    autoMap(fields);
+    updateSubmitBtn();
+  }
+
+  // ── Auto-mapping ──────────────────────────────────────────────────
+  function autoMap(fields) {
+    function norm(s) { return s.toLowerCase().replace(/[^a-z0-9]/g, ""); }
+    fields.forEach(function (f) {
+      var fn = norm(f.name), fl = norm(f.label);
+      var match = csvHeaders.find(function (col) {
+        var cn = norm(col);
+        return cn === fn || cn === fl;
+      });
+      if (match) addConn(f.name, match);
+    });
+  }
+
+  // ── Connection management ─────────────────────────────────────────
+  window.removeConn = function (tableField) {
+    delete connections[tableField];
+    removeLine(tableField);
+    updateFieldRow(tableField, null);
+    updateSubmitBtn();
+  };
+
+  function addConn(tableField, csvCol) {
+    // Remove any prior mapping for this table field
+    if (connections[tableField]) removeConn(tableField);
+    connections[tableField] = csvCol;
+    drawLine(tableField, csvCol);
+    updateFieldRow(tableField, csvCol);
+    updateCsvDot(csvCol, true);
+    updateSubmitBtn();
+  }
+
+  function removeLine(tableField) {
+    var svg = document.getElementById("mapper-svg");
+    var line = getLineForField(tableField);
+    if (line) line.remove();
+    var csvCol = connections[tableField];
+    if (csvCol) updateCsvDot(csvCol, false);
+  }
+
+  function getLineForField(tf) {
+    var lines = document.getElementById("mapper-svg").querySelectorAll(".mapper__line");
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].getAttribute("data-tf") === tf) return lines[i];
+    }
+    return null;
+  }
+
+  function updateFieldRow(tableField, csvCol) {
+    var tag = document.getElementById("tag-" + tableField);
+    var rm  = document.getElementById("rm-"  + tableField);
+    var dot = getDotEl("table", tableField);
+    var row = dot && dot.closest(".mapper__row");
+    if (csvCol) {
+      if (tag) { tag.textContent = csvCol; tag.style.display = ""; }
+      if (rm)  rm.style.display = "";
+      if (dot) dot.classList.add("mapper__dot--connected");
+      if (row) row.classList.add("mapper__row--connected");
+    } else {
+      if (tag) { tag.textContent = ""; tag.style.display = "none"; }
+      if (rm)  rm.style.display = "none";
+      if (dot) dot.classList.remove("mapper__dot--connected");
+      if (row) row.classList.remove("mapper__row--connected");
+    }
+  }
+
+  function updateCsvDot(csvCol, connected) {
+    var dot = getDotEl("csv", csvCol);
+    if (!dot) return;
+    if (connected) dot.classList.add("mapper__dot--connected");
+    else           dot.classList.remove("mapper__dot--connected");
+  }
+
+  function updateSubmitBtn() {
+    var def    = TABLE_DEFS[selectedType] || { fields: [] };
+    var fields = def.fields || [];
+    var missing = fields.filter(function (f) {
+      return f.required && !connections[f.name];
+    });
+    var btn = document.getElementById("run-btn");
+    var msg = document.getElementById("map-status");
+    if (missing.length) {
+      btn.disabled = true;
+      msg.textContent = missing.length + " required field(s) not yet mapped: " +
+        missing.map(function (f) { return f.label; }).join(", ");
+    } else {
+      btn.disabled = false;
+      var total = Object.keys(connections).length;
+      msg.textContent = total + " field(s) mapped — ready to import.";
+    }
+  }
+
+  // ── SVG drawing ───────────────────────────────────────────────────
+  function getDotEl(side, key) {
+    var all = document.querySelectorAll(".mapper__dot[data-side='" + side + "']");
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].getAttribute("data-key") === key) return all[i];
+    }
+    return null;
+  }
+
+  function getDotPos(dotEl) {
+    var svg     = document.getElementById("mapper-svg");
+    var svgRect = svg.getBoundingClientRect();
+    var r       = dotEl.getBoundingClientRect();
+    return { x: r.left + r.width / 2 - svgRect.left,
+             y: r.top  + r.height / 2 - svgRect.top };
+  }
+
+  function makePath(x1, y1, x2, y2) {
+    var mx = x1 + (x2 - x1) * 0.5;
+    return "M " + x1 + " " + y1 +
+           " C " + mx + " " + y1 + " " + mx + " " + y2 +
+           " "  + x2 + " " + y2;
+  }
+
+  function drawLine(tableField, csvCol) {
+    var tDot = getDotEl("table", tableField);
+    var cDot = getDotEl("csv",   csvCol);
+    if (!tDot || !cDot) return;
+    var p1 = getDotPos(tDot);
+    var p2 = getDotPos(cDot);
+    var svg  = document.getElementById("mapper-svg");
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("class",   "mapper__line");
+    path.setAttribute("data-tf", tableField);
+    path.setAttribute("fill",    "none");
+    path.setAttribute("d",       makePath(p1.x, p1.y, p2.x, p2.y));
+    svg.appendChild(path);
+  }
+
+  function redrawLines() {
+    var svg = document.getElementById("mapper-svg");
+    svg.querySelectorAll(".mapper__line:not(.mapper__line--temp)")
+       .forEach(function (l) { l.remove(); });
+    Object.keys(connections).forEach(function (tf) {
+      drawLine(tf, connections[tf]);
+    });
+  }
+
+  document.getElementById("panel-table").addEventListener("scroll", redrawLines);
+  document.getElementById("panel-csv"  ).addEventListener("scroll", redrawLines);
+  window.addEventListener("resize", redrawLines);
+
+  // ── Drag to connect ───────────────────────────────────────────────
+  function onDotDown(e) {
+    e.preventDefault();
+    var dot = e.currentTarget;
+    dragFrom = {
+      side:  dot.getAttribute("data-side"),
+      key:   dot.getAttribute("data-key"),
+      dotEl: dot,
+    };
+    var svg  = document.getElementById("mapper-svg");
+    tempPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    tempPath.setAttribute("class", "mapper__line mapper__line--temp");
+    tempPath.setAttribute("fill",  "none");
+    svg.appendChild(tempPath);
+    document.addEventListener("mousemove", onDragMove);
+    document.addEventListener("mouseup",   onDragUp);
+  }
+
+  function onDragMove(e) {
+    if (!dragFrom || !tempPath) return;
+    var svg     = document.getElementById("mapper-svg");
+    var svgRect = svg.getBoundingClientRect();
+    var p1      = getDotPos(dragFrom.dotEl);
+    var p2      = { x: e.clientX - svgRect.left, y: e.clientY - svgRect.top };
+    if (dragFrom.side === "table") {
+      tempPath.setAttribute("d", makePath(p1.x, p1.y, p2.x, p2.y));
+    } else {
+      tempPath.setAttribute("d", makePath(p2.x, p2.y, p1.x, p1.y));
+    }
+  }
+
+  function onDragUp(e) {
+    document.removeEventListener("mousemove", onDragMove);
+    document.removeEventListener("mouseup",   onDragUp);
+    if (tempPath) { tempPath.remove(); tempPath = null; }
+    if (!dragFrom) return;
+
+    // Find the element under the cursor
+    var target = document.elementFromPoint(e.clientX, e.clientY);
+    var dropDot = target && target.classList.contains("mapper__dot") ? target
+                : target && target.closest && target.closest(".mapper__dot");
+    if (dropDot) {
+      var dropSide = dropDot.getAttribute("data-side");
+      var dropKey  = dropDot.getAttribute("data-key");
+      if (dropSide && dropSide !== dragFrom.side) {
+        var tableField = dragFrom.side === "table" ? dragFrom.key : dropKey;
+        var csvCol     = dragFrom.side === "csv"   ? dragFrom.key : dropKey;
+        addConn(tableField, csvCol);
+      }
+    }
+    dragFrom = null;
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────
+  window.runImport = function () {
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/admin/import/run";
+    function add(name, value) {
+      var inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = name; inp.value = value;
+      form.appendChild(inp);
+    }
+    add("data_type",   selectedType);
+    add("mapping",     JSON.stringify(connections));
+    add("csv_content", csvContent);
+    add("file_name",   fileName);
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  // ── Validate ─────────────────────────────────────────────────────
+  // validateField(fieldName): dry-run only the rows touching one key field.
+  // validateAll():            dry-run all mapped key fields.
+  // Both hit POST /admin/import/validate, which re-runs the full insert
+  // logic inside always-rolled-back savepoints — nothing is written.
+
+  window.validateField = function (fieldName) {
+    var def   = TABLE_DEFS[selectedType] || { fields: [] };
+    var field = (def.fields || []).find(function (f) { return f.name === fieldName; });
+    if (!field) return;
+    if (!connections[fieldName]) {
+      showValMessage(
+        "Map the \"" + (field.label || fieldName) + "\" field first, then validate.", false
+      );
+      return;
+    }
+    runValidate(fieldName);
+  };
+
+  window.validateAll = function () { runValidate(""); };
+
+  function runValidate(filterField) {
+    var valBtn  = document.getElementById("val-all-btn");
+    var section = document.getElementById("val-section");
+    var summary = document.getElementById("val-summary");
+    var body    = document.getElementById("val-body");
+    var table   = document.getElementById("val-table");
+
+    section.style.display = "";
+    summary.className     = "val-summary";
+    summary.textContent   = filterField
+      ? "Validating field — trial import in progress…"
+      : "Validating all key fields — trial import in progress…";
+    body.innerHTML        = "";
+    table.style.display   = "none";
+    if (valBtn) valBtn.disabled = true;
+
+    var form = new FormData();
+    form.append("data_type",    selectedType);
+    form.append("mapping",      JSON.stringify(connections));
+    form.append("csv_content",  csvContent);
+    form.append("filter_field", filterField);
+
+    fetch("/admin/import/validate", { method: "POST", body: form })
+      .then(function (r) {
+        if (!r.ok) throw new Error("Server returned " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        renderValResults(data, filterField);
+        if (valBtn) valBtn.disabled = false;
+      })
+      .catch(function (err) {
+        summary.className   = "val-summary val-summary--warn";
+        summary.textContent = "Validation request failed: " + err;
+        if (valBtn) valBtn.disabled = false;
+      });
+  }
+
+  function renderValResults(data, filterField) {
+    var section = document.getElementById("val-section");
+    var title   = document.getElementById("val-title");
+    var summary = document.getElementById("val-summary");
+    var body    = document.getElementById("val-body");
+    var table   = document.getElementById("val-table");
+
+    section.style.display = "";
+
+    // Python returns: { total, ok_count, error_count, errors: [{row, errors:[], value}] }
+    var errorRows  = data.errors      || [];
+    var total      = data.total       || 0;
+    var okCount    = data.ok_count    || 0;
+    var def        = TABLE_DEFS[selectedType] || { fields: [] };
+
+    if (filterField) {
+      var field = (def.fields || []).find(function (f) { return f.name === filterField; });
+      title.textContent = "Validation: " + (field ? field.label : filterField);
+      markValBtn(filterField, errorRows.length === 0 ? "ok" : "err");
+    } else {
+      title.textContent = "Validation Results — All Key Fields";
+      // Mark all key field buttons ok; individual failures visible in the table
+      (def.fields || []).forEach(function (f) {
+        if (!f.key || !connections[f.name]) return;
+        markValBtn(f.name, errorRows.length === 0 ? "ok" : "err");
+      });
+    }
+
+    if (errorRows.length === 0) {
+      summary.className   = "val-summary val-summary--ok";
+      summary.textContent =
+        "\u2713 All " + total + " row(s) passed \u2014 no duplicates or missing references found.";
+      table.style.display = "none";
+    } else {
+      summary.className   = "val-summary val-summary--warn";
+      summary.textContent =
+        errorRows.length + " row(s) with issues out of " + total + " checked.";
+      body.innerHTML = "";
+      errorRows.forEach(function (errRow) {
+        // Each errRow: { row: rowNum, errors: ["msg1","msg2"], value: "..." }
+        var msgs = (errRow.errors || []).join("; ");
+        var tr   = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + esc(String(errRow.row   || "")) + "</td>" +
+          "<td><code>" + esc(String(errRow.value || "")) + "</code></td>" +
+          "<td>" + esc(msgs) + "</td>";
+        body.appendChild(tr);
+      });
+      table.style.display = "";
+    }
+  }
+
+  function markValBtn(fieldName, state) {
+    var btn = document.getElementById("vbtn-" + fieldName);
+    if (!btn) return;
+    btn.classList.remove("mapper__val-btn--ok", "mapper__val-btn--err");
+    if (state === "ok")  btn.classList.add("mapper__val-btn--ok");
+    if (state === "err") btn.classList.add("mapper__val-btn--err");
+  }
+
+  function showValMessage(msg, isOk) {
+    var section = document.getElementById("val-section");
+    var summary = document.getElementById("val-summary");
+    var table   = document.getElementById("val-table");
+    section.style.display = "";
+    summary.className     = "val-summary " + (isOk ? "val-summary--ok" : "val-summary--warn");
+    summary.textContent   = msg;
+    table.style.display   = "none";
+  }
+
+  // ── Utilities ─────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+  function encodeColId(col) {
+    // Safe ID suffix: base64-like encoding of the column name
+    return btoa(unescape(encodeURIComponent(col))).replace(/[^a-zA-Z0-9]/g, "_");
+  }
+})();
+</script>
+{% endblock %}

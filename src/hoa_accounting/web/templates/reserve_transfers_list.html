@@ -124,7 +124,9 @@
                 </td>
                 <td style="text-align:right;">
                   <form method="post" action="/reserve-transfers/{{ row.id }}/delete"
-                        onsubmit="return confirm('Delete this reserve transfer and its journal entry?');"
+                        data-confirm="This will permanently delete this reserve transfer and its journal entry."
+                        data-confirm-title="Delete Reserve Transfer"
+                        data-confirm-label="Delete"
                         style="display:inline;">
                     <button type="submit" class="btn btn--ghost btn--sm"
                             style="color:var(--danger);">Delete</button>

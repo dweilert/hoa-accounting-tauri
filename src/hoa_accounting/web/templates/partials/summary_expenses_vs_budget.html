@@ -1,0 +1,75 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Fiscal Year</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.fiscal_year }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Fund</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      <span class="pill pill--muted">{{ summary.fund_code }}</span>
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Budget</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_budget }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Actual</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_actual }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Variance (Under / Over)</span>
+    <span class="summary-totals__value {% if summary.total_variance | float >= 0 %}summary-totals__value--neutral{% else %}summary-totals__value--accent{% endif %}">
+      {{ summary.total_variance }}
+    </span>
+  </div>
+</div>
+
+{% if summary.groups %}
+  {% for group in summary.groups %}
+    <div class="section-heading">
+      {{ group.group_code }}
+      &nbsp;·&nbsp; Budget: {{ group.group_budget }}
+      &nbsp;·&nbsp; Actual: {{ group.group_actual }}
+      &nbsp;·&nbsp; Variance: {{ group.group_variance }}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th>Category</th>
+            <th class="num">Budget</th>
+            <th class="num">Actual</th>
+            <th class="num">Variance</th>
+            <th class="num">% Used</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in group.rows %}
+            {% set pct = ((row.actual_amount | float) / (row.budget_amount | float) * 100) if (row.budget_amount | float) != 0 else 0 %}
+            <tr>
+              <td class="mono">{{ row.account_number }}</td>
+              <td>{{ row.account_name }}</td>
+              <td class="num">{{ row.budget_amount }}</td>
+              <td class="num">{{ row.actual_amount }}</td>
+              <td class="num {% if (row.variance | float) < 0 %}text-danger{% endif %}">{{ row.variance }}</td>
+              <td class="num">{{ "%.0f"|format(pct) }}%</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="font-weight:600;">{{ group.group_code }} Total</td>
+            <td class="num" style="font-weight:600;">{{ group.group_budget }}</td>
+            <td class="num" style="font-weight:600;">{{ group.group_actual }}</td>
+            <td class="num" style="font-weight:600;">{{ group.group_variance }}</td>
+            <td class="num"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">No approved budget found for this year and fund.</div>
+{% endif %}

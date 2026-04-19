@@ -21,9 +21,10 @@
         <div>
           <div class="panel__title">Deposit details</div>
           <div class="panel__description">
-            Matches what's going on the deposit slip to the bank. The
-            running total below reflects the sum of the rows and should
-            equal the deposit.
+            Enter all owner payments received — checks, ACH transfers, cash, or
+            card. Each posted batch creates a single deposit transaction in the
+            selected bank account and applies payments to each owner's outstanding
+            charges in the state-mandated order.
           </div>
         </div>
         <div class="summary-totals" style="margin: 0; padding: 10px var(--sp-3); min-width: 240px;">
@@ -82,9 +83,9 @@
         <div>
           <div class="panel__title">Payments</div>
           <div class="panel__description">
-            One row per check. Select a lot by address; owner is
-            resolved from the current primary-contact ownership. Blank
-            rows are ignored.
+            One row per payment (check, ACH, cash, etc.). Select a lot by
+            address; the current owner is resolved automatically. Blank rows
+            are ignored. All payments post to the bank account selected above.
           </div>
         </div>
         <button type="button" class="btn btn--secondary" id="add-row-btn">
@@ -142,6 +143,11 @@
                           style="padding: 4px 8px;">×</button>
                 </td>
               </tr>
+              <tr class="charges-row" style="display:none;">
+                <td colspan="5" style="padding:0 .5rem .5rem;">
+                  <div class="charges-summary"></div>
+                </td>
+              </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -185,18 +191,24 @@
                   style="padding: 4px 8px;">×</button>
         </td>
       </tr>
+      <tr class="charges-row" style="display:none;">
+        <td colspan="5" style="padding:0 .5rem .5rem;">
+          <div class="charges-summary"></div>
+        </td>
+      </tr>
     </template>
   </form>
 
   <script>
     (function () {
-      var form = document.getElementById("deposit-batch-form");
-      var tbody = document.getElementById("rows-body");
+      var tbody  = document.getElementById("rows-body");
       var addBtn = document.getElementById("add-row-btn");
       var total1 = document.getElementById("batch-total");
       var total2 = document.getElementById("batch-total-mirror");
-      var tmpl = document.getElementById("row-template");
+      var tmpl   = document.getElementById("row-template");
       var nextIdx = tbody.querySelectorAll("tr.deposit-row").length;
+
+      var LABEL = { DUES: "Dues", LATE_FEE: "Late Fee", LEGAL_FEE: "Legal Fee" };
 
       function money(n) {
         if (isNaN(n) || !isFinite(n)) n = 0;
@@ -214,38 +226,126 @@
         total2.textContent = s;
       }
 
-      function wireRow(tr) {
-        var amt = tr.querySelector("input.row-amount");
-        if (amt) amt.addEventListener("input", recalc);
-        var rm = tr.querySelector("button.row-remove");
+      // Fetch open charges for a lot and render the summary row.
+      function loadCharges(depositRow, chargesRow, lotId) {
+        var summaryEl = chargesRow.querySelector(".charges-summary");
+        if (!lotId) {
+          chargesRow.style.display = "none";
+          summaryEl.innerHTML = "";
+          return;
+        }
+        summaryEl.innerHTML = "<span style='color:var(--text-muted);font-size:.8rem;'>Loading…</span>";
+        chargesRow.style.display = "";
+
+        fetch("/api/lots/" + lotId + "/open-charges")
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.charges || data.charges.length === 0) {
+              summaryEl.innerHTML =
+                "<span style='color:var(--text-muted);font-size:.8rem;'>No outstanding charges.</span>";
+              return;
+            }
+            // Build tag list in mandated order
+            var amtInput = depositRow.querySelector("input.row-amount");
+            var payment  = parseFloat(amtInput ? amtInput.value : "0") || 0;
+            var remaining = payment;
+
+            var parts = data.charges.map(function (c) {
+              var owed = parseFloat(c.outstanding);
+              var label = LABEL[c.charge_type] || c.charge_type;
+              var covered = "";
+              if (payment > 0) {
+                var applied = Math.min(owed, remaining);
+                remaining -= applied;
+                if (applied >= owed) {
+                  covered = " <span style='color:var(--success,#27ae60);font-size:.75rem;'>✓ paid</span>";
+                } else if (applied > 0) {
+                  covered = " <span style='color:var(--warning,#e67e22);font-size:.75rem;'>partial $" +
+                            money(applied) + "</span>";
+                } else {
+                  covered = " <span style='color:var(--text-muted);font-size:.75rem;'>not covered</span>";
+                }
+              }
+              return "<span style='white-space:nowrap;'><strong>" + label +
+                     "</strong> $" + money(owed) + covered + "</span>";
+            });
+
+            var overText = remaining > 0.005
+              ? " <span style='color:var(--text-muted);font-size:.75rem;'>· $" + money(remaining) + " unapplied</span>"
+              : "";
+
+            summaryEl.innerHTML =
+              "<span style='font-size:.8rem;color:var(--text-muted);margin-right:.4rem;'>Owed (applied in order):</span>" +
+              parts.join("<span style='color:var(--text-muted);margin:0 .35rem;'>→</span>") +
+              overText;
+          })
+          .catch(function () {
+            chargesRow.style.display = "none";
+          });
+      }
+
+      function wireRow(depositRow) {
+        // Find the associated charges row (immediately following sibling)
+        var chargesRow = depositRow.nextElementSibling;
+        if (!chargesRow || !chargesRow.classList.contains("charges-row")) {
+          chargesRow = null;
+        }
+
+        var amt = depositRow.querySelector("input.row-amount");
+        if (amt) {
+          amt.addEventListener("input", function () {
+            recalc();
+            var lotSel = depositRow.querySelector("select.row-lot");
+            if (chargesRow && lotSel && lotSel.value) {
+              loadCharges(depositRow, chargesRow, lotSel.value);
+            }
+          });
+        }
+
+        var lotSel = depositRow.querySelector("select.row-lot");
+        if (lotSel && chargesRow) {
+          lotSel.addEventListener("change", function () {
+            loadCharges(depositRow, chargesRow, lotSel.value);
+          });
+          // Load on page-render if a lot is already selected (re-render after error)
+          if (lotSel.value) {
+            loadCharges(depositRow, chargesRow, lotSel.value);
+          }
+        }
+
+        var rm = depositRow.querySelector("button.row-remove");
         if (rm) rm.addEventListener("click", function () {
-          // Never remove the last row — clear it instead, so the form
-          // always has at least one row to submit into.
           if (tbody.querySelectorAll("tr.deposit-row").length === 1) {
-            tr.querySelectorAll("input").forEach(function (el) { el.value = ""; });
-            var sel = tr.querySelector("select.row-lot");
-            if (sel) sel.value = "";
+            depositRow.querySelectorAll("input").forEach(function (el) { el.value = ""; });
+            if (lotSel) lotSel.value = "";
+            if (chargesRow) chargesRow.style.display = "none";
             recalc();
             return;
           }
-          tr.remove();
+          if (chargesRow) chargesRow.remove();
+          depositRow.remove();
           recalc();
         });
       }
 
       function addRow() {
         var clone = tmpl.content.cloneNode(true);
-        var tr = clone.querySelector("tr");
-        // Rewrite the IDX placeholder in all name attributes.
-        tr.querySelectorAll("[name]").forEach(function (el) {
+        var trs = clone.querySelectorAll("tr");
+        var depositRow  = trs[0];
+        var chargesRow  = trs[1];
+        depositRow.querySelectorAll("[name]").forEach(function (el) {
           el.setAttribute("name", el.getAttribute("name").replace("IDX", String(nextIdx)));
         });
         nextIdx += 1;
-        tbody.appendChild(tr);
-        wireRow(tr);
+        tbody.appendChild(clone);
+        // Re-query after appending since clone is now consumed
+        var allDeposit = tbody.querySelectorAll("tr.deposit-row");
+        var newDeposit = allDeposit[allDeposit.length - 1];
+        var newCharges = newDeposit.nextElementSibling;
+        wireRow(newDeposit);
+        _ = newCharges; // already in DOM via clone
       }
 
-      // Wire existing rows, initial total, and the add button.
       tbody.querySelectorAll("tr.deposit-row").forEach(wireRow);
       recalc();
       addBtn.addEventListener("click", addRow);

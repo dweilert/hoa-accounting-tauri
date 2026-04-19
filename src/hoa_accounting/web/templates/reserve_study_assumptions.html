@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Reserve Study Assumptions · {{ org.name }}{% endblock %}
+{% block heading %}Study Assumptions{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/reserve-study/assumptions/edit">
+    <div class="panel">
+      <div class="panel__header">
+        <div class="panel__title">Reserve Study Assumptions</div>
+      </div>
+      <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+        <div class="field">
+          <label class="field__label">Study Year *</label>
+          <input type="number" name="study_year" class="field__input"
+                 value="{{ fd.study_year }}" required>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Number of Lots *</label>
+          <input type="number" name="num_lots" class="field__input"
+                 value="{{ fd.num_lots }}" required min="1">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Annual Contribution to Reserves ($) *</label>
+          <input type="text" name="annual_contribution" class="field__input"
+                 value="{{ fd.annual_contribution }}" required>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Contribution Growth Rate (% per year)</label>
+          <input type="text" name="contribution_growth_rate" class="field__input"
+                 value="{{ fd.contribution_growth_rate }}" placeholder="3.0">
+          <div class="field__help">e.g. 3 = 3% annual increase in contribution</div>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Investment Return Rate (% per year)</label>
+          <input type="text" name="investment_return_rate" class="field__input"
+                 value="{{ fd.investment_return_rate }}" placeholder="1.0">
+          <div class="field__help">Interest earned on reserve balance</div>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Projection Period (years)</label>
+          <input type="number" name="projection_years" class="field__input"
+                 value="{{ fd.projection_years }}" min="5" max="50">
+        </div>
+
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field__label">Reserve Balance Override ($)</label>
+          <input type="text" name="reserve_balance_override" class="field__input"
+                 value="{{ fd.reserve_balance_override }}" placeholder="Leave blank to use live GL balance">
+          <div class="field__help">
+            Override the reserve balance used in projections. Leave blank to pull live from reserve GL accounts.
+          </div>
+        </div>
+
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field__label">Notes</label>
+          <textarea name="notes" class="field__input" rows="3"
+                    placeholder="Study context, data sources, review date…">{{ fd.notes }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;margin-top:1rem;">
+      <button type="submit" class="btn btn--primary">Save Assumptions</button>
+      <a href="/reserve-study" class="btn">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

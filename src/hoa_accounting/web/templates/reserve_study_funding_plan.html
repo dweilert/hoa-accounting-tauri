@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Funding Plan · {{ org.name }}{% endblock %}
+{% block heading %}Reserve Study — {{ assumptions.projection_years if assumptions else 30 }}-Year Funding Plan{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+  {% endif %}
+
+  {% if assumptions %}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div style="padding:.6rem 1rem;font-size:12px;color:var(--text-muted);display:flex;gap:2rem;flex-wrap:wrap;">
+      <span>Opening balance: <strong>${{ "{:,.0f}".format(opening_balance) }}</strong></span>
+      <span>Annual contribution: <strong>${{ "{:,.0f}".format(assumptions.annual_contribution) }}</strong></span>
+      <span>Growth: <strong>{{ "%.1f"|format(assumptions.contribution_growth_rate * 100) }}%/yr</strong></span>
+      <span>Investment return: <strong>{{ "%.1f"|format(assumptions.investment_return_rate * 100) }}%/yr</strong></span>
+      <span>Asset inflation: <strong>4% (per asset)</strong></span>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">Year-by-Year Projection</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:center;">Year</th>
+            <th style="text-align:right;">Beg. Balance</th>
+            <th style="text-align:right;">Contribution</th>
+            <th style="text-align:right;">Investment</th>
+            <th style="text-align:right;">Expenditures</th>
+            <th style="text-align:right;">End Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr{% if row.deficit %} style="background:var(--red-bg,#fff0f0);color:var(--red,#c0392b);"{% endif %}>
+              <td style="text-align:center;font-weight:600;">{{ row.year }}</td>
+              <td style="text-align:right;">
+                {% if row.beginning_balance < 0 %}
+                  <span style="color:var(--red);">({{ "${:,.0f}".format(row.beginning_balance | abs) }})</span>
+                {% else %}
+                  ${{ "{:,.0f}".format(row.beginning_balance) }}
+                {% endif %}
+              </td>
+              <td style="text-align:right;">${{ "{:,.0f}".format(row.contribution) }}</td>
+              <td style="text-align:right;color:var(--text-muted);">
+                {% if row.investment_income > 0 %}${{ "{:,.0f}".format(row.investment_income) }}{% endif %}
+              </td>
+              <td style="text-align:right;">
+                {% if row.total_spent > 0 %}
+                  <span style="color:var(--red,#c0392b);">(${{ "{:,.0f}".format(row.total_spent) }})</span>
+                  <div style="font-size:10px;color:var(--text-subtle);line-height:1.4;">
+                    {% for label, cost in row.expenditures %}
+                      <div>{{ label }}: ${{ "{:,.0f}".format(cost) }}</div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </td>
+              <td style="text-align:right;font-weight:600;">
+                {% if row.ending_balance < 0 %}
+                  <span style="color:var(--red);">({{ "${:,.0f}".format(row.ending_balance | abs) }})</span>
+                {% else %}
+                  ${{ "{:,.0f}".format(row.ending_balance) }}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top:.75rem;font-size:11px;color:var(--text-subtle);">
+    Rows highlighted in red indicate projected reserve deficit.
+    Expenditure amounts are inflated from current-dollar replacement costs using each asset's annual inflation rate.
+  </div>
+
+{% endblock %}

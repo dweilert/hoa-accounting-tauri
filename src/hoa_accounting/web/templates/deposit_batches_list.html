@@ -21,7 +21,12 @@
     <div class="panel__header">
       <div>
         <div class="panel__title">Deposits</div>
-        <div class="panel__description">{{ description }}</div>
+        <div class="panel__description">
+          {{ description }}
+          Each batch posts a single deposit to its bank account and applies
+          owner payments in the state-mandated order: dues first, then late
+          fees, then legal fees.
+        </div>
       </div>
     </div>
 

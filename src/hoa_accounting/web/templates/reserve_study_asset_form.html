@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{% if asset_id %}Edit Asset{% else %}New Asset{% endif %} · {{ org.name }}{% endblock %}
+{% block heading %}{% if asset_id %}Edit Asset{% else %}New Asset{% endif %}{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+  {% endif %}
+
+  <form method="post"
+        action="{% if asset_id %}/reserve-study/assets/{{ asset_id }}/edit{% else %}/reserve-study/assets/new{% endif %}">
+    <div class="panel">
+      <div class="panel__header">
+        <div class="panel__title">Asset Details</div>
+      </div>
+      <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+        <div class="field">
+          <label class="field__label">Asset Group *</label>
+          <input type="text" name="asset_group" class="field__input"
+                 value="{{ fd.asset_group }}" required
+                 placeholder="e.g. Retaining Wall">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Component *</label>
+          <input type="text" name="component" class="field__input"
+                 value="{{ fd.component }}" required
+                 placeholder="e.g. Railroad tie section (~80 ft)">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Install / Last Replace Year *</label>
+          <input type="number" name="install_year" class="field__input"
+                 value="{{ fd.install_year }}" required placeholder="2020">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Useful Life (years) *</label>
+          <input type="number" name="useful_life_years" class="field__input"
+                 value="{{ fd.useful_life_years }}" required min="1" placeholder="20">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Condition *</label>
+          <select name="condition" class="field__input">
+            {% for c in conditions %}
+              <option value="{{ c }}"{% if fd.condition == c %} selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Replacement Cost (2026 $)</label>
+          <input type="text" name="replacement_cost" class="field__input"
+                 value="{{ fd.replacement_cost }}" placeholder="0">
+          <div class="field__help">Enter 0 if cost is included elsewhere or already budgeted.</div>
+        </div>
+
+        <div class="field">
+          <label class="field__label">Annual Inflation Rate (%)</label>
+          <input type="text" name="annual_inflation" class="field__input"
+                 value="{{ fd.annual_inflation }}" placeholder="4.0">
+          <div class="field__help">e.g. 4 = 4% cost inflation per year</div>
+        </div>
+
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field__label">Notes</label>
+          <input type="text" name="notes" class="field__input"
+                 value="{{ fd.notes }}"
+                 placeholder="Condition detail, source of estimate…">
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;margin-top:1rem;align-items:center;">
+      <button type="submit" class="btn btn--primary">
+        {% if asset_id %}Save Changes{% else %}Add Asset{% endif %}
+      </button>
+      <a href="/reserve-study/assets" class="btn">Cancel</a>
+      {% if asset_id %}
+        <form method="post" action="/reserve-study/assets/{{ asset_id }}/delete"
+              style="margin-left:auto;"
+              data-confirm="Remove this asset from the reserve study?"
+              data-confirm-title="Remove Asset"
+              data-confirm-label="Remove">
+          <button type="submit" class="btn btn--danger btn--sm">Remove</button>
+        </form>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

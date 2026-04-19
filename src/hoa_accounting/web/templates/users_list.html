@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block heading %}Local Users{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel__header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Local Users</span>
+    <a href="/system/users/new" class="btn btn--primary btn--sm">+ Add User</a>
+  </div>
+
+  {% if flash == "created" %}
+    <div class="alert alert--ok" style="margin:.75rem 1rem 0;">User created successfully.</div>
+  {% elif flash == "saved" %}
+    <div class="alert alert--ok" style="margin:.75rem 1rem 0;">User saved.</div>
+  {% elif flash == "deleted" %}
+    <div class="alert alert--warn" style="margin:.75rem 1rem 0;">User deleted.</div>
+  {% endif %}
+
+  <div class="panel__body">
+    {% if users %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Display Name</th>
+          <th>Role</th>
+          <th>Active</th>
+          <th>Last Login</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.email }}</td>
+          <td>{{ u.display_name or "—" }}</td>
+          <td>
+            <span class="pill {% if u.role == 'admin' %}pill--ok{% else %}pill--warn{% endif %}">
+              {{ u.role }}
+            </span>
+          </td>
+          <td>{% if u.is_active %}✓{% else %}<span style="color:var(--text-subtle);">✗</span>{% endif %}</td>
+          <td style="color:var(--text-muted);font-size:.85rem;">
+            {{ u.last_login_at[:10] if u.last_login_at else "Never" }}
+          </td>
+          <td style="text-align:right;">
+            <a href="/system/users/{{ u.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+            <form method="post" action="/system/users/{{ u.id }}/delete"
+                  style="display:inline;"
+                  onsubmit="return confirm('Delete user {{ u.email }}?')">
+              <button class="btn btn--sm btn--danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted);padding:1rem 0;">No local users yet. <a href="/system/users/new">Add one.</a></p>
+    {% endif %}
+  </div>
+</div>
+
+<div style="margin-top:1rem;">
+  <a href="/system/overrides" class="btn btn--sm btn--ghost">Manage Role Overrides →</a>
+</div>
+{% endblock %}

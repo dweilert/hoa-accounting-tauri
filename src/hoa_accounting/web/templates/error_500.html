@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Error · {{ org.name }}{% endblock %}
+{% block heading %}Something went wrong{% endblock %}
+
+{% block content %}
+  <div class="panel" style="max-width:48rem;">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title" style="color:var(--danger,#c0392b);">Unexpected Error</div>
+        <div class="panel__description">
+          An error occurred while processing your request.
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:1rem 1.25rem 1.25rem;">
+      <p style="margin:0 0 .75rem;">
+        <strong>Error type:</strong>
+        <span class="mono">{{ error_type }}</span>
+      </p>
+      <p style="margin:0 0 1.25rem;">
+        <strong>Message:</strong> {{ error_message }}
+      </p>
+
+      {% if traceback %}
+        <details style="margin-top:.5rem;">
+          <summary style="cursor:pointer;font-weight:600;color:var(--text-muted,#666);">
+            Technical details (debug mode)
+          </summary>
+          <pre style="margin-top:.75rem;padding:.75rem 1rem;background:var(--surface-2,#f4f4f4);
+                      border-radius:6px;font-size:.78rem;overflow-x:auto;
+                      white-space:pre-wrap;word-break:break-all;
+                      border:1px solid var(--border,#ddd);">{{ traceback }}</pre>
+        </details>
+      {% endif %}
+
+      <div style="margin-top:1.5rem;display:flex;gap:.75rem;">
+        <a href="javascript:history.back()" class="btn btn--primary">Go Back</a>
+        <a href="/" class="btn btn--ghost">Dashboard</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

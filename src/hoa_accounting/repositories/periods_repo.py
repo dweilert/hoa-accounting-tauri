@@ -17,7 +17,7 @@ class PeriodsRepository(BaseRepository):
         """Return the accounting period row covering a posting date."""
         return self.conn.execute(
             """
-            SELECT id, is_closed
+            SELECT id, is_closed, fiscal_year
             FROM accounting_periods
             WHERE ? BETWEEN start_date AND end_date
             """,

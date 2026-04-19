@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Bill Dues · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+
+  {# ── Flash / Error ───────────────────────────────────────────────── #}
+  {% if flash_message %}
+    <div class="alert alert--ok"
+         style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error"
+         style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Last Bill Cycle card ─────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;border:1px solid var(--border);
+       background:var(--surface-raised,var(--surface));">
+    <div class="panel__header" style="padding-bottom:.5rem;">
+      <div class="panel__title" style="font-size:13px;text-transform:uppercase;
+           letter-spacing:.04em;color:var(--text-muted);">Last Bill Cycle</div>
+    </div>
+    {% if last_billing %}
+      <div style="display:flex;flex-wrap:wrap;gap:1.5rem;align-items:baseline;">
+        <div>
+          <span style="font-size:1.1rem;font-weight:700;">{{ last_billing.period_label }}</span>
+          <span style="margin-left:.5rem;font-size:13px;color:var(--text-muted);">
+            ({{ last_billing.cycle_type | title }})
+          </span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);">
+          ${{ '%.2f'|format(last_billing.amount|float) }} × {{ last_billing.owner_count }} owners
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);">
+          Billed {{ last_billing.billed_at[:10] }}
+        </div>
+      </div>
+      <div style="margin-top:.5rem;font-size:12px;color:var(--text-muted);">
+        Next up: <strong>{{ default_label }}</strong>
+      </div>
+    {% else %}
+      <div style="font-size:13px;color:var(--text-muted);font-style:italic;">
+        No billing history yet — this will be your first dues billing run.
+      </div>
+    {% endif %}
+  </div>
+
+  {# ── Bill Dues form ──────────────────────────────────────────────── #}
+  <form method="post" action="/dues-billing/post" class="form" id="dues-form">
+
+    {# ── Billing Cycle ───────────────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">Billing Cycle</div>
+        <div class="panel__description">
+          Select how often dues are billed, then pick the specific period.
+          The next period after the last billing is pre-selected.
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:1.5rem;margin-bottom:1.25rem;">
+        {% for code, label in [
+            ('MONTHLY','Monthly'),
+            ('QUARTERLY','Quarterly'),
+            ('SEMIANNUAL','Semi-Annual'),
+            ('ANNUAL','Annual')
+          ] %}
+          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;
+                        font-weight:{{ 'bold' if default_cycle_type == code else 'normal' }};">
+            <input type="radio" name="cycle_type" value="{{ code }}"
+                   {% if default_cycle_type == code %}checked{% endif %}
+                   onchange="onCycleChange()" />
+            {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;">
+        <div>
+          <label class="field__label" style="font-size:13px;">Year</label>
+          <input type="number" id="period_year" name="period_year"
+                 value="{{ default_year }}"
+                 min="2000" max="2100"
+                 style="width:7rem;"
+                 onchange="onYearChange()" />
+        </div>
+        <div>
+          <label class="field__label" style="font-size:13px;">Period</label>
+          <select id="period_sequence" name="period_sequence"
+                  style="min-width:16rem;"
+                  onchange="onPeriodChange()">
+            {# populated by JS on load #}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {# ── Billing Details ─────────────────────────────────────────────── #}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">Billing Details</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <label class="field">
+          <span class="field__label">Amount per Owner *</span>
+          <input type="text" name="amount"
+                 id="amount-field"
+                 value="{{ values.amount }}"
+                 inputmode="decimal"
+                 placeholder="0.00"
+                 style="max-width:12rem;" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Posting Date *</span>
+          <input type="date" name="entry_date"
+                 value="{{ values.entry_date }}"
+                 style="max-width:14rem;" />
+        </label>
+      </div>
+
+      <label class="field" style="margin-top:.75rem;">
+        <span class="field__label">Description *</span>
+        <input type="text" name="description"
+               id="description-field"
+               value="{{ values.description }}"
+               style="max-width:36rem;"
+               data-auto="1" />
+        <span class="field__hint">Auto-fills from the period selection; edit as needed.</span>
+      </label>
+
+      <div class="field" style="margin-top:.75rem;">
+        <span class="field__label">Income Account</span>
+        {% if income_account_id %}
+          <input type="hidden" name="income_account_id" value="{{ income_account_id }}" />
+          <div style="font-size:13px;padding:.35rem 0;color:var(--text);">
+            {{ income_account_label }}
+          </div>
+          <span class="field__hint">
+            Set via <em>dues_income_account_number</em> in config (default 4000).
+          </span>
+        {% else %}
+          <div style="color:var(--red,#c0392b);font-size:13px;">
+            Income account not configured — check <em>dues_income_account_number</em> in config.yaml.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Submit ──────────────────────────────────────────────────────── #}
+    <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:1.5rem;">
+      <button type="submit" class="btn btn--primary">Post Bills</button>
+      <span style="font-size:12px;color:var(--text-muted);">
+        Posts a dues bill for each active lot-owner in the selected period.
+      </span>
+    </div>
+
+  </form>
+
+  <script>
+  // Period data for each cycle type
+  var MONTH_NAMES = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
+
+  function getPeriodOptions(cycleType, year) {
+    if (cycleType === "MONTHLY") {
+      return MONTH_NAMES.map(function(name, i) {
+        return { value: i + 1, label: name + " " + year };
+      });
+    }
+    if (cycleType === "QUARTERLY") {
+      return [1,2,3,4].map(function(q) {
+        return { value: q, label: "Q" + q + " " + year };
+      });
+    }
+    if (cycleType === "SEMIANNUAL") {
+      return [
+        { value: 1, label: "First Half " + year },
+        { value: 2, label: "Second Half " + year }
+      ];
+    }
+    // ANNUAL
+    return [{ value: 1, label: String(year) }];
+  }
+
+  function getAutoDescription(cycleType, periodLabel) {
+    var labels = {
+      "MONTHLY": "Monthly Dues",
+      "QUARTERLY": "Quarterly Dues",
+      "SEMIANNUAL": "Semi-Annual Dues",
+      "ANNUAL": "Annual Dues"
+    };
+    return (labels[cycleType] || "Dues") + " \u2013 " + periodLabel;
+  }
+
+  function populatePeriods(wantedSeq) {
+    var cycleRadio = document.querySelector('[name="cycle_type"]:checked');
+    if (!cycleRadio) return;
+    var cycleType = cycleRadio.value;
+    var year = parseInt(document.getElementById("period_year").value, 10);
+    if (!year) return;
+
+    var sel = document.getElementById("period_sequence");
+    var options = getPeriodOptions(cycleType, year);
+    sel.innerHTML = "";
+    options.forEach(function(opt) {
+      var o = document.createElement("option");
+      o.value = String(opt.value);
+      o.textContent = opt.label;
+      sel.appendChild(o);
+    });
+
+    // Try to honour the wanted sequence number; fall back to first.
+    sel.value = String(wantedSeq || 1);
+    if (!sel.value || sel.selectedIndex < 0) sel.selectedIndex = 0;
+
+    syncDescription();
+  }
+
+  function syncDescription() {
+    var cycleRadio = document.querySelector('[name="cycle_type"]:checked');
+    if (!cycleRadio) return;
+    var sel = document.getElementById("period_sequence");
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt) return;
+
+    var descField = document.getElementById("description-field");
+    // Only overwrite if the user hasn't edited it manually.
+    if (descField.dataset.auto === "1") {
+      descField.value = getAutoDescription(cycleRadio.value, opt.textContent);
+    }
+  }
+
+  // Mark the description field as manually edited if the user types.
+  document.getElementById("description-field").addEventListener("input", function() {
+    this.dataset.auto = "0";
+  });
+
+  function onCycleChange() {
+    // Reset to sequence 1 when the cycle type changes.
+    populatePeriods(1);
+    // Also re-enable auto-description when the cycle type changes.
+    document.getElementById("description-field").dataset.auto = "1";
+    syncDescription();
+  }
+
+  function onYearChange() { populatePeriods(1); }
+  function onPeriodChange() { syncDescription(); }
+
+  // Initialise on page load using the server-side defaults.
+  (function init() {
+    var defaultSeq = {{ default_sequence }};
+    populatePeriods(defaultSeq);
+  })();
+  </script>
+
+{% endblock %}

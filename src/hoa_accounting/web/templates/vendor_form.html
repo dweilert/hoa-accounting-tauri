@@ -121,7 +121,9 @@
         <span style="font-size:.8rem;color:var(--color-text-muted);">Has bills — deactivate instead of deleting</span>
       {% else %}
         <form method="post" action="/vendors/{{ vendor_id }}/delete"
-              onsubmit="return confirm('Delete this vendor? This cannot be undone.');">
+              data-confirm="This will permanently delete this vendor. This cannot be undone."
+              data-confirm-title="Delete Vendor"
+              data-confirm-label="Delete">
           <button type="submit" class="btn btn--danger btn--sm">Delete Vendor</button>
         </form>
       {% endif %}

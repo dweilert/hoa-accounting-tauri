@@ -189,7 +189,6 @@ class LotRentersPages:
                 email=_opt(form_data.get("email", "")),
                 phone=_opt(form_data.get("phone", "")),
                 start_date=start_date,
-                is_primary_contact=True,
                 notes=_opt(form_data.get("notes", "")),
             )
             self.conn.commit()

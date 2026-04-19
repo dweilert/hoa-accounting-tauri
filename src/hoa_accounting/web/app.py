@@ -34,6 +34,14 @@ from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
 from hoa_accounting.web.all_ledger_pages import AllLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
+from hoa_accounting.web.database_admin_pages import DatabaseAdminPages
+from hoa_accounting.web.export_pages import ExportPages
+from hoa_accounting.web.import_pages import ImportPages
+from hoa_accounting.web.gl_import_pages import GlImportPages
+from hoa_accounting.web.dashboard_pages import DashboardPages
+from hoa_accounting.web.year_end_close_pages import YearEndClosePages
+from hoa_accounting.web.dues_billing_pages import DuesBillingPages
+from hoa_accounting.web.late_fee_pages import LateFeePages
 from hoa_accounting.web.opening_balances_pages import OpeningBalancesPages
 from hoa_accounting.web.reconciliation_pages import ReconciliationPages
 from hoa_accounting.web.reserve_transfer_pages import ReserveTransferPages
@@ -47,6 +55,9 @@ from hoa_accounting.web.ui_server import (
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
 from hoa_accounting.web.manual_journal_pages import ManualJournalPages
 from hoa_accounting.web.budget_pages import BudgetPages
+from hoa_accounting.web.batch_pdf_pages import BatchPdfPages
+from hoa_accounting.web.resale_fee_pages import ResaleFeePages
+from hoa_accounting.web.reserve_study_pages import ReserveStudyPages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -91,10 +102,27 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
             "fiscal_year_start_month": 1,
             "theme": "warm",
             "dues_receivable_account_number": "1100",
+            "dues_income_account_number": "4000",
         }
+    # Try to read HOA names from the DB (editable via System Settings);
+    # fall back to config.yaml values if the table is empty or missing.
+    hoa_name = config.hoa.name
+    hoa_legal = config.hoa.legal_name
+    try:
+        import sqlite3 as _sq3
+        _c = _sq3.connect(config.database.path)
+        _c.row_factory = _sq3.Row
+        _row = _c.execute("SELECT display_name, legal_name FROM hoa_profile LIMIT 1").fetchone()
+        if _row and _row["display_name"]:
+            hoa_name = _row["display_name"]
+        if _row and _row["legal_name"]:
+            hoa_legal = _row["legal_name"]
+        _c.close()
+    except Exception:
+        pass
     return {
-        "name": config.hoa.name,
-        "legal_name": config.hoa.legal_name,
+        "name": hoa_name,
+        "legal_name": hoa_legal,
         "environment": config.app.environment,
         "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
         "theme": getattr(config.app, "theme", "warm"),
@@ -102,12 +130,24 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "dues_receivable_account_number": getattr(
             config.accounting, "dues_receivable_account_number", "1100"
         ),
+        "dues_income_account_number": getattr(
+            config.accounting, "dues_income_account_number", "4000"
+        ),
+        "resale_fee_default_amount": getattr(
+            config.accounting, "resale_fee_default_amount", "175.00"
+        ),
+        "resale_fee_income_account_number": getattr(
+            config.accounting, "resale_fee_income_account_number", "4070"
+        ),
     }
 
 
 def create_app(config_path: str | Path = "config.yaml") -> Flask:
     """Build a Flask app wired to the read-only report UI services."""
     app = Flask(__name__)
+    # Always use our error handler instead of Werkzeug's interactive debugger,
+    # so users see a styled page rather than a raw traceback.
+    app.config["PROPAGATE_EXCEPTIONS"] = False
     resolved_config_path = Path(config_path)
 
     runner = ReportRunner(config_path=resolved_config_path)
@@ -134,9 +174,71 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         finally:
             boot_conn.close()
 
+    # ── Auth setup ────────────────────────────────────────────────────────
+    from hoa_accounting.auth.factory import build_auth_manager
+    from hoa_accounting.web.auth_pages import auth_bp, init_auth
+    from hoa_accounting.web.decorators import setup_auth_guard
+
+    raw_config: dict = {}
+    try:
+        import yaml
+        with open(resolved_config_path) as _f:
+            raw_config = yaml.safe_load(_f) or {}
+    except Exception:
+        pass
+
+    if db_path:
+        import sqlite3 as _sq3
+        auth_conn = _sq3.connect(str(db_path), check_same_thread=False)
+        auth_conn.row_factory = _sq3.Row
+        auth_conn.execute("PRAGMA journal_mode = WAL")
+        auth_conn.execute("PRAGMA busy_timeout = 5000")
+        auth_manager = build_auth_manager(raw_config, auth_conn)
+    else:
+        from hoa_accounting.auth.factory import AuthManager, AuthConfig
+        from hoa_accounting.auth.local import LocalBackend
+        import sqlite3 as _sq3
+        _mem = _sq3.connect(":memory:")
+        _mem.row_factory = _sq3.Row
+        auth_manager = AuthManager(AuthConfig(), LocalBackend(_mem))
+
+    app.secret_key = raw_config.get("auth", {}).get("session_secret", "dev-secret-change-me")
+    init_auth(auth_manager, org_context)
+    app.register_blueprint(auth_bp)
+
+    # _attach_org must be registered BEFORE setup_auth_guard so g.org is
+    # available when _forbidden() renders the 403 template.
     @app.before_request
     def _attach_org() -> None:
+        from hoa_accounting.web.auth_pages import _get_current_user
         g.org = org_context
+        g.current_user = _get_current_user()
+
+    setup_auth_guard(app, org_context)
+
+    # ── User management routes ────────────────────────────────────────────
+    from hoa_accounting.web.user_management_pages import UserManagementPages
+    UserManagementPages(auth_manager).register(app)
+
+    @app.errorhandler(Exception)
+    def _handle_unhandled_exception(exc: Exception) -> Response:
+        import traceback as tb
+        from hoa_accounting.web.template_engine import render_template as _render
+
+        show_traceback = org_context.get("environment") == "local"
+        trace_str = tb.format_exc() if show_traceback else None
+        theme = str(org_context.get("theme", "warm"))
+        html = _render("error_500.html", {
+            "active_nav": "",
+            "page_key": "",
+            "breadcrumb": "",
+            "org": org_context,
+            "theme": theme,
+            "error_type": type(exc).__name__,
+            "error_message": str(exc),
+            "traceback": trace_str,
+        })
+        return Response(html, status=500, mimetype="text/html; charset=utf-8")
 
     @app.get("/static/app.css")
     def _static_css_passthrough() -> Response:
@@ -147,9 +249,237 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         static_dir = Path(__file__).resolve().parent / "static"
         return send_from_directory(static_dir, "app.css")
 
+    # ── API helpers ───────────────────────────────────────────────────────
+
+    @app.get("/api/lots/<int:lot_id>/open-charges")
+    def api_lot_open_charges(lot_id: int) -> Response:
+        """Return open assessments for a lot's current owner in payment-order.
+
+        Used by the deposit batch form to show the treasurer what charges
+        will be covered by a payment before it is posted.
+        """
+        import json
+        from decimal import Decimal
+        from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
+        from hoa_accounting.repositories.lots_repo import LotsRepository
+
+        db_path = org_context.get("db_path")
+        if not db_path:
+            return Response(json.dumps({"error": "no db"}), status=500,
+                            mimetype="application/json")
+
+        conn = connect_sqlite(str(db_path))
+        try:
+            owner_id = LotsRepository(conn).get_current_owner_id(lot_id)
+            if owner_id is None:
+                return Response(json.dumps({"charges": [], "total_outstanding": "0.00"}),
+                                mimetype="application/json")
+
+            rows = AssessmentsRepository(conn).list_open_for_owner(owner_id)
+            charges = []
+            total = Decimal("0.00")
+            for r in rows:
+                outstanding = Decimal(str(r["amount"])) - Decimal(str(r["already_applied"]))
+                if outstanding <= 0:
+                    continue
+                charges.append({
+                    "charge_type": r["charge_type"],
+                    "description": r["description"] or "",
+                    "due_date": r["due_date"] or "",
+                    "outstanding": str(outstanding),
+                })
+                total += outstanding
+            return Response(
+                json.dumps({"charges": charges, "total_outstanding": str(total)}),
+                mimetype="application/json",
+            )
+        finally:
+            conn.close()
+
+    # ── Page routes ───────────────────────────────────────────────────────
+
+    def _open_dashboard() -> DashboardPages:
+        conn = connect_sqlite(str(org_context["db_path"]))
+        fiscal_year = int(org_context.get("fiscal_year_start_month", 1))
+        from datetime import date
+        fy = date.today().year
+        return DashboardPages(conn, fy)
+
     @app.get("/")
     def home() -> Response:
-        return _ui_response_to_flask(home_service.render_page(org=org_context))
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_dashboard()
+        resp = pages.render_dashboard(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
+
+    @app.get("/system-settings")
+    def system_settings_page() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("msg") or "").strip() or None
+        pages = _open_dashboard()
+        resp = pages.render_settings(org=org_context, theme=theme, flash=flash)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
+
+    @app.post("/system-settings/save")
+    def system_settings_save() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_dashboard()
+        redirect_url, page_resp = pages.handle_save_settings(request.form, org_context, theme)
+        if redirect_url:
+            return redirect(redirect_url)
+        return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
+
+    @app.get("/dashboard-config")
+    def dashboard_config_page() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("msg") or "").strip() or None
+        pages = _open_dashboard()
+        resp = pages.render_card_catalog(org=org_context, theme=theme, flash=flash)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
+
+    @app.post("/dashboard-config/save-card")
+    def dashboard_save_card() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_dashboard()
+        redirect_url, page_resp = pages.handle_save_card(request.form, org_context, theme)
+        if redirect_url:
+            return redirect(redirect_url)
+        return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
+
+    @app.post("/dashboard-config/delete-card/<int:card_id>")
+    def dashboard_delete_card(card_id: int) -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_dashboard()
+        redirect_url, _ = pages.handle_delete_card(card_id, org_context, theme)
+        return redirect(redirect_url)
+
+    @app.post("/dashboard-config/save-layout")
+    def dashboard_save_layout() -> Response:
+        from flask import redirect
+        pages = _open_dashboard()
+        redirect_url = pages.handle_save_layout(request.form)
+        return redirect(redirect_url)
+
+    def _load_report_lookup_options() -> dict:
+        """Load dropdown options for report parameter fields from the DB."""
+        db_path = org_context.get("db_path")
+        if not db_path:
+            return {}
+        try:
+            conn = connect_sqlite(str(db_path))
+            try:
+                owners = conn.execute(
+                    """
+                    SELECT o.id, o.display_name,
+                           COALESCE(l.lot_number, '') AS lot_number
+                    FROM owners o
+                    LEFT JOIN lot_ownership lo
+                      ON lo.owner_id = o.id AND lo.end_date IS NULL
+                    LEFT JOIN lots l ON l.id = lo.lot_id
+                    WHERE o.active_flag = 1
+                    ORDER BY CAST(l.lot_number AS REAL), l.lot_number, o.display_name
+                    """
+                ).fetchall()
+
+                lots = conn.execute(
+                    """
+                    SELECT l.id, l.lot_number,
+                           COALESCE(l.street_address_1, '') AS address,
+                           COALESCE(o.display_name, '') AS owner_name
+                    FROM lots l
+                    LEFT JOIN lot_ownership lo
+                      ON lo.lot_id = l.id AND lo.end_date IS NULL
+                    LEFT JOIN owners o
+                      ON o.id = lo.owner_id AND o.active_flag = 1
+                    WHERE l.active_flag = 1
+                    GROUP BY l.id
+                    ORDER BY CAST(l.lot_number AS REAL), l.lot_number
+                    """
+                ).fetchall()
+
+                accounts = conn.execute(
+                    """
+                    SELECT a.id, a.account_number, a.account_name
+                    FROM accounts a
+                    WHERE a.is_active = 1
+                    ORDER BY a.account_number
+                    """
+                ).fetchall()
+
+                receivable_accounts = conn.execute(
+                    """
+                    SELECT a.id, a.account_number, a.account_name
+                    FROM accounts a
+                    JOIN account_types at ON at.id = a.account_type_id
+                    WHERE a.is_active = 1 AND at.code = 'ASSET'
+                    ORDER BY a.account_number
+                    """
+                ).fetchall()
+
+                vendors = conn.execute(
+                    """
+                    SELECT id, vendor_name FROM vendors
+                    WHERE active_flag = 1
+                    ORDER BY vendor_name
+                    """
+                ).fetchall()
+
+                def _owner_label(row: object) -> str:
+                    lot = str(row["lot_number"]).strip()  # type: ignore[index]
+                    name = str(row["display_name"])  # type: ignore[index]
+                    return f"Lot {lot} — {name}" if lot else name
+
+                def _lot_label(r: object) -> str:
+                    num = str(r["lot_number"])  # type: ignore[index]
+                    addr = str(r["address"]).strip()  # type: ignore[index]
+                    owner = str(r["owner_name"]).strip()  # type: ignore[index]
+                    parts = [f"Lot {num}"]
+                    if addr:
+                        parts.append(addr)
+                    if owner:
+                        parts.append(f"({owner})")
+                    return " – ".join(parts[:2]) + (" " + parts[2] if len(parts) > 2 else "")
+
+                return {
+                    "lot_id": [
+                        {"value": str(r["id"]), "label": _lot_label(r)}
+                        for r in lots
+                    ],
+                    "owner_id": [
+                        {"value": str(r["id"]), "label": _owner_label(r)}
+                        for r in owners
+                    ],
+                    "account_id": [
+                        {"value": str(r["id"]),
+                         "label": f"{r['account_number']} – {r['account_name']}"}
+                        for r in accounts
+                    ],
+                    "receivable_account_id": [
+                        {"value": str(r["id"]),
+                         "label": f"{r['account_number']} – {r['account_name']}"}
+                        for r in receivable_accounts
+                    ],
+                    "vendor_id": [
+                        {"value": str(r["id"]), "label": str(r["vendor_name"])}
+                        for r in vendors
+                    ],
+                    "fund_code": [
+                        {"value": "OPERATING", "label": "Operating"},
+                        {"value": "RESERVE",   "label": "Reserve"},
+                        {"value": "SPECIAL",   "label": "Special"},
+                    ],
+                    "sort_by": [
+                        {"value": "name",    "label": "Name (last, first)"},
+                        {"value": "address", "label": "Address"},
+                    ],
+                }
+            finally:
+                conn.close()
+        except Exception:
+            return {}
 
     @app.get("/reports")
     def reports_console() -> Response:
@@ -160,6 +490,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             report_page_service.render_page(
                 selected_report=selected,
                 org=org_context,
+                lookup_options=_load_report_lookup_options(),
             )
         )
 
@@ -172,6 +503,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 report_name=report_name,
                 query_params=params,
                 org=org_context,
+                lookup_options=_load_report_lookup_options(),
             )
         )
 
@@ -682,7 +1014,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def edit_lot_form(lot_id: int) -> Response:
         pages = _open_lot_pages()
         theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_form(org=org_context, theme=theme, lot_id=lot_id)
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_form(org=org_context, theme=theme, lot_id=lot_id,
+                                 flash_message=flash_message)
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
@@ -710,6 +1044,56 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_delete(
             lot_id=lot_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/owners/link")
+    def submit_link_owner(lot_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_link_owner(
+            lot_id=lot_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/owners/<int:ownership_id>/end")
+    def submit_end_ownership(lot_id: int, ownership_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_end_ownership(
+            lot_id=lot_id,
+            ownership_id=ownership_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/lots/<int:lot_id>/owners/<int:ownership_id>/edit-dates")
+    def submit_edit_ownership_dates(lot_id: int, ownership_id: int) -> Response:
+        from flask import redirect
+        pages = _open_lot_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_edit_ownership_dates(
+            lot_id=lot_id,
+            ownership_id=ownership_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
@@ -976,22 +1360,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         pages = _open_owner_pages()
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_edit(
-            owner_id=owner_id,
-            form_data={k: v for k, v in request.form.items()},
-            org=org_context, theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/owners/<int:owner_id>/mark-previous")
-    def submit_mark_previous(owner_id: int) -> Response:
-        from flask import redirect
-        pages = _open_owner_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_mark_previous(
             owner_id=owner_id,
             form_data={k: v for k, v in request.form.items()},
             org=org_context, theme=theme,
@@ -1525,6 +1893,103 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    # ── Late Fee pages ───────────────────────────────────────────────
+
+    def _open_late_fee_pages() -> LateFeePages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config; late fee pages need it.")
+        conn = connect_sqlite(str(db_path))
+        g._lf_conn = conn
+        return LateFeePages(conn)
+
+    @app.teardown_request
+    def _close_lf_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_lf_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._lf_conn = None
+
+    @app.get("/late-fees")
+    def late_fees_page() -> Response:
+        pages = _open_late_fee_pages()
+        theme = str(org_context.get("theme", "warm"))
+        lot_id_raw = (request.args.get("lot_id") or "").strip()
+        lot_id = int(lot_id_raw) if lot_id_raw.isdigit() else None
+        resp = pages.render_page(
+            org=org_context, theme=theme,
+            lot_id=lot_id,
+            flash_message=(request.args.get("msg") or "").strip(),
+            error_message=(request.args.get("error") or "").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/late-fees/post")
+    def submit_late_fees() -> Response:
+        from flask import redirect
+        pages = _open_late_fee_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_post(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Dues Billing pages ───────────────────────────────────────────
+
+    def _open_dues_billing_pages() -> DuesBillingPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError(
+                "database.path missing from config; dues billing pages need it."
+            )
+        conn = connect_sqlite(str(db_path))
+        g._dues_conn = conn
+        return DuesBillingPages(conn)
+
+    @app.teardown_request
+    def _close_dues_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_dues_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._dues_conn = None
+
+    @app.get("/dues-billing")
+    def dues_billing_page() -> Response:
+        pages = _open_dues_billing_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_page(
+            org=org_context, theme=theme,
+            flash_message=(request.args.get("msg") or "").strip(),
+            error_message=(request.args.get("error") or "").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/dues-billing/post")
+    def submit_dues_billing() -> Response:
+        from flask import redirect
+        pages = _open_dues_billing_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_bill(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     # ── Opening Balances pages ───────────────────────────────────────
 
     def _open_ob_pages() -> OpeningBalancesPages:
@@ -1573,5 +2038,650 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
+
+    # ── Database admin pages ─────────────────────────────────────────
+
+    def _open_db_admin_pages() -> DatabaseAdminPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._dba_conn = conn
+        return DatabaseAdminPages(conn, db_path=str(db_path))
+
+    @app.teardown_request
+    def _close_dba_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_dba_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._dba_conn = None
+
+    @app.get("/admin/database")
+    def database_admin_page() -> Response:
+        pages = _open_db_admin_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_page(
+            org=org_context, theme=theme,
+            flash_message=(request.args.get("msg") or "").strip(),
+            error_message=(request.args.get("error") or "").strip(),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/database/check")
+    def database_health_check() -> Response:
+        pages = _open_db_admin_pages()
+        theme = str(org_context.get("theme", "warm"))
+        _, form_resp = pages.handle_check(org=org_context, theme=theme)
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/database/reindex")
+    def database_reindex() -> Response:
+        from flask import redirect
+        pages = _open_db_admin_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_reindex(org=org_context, theme=theme)
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/database/vacuum")
+    def database_vacuum() -> Response:
+        from flask import redirect
+        pages = _open_db_admin_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_vacuum(org=org_context, theme=theme)
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/database/wal-checkpoint")
+    def database_wal_checkpoint() -> Response:
+        from flask import redirect
+        pages = _open_db_admin_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_wal_checkpoint(org=org_context, theme=theme)
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/admin/database/backup")
+    def database_backup() -> Response:
+        import json as _json
+        pages = _open_db_admin_pages()
+        data, filename, stats = pages.handle_backup()
+        return Response(
+            data,
+            status=200,
+            mimetype="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(data)),
+                "X-Backup-Stats": _json.dumps(stats),
+                "Access-Control-Expose-Headers": "X-Backup-Stats",
+            },
+        )
+
+    @app.post("/admin/database/restore-preview")
+    def database_restore_preview() -> Response:
+        import json as _json
+        pages = _open_db_admin_pages()
+        backup_file = request.files.get("backup_file")
+        if not backup_file:
+            return Response(
+                _json.dumps({"ok": False, "error": "No file received."}),
+                status=400, mimetype="application/json",
+            )
+        result = pages.handle_restore_preview(backup_file.read())
+        status = 200 if result.get("ok") else 400
+        return Response(_json.dumps(result), status=status,
+                        mimetype="application/json")
+
+    @app.post("/admin/database/restore")
+    def database_restore() -> Response:
+        import json as _json
+        from flask import redirect
+        pages = _open_db_admin_pages()
+        theme = str(org_context.get("theme", "warm"))
+        # JS callers send X-Restore-Fetch: 1 and expect JSON back.
+        wants_json = request.headers.get("X-Restore-Fetch") == "1"
+        backup_file = request.files.get("backup_file")
+        if not backup_file:
+            if wants_json:
+                return Response(
+                    _json.dumps({"ok": False, "error": "No backup file received — please try again."}),
+                    status=400, mimetype="application/json",
+                )
+            resp = pages.render_page(
+                org=org_context, theme=theme,
+                error_message="No backup file received — please try again.",
+            )
+            return Response(resp.body_html, status=resp.status_code,
+                            mimetype="text/html; charset=utf-8")
+        file_bytes = backup_file.read()
+        redirect_url, form_resp, error_msg = pages.handle_restore(
+            file_bytes, org=org_context, theme=theme
+        )
+        if wants_json:
+            if redirect_url is not None:
+                return Response(
+                    _json.dumps({"ok": True, "message": "Database restored successfully. All previous data has been replaced with the backup."}),
+                    status=200, mimetype="application/json",
+                )
+            return Response(
+                _json.dumps({"ok": False, "error": error_msg or "Restore failed."}),
+                status=400, mimetype="application/json",
+            )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Export pages ─────────────────────────────────────────────────
+
+    def _open_export_pages() -> ExportPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._export_conn = conn
+        return ExportPages(conn)
+
+    @app.teardown_request
+    def _close_export_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_export_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._export_conn = None
+
+    @app.get("/admin/export")
+    def export_page() -> Response:
+        pages = _open_export_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_page(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/export/download")
+    def export_download() -> Response:
+        pages = _open_export_pages()
+        selected = request.form.getlist("export_key")
+        if not selected:
+            theme = str(org_context.get("theme", "warm"))
+            resp = pages.render_page(
+                org=org_context, theme=theme,
+                error_message="Please select at least one data set to export.",
+            )
+            return Response(resp.body_html, status=resp.status_code,
+                            mimetype="text/html; charset=utf-8")
+        zip_bytes = pages.build_zip(selected)
+        return Response(
+            zip_bytes,
+            status=200,
+            mimetype="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="hoa-download.zip"'},
+        )
+
+    # ── Import pages ──────────────────────────────────────────────────
+
+    def _open_import_pages() -> ImportPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._import_conn = conn
+        return ImportPages(conn)
+
+    @app.teardown_request
+    def _close_import_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_import_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._import_conn = None
+
+    @app.get("/admin/import")
+    def import_page() -> Response:
+        pages = _open_import_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp  = pages.render_page(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/import/run")
+    def import_run() -> Response:
+        pages = _open_import_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp  = pages.handle_run(
+            data_type   = request.form.get("data_type",   ""),
+            mapping_json= request.form.get("mapping",     "{}"),
+            csv_content = request.form.get("csv_content", ""),
+            file_name   = request.form.get("file_name",   "unknown.csv"),
+            org         = org_context,
+            theme       = theme,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/import/validate")
+    def import_validate() -> Response:
+        import json as _json
+        pages  = _open_import_pages()
+        result = pages.handle_validate(
+            data_type    = request.form.get("data_type",    ""),
+            mapping_json = request.form.get("mapping",      "{}"),
+            csv_content  = request.form.get("csv_content",  ""),
+            filter_field = request.form.get("filter_field", ""),
+        )
+        return Response(_json.dumps(result), status=200,
+                        mimetype="application/json")
+
+    # ── GL Transaction Import ──────────────────────────────────────────
+
+    def _open_gl_import_pages() -> GlImportPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._gl_import_conn = conn
+        return GlImportPages(conn)
+
+    @app.teardown_request
+    def _close_gl_import_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_gl_import_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._gl_import_conn = None
+
+    @app.get("/admin/gl-import")
+    def gl_import_page() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_gl_import_pages()
+        resp  = pages.render_page(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
+
+    @app.post("/admin/gl-import/preview")
+    def gl_import_preview() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_gl_import_pages()
+        csv_content = request.form.get("csv_content", "")
+        resp = pages.handle_preview(csv_content=csv_content, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
+
+    @app.post("/admin/gl-import/run")
+    def gl_import_run() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        pages = _open_gl_import_pages()
+        csv_content = request.form.get("csv_content", "")
+        resp = pages.handle_run(csv_content=csv_content, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
+
+    # ── Year-End Close pages ───────────────────────────────────────────
+
+    def _open_yec_pages() -> YearEndClosePages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = connect_sqlite(str(db_path))
+        g._yec_conn = conn
+        return YearEndClosePages(conn)
+
+    @app.teardown_request
+    def _close_yec_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_yec_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._yec_conn = None
+
+    # ── Batch PDF ─────────────────────────────────────────────────────────────
+    def _open_batch_pdf_pages() -> BatchPdfPages:
+        conn = connect_sqlite(str(db_path))
+        g._batch_pdf_conn = conn
+        return BatchPdfPages(conn=conn)
+
+    @app.teardown_request
+    def _close_batch_pdf_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_batch_pdf_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._batch_pdf_conn = None
+
+    @app.get("/batch-pdf")
+    def batch_pdf_page() -> Response:
+        pages = _open_batch_pdf_pages()
+        theme = str(org_context.get("theme", "warm"))
+        html = pages.render_page(org=org_context, theme=theme)
+        return Response(html, status=200, mimetype="text/html; charset=utf-8")
+
+    @app.post("/batch-pdf/generate")
+    def batch_pdf_generate() -> Response:
+        from flask import request as _req
+        pages = _open_batch_pdf_pages()
+        theme = str(org_context.get("theme", "warm"))
+        try:
+            year = int(_req.form.get("year", "0"))
+        except ValueError:
+            year = 0
+        if not year:
+            html = pages.render_page(org=org_context, theme=theme,
+                                     error="Please enter a valid year.")
+            return Response(html, status=400, mimetype="text/html; charset=utf-8")
+        html = pages.handle_generate(org=org_context, theme=theme, year=year)
+        return Response(html, status=200, mimetype="text/html; charset=utf-8")
+
+    # ── Resale Certificate Fee ────────────────────────────────────────────────
+    def _open_resale_fee_pages() -> ResaleFeePages:
+        conn = connect_sqlite(str(db_path))
+        g._resale_fee_conn = conn
+        return ResaleFeePages(conn=conn)
+
+    @app.teardown_request
+    def _close_resale_fee_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_resale_fee_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._resale_fee_conn = None
+
+    def _resale_fee_config() -> tuple[str, str]:
+        """Return (default_amount, income_account_number) from config."""
+        amount = str(org_context.get("resale_fee_default_amount") or "175.00")
+        account = str(org_context.get("resale_fee_income_account_number") or "4070")
+        return amount, account
+
+    @app.get("/resale-fee")
+    def resale_fee_page() -> Response:
+        from flask import request as _req
+        pages = _open_resale_fee_pages()
+        theme = str(org_context.get("theme", "warm"))
+        default_amount, income_account = _resale_fee_config()
+        flash = _req.args.get("msg", "")
+        resp = pages.render_page(
+            org=org_context, theme=theme,
+            default_amount=default_amount,
+            income_account_number=income_account,
+            flash_message=flash,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/resale-fee/post-charge")
+    def resale_fee_post_charge() -> Response:
+        from flask import redirect, request as _req
+        pages = _open_resale_fee_pages()
+        theme = str(org_context.get("theme", "warm"))
+        default_amount, income_account = _resale_fee_config()
+        redirect_url, resp = pages.handle_post_charge(
+            form_data=dict(_req.form),
+            org=org_context,
+            theme=theme,
+            default_amount=default_amount,
+            income_account_number=income_account,
+        )
+        if redirect_url:
+            return redirect(redirect_url)
+        assert resp is not None
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/resale-fee/post-payment")
+    def resale_fee_post_payment() -> Response:
+        from flask import redirect, request as _req
+        pages = _open_resale_fee_pages()
+        theme = str(org_context.get("theme", "warm"))
+        default_amount, income_account = _resale_fee_config()
+        redirect_url, resp = pages.handle_post_payment(
+            form_data=dict(_req.form),
+            org=org_context,
+            theme=theme,
+            default_amount=default_amount,
+            income_account_number=income_account,
+        )
+        if redirect_url:
+            return redirect(redirect_url)
+        assert resp is not None
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/year-end-close")
+    def yec_list() -> Response:
+        pages = _open_yec_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp  = pages.render_list(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/year-end-close/<int:fiscal_year>")
+    def yec_detail(fiscal_year: int) -> Response:
+        pages = _open_yec_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp  = pages.render_detail(fiscal_year, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/year-end-close/<int:fiscal_year>/close")
+    def yec_close(fiscal_year: int) -> Response:
+        pages = _open_yec_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp  = pages.handle_close(fiscal_year, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/year-end-close/<int:fiscal_year>/reopen")
+    def yec_reopen(fiscal_year: int) -> Response:
+        pages = _open_yec_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp  = pages.handle_reopen(fiscal_year, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    # ── Reserve Study pages ───────────────────────────────────────────
+
+    def _open_reserve_study_pages() -> ReserveStudyPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config; reserve study pages need it.")
+        conn = connect_sqlite(str(db_path))
+        g._rs_conn = conn
+        return ReserveStudyPages(conn)
+
+    @app.teardown_request
+    def _close_rs_conn(exc: BaseException | None) -> None:
+        conn = getattr(g, "_rs_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                g._rs_conn = None
+
+    def _rs_redirect(url: str) -> Response:
+        from flask import redirect as _redir
+        return _redir(url, code=303)
+
+    def _rs_resp(pr: object) -> Response:
+        return Response(pr.body_html, status=pr.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/reserve-study")
+    def rs_summary() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        return _rs_resp(pages.render_summary(org=org_context, theme=theme,
+                                             flash_message=flash_message))
+
+    @app.get("/reserve-study/assumptions/edit")
+    def rs_assumptions_form() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_assumptions_form(org=org_context, theme=theme))
+
+    @app.post("/reserve-study/assumptions/edit")
+    def rs_assumptions_save() -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save_assumptions(
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return _rs_resp(form_resp)
+
+    @app.get("/reserve-study/assets")
+    def rs_assets() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        return _rs_resp(pages.render_assets(org=org_context, theme=theme,
+                                            flash_message=flash_message))
+
+    @app.get("/reserve-study/assets/new")
+    def rs_asset_new_form() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_asset_form(org=org_context, theme=theme))
+
+    @app.post("/reserve-study/assets/new")
+    def rs_asset_new_save() -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save_asset(
+            None, form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return _rs_resp(form_resp)
+
+    @app.get("/reserve-study/assets/<int:asset_id>/edit")
+    def rs_asset_edit_form(asset_id: int) -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_asset_form(asset_id, org=org_context, theme=theme))
+
+    @app.post("/reserve-study/assets/<int:asset_id>/edit")
+    def rs_asset_edit_save(asset_id: int) -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save_asset(
+            asset_id, form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return _rs_resp(form_resp)
+
+    @app.post("/reserve-study/assets/<int:asset_id>/delete")
+    def rs_asset_delete(asset_id: int) -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, _ = pages.handle_delete_asset(asset_id, org=org_context, theme=theme)
+        return redirect(redirect_url or "/reserve-study/assets", code=303)
+
+    @app.get("/reserve-study/funding-plan")
+    def rs_funding_plan() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_funding_plan(org=org_context, theme=theme))
+
+    @app.get("/reserve-study/scenarios")
+    def rs_scenarios() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        return _rs_resp(pages.render_scenarios(org=org_context, theme=theme,
+                                               flash_message=flash_message))
+
+    @app.get("/reserve-study/scenarios/new")
+    def rs_scenario_new_form() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_scenario_form(org=org_context, theme=theme))
+
+    @app.post("/reserve-study/scenarios/new")
+    def rs_scenario_new_save() -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save_scenario(
+            None, form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return _rs_resp(form_resp)
+
+    @app.get("/reserve-study/scenarios/<int:scenario_id>/edit")
+    def rs_scenario_edit_form(scenario_id: int) -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_scenario_form(scenario_id, org=org_context, theme=theme))
+
+    @app.post("/reserve-study/scenarios/<int:scenario_id>/edit")
+    def rs_scenario_edit_save(scenario_id: int) -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save_scenario(
+            scenario_id, form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return _rs_resp(form_resp)
+
+    @app.post("/reserve-study/scenarios/<int:scenario_id>/delete")
+    def rs_scenario_delete(scenario_id: int) -> Response:
+        from flask import redirect
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, _ = pages.handle_delete_scenario(scenario_id, org=org_context, theme=theme)
+        return redirect(redirect_url or "/reserve-study/scenarios", code=303)
+
+    @app.get("/reserve-study/report")
+    def rs_report_preview() -> Response:
+        pages = _open_reserve_study_pages()
+        theme = str(org_context.get("theme", "warm"))
+        return _rs_resp(pages.render_report_preview(org=org_context, theme=theme))
+
+    @app.get("/reserve-study/report/download")
+    def rs_word_report() -> Response:
+        import urllib.parse
+        pages = _open_reserve_study_pages()
+        org_name = str(org_context.get("name", "HOA"))
+        docx_bytes = pages.generate_word_report(org_name=org_name)
+        safe_name = urllib.parse.quote(org_name.replace(" ", "_"))
+        filename = f"Reserve_Fund_Study_{safe_name}.docx"
+        return Response(
+            docx_bytes,
+            status=200,
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     return app

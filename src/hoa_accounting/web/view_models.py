@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 
 from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS, ReportDefinition, get_report_definition
 
@@ -45,6 +45,7 @@ class ParameterFieldVM:
     label: str
     value: str
     placeholder: str
+    field_type: str = "text"  # "text" | "select"
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class ReportConsoleContext:
     breadcrumb: str
     selected_report: str
     theme: str
+    lookup_options: dict = dc_field(default_factory=dict)
 
 
 _DEFAULT_ORG: dict[str, object] = {
@@ -130,6 +132,7 @@ def build_report_console_context(
     error_message: str,
     api_payload: dict[str, object] | None,
     org: dict[str, object] | None = None,
+    lookup_options: dict | None = None,
 ) -> ReportConsoleContext:
     """Build the template context for the report console page."""
     report_def = get_report_definition(selected_report)
@@ -156,6 +159,7 @@ def build_report_console_context(
         breadcrumb="",
         selected_report=selected_report,
         theme=_resolve_theme(org),
+        lookup_options=lookup_options or {},
     )
 
 
@@ -196,8 +200,9 @@ def _build_parameter_fields(
             ParameterFieldVM(
                 name=field.name,
                 label=field.label + required_marker,
-                value=form_values.get(field.name, ""),
+                value=form_values.get(field.name, field.default_value),
                 placeholder=field.placeholder,
+                field_type=field.field_type,
             )
         )
     return fields

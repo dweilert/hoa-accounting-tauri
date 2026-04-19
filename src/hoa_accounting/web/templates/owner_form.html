@@ -70,9 +70,15 @@
     </label>
 
     <label class="field">
-      <span class="field__label">Phone</span>
+      <span class="field__label">Cell Phone</span>
       <input type="tel" name="phone"
              value="{{ values.phone }}" />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Home Phone</span>
+      <input type="tel" name="home_phone"
+             value="{{ values.home_phone }}" />
     </label>
 
     <label class="field">
@@ -88,129 +94,6 @@
     </label>
   </div>
 
-  {% if is_edit %}
-    {% if values.current_lot_number %}
-      {# Owner has a lot — show it read-only #}
-      <div class="panel" style="margin-top:1rem;">
-        <div class="panel__header">
-          <div>
-            <div class="panel__title">Current Lot Assignment</div>
-            <div class="panel__description">
-              To change a lot assignment, use Mark as Previous on the Owners list,
-              then add a new owner to the lot.
-            </div>
-          </div>
-        </div>
-        <div style="padding:1rem 1.25rem;">
-          <p>
-            <strong>Lot:</strong>
-            <span class="mono">{{ values.current_lot_number }}</span>
-            {% if values.current_lot_address %}&nbsp;— {{ values.current_lot_address }}{% endif %}
-            &nbsp;·&nbsp;
-            <strong>Role:</strong>
-            {% if values.is_primary_contact == '1' %}Owner 1{% else %}Owner 2{% endif %}
-          </p>
-        </div>
-      </div>
-    {% else %}
-      {# Owner has no lot — allow assignment #}
-      <div class="panel" style="margin-top:1rem;">
-        <div class="panel__header">
-          <div>
-            <div class="panel__title">Lot Assignment</div>
-            <div class="panel__description">
-              This owner has no current lot. Assign one below, or leave blank to assign later.
-            </div>
-          </div>
-        </div>
-
-        <label class="field">
-          <span class="field__label">Lot</span>
-          <select name="lot_id">
-            <option value="">— No assignment —</option>
-            {% for lot in lot_options %}
-              <option value="{{ lot.id }}"
-                {% if values.lot_id|string == lot.id|string %}selected{% endif %}>
-                {{ lot.label }}
-              </option>
-            {% endfor %}
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="field__label">Ownership Start Date</span>
-          <input type="date" name="start_date"
-                 value="{{ values.start_date }}" />
-          <span class="field__hint">Required when a lot is selected.</span>
-        </label>
-
-        <fieldset class="field" style="border:none;padding:0;margin:0;">
-          <legend class="field__label">Role</legend>
-          <div style="display:flex;gap:1.5rem;margin-top:.25rem;">
-            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
-              <input type="radio" name="is_primary_contact" value="1"
-                     {% if values.is_primary_contact != '0' %}checked{% endif %} />
-              Owner 1 (Primary Contact)
-            </label>
-            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
-              <input type="radio" name="is_primary_contact" value="0"
-                     {% if values.is_primary_contact == '0' %}checked{% endif %} />
-              Owner 2
-            </label>
-          </div>
-        </fieldset>
-      </div>
-    {% endif %}
-  {% else %}
-    {# On add: required lot assignment section #}
-    <div class="panel" style="margin-top:1rem;">
-      <div class="panel__header">
-        <div>
-          <div class="panel__title">Lot Assignment</div>
-          <div class="panel__description">
-            Every owner must be assigned to a lot. Add the lot first if it does not appear below.
-          </div>
-        </div>
-      </div>
-
-      <label class="field">
-        <span class="field__label">Lot *</span>
-        <select name="lot_id" required>
-          <option value="">— Select a lot —</option>
-          {% for lot in lot_options %}
-            <option value="{{ lot.id }}"
-              {% if values.lot_id|string == lot.id|string %}selected{% endif %}>
-              {{ lot.label }}
-            </option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label class="field">
-        <span class="field__label">Ownership Start Date *</span>
-        <input type="date" name="start_date"
-               value="{{ values.start_date }}"
-               required />
-      </label>
-
-      <fieldset class="field" style="border:none;padding:0;margin:0;">
-        <legend class="field__label">Role</legend>
-        <div style="display:flex;gap:1.5rem;margin-top:.25rem;">
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
-            <input type="radio" name="is_primary_contact" value="1"
-                   {% if values.is_primary_contact != '0' %}checked{% endif %} />
-            Owner 1 (Primary Contact)
-          </label>
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
-            <input type="radio" name="is_primary_contact" value="0"
-                   {% if values.is_primary_contact == '0' %}checked{% endif %} />
-            Owner 2
-          </label>
-        </div>
-      </fieldset>
-    </div>
-  {% endif %}
-
   </form>
 
   <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
@@ -221,7 +104,9 @@
     {% if is_edit %}
       <span style="flex:1;"></span>
       <form method="post" action="/owners/{{ owner_id }}/delete"
-            onsubmit="return confirm('Delete this owner and all their ownership history? This cannot be undone.');">
+            data-confirm="This will permanently delete this owner and all their ownership history. This cannot be undone."
+            data-confirm-title="Delete Owner"
+            data-confirm-label="Delete">
         <button type="submit" class="btn btn--danger btn--sm">Delete Owner</button>
       </form>
     {% endif %}

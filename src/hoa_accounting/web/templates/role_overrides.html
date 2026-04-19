@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block heading %}Role Overrides{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:680px;">
+  <div class="panel__header">Role Overrides</div>
+  <div class="panel__body">
+    <p style="color:var(--text-muted);font-size:.88rem;margin-bottom:1rem;">
+      Override the role assigned by Cognito groups or local user settings for specific email addresses.
+      Override takes highest priority — useful for granting admin access to a Cognito homeowner.
+    </p>
+
+    {% if flash == "saved" %}
+      <div class="alert alert--ok" style="margin-bottom:1rem;">Override saved.</div>
+    {% elif flash == "deleted" %}
+      <div class="alert alert--warn" style="margin-bottom:1rem;">Override removed.</div>
+    {% endif %}
+
+    {% if error %}
+      <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" style="margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);">
+      <input type="hidden" name="action" value="add">
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:.5rem;align-items:end;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" name="email" required placeholder="user@example.com">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Role</label>
+          <select class="form-input" name="role">
+            <option value="reports">reports</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn--primary" style="margin-bottom:0;">Add Override</button>
+      </div>
+      <div class="form-group" style="margin-top:.5rem;">
+        <label class="form-label">Note (optional)</label>
+        <input class="form-input" type="text" name="note" placeholder="Reason for override">
+      </div>
+    </form>
+
+    {% if overrides %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Override Role</th>
+          <th>Note</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in overrides %}
+        <tr>
+          <td>{{ o.email }}</td>
+          <td>
+            <span class="pill {% if o.role == 'admin' %}pill--ok{% else %}pill--warn{% endif %}">
+              {{ o.role }}
+            </span>
+          </td>
+          <td style="color:var(--text-muted);font-size:.85rem;">{{ o.note or "—" }}</td>
+          <td style="color:var(--text-muted);font-size:.85rem;">{{ o.created_at[:10] }}</td>
+          <td>
+            <form method="post" action="/system/overrides/{{ o.id }}/delete"
+                  onsubmit="return confirm('Remove override for {{ o.email }}?')">
+              <button class="btn btn--sm btn--danger" type="submit">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--text-muted);">No overrides configured.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div style="margin-top:1rem;">
+  <a href="/system/users" class="btn btn--sm btn--ghost">← Back to Users</a>
+</div>
+{% endblock %}

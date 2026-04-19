@@ -107,7 +107,9 @@
         <span style="font-size:.8rem;color:var(--color-text-muted);">Has transactions — deactivate instead of deleting</span>
       {% else %}
         <form method="post" action="/bank-accounts/{{ bank_account_id }}/delete"
-              onsubmit="return confirm('Delete this bank account? This cannot be undone.');">
+              data-confirm="This will permanently delete this bank account. This cannot be undone."
+              data-confirm-title="Delete Bank Account"
+              data-confirm-label="Delete">
           <button type="submit" class="btn btn--danger btn--sm">Delete Bank Account</button>
         </form>
       {% endif %}

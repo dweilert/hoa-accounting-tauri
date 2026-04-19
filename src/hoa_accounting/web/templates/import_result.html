@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Import Results · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    .sidebar, .topbar, .no-print { display: none !important; }
+    .main { margin: 0 !important; padding: 0 !important; }
+    .content { padding: 0 !important; }
+    .panel { box-shadow: none !important; border: 1px solid #ccc !important; }
+  }
+</style>
+
+  {# ── Summary card ──────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">{{ data_type_label }} — Import Results</div>
+      <div class="panel__description">
+        File: <strong>{{ file_name }}</strong> &nbsp;·&nbsp;
+        Completed at <strong>{{ checked_at }}</strong>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));
+                gap:1rem;margin-bottom:1rem;">
+
+      <div style="border:1px solid var(--border);border-radius:6px;
+                  padding:.65rem .9rem;background:var(--surface-raised,var(--surface));">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+                    color:var(--text-muted);margin-bottom:.2rem;">Total Rows</div>
+        <div style="font-size:1.4rem;font-weight:700;">{{ total }}</div>
+      </div>
+
+      <div style="border:1px solid #b7dfb8;border-radius:6px;
+                  padding:.65rem .9rem;background:#f0faf0;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+                    color:#4a7c4e;margin-bottom:.2rem;">Imported</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#2e7d32;">{{ imported }}</div>
+      </div>
+
+      <div style="border:1px solid {% if failed %}#f5c2c2{% else %}var(--border){% endif %};
+                  border-radius:6px;padding:.65rem .9rem;
+                  background:{% if failed %}#fdf3f3{% else %}var(--surface-raised,var(--surface)){% endif %};">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+                    color:{% if failed %}#b71c1c{% else %}var(--text-muted){% endif %};
+                    margin-bottom:.2rem;">Failed</div>
+        <div style="font-size:1.4rem;font-weight:700;
+                    color:{% if failed %}#c62828{% else %}var(--text-muted){% endif %};">
+          {{ failed }}
+        </div>
+      </div>
+
+    </div>
+
+    {% if not failed %}
+      <div style="display:flex;align-items:center;gap:.5rem;
+                  color:#2e7d32;font-size:14px;font-weight:600;">
+        <span>✓</span>
+        <span>All {{ imported }} row(s) imported successfully — no errors.</span>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ── Error report ───────────────────────────────────────────────── #}
+  {% if error_rows %}
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">Rows That Were Not Imported</div>
+        <div class="panel__description">
+          Fix these rows in your spreadsheet and re-import.
+          Only the rows listed here were skipped; all others were saved.
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="error-table">
+          <thead>
+            <tr>
+              <th style="width:5rem;">Row #</th>
+              <th>Reason(s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for er in error_rows %}
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:13px;
+                            vertical-align:top;padding-top:.5rem;">
+                  {{ er.row }}
+                </td>
+                <td>
+                  {% if er.errors | length == 1 %}
+                    <span style="font-size:13px;">{{ er.errors[0] }}</span>
+                  {% else %}
+                    <ul style="margin:.25rem 0;padding-left:1.2rem;font-size:13px;">
+                      {% for e in er.errors %}
+                        <li>{{ e }}</li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Actions ────────────────────────────────────────────────────── #}
+  <div class="no-print" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+    <button type="button" class="btn btn--primary" onclick="window.print()">
+      Print Report
+    </button>
+    {% if error_rows %}
+      <button type="button" class="btn" onclick="downloadErrors()">
+        Download Error Report (.csv)
+      </button>
+    {% endif %}
+    <a href="/admin/import" class="btn btn--ghost">Import Another File</a>
+  </div>
+
+  {% if error_rows %}
+  <script>
+  function downloadErrors() {
+    var rows = {{ error_rows | tojson }};
+    var lines = ["row_number,errors"];
+    rows.forEach(function (r) {
+      var errs = r.errors.join(" | ").replace(/,/g, "&#x2C;");
+      lines.push(r.row + "," + errs);
+    });
+    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement("a");
+    a.href = url;
+    a.download = "import-errors.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  </script>
+  {% endif %}
+
+{% endblock %}

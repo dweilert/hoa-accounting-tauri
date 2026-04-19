@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Post Late Fee · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+
+  {# ── Alerts ──────────────────────────────────────────────────────── #}
+  {% if flash_message %}
+    <div class="alert alert--ok"
+         style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error"
+         style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Lot selector ────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Select Lot / Owner</div>
+      <div class="panel__description">
+        Choose the lot to view their open charges and calculate the late fee.
+      </div>
+    </div>
+    <form method="get" action="/late-fees"
+          style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;">
+      <label class="field" style="margin:0;">
+        <span class="field__label">Lot</span>
+        <select name="lot_id" style="min-width:20rem;"
+                onchange="this.form.submit()">
+          <option value="">— Select a lot —</option>
+          {% for lot in lot_options %}
+            <option value="{{ lot.id }}"
+                    {% if selected_lot_id == lot.id %}selected{% endif %}>
+              {{ lot.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
+
+  {% if selected_lot_id and lot_data %}
+
+    {# ── Rate / Through date ─────────────────────────────────────────── #}
+    <form method="post" action="/late-fees/post" id="late-fee-form">
+      <input type="hidden" name="lot_id" value="{{ selected_lot_id }}" />
+
+      <div class="panel" style="margin-bottom:1rem;">
+        <div class="panel__header">
+          <div class="panel__title">Interest Parameters</div>
+          <div class="panel__description">
+            These apply to all charges below. Changing them recalculates
+            every interest amount automatically.
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;">
+          <label class="field" style="margin:0;">
+            <span class="field__label">Annual Rate % *</span>
+            <input type="text" id="rate-pct" name="rate_pct"
+                   value="{{ rate_pct }}"
+                   inputmode="decimal"
+                   style="max-width:8rem;"
+                   oninput="recalcAll()" />
+          </label>
+          <label class="field" style="margin:0;">
+            <span class="field__label">Through Date *</span>
+            <input type="date" id="through-date" name="through_date"
+                   value="{{ through_date }}"
+                   oninput="recalcAll()" />
+          </label>
+          <label class="field" style="margin:0;">
+            <span class="field__label">Posting Date *</span>
+            <input type="date" name="entry_date" value="{{ through_date }}" />
+          </label>
+          {% if lf_account_label %}
+            <div style="font-size:13px;color:var(--text-muted);padding-bottom:.3rem;">
+              Income account: <strong>{{ lf_account_label }}</strong>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Open chargeable items ──────────────────────────────────────── #}
+      <div class="panel" style="margin-bottom:1rem;">
+        <div class="panel__header">
+          <div class="panel__title">Open Charges — {{ lot_data.lot.lot_number }}
+            {% if lot_data.lot.owner_name %}· {{ lot_data.lot.owner_name }}{% endif %}
+          </div>
+          <div class="panel__description">
+            Check the charges to include. Delinquent dates default to each
+            charge's due date — edit if your bylaws require a different start.
+            Interest recalculates as you type.
+          </div>
+        </div>
+
+        {% if lot_data.chargeable %}
+          <div class="table-wrap">
+            <table id="charges-table">
+              <thead>
+                <tr>
+                  <th style="width:2rem;"></th>
+                  <th>Charge</th>
+                  <th style="text-align:right;">Amount</th>
+                  <th style="text-align:right;">Balance</th>
+                  <th>Due Date</th>
+                  <th>Delinquent Date</th>
+                  <th style="text-align:right;">Days</th>
+                  <th style="text-align:right;width:10rem;">Interest</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in lot_data.chargeable %}
+                  <tr data-id="{{ row.id }}"
+                      data-balance="{{ '%.2f'|format(row.remaining|float) }}">
+                    <td style="text-align:center;">
+                      <input type="checkbox"
+                             name="row_{{ row.id }}_selected"
+                             value="1"
+                             class="charge-checkbox"
+                             onchange="onCheckChange(this)" />
+                    </td>
+                    <td style="font-size:13px;">
+                      {{ row.description }}
+                      <span class="pill pill--muted" style="font-size:.6rem;margin-left:.25rem;">
+                        {{ row.charge_type }}
+                      </span>
+                    </td>
+                    <td style="text-align:right;font-size:13px;">
+                      ${{ '%.2f'|format(row.amount|float) }}
+                    </td>
+                    <td style="text-align:right;font-size:13px;">
+                      ${{ '%.2f'|format(row.remaining|float) }}
+                    </td>
+                    <td style="font-size:12px;color:var(--text-muted);">
+                      {{ row.due_date }}
+                    </td>
+                    <td>
+                      <input type="date"
+                             id="delinquent-{{ row.id }}"
+                             name="row_{{ row.id }}_delinquent_date"
+                             value="{{ row.delinquent_date }}"
+                             class="delinquent-date"
+                             data-id="{{ row.id }}"
+                             style="max-width:11rem;"
+                             oninput="recalcRow({{ row.id }})" />
+                    </td>
+                    <td style="text-align:right;font-size:13px;">
+                      <span id="days-{{ row.id }}">{{ row.days }}</span>
+                    </td>
+                    <td style="text-align:right;">
+                      <input type="text"
+                             id="interest-{{ row.id }}"
+                             name="row_{{ row.id }}_interest"
+                             value="{{ '%.2f'|format(row.interest|float) }}"
+                             inputmode="decimal"
+                             class="interest-field"
+                             data-id="{{ row.id }}"
+                             style="text-align:right;max-width:9rem;" />
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="7"
+                      style="text-align:right;font-size:12px;
+                             color:var(--text-muted);padding-right:.5rem;">
+                    Total interest selected:
+                  </td>
+                  <td style="text-align:right;font-weight:700;" id="total-interest">
+                    $0.00
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+            <button type="submit" class="btn btn--primary">Post Late Fees</button>
+            <span style="font-size:12px;color:var(--text-muted);">
+              Posts one charge per checked row, credited to Late Fee Income.
+            </span>
+          </div>
+
+        {% else %}
+          <div class="empty">
+            No open dues or special assessment charges found for this owner.
+          </div>
+        {% endif %}
+      </div>
+
+    </form>
+
+    {# ── Late fee history ────────────────────────────────────────────── #}
+    {% if lot_data.history %}
+      <div class="panel" style="margin-bottom:1rem;">
+        <div class="panel__header">
+          <div class="panel__title">Previously Posted Late Fees</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align:right;">Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in lot_data.history %}
+                <tr>
+                  <td style="font-size:12px;">{{ h.description }}</td>
+                  <td style="text-align:right;font-size:13px;">
+                    ${{ '%.2f'|format(h.amount|float) }}
+                  </td>
+                  <td>
+                    <span class="pill pill--muted" style="font-size:.65rem;">
+                      {{ h.status }}
+                    </span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+  {% elif selected_lot_id %}
+    <div class="panel">
+      <div class="empty">Lot not found or has no owner.</div>
+    </div>
+  {% endif %}
+
+  <script>
+  // ── Days between two ISO date strings ──────────────────────────────
+  function daysBetween(from, to) {
+    if (!from || !to) return 0;
+    var d1 = new Date(from + "T00:00:00");
+    var d2 = new Date(to  + "T00:00:00");
+    var diff = Math.round((d2 - d1) / 86400000);
+    return diff > 0 ? diff : 0;
+  }
+
+  // ── Round to 2dp (banker's rounding not needed; simple half-up) ────
+  function round2(n) {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+
+  // ── Recalculate one row ─────────────────────────────────────────────
+  function recalcRow(id) {
+    var ratePct   = parseFloat(document.getElementById("rate-pct").value) || 0;
+    var throughDt = document.getElementById("through-date").value;
+    var delinqEl  = document.getElementById("delinquent-" + id);
+    var balanceEl = document.querySelector('[data-id="' + id + '"]');
+    if (!delinqEl || !balanceEl) return;
+
+    var balance   = parseFloat(balanceEl.dataset.balance) || 0;
+    var days      = daysBetween(delinqEl.value, throughDt);
+    var interest  = round2(balance * (ratePct / 100) * (days / 365));
+
+    var daysEl = document.getElementById("days-" + id);
+    if (daysEl) daysEl.textContent = days;
+
+    var intEl = document.getElementById("interest-" + id);
+    if (intEl) intEl.value = interest.toFixed(2);
+
+    updateTotal();
+  }
+
+  // ── Recalculate all rows ────────────────────────────────────────────
+  function recalcAll() {
+    document.querySelectorAll("[data-id]").forEach(function(el) {
+      if (el.tagName === "TR") recalcRow(parseInt(el.dataset.id, 10));
+    });
+  }
+
+  // ── Update footer total (checked rows only) ─────────────────────────
+  function updateTotal() {
+    var total = 0;
+    document.querySelectorAll(".charge-checkbox:checked").forEach(function(cb) {
+      var id  = cb.closest("tr").dataset.id;
+      var val = parseFloat(document.getElementById("interest-" + id).value) || 0;
+      total  += val;
+    });
+    document.getElementById("total-interest").textContent =
+      "$" + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function onCheckChange(cb) { updateTotal(); }
+
+  // ── Init total on page load ─────────────────────────────────────────
+  updateTotal();
+  </script>
+
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block heading %}Access Denied{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+  <div style="max-width:520px;width:100%;text-align:center;padding:2rem;">
+
+    <div style="font-size:5rem;line-height:1;margin-bottom:.5rem;">🔒</div>
+
+    <h1 style="font-size:1.6rem;font-weight:800;margin:.5rem 0 .75rem;color:var(--text);">
+      You don't have access to this page
+    </h1>
+
+    <p style="color:var(--text-muted);font-size:.95rem;line-height:1.6;margin-bottom:1.5rem;">
+      {% if current_user %}
+        You're signed in as <strong>{{ current_user.display_name or current_user.email }}</strong>
+        with <span class="pill {% if current_user.role == 'admin' %}pill--ok{% else %}pill--warn{% endif %}"
+                   style="font-size:.75rem;">{{ current_user.role }}</span> access.
+        This page requires a higher permission level.
+      {% else %}
+        You need to be signed in to view this page.
+      {% endif %}
+    </p>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.25rem;margin-bottom:1.75rem;text-align:left;">
+      <div style="font-size:.8rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem;">
+        What you can do
+      </div>
+      <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;font-size:.9rem;color:var(--text-muted);">
+        <li>◀ Use your browser's back button to return to where you were</li>
+        <li>🏠 Go to the Dashboard to access your allowed pages</li>
+        {% if current_user and current_user.role != 'admin' %}
+        <li>✉ Contact your HOA administrator to request additional access</li>
+        {% endif %}
+        {% if not current_user %}
+        <li>🔑 Sign in with your account credentials</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;">
+      <a href="javascript:history.back()" class="btn btn--ghost">◀ Go Back</a>
+      <a href="/" class="btn btn--primary">🏠 Dashboard</a>
+      {% if current_user %}
+        <a href="/logout" class="btn btn--ghost">Sign Out</a>
+      {% else %}
+        <a href="/login" class="btn btn--ghost">Sign In</a>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

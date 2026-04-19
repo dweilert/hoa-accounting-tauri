@@ -18,6 +18,7 @@ from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.repositories.periods_repo import PeriodsRepository
 from hoa_accounting.repositories.reserve_transfers_repo import ReserveTransfersRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
+from hoa_accounting.repositories.year_end_close_repo import YearEndCloseRepository
 from hoa_accounting.services.assessment_billing_service import AssessmentBillingService
 from hoa_accounting.services.assessment_service import AssessmentService
 from hoa_accounting.services.deposit_batch_service import DepositBatchService
@@ -55,11 +56,15 @@ class ServiceFactory:
         self.periods_repo = PeriodsRepository(conn)
         self.reserve_transfers_repo = ReserveTransfersRepository(conn)
         self.vendors_repo = VendorsRepository(conn)
+        self.year_end_close_repo = YearEndCloseRepository(conn)
 
         self.account_validator = AccountValidator(self.accounts_repo)
         self.account_role_validator = AccountRoleValidator(self.accounts_repo)
         self.entity_validator = EntityValidator(self.entities_repo)
-        self.period_validator = PeriodValidator(self.periods_repo)
+        self.period_validator = PeriodValidator(
+            self.periods_repo,
+            year_end_close_repo=self.year_end_close_repo,
+        )
         self.journal_validator = JournalValidator(self.account_validator)
 
     def journal_service(self) -> JournalService:

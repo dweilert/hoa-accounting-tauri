@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}GL Import Results · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+.pill { display:inline-block;padding:.15rem .5rem;border-radius:3px;font-size:11px;font-weight:600; }
+.pill--ok   { background:#e6f4ea;color:#1e7e34; }
+.pill--skip { background:#f1f3f4;color:#6b6b6b; }
+.pill--err  { background:#fdecea;color:#c62828; }
+</style>
+
+{# ── Summary ─────────────────────────────────────────────────────────────── #}
+<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem;align-items:center;">
+  <span class="pill pill--ok">{{ ok_count }} imported</span>
+  {% if skip_count %}<span class="pill pill--skip">{{ skip_count }} skipped</span>{% endif %}
+  {% if error_count %}<span class="pill pill--err">{{ error_count }} failed</span>{% endif %}
+</div>
+
+{% if error_count %}
+<div class="panel" style="margin-bottom:1rem;border-left:3px solid #e57373;">
+  <div class="panel__header">
+    <div class="panel__title" style="color:#c62828;">Errors ({{ error_count }})</div>
+  </div>
+  <table style="font-size:13px;">
+    <thead><tr><th>Action</th><th>Error</th></tr></thead>
+    <tbody>
+      {% for e in errors %}
+      <tr>
+        <td style="white-space:nowrap;">{{ e.action }}</td>
+        <td style="color:#c62828;">{{ e.error }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if results %}
+<div class="panel">
+  <div class="panel__header">
+    <div class="panel__title">Imported Transactions</div>
+  </div>
+  <table style="font-size:12px;">
+    <thead><tr><th>Transaction</th><th style="width:4rem;">Status</th></tr></thead>
+    <tbody>
+      {% for r in results %}
+      <tr {% if r.status == 'skip' %}style="opacity:.55;"{% endif %}>
+        <td>{{ r.action }}{% if r.note %} <span style="color:var(--text-muted);font-size:11px;">— {{ r.note }}</span>{% endif %}</td>
+        <td><span class="pill pill--{{ 'ok' if r.status == 'ok' else 'skip' }}">{{ r.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div style="margin-top:1.25rem;display:flex;gap:.75rem;">
+  <a href="/admin/gl-import" class="btn btn--ghost">Import Another File</a>
+  <a href="/" class="btn btn--ghost">Dashboard</a>
+</div>
+{% endblock %}

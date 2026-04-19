@@ -35,7 +35,9 @@
         <button type="submit" class="btn btn--primary btn--sm">Approve Budget</button>
       </form>
       <form method="post" action="/budgets/{{ budget.id }}/delete" style="display:inline;"
-            onsubmit="return confirm('Delete this draft budget and all its lines?');">
+            data-confirm="This will permanently delete this draft budget and all its line items."
+            data-confirm-title="Delete Budget Draft"
+            data-confirm-label="Delete">
         <button type="submit" class="btn btn--danger btn--sm">Delete Draft</button>
       </form>
     {% elif is_approved %}

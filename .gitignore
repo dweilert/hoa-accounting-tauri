@@ -16,3 +16,7 @@ dist/
 # Claude Code dev-server config — machine-specific absolute paths.
 # A portable shared version can be added later if we want one.
 .claude/
+
+# Local config contains secrets (DB path, Cognito credentials).
+# Copy config.yaml.example → config.yaml and fill in your values.
+config.yaml

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}System Settings · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+  {% if flash %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash }}<button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <form method="post" action="/system-settings/save">
+
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="panel__header">
+        <div class="panel__title">HOA Identity</div>
+        <div class="panel__description">
+          The full legal name is used on reports and documents.
+          The abbreviated name appears in the navigation sidebar.
+        </div>
+      </div>
+
+      <div class="form" style="grid-template-columns:1fr;max-width:480px;">
+        <label class="field">
+          <span class="field__label">Full Legal Name *</span>
+          <input type="text" name="legal_name"
+                 value="{{ profile.legal_name if profile else '' }}"
+                 placeholder="e.g. Canyonside Homeowners Association, Inc."
+                 required />
+        </label>
+        <label class="field">
+          <span class="field__label">Abbreviated Name *</span>
+          <input type="text" name="display_name"
+                 value="{{ profile.display_name if profile else '' }}"
+                 placeholder="e.g. Canyonside HOA"
+                 required />
+          <span class="field__hint">Shown in the sidebar and page headings.</span>
+        </label>
+      </div>
+
+      <div style="margin-top:1rem;">
+        <button type="submit" class="btn btn--primary">Save Settings</button>
+      </div>
+    </div>
+
+  </form>
+{% endblock %}

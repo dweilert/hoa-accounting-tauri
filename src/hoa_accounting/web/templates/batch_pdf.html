@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Owner Ledger PDFs · {{ org.name }}{% endblock %}
+{% block heading %}Generate Owner Ledger PDFs{% endblock %}
+
+{% block content %}
+
+  {# ── Error ───────────────────────────────────────────────────────────── #}
+  {% if error %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ error }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Generate form ────────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel__header">
+      <div class="panel__title">Publish Owner Ledger PDFs to S3</div>
+      <div class="panel__description">
+        Generates a PDF Owner Ledger for every active lot and uploads them to
+        <strong>mmpoa-owner-reports</strong> on AWS S3.  Each file is stored at
+        <code>owner-reports/{lot}/{year}/{filename}</code> and returns a
+        pre-signed URL (1-hour expiry).
+      </div>
+    </div>
+
+    <form method="POST" action="/batch-pdf/generate">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;">
+        <div class="field">
+          <label class="field__label" for="year">Report Year</label>
+          <input class="field__input" type="number" id="year" name="year"
+                 value="{{ selected_year }}" min="2000" max="2100"
+                 style="width:8rem;" required>
+        </div>
+        <button type="submit" class="btn btn--primary"
+                onclick="this.disabled=true;this.textContent='Generating…';this.form.submit();">
+          Generate &amp; Upload All
+        </button>
+      </div>
+      <p style="margin-top:.75rem;font-size:12px;color:var(--text-muted);">
+        This may take a minute depending on the number of lots.
+      </p>
+    </form>
+  </div>
+
+  {# ── Results table ────────────────────────────────────────────────────── #}
+  {% if results is not none %}
+    {% set ok_count    = results | selectattr('ok') | list | length %}
+    {% set fail_count  = results | length - ok_count %}
+
+    <div style="margin-bottom:.75rem;display:flex;gap:1rem;align-items:center;">
+      <span style="font-weight:600;">{{ results | length }} lots processed</span>
+      {% if ok_count %}
+        <span class="pill" style="background:#d1fae5;color:#065f46;">
+          {{ ok_count }} uploaded
+        </span>
+      {% endif %}
+      {% if fail_count %}
+        <span class="pill" style="background:#fef2f2;color:#991b1b;">
+          {{ fail_count }} failed
+        </span>
+      {% endif %}
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Lot</th>
+            <th>Owner</th>
+            <th>Filename</th>
+            <th>S3 Key</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+          <tr>
+            <td class="mono">{{ r.lot_number }}</td>
+            <td>{{ r.owner_name }}</td>
+            <td style="font-size:11px;word-break:break-all;">
+              {% if r.ok %}{{ r.filename }}{% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--text-muted);word-break:break-all;">
+              {% if r.ok %}{{ r.s3_key }}{% endif %}
+            </td>
+            <td>
+              {% if r.ok %}
+                <span class="pill" style="background:#d1fae5;color:#065f46;">Uploaded</span>
+              {% else %}
+                <span class="pill" style="background:#fef2f2;color:#991b1b;"
+                      title="{{ r.error }}">Failed</span>
+                {% if r.error %}
+                  <div style="font-size:10px;color:#991b1b;margin-top:2px;">{{ r.error }}</div>
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+{% endblock %}

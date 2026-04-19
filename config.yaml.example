@@ -1,0 +1,47 @@
+hoa:
+  name: "Sample HOA"
+  legal_name: "Sample Homeowners Association, Inc."
+  tax_id_federal: "12-3456789"
+  tax_id_state: "TX-STATE-ID-001"
+
+database:
+  type: "sqlite"
+  path: "/path/to/your/hoa_accounting.db"
+
+app:
+  environment: "local"
+  debug: true
+
+accounting:
+  fiscal_year_start_month: 1
+  default_fund: "OPERATING"
+  dues_receivable_account_number: "1100"
+  resale_fee_default_amount: "175.00"
+  resale_fee_income_account_number: "4070"
+
+auth:
+  # backend options:
+  #   "local"                       — SQLite users only
+  #   "cognito"                     — Cognito only (fails if offline)
+  #   "cognito_with_local_fallback" — Cognito when reachable, local form when not
+  backend: "cognito_with_local_fallback"
+
+  # Flask session signing key — change this to a long random string in production
+  session_secret: "change-me-to-a-random-secret"
+
+  cognito:
+    region: "us-east-1"
+    user_pool_id: "us-east-1_XXXXXXXXX"
+    client_id: "your-cognito-app-client-id"
+    client_secret: "your-cognito-app-client-secret"
+    domain: "https://your-pool-domain.auth.us-east-1.amazoncognito.com"
+
+  # Map Cognito group names to app roles.
+  # "admin" = full access; "reports" = read-only.
+  group_role_map:
+    hoa-admin: "admin"
+    hoa-accounting: "reports"
+    board: "admin"
+    review-admins: "reports"
+    homeowners: "reports"
+    reviewers: "reports"

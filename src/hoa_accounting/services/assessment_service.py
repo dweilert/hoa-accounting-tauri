@@ -55,6 +55,7 @@ class AssessmentService:
         created_by_user_id: int | None = None,
         assessment_rule_id: int | None = None,
         due_date: str | None = None,
+        charge_type: str = "DUES",
     ) -> AssessmentResult:
         """Post an owner assessment atomically."""
         with transaction(self.conn):
@@ -99,6 +100,7 @@ class AssessmentService:
                 amount=str(amount_dec),
                 description=description,
                 journal_entry_id=journal.journal_entry_id,
+                charge_type=charge_type,
             )
             self.journal_repo.set_source_id(
                 journal_entry_id=journal.journal_entry_id,

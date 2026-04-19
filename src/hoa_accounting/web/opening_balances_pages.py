@@ -141,26 +141,29 @@ class OpeningBalancesPages:
             if amt > 0:
                 bank_amounts[bid] = (int(row["gl_account_id"]), amt)
 
-        # ── Parse lot amounts ──────────────────────────────────────────
+        # ── Parse lot amounts (dues + assessment separately) ───────────
         lot_rows = self._repo.get_lots_with_balances()
-        lot_amounts: dict[int, Decimal] = {}
+        lot_dues: dict[int, Decimal] = {}
+        lot_assess: dict[int, Decimal] = {}
         for row in lot_rows:
             lid = int(row["lot_id"])
-            raw = form_data.get(f"lot_{lid}", "0").strip().replace(",", "") or "0"
-            try:
-                amt = Decimal(raw)
-            except InvalidOperation:
-                return _err(f"Invalid amount for lot {row['lot_number']}.")
-            if amt < 0:
-                return _err(f"Amount for lot {row['lot_number']} cannot be negative.")
-            if amt > 0:
-                lot_amounts[lid] = amt
+            for field, store in (
+                (f"lot_{lid}_dues", lot_dues),
+                (f"lot_{lid}_assess", lot_assess),
+            ):
+                raw = form_data.get(field, "0").strip().replace(",", "") or "0"
+                try:
+                    amt = Decimal(raw)
+                except InvalidOperation:
+                    return _err(f"Invalid amount for lot {row['lot_number']}.")
+                if amt != 0:
+                    store[lid] = amt
 
         total_banks = sum(v for _, v in bank_amounts.values())
-        total_lots = sum(lot_amounts.values())
+        total_lots = sum(lot_dues.values()) + sum(lot_assess.values())
         total = total_banks + total_lots
 
-        if total == 0:
+        if total == 0 and not lot_dues and not lot_assess:
             return _err("Enter at least one opening balance before saving.")
 
         # ── Validate AR account when lot balances exist ────────────────
@@ -199,12 +202,22 @@ class OpeningBalancesPages:
                         debit_amount=amt,
                     )
                 )
-            if ar_acct_id is not None:
+            total_dues = sum(lot_dues.values())
+            total_assess = sum(lot_assess.values())
+            if ar_acct_id is not None and total_dues > 0:
                 lines.append(
                     JournalLineInput(
                         account_id=ar_acct_id,
-                        description="Opening balance — owner AR",
-                        debit_amount=total_lots,
+                        description="Opening balance — dues AR",
+                        debit_amount=total_dues,
+                    )
+                )
+            if ar_acct_id is not None and total_assess > 0:
+                lines.append(
+                    JournalLineInput(
+                        account_id=ar_acct_id,
+                        description="Opening balance — assessment AR",
+                        debit_amount=total_assess,
                     )
                 )
             lines.append(
@@ -230,8 +243,10 @@ class OpeningBalancesPages:
             # Persist opening-balance records
             for bid, (_gl_id, amt) in bank_amounts.items():
                 self._repo.upsert_balance("BANK_ACCOUNT", bid, as_of_date, str(amt), je_id)
-            for lid, amt in lot_amounts.items():
-                self._repo.upsert_balance("LOT", lid, as_of_date, str(amt), je_id)
+            for lid, amt in lot_dues.items():
+                self._repo.upsert_balance("LOT_DUES", lid, as_of_date, str(amt), je_id)
+            for lid, amt in lot_assess.items():
+                self._repo.upsert_balance("LOT_ASSESSMENT", lid, as_of_date, str(amt), je_id)
 
             self._conn.commit()
 

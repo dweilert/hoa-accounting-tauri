@@ -273,8 +273,8 @@ class DatabaseInitializer:
         conn.execute(
             """
             INSERT INTO lot_ownership (
-                id, lot_id, owner_id, start_date, ownership_percent, is_primary_contact
-            ) VALUES (1, 1, 1, '2026-01-01', 100.0, 1)
+                id, lot_id, owner_id, start_date
+            ) VALUES (1, 1, 1, '2026-01-01')
             """
         )
         conn.execute(

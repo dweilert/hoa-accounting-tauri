@@ -26,11 +26,17 @@ def build_summary_view_model(
 
     builders = {
         "trial-balance": _build_trial_balance_summary,
+        "general-ledger": _build_general_ledger_summary,
         "balance-sheet": _build_balance_sheet_summary,
         "income-statement": _build_income_statement_summary,
         "owner-ledger": _build_owner_ledger_summary,
         "ar-aging": _build_ar_aging_summary,
         "ytd-expense-summary": _build_ytd_expense_summary,
+        "expenses-by-date": _build_expenses_by_date_summary,
+        "income-by-date": _build_income_by_date_summary,
+        "vendor-expenses": _build_vendor_expenses_summary,
+        "homeowner-contact-list": _build_homeowner_contact_list_summary,
+        "expenses-vs-budget": _build_expenses_vs_budget_summary,
     }
 
     builder = builders.get(selected_report)
@@ -104,25 +110,48 @@ def _build_income_statement_summary(data: dict[str, object]) -> dict[str, Any]:
 
 def _build_owner_ledger_summary(data: dict[str, object]) -> dict[str, Any]:
     rows = _safe_dict_list(data.get("rows"))
+    raw_owners = _safe_dict_list(data.get("owners"))
+    owners = [
+        {
+            "display_name": str(o.get("display_name", "")),
+            "first_name":   str(o.get("first_name", "")),
+            "last_name":    str(o.get("last_name", "")),
+            "email":        str(o.get("email", "")),
+            "phone":        str(o.get("phone", "")),
+        }
+        for o in raw_owners
+    ]
+    raw_ob_lines = _safe_dict_list(data.get("opening_balance_lines"))
+    opening_balance_lines = [
+        {
+            "charge_type": str(line.get("charge_type", "")),
+            "label":       str(line.get("label", "")),
+            "amount":      str(line.get("amount", "")),
+        }
+        for line in raw_ob_lines
+    ]
     return {
         "summary_template": "partials/summary_owner_ledger.html",
         "summary": {
-            "owner_name": str(data.get("owner_name", "")),
-            "receivable_account_number": str(data.get("receivable_account_number", "")),
-            "receivable_account_name": str(data.get("receivable_account_name", "")),
+            "lot_number": str(data.get("lot_number", "")),
+            "lot_address": str(data.get("lot_address", "")),
+            "owners": owners,
+            "year": str(data.get("year", "")),
             "opening_balance": str(data.get("opening_balance", "")),
+            "opening_balance_lines": opening_balance_lines,
             "closing_balance": str(data.get("closing_balance", "")),
             "rows": [
                 {
                     "entry_date": str(row.get("entry_date", "")),
-                    "entry_number": str(row.get("entry_number", "")),
-                    "source_type": str(row.get("source_type", "")),
-                    "lot_number": str(row.get("lot_number", "")),
+                    "entry_type": str(row.get("entry_type", "")),
+                    "charge_type": str(row.get("charge_type", "")),
+                    "description": str(row.get("description", "")),
                     "due_date": str(row.get("due_date", "")),
-                    "receipt_number": str(row.get("receipt_number", "")),
                     "debit_amount": str(row.get("debit_amount", "")),
                     "credit_amount": str(row.get("credit_amount", "")),
                     "running_balance": str(row.get("running_balance", "")),
+                    "status": str(row.get("status", "")),
+                    "receipt_number": str(row.get("receipt_number", "")),
                 }
                 for row in rows
             ],
@@ -219,6 +248,164 @@ def _build_account_section(section: object) -> dict[str, Any]:
             }
             for row in rows
         ]
+    }
+
+
+def _build_general_ledger_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_general_ledger.html",
+        "summary": {
+            "account_number": str(data.get("account_number", "")),
+            "account_name": str(data.get("account_name", "")),
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "rows": [
+                {
+                    "entry_date": str(row.get("entry_date", "")),
+                    "entry_number": str(row.get("entry_number", "")),
+                    "source_type": str(row.get("source_type", "")),
+                    "memo": str(row.get("memo", "")),
+                    "line_description": str(row.get("line_description", "")),
+                    "debit_amount": str(row.get("debit_amount", "")),
+                    "credit_amount": str(row.get("credit_amount", "")),
+                    "running_balance": str(row.get("running_balance", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_expenses_by_date_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_expenses_by_date.html",
+        "summary": {
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "grand_total": str(data.get("grand_total", "")),
+            "rows": [
+                {
+                    "entry_date": str(row.get("entry_date", "")),
+                    "entry_number": str(row.get("entry_number", "")),
+                    "account_number": str(row.get("account_number", "")),
+                    "account_name": str(row.get("account_name", "")),
+                    "group_code": str(row.get("group_code", "")),
+                    "fund_code": str(row.get("fund_code", "")),
+                    "memo": str(row.get("memo", "")),
+                    "amount": str(row.get("amount", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_income_by_date_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_income_by_date.html",
+        "summary": {
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "grand_total": str(data.get("grand_total", "")),
+            "rows": [
+                {
+                    "entry_date": str(row.get("entry_date", "")),
+                    "entry_number": str(row.get("entry_number", "")),
+                    "account_number": str(row.get("account_number", "")),
+                    "account_name": str(row.get("account_name", "")),
+                    "fund_code": str(row.get("fund_code", "")),
+                    "memo": str(row.get("memo", "")),
+                    "amount": str(row.get("amount", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_vendor_expenses_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_vendor_expenses.html",
+        "summary": {
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "vendor_name": str(data.get("vendor_name") or "All Vendors"),
+            "grand_total": str(data.get("grand_total", "")),
+            "rows": [
+                {
+                    "vendor_name": str(row.get("vendor_name", "")),
+                    "entry_date": str(row.get("entry_date", "")),
+                    "entry_number": str(row.get("entry_number", "")),
+                    "account_number": str(row.get("account_number", "")),
+                    "account_name": str(row.get("account_name", "")),
+                    "group_code": str(row.get("group_code", "")),
+                    "memo": str(row.get("memo", "")),
+                    "amount": str(row.get("amount", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_homeowner_contact_list_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_homeowner_contact_list.html",
+        "summary": {
+            "rows": [
+                {
+                    "role": str(row.get("role", "OWNER")),
+                    "first_name": str(row.get("first_name", "")),
+                    "last_name": str(row.get("last_name", "")),
+                    "address": str(row.get("address", "")),
+                    "cell_phone": str(row.get("cell_phone", "")),
+                    "home_phone": str(row.get("home_phone", "")),
+                    "email": str(row.get("email", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]:
+    groups_raw = _safe_dict_list(data.get("groups"))
+    groups: list[dict[str, Any]] = []
+    for group in groups_raw:
+        rows = _safe_dict_list(group.get("rows"))
+        groups.append({
+            "group_code": str(group.get("group_code", "")),
+            "group_budget": str(group.get("group_budget", "")),
+            "group_actual": str(group.get("group_actual", "")),
+            "group_variance": str(group.get("group_variance", "")),
+            "rows": [
+                {
+                    "account_number": str(row.get("account_number", "")),
+                    "account_name": str(row.get("account_name", "")),
+                    "budget_amount": str(row.get("budget_amount", "")),
+                    "actual_amount": str(row.get("actual_amount", "")),
+                    "variance": str(row.get("variance", "")),
+                }
+                for row in rows
+            ],
+        })
+    return {
+        "summary_template": "partials/summary_expenses_vs_budget.html",
+        "summary": {
+            "fiscal_year": str(data.get("fiscal_year", "")),
+            "fund_code": str(data.get("fund_code", "")),
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "total_budget": str(data.get("total_budget", "")),
+            "total_actual": str(data.get("total_actual", "")),
+            "total_variance": str(data.get("total_variance", "")),
+            "groups": groups,
+        },
     }
 
 

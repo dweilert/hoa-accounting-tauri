@@ -1,0 +1,55 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Period</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      {{ summary.from_date }} – {{ summary.to_date }}
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Income</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.grand_total }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Transactions</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.rows | length }}</span>
+  </div>
+</div>
+
+{% if summary.rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Entry #</th>
+          <th>Account</th>
+          <th>Category</th>
+          <th>Fund</th>
+          <th>Description</th>
+          <th class="num">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.rows %}
+          <tr>
+            <td>{{ row.entry_date }}</td>
+            <td class="mono">{{ row.entry_number }}</td>
+            <td class="mono">{{ row.account_number }}</td>
+            <td>{{ row.account_name }}</td>
+            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
+            <td>{{ row.memo }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6" style="text-align:right;font-weight:600;">Total</td>
+          <td class="num" style="font-weight:600;">{{ summary.grand_total }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% else %}
+  <div class="empty">No income activity in this period.</div>
+{% endif %}

@@ -11,19 +11,18 @@ class LotsRepository(BaseRepository):
     """Database access for lots and their current owners."""
 
     def get_current_owner_id(self, lot_id: int) -> int | None:
-        """Return the owner_id of the lot's current primary contact, or None.
+        """Return the owner_id of the lot's earliest current owner, or None.
 
-        A lot with no open (end_date IS NULL) primary-contact ownership
-        returns None — the batch-entry service treats that as a blocker
-        since the payment needs a real owner to credit AR on.
+        'Earliest' = smallest start_date, then smallest id — the same owner
+        the billing and payment services will use when only one owner is needed.
+        Returns None when the lot has no current owners.
         """
         row = self.conn.execute(
             """
             SELECT owner_id FROM lot_ownership
             WHERE lot_id = ?
               AND end_date IS NULL
-              AND is_primary_contact = 1
-            ORDER BY start_date DESC
+            ORDER BY start_date ASC, id ASC
             LIMIT 1
             """,
             (lot_id,),
@@ -36,19 +35,7 @@ class LotsRepository(BaseRepository):
         from_date: str,
         to_date: str,
     ) -> list[sqlite3.Row]:
-        """Active lots with YTD billed / paid / balance assessment totals.
-
-        Billed = sum of ``assessments.amount`` for the lot's assessments
-        dated in the range.
-        Paid = sum of ``payment_applications.applied_amount`` tied to
-        those same assessments.
-        Balance = Billed − Paid.
-
-        Zero totals show when a lot had no assessment activity. Lots
-        with no current primary-contact owner still appear — the
-        billing UI renders their row, and the billing service rejects
-        them at post time.
-        """
+        """Active lots with YTD billed / paid / balance assessment totals."""
         return list(
             self.conn.execute(
                 """
@@ -80,9 +67,13 @@ class LotsRepository(BaseRepository):
                 LEFT JOIN lot_ownership lo
                   ON lo.lot_id = l.id
                  AND lo.end_date IS NULL
-                 AND lo.is_primary_contact = 1
-                LEFT JOIN owners o
-                  ON o.id = lo.owner_id
+                 AND lo.id = (
+                     SELECT id FROM lot_ownership
+                     WHERE lot_id = l.id AND end_date IS NULL
+                     ORDER BY start_date ASC, id ASC
+                     LIMIT 1
+                 )
+                LEFT JOIN owners o ON o.id = lo.owner_id
                 WHERE l.active_flag = 1
                 ORDER BY l.lot_number COLLATE NOCASE
                 """,
@@ -93,22 +84,15 @@ class LotsRepository(BaseRepository):
     def list_lots_with_occupancy(
         self, *, active_only: bool = True
     ) -> list[sqlite3.Row]:
-        """Lots joined to current primary owner AND current primary renter.
+        """Lots with a comma-separated list of current owners and current renter info.
 
         Per-row columns:
-          - lot fields + owner_id/owner_name (primary contact, same as
-            list_lots)
-          - renter_id / renter_name / renter_email / renter_phone —
-            the lot's current primary-contact renter (NULL for owner-
-            occupied lots)
-          - is_owner_occupied — derived: 1 when no current renter, 0
-            when a renter is present. Simpler for callers than
-            computing from NULL-ness of renter_id.
+          - all lot fields
+          - owner_names — comma-separated display_names of all current owners
+          - renter_name / renter_email / renter_phone — first current renter
+          - is_owner_occupied — 1 when no current renter, 0 otherwise
         """
-        predicates = []
-        if active_only:
-            predicates.append("l.active_flag = 1")
-        where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+        active_filter = "WHERE l.active_flag = 1" if active_only else ""
         return list(
             self.conn.execute(
                 f"""
@@ -121,40 +105,35 @@ class LotsRepository(BaseRepository):
                     l.state,
                     l.postal_code,
                     l.active_flag,
-                    o.id AS owner_id,
-                    o.display_name AS owner_name,
-                    o2.id AS owner2_id,
-                    o2.display_name AS owner2_name,
-                    r.id AS renter_id,
+                    COALESCE((
+                        SELECT GROUP_CONCAT(o.display_name, ', ')
+                        FROM lot_ownership lo
+                        JOIN owners o ON o.id = lo.owner_id
+                        WHERE lo.lot_id = l.id
+                          AND lo.end_date IS NULL
+                    ), '') AS owner_names,
                     r.display_name AS renter_name,
-                    r.email AS renter_email,
-                    r.phone AS renter_phone,
+                    r.email        AS renter_email,
+                    r.phone        AS renter_phone,
                     CASE WHEN r.id IS NULL THEN 1 ELSE 0 END AS is_owner_occupied
                 FROM lots l
-                LEFT JOIN lot_ownership lo
-                  ON lo.lot_id = l.id
-                 AND lo.end_date IS NULL
-                 AND lo.is_primary_contact = 1
-                LEFT JOIN owners o
-                  ON o.id = lo.owner_id
-                LEFT JOIN lot_ownership lo2
-                  ON lo2.lot_id = l.id
-                 AND lo2.end_date IS NULL
-                 AND lo2.is_primary_contact = 0
-                LEFT JOIN owners o2
-                  ON o2.id = lo2.owner_id
                 LEFT JOIN lot_renters r
                   ON r.lot_id = l.id
                  AND r.end_date IS NULL
-                 AND r.is_primary_contact = 1
-                {where_sql}
+                 AND r.id = (
+                     SELECT id FROM lot_renters
+                     WHERE lot_id = l.id AND end_date IS NULL
+                     ORDER BY start_date ASC, id ASC
+                     LIMIT 1
+                 )
+                {active_filter}
                 ORDER BY l.lot_number COLLATE NOCASE
                 """
             ).fetchall()
         )
 
     def get_lot_with_owner(self, lot_id: int) -> sqlite3.Row | None:
-        """Return a single lot with its current primary-contact owner, or None."""
+        """Return a single lot with its earliest current owner name, or None."""
         return self.conn.execute(
             """
             SELECT
@@ -169,9 +148,13 @@ class LotsRepository(BaseRepository):
             LEFT JOIN lot_ownership lo
               ON lo.lot_id = l.id
              AND lo.end_date IS NULL
-             AND lo.is_primary_contact = 1
-            LEFT JOIN owners o
-              ON o.id = lo.owner_id
+             AND lo.id = (
+                 SELECT id FROM lot_ownership
+                 WHERE lot_id = l.id AND end_date IS NULL
+                 ORDER BY start_date ASC, id ASC
+                 LIMIT 1
+             )
+            LEFT JOIN owners o ON o.id = lo.owner_id
             WHERE l.id = ?
             """,
             (lot_id,),
@@ -277,16 +260,8 @@ class LotsRepository(BaseRepository):
         return int(row[0]) > 0
 
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
-        """Return lots with their current primary-contact owner, if any.
-
-        Joins ``lot_ownership`` on ``end_date IS NULL`` (still held) and
-        ``is_primary_contact = 1`` so each row shows who you'd contact for
-        that lot. A lot with no current primary owner still appears.
-        """
-        predicates = []
-        if active_only:
-            predicates.append("l.active_flag = 1")
-        where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
+        """Return lots with a comma-separated list of current owner names."""
+        active_filter = "WHERE l.active_flag = 1" if active_only else ""
         return list(
             self.conn.execute(
                 f"""
@@ -299,16 +274,15 @@ class LotsRepository(BaseRepository):
                     l.state,
                     l.postal_code,
                     l.active_flag,
-                    o.id AS owner_id,
-                    o.display_name AS owner_name
+                    COALESCE((
+                        SELECT GROUP_CONCAT(o.display_name, ', ')
+                        FROM lot_ownership lo
+                        JOIN owners o ON o.id = lo.owner_id
+                        WHERE lo.lot_id = l.id
+                          AND lo.end_date IS NULL
+                    ), '') AS owner_names
                 FROM lots l
-                LEFT JOIN lot_ownership lo
-                  ON lo.lot_id = l.id
-                 AND lo.end_date IS NULL
-                 AND lo.is_primary_contact = 1
-                LEFT JOIN owners o
-                  ON o.id = lo.owner_id
-                {where_sql}
+                {active_filter}
                 ORDER BY l.lot_number COLLATE NOCASE
                 """
             ).fetchall()

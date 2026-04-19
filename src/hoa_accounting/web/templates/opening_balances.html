@@ -17,45 +17,56 @@
     </div>
   {% endif %}
 
-  {# ── Info panel ──────────────────────────────────────────────────── #}
-  <div class="panel" style="margin-bottom:1rem;border:1px solid var(--border);
-       background:var(--surface-raised,var(--surface));">
-    <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
-      Enter the balances that existed <strong>before</strong> you started using this system.
-      Saving posts a single journal entry that brings the general ledger into balance.
-      If you re-save later, the previous entry is replaced automatically.
+  <form method="post" action="/opening-balances/save" class="form"
+        data-confirm="This will post a journal entry to the general ledger. If balances have been posted before, the previous entry will be replaced.\n\nDouble-check that all amounts are correct before proceeding."
+        data-confirm-title="Save Opening Balances"
+        data-confirm-label="Save Balances"
+        data-confirm-danger="false">
+
+    {# Row 1: Save button — full width #}
+    <div class="form__row--full" style="display:flex;gap:.75rem;align-items:center;">
+      <button type="submit" class="btn btn--primary"
+              {% if not bank_rows and not lot_rows %}disabled{% endif %}>
+        Save Opening Balances
+      </button>
       {% if has_existing_je %}
-        <span style="display:inline-block;margin-top:.35rem;padding:.2rem .6rem;
-               background:#fffbe6;border:1px solid #f5d44a;border-radius:4px;
-               font-size:12px;color:#7a5c00;">
-          Opening balances have already been posted — saving will replace the existing entry.
+        <span style="padding:.2rem .6rem;background:#fffbe6;border:1px solid #f5d44a;
+               border-radius:4px;font-size:12px;color:#7a5c00;">
+          Already posted — saving will replace the existing entry.
         </span>
       {% endif %}
     </div>
-  </div>
 
-  <form method="post" action="/opening-balances/save" class="form">
-
-    {# ── As of date ──────────────────────────────────────────────────── #}
-    <div class="panel" style="margin-bottom:1rem;">
-      <div class="panel__header">
-        <div class="panel__title">As of Date</div>
-        <div class="panel__description">
-          All balances below apply to this date (typically January 1 of your go-live year).
-          The date must fall within an open accounting period.
+    {# Row 2 left: Info card + As of Date stacked #}
+    <div style="display:flex;flex-direction:column;gap:var(--sp-3);align-self:start;">
+      <div class="panel" style="border:1px solid var(--border);
+           background:var(--surface-raised,var(--surface));">
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+          Enter the balances that existed <strong>before</strong> you started using this system.
+          Saving posts a single journal entry that brings the general ledger into balance.
+          If you re-save later, the previous entry is replaced automatically.
         </div>
       </div>
-      <label class="field">
-        <span class="field__label">As of Date *</span>
-        <input type="date" name="as_of_date"
-               value="{{ values.as_of_date or as_of_date }}"
-               required
-               style="max-width:14rem;" />
-      </label>
+      <div class="panel">
+        <div class="panel__header">
+          <div class="panel__title">As of Date</div>
+          <div class="panel__description">
+            The date all balances apply to — typically January 1 of your go-live year.
+            Must fall within an open accounting period.
+          </div>
+        </div>
+        <label class="field">
+          <span class="field__label">As of Date *</span>
+          <input type="date" name="as_of_date"
+                 value="{{ values.as_of_date or as_of_date }}"
+                 required
+                 style="max-width:14rem;" />
+        </label>
+      </div>
     </div>
 
-    {# ── Bank Accounts ───────────────────────────────────────────────── #}
-    <div class="panel" style="margin-bottom:1rem;">
+    {# Row 2 right: Bank Accounts #}
+    <div class="panel" style="align-self:start;">
       <div class="panel__header">
         <div class="panel__title">Bank Account Balances</div>
         <div class="panel__description">
@@ -63,7 +74,6 @@
           Leave as 0 for accounts with no prior balance.
         </div>
       </div>
-
       {% if bank_rows %}
         <div class="table-wrap">
           <table>
@@ -72,7 +82,7 @@
                 <th>Account</th>
                 <th>Institution</th>
                 <th>Fund</th>
-                <th style="text-align:right;width:14rem;">Opening Balance</th>
+                <th style="text-align:right;width:10rem;">Opening Balance</th>
               </tr>
             </thead>
             <tbody>
@@ -93,7 +103,7 @@
                            name="bank_{{ row.bank_account_id }}"
                            value="{{ values['bank_' ~ row.bank_account_id] if 'bank_' ~ row.bank_account_id in values else ('%.2f'|format(row.amount|float) if row.amount else '0.00') }}"
                            inputmode="decimal"
-                           style="text-align:right;max-width:12rem;" />
+                           style="text-align:right;max-width:9rem;" />
                   </td>
                 </tr>
               {% endfor %}
@@ -105,8 +115,8 @@
       {% endif %}
     </div>
 
-    {# ── Lot Owner Balances ──────────────────────────────────────────── #}
-    <div class="panel" style="margin-bottom:1rem;">
+    {# Row 3: Lot Owner Balances — full width #}
+    <div class="form__row--full panel">
       <div class="panel__header">
         <div class="panel__title">Lot Owner Balances</div>
         <div class="panel__description">
@@ -114,7 +124,6 @@
           Leave as 0 for owners with no prior balance.
         </div>
       </div>
-
       {% if lot_rows %}
         <div class="table-wrap">
           <table>
@@ -122,20 +131,33 @@
               <tr>
                 <th>Lot</th>
                 <th>Owner</th>
-                <th style="text-align:right;width:14rem;">Balance Owed</th>
+                <th style="text-align:right;width:13rem;">Dues Balance</th>
+                <th style="text-align:right;width:13rem;">Assessment Balance</th>
               </tr>
             </thead>
             <tbody>
               {% for row in lot_rows %}
                 <tr>
                   <td class="mono" style="font-size:13px;">{{ row.lot_number }}</td>
-                  <td style="font-size:13px;">{{ row.owner_name or '—' }}</td>
+                  <td style="font-size:13px;">
+                    {{ row.owner_name or '—' }}
+                    {% if row.street_address %}
+                      <div style="font-size:11px;color:var(--text-muted);">{{ row.street_address }}</div>
+                    {% endif %}
+                  </td>
                   <td style="text-align:right;">
                     <input type="text"
-                           name="lot_{{ row.lot_id }}"
-                           value="{{ values['lot_' ~ row.lot_id] if 'lot_' ~ row.lot_id in values else ('%.2f'|format(row.amount|float) if row.amount else '0.00') }}"
+                           name="lot_{{ row.lot_id }}_dues"
+                           value="{{ values['lot_' ~ row.lot_id ~ '_dues'] if 'lot_' ~ row.lot_id ~ '_dues' in values else ('%.2f'|format(row.dues_amount|float) if row.dues_amount else '0.00') }}"
                            inputmode="decimal"
-                           style="text-align:right;max-width:12rem;" />
+                           style="text-align:right;max-width:11rem;" />
+                  </td>
+                  <td style="text-align:right;">
+                    <input type="text"
+                           name="lot_{{ row.lot_id }}_assess"
+                           value="{{ values['lot_' ~ row.lot_id ~ '_assess'] if 'lot_' ~ row.lot_id ~ '_assess' in values else ('%.2f'|format(row.assessment_amount|float) if row.assessment_amount else '0.00') }}"
+                           inputmode="decimal"
+                           style="text-align:right;max-width:11rem;" />
                   </td>
                 </tr>
               {% endfor %}
@@ -147,12 +169,6 @@
       {% endif %}
     </div>
 
-    <div style="display:flex;gap:.75rem;align-items:center;">
-      <button type="submit" class="btn btn--primary"
-              {% if not bank_rows and not lot_rows %}disabled{% endif %}>
-        Save Opening Balances
-      </button>
-    </div>
-
   </form>
+
 {% endblock %}

@@ -26,8 +26,8 @@
       <div>
         <div class="panel__title">Owners</div>
         <div class="panel__description">
-          All active owners and their current lot assignment. Use Mark as Previous to end an
-          ownership when someone sells or moves out.
+          All active owners and their current lot assignments. To link or end an ownership,
+          use the Edit screen on the Lot.
         </div>
       </div>
       <a href="/owners/add" class="btn btn--primary btn--sm">Add Owner</a>
@@ -42,41 +42,23 @@
               <th>Type</th>
               <th>Phone</th>
               <th>Email</th>
-              <th>Current Lot</th>
-              <th>Role</th>
-              <th>Since</th>
+              <th>Current Lots</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {% for o in owners %}
               <tr>
-                <td>{{ o.display_name }}</td>
+                <td>
+                  {%- set name = ((o.first_name or '') + ' ' + (o.last_name or '')).strip() -%}
+                  {{ name if name else o.display_name }}
+                </td>
                 <td>{{ o.owner_type }}</td>
                 <td>{{ o.phone or '' }}</td>
                 <td>{{ o.email or '' }}</td>
-                <td class="mono">{{ o.lot_number or '—' }}</td>
+                <td class="mono">{{ o.lot_numbers or '—' }}</td>
                 <td>
-                  {% if o.ownership_id %}
-                    {% if o.is_primary_contact %}Owner 1{% else %}Owner 2{% endif %}
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-                <td class="mono">{{ o.ownership_start or '—' }}</td>
-                <td style="white-space:nowrap;">
                   <a href="/owners/{{ o.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
-                  {% if o.ownership_id %}
-                    <form method="post" action="/owners/{{ o.id }}/mark-previous"
-                          style="display:inline-flex;gap:.375rem;align-items:center;margin-left:.25rem;">
-                      <input type="date" name="end_date" value="{{ today }}" required
-                             style="font-size:.8rem;" />
-                      <button type="submit" class="btn btn--sm btn--danger">Mark as Previous</button>
-                    </form>
-                  {% else %}
-                    <a href="/owners/{{ o.id }}/edit" class="btn btn--sm btn--primary"
-                       style="margin-left:.25rem;">Assign Lot</a>
-                  {% endif %}
                 </td>
               </tr>
             {% endfor %}

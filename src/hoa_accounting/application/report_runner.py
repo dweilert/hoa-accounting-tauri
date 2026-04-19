@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -14,11 +15,17 @@ from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.reporting.ar_aging import ARAgingReportService
 from hoa_accounting.reporting.balance_sheet import BalanceSheetReportService
+from hoa_accounting.reporting.expenses_by_date import ExpensesByDateReportService
+from hoa_accounting.reporting.expenses_vs_budget import ExpenseVsBudgetReportService
 from hoa_accounting.reporting.general_ledger import GeneralLedgerReportService
+from hoa_accounting.reporting.homeowner_contact_list import HomeownerContactListReportService
+from hoa_accounting.reporting.income_by_date import IncomeByDateReportService
 from hoa_accounting.reporting.income_statement import IncomeStatementReportService
+from hoa_accounting.reporting.lot_statement import LotStatementReportService
 from hoa_accounting.reporting.owner_ledger import OwnerLedgerReportService
 from hoa_accounting.reporting.serializers import to_plain_data
 from hoa_accounting.reporting.trial_balance import TrialBalanceReportService
+from hoa_accounting.reporting.vendor_expenses import VendorExpensesReportService
 from hoa_accounting.reporting.ytd_expense_summary import YtdExpenseSummaryReportService
 
 
@@ -81,18 +88,12 @@ class ReportRunner:
             )
 
         if report_name == "owner-ledger":
-            owner_id = self._require_int_param(params, "owner_id")
-            receivable_account_id = self._require_int_param(
-                params,
-                "receivable_account_id",
-            )
-            from_date = self._require_param(params, "from_date")
-            to_date = self._require_param(params, "to_date")
-            return OwnerLedgerReportService(conn).generate(
-                owner_id=owner_id,
-                receivable_account_id=receivable_account_id,
-                from_date=from_date,
-                to_date=to_date,
+            lot_id = self._require_int_param(params, "lot_id")
+            year_str = str(params.get("year", "")).strip()
+            year = int(year_str) if year_str else datetime.date.today().year
+            return LotStatementReportService(conn).generate(
+                lot_id=lot_id,
+                year=year,
             )
 
         if report_name == "ar-aging":
@@ -124,6 +125,45 @@ class ReportRunner:
             return YtdExpenseSummaryReportService(conn).generate(
                 from_date=from_date,
                 to_date=to_date,
+            )
+
+        if report_name == "expenses-by-date":
+            from_date = self._require_param(params, "from_date")
+            to_date = self._require_param(params, "to_date")
+            return ExpensesByDateReportService(conn).generate(
+                from_date=from_date,
+                to_date=to_date,
+            )
+
+        if report_name == "income-by-date":
+            from_date = self._require_param(params, "from_date")
+            to_date = self._require_param(params, "to_date")
+            return IncomeByDateReportService(conn).generate(
+                from_date=from_date,
+                to_date=to_date,
+            )
+
+        if report_name == "vendor-expenses":
+            from_date = self._require_param(params, "from_date")
+            to_date = self._require_param(params, "to_date")
+            vendor_id_str = str(params.get("vendor_id", "")).strip()
+            vendor_id = int(vendor_id_str) if vendor_id_str else None
+            return VendorExpensesReportService(conn).generate(
+                from_date=from_date,
+                to_date=to_date,
+                vendor_id=vendor_id,
+            )
+
+        if report_name == "homeowner-contact-list":
+            sort_by = params.get("sort_by", "name").strip() or "name"
+            return HomeownerContactListReportService(conn).generate(sort_by=sort_by)
+
+        if report_name == "expenses-vs-budget":
+            fiscal_year = self._require_int_param(params, "fiscal_year")
+            fund_code = self._require_param(params, "fund_code")
+            return ExpenseVsBudgetReportService(conn).generate(
+                fiscal_year=fiscal_year,
+                fund_code=fund_code,
             )
 
         raise ValidationError(f"Unsupported report: {report_name}")

@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+{% block title %}Reserve Fund Study Report · {{ org.name }}{% endblock %}
+{% block heading %}Reserve Fund Study{% endblock %}
+
+{% block topbar_meta %}
+  <button type="button" class="btn btn--primary btn--sm" onclick="window.print()">Print / Save as PDF</button>
+  <a href="/reserve-study/report/download" class="btn btn--sm btn--ghost">Download Word (.docx)</a>
+  <a href="/reserve-study" class="btn btn--sm btn--ghost">← Back</a>
+{% endblock %}
+
+{# ── Print styles ────────────────────────────────────────────────────────── #}
+<style>
+@media print {
+  @page { size: letter; margin: 18mm 16mm; }
+
+  /* Hide all UI chrome */
+  .sidebar, .topbar, .topbar__meta, .sidebar-toggle, .home-shortcut,
+  .btn, button { display: none !important; }
+
+  .main { margin: 0 !important; }
+  .content { padding: 0 !important; }
+
+  /* Report sections */
+  .rpt-cover     { page-break-after: always; }
+  .rpt-section   { page-break-before: always; }
+  .rpt-section:first-of-type { page-break-before: avoid; }
+
+  table { page-break-inside: auto; font-size: 8pt; }
+  tr    { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  .rpt-no-break  { page-break-inside: avoid; }
+  .rpt-group     { page-break-inside: avoid; margin-bottom: 1rem; }
+}
+</style>
+
+{% block content %}
+
+{# ════════════════════════════════════════════════════════════════
+   COVER
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-cover" style="text-align:center;padding:3rem 2rem 2rem;">
+  <div style="font-size:2rem;font-weight:800;letter-spacing:.04em;color:var(--text);margin-bottom:.5rem;">
+    RESERVE FUND STUDY
+  </div>
+  <div style="font-size:1.15rem;color:var(--text-muted);margin-bottom:.25rem;">{{ org.name }}</div>
+  {% if org.legal_name and org.legal_name != org.name %}
+    <div style="font-size:.95rem;color:var(--text-subtle);">{{ org.legal_name }}</div>
+  {% endif %}
+  <div style="font-size:.85rem;color:var(--text-subtle);margin-top:.5rem;font-style:italic;">
+    {{ today }}  ·  Study Year {{ assumptions.study_year }}  ·  CONFIDENTIAL
+  </div>
+
+  <div style="margin:2rem auto;max-width:480px;padding:1rem 1.5rem;border-radius:6px;font-weight:700;font-size:1rem;
+              background:{% if funding_status == 'CRITICAL' %}var(--danger){% elif funding_status == 'LOW' %}#d97706{% else %}#1e8449{% endif %};
+              color:#fff;">
+    {% if funding_status == 'CRITICAL' %}⚠ CRITICALLY UNDERFUNDED
+    {% elif funding_status == 'LOW' %}BELOW INDUSTRY BENCHMARK
+    {% else %}ADEQUATELY FUNDED{% endif %}
+    — Reserves {{ "%.1f"|format(percent_funded) }}% Funded
+  </div>
+
+  {# Key metrics grid #}
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:600px;margin:0 auto;text-align:left;">
+    {% for label, value in cover_metrics %}
+      <div style="background:var(--surface-muted);border:1px solid var(--border);border-radius:6px;padding:.75rem 1rem;">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.2rem;">{{ label }}</div>
+        <div style="font-size:1.1rem;font-weight:700;">{{ value }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════
+   1. EXECUTIVE SUMMARY
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-section">
+  <h2 style="border-bottom:2px solid var(--border);padding-bottom:.35rem;margin-bottom:1rem;">1. Executive Summary</h2>
+
+  <p>
+    This Reserve Fund Study was prepared for <strong>{{ org.name }}</strong> for the study year
+    <strong>{{ assumptions.study_year }}</strong>. The purpose of this study is to evaluate the current financial
+    position of the association's reserve fund, assess the condition and remaining life of common-area
+    assets, and project a multi-year funding plan to ensure adequate reserves are maintained for future
+    capital expenditures.
+  </p>
+  <p>
+    The association consists of <strong>{{ assumptions.num_lots }} lots</strong>. As of the study date, the
+    reserve fund balance is <strong>${{ "{:,.0f}".format(opening_balance) }}</strong>, representing
+    <strong>${{ "{:,.0f}".format(per_lot_balance) }}</strong> per lot. The total current-dollar replacement
+    liability for all inventoried components is <strong>${{ "{:,.0f}".format(total_cost) }}</strong>, resulting
+    in a percent-funded ratio of <strong>{{ "%.1f"|format(percent_funded) }}%</strong>. Industry benchmarks
+    consider reserves adequate at 70% or higher.
+  </p>
+  {% if funding_status == 'CRITICAL' %}
+    <p style="font-weight:700;color:var(--danger);">
+      The association is critically underfunded. Immediate action is recommended, including a significant
+      increase in annual reserve contributions and/or a special assessment to address imminent capital
+      replacement needs.
+    </p>
+  {% endif %}
+
+  <table style="width:100%;margin-top:1rem;">
+    <thead>
+      <tr style="background:var(--surface-muted);">
+        <th style="text-align:left;padding:.4rem .6rem;">Metric</th>
+        <th style="text-align:right;padding:.4rem .6rem;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, value in summary_metrics %}
+        <tr style="{% if loop.index is odd %}background:var(--surface-muted);{% endif %}">
+          <td style="padding:.35rem .6rem;">{{ label }}</td>
+          <td style="padding:.35rem .6rem;text-align:right;font-weight:600;">{{ value }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ════════════════════════════════════════════════════════════════
+   CHARTS — Reserve Fund Visualizations
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-section">
+  <h2 style="border-bottom:2px solid var(--border);padding-bottom:.35rem;margin-bottom:1rem;">Reserve Fund Visualizations</h2>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;align-items:start;">
+    <div>
+      <div style="font-size:.8rem;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.5rem;">Percent Funded</div>
+      <div style="position:relative;max-width:260px;">
+        <canvas id="rptGauge" height="160"></canvas>
+        <div style="position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+          <div style="font-size:1.4rem;font-weight:700;color:{% if funding_status == 'CRITICAL' %}var(--danger){% elif funding_status == 'LOW' %}#d97706{% else %}var(--green){% endif %};">
+            {{ "%.1f"|format(percent_funded) }}%
+          </div>
+          <div style="font-size:10px;color:var(--text-subtle);">funded</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.8rem;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.5rem;">Planned Expenditures by Year</div>
+      <canvas id="rptExpend" height="160"></canvas>
+    </div>
+  </div>
+
+  <div>
+    <div style="font-size:.8rem;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.5rem;">
+      {{ assumptions.projection_years }}-Year Reserve Balance Projection
+      <span style="font-weight:400;margin-left:.5rem;">Red bars = deficit years</span>
+    </div>
+    <canvas id="rptBalance" height="100"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+  (function() {
+    const pf     = {{ "%.4f"|format(percent_funded) }};
+    const years  = {{ chart_years | tojson }};
+    const bals   = {{ chart_balances | tojson }};
+    const expend = {{ chart_expenditures | tojson }};
+    const gaugeColor = pf < 30 ? '#c0392b' : pf < 70 ? '#d97706' : '#1e8449';
+
+    new Chart(document.getElementById('rptGauge'), {
+      type: 'doughnut',
+      data: {
+        datasets: [{ data: [Math.min(pf,100), Math.max(0,100-pf)],
+                     backgroundColor: [gaugeColor, '#e5e7eb'], borderWidth: 0 }]
+      },
+      options: { cutout:'72%', rotation:-90, circumference:180,
+                 plugins:{ legend:{display:false}, tooltip:{enabled:false} } }
+    });
+
+    new Chart(document.getElementById('rptExpend'), {
+      type: 'bar',
+      data: { labels: years,
+              datasets: [{ data: expend, backgroundColor: '#e67e22', borderRadius: 2 }] },
+      options: { plugins:{legend:{display:false}},
+                 scales:{ x:{ticks:{maxTicksLimit:8,font:{size:9}}},
+                          y:{ticks:{font:{size:9}, callback:v=>'$'+(v>=1000?(v/1000).toFixed(0)+'k':v)}} } }
+    });
+
+    new Chart(document.getElementById('rptBalance'), {
+      type: 'bar',
+      data: { labels: years,
+              datasets: [{ data: bals, backgroundColor: bals.map(v=>v<0?'#c0392b':'#1e8449'), borderRadius: 2 }] },
+      options: { plugins:{legend:{display:false}},
+                 scales:{ x:{ticks:{maxTicksLimit:12,font:{size:9}}},
+                          y:{ticks:{font:{size:9}, callback:v=>'$'+(Math.abs(v)>=1000?(v/1000).toFixed(0)+'k':v)}} } }
+    });
+  })();
+  </script>
+</div>
+
+{# ════════════════════════════════════════════════════════════════
+   2. ASSET INVENTORY
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-section">
+  <h2 style="border-bottom:2px solid var(--border);padding-bottom:.35rem;margin-bottom:.75rem;">2. Asset Inventory &amp; Condition Assessment</h2>
+  <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:1rem;">
+    All inventoried capital components with estimated remaining useful life, current replacement cost
+    ({{ assumptions.study_year }} dollars), and condition rating. Future costs are inflated at each component's annual rate.
+  </p>
+
+  {% for group_name, group_assets in asset_groups.items() %}
+    <div class="rpt-group">
+      <h3 style="font-size:.9rem;font-weight:700;margin:.75rem 0 .35rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">
+        {{ group_name }}
+      </h3>
+      <table style="width:100%;font-size:.82rem;">
+        <thead>
+          <tr style="background:#2C3E50;color:#fff;">
+            <th style="text-align:left;padding:.35rem .5rem;">Component</th>
+            <th style="text-align:center;padding:.35rem .4rem;">Install</th>
+            <th style="text-align:center;padding:.35rem .4rem;">Life</th>
+            <th style="text-align:center;padding:.35rem .4rem;">Replace</th>
+            <th style="text-align:center;padding:.35rem .4rem;">Condition</th>
+            <th style="text-align:right;padding:.35rem .5rem;">{{ assumptions.study_year }} Cost</th>
+            <th style="text-align:center;padding:.35rem .4rem;">Inflation</th>
+            <th style="text-align:right;padding:.35rem .5rem;">Future Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in group_assets %}
+            {% set replace_yr = a.install_year + a.useful_life_years %}
+            {% set years_out = [replace_yr - assumptions.study_year, 0] | max %}
+            {% set future = a.replacement_cost * ((1 + a.annual_inflation) ** years_out) %}
+            <tr style="{% if loop.index is odd %}background:var(--surface-muted);{% endif %}">
+              <td style="padding:.3rem .5rem;">
+                {{ a.component }}
+                {% if a.notes %}<div style="font-size:.75rem;color:var(--text-subtle);">{{ a.notes }}</div>{% endif %}
+              </td>
+              <td style="text-align:center;padding:.3rem .4rem;">{{ a.install_year }}</td>
+              <td style="text-align:center;padding:.3rem .4rem;">{{ a.useful_life_years }}yr</td>
+              <td style="text-align:center;padding:.3rem .4rem;font-weight:700;">{{ replace_yr }}</td>
+              <td style="text-align:center;padding:.3rem .4rem;">
+                <span class="pill {{ condition_pill[a.condition] }}" style="font-size:.7rem;">{{ a.condition }}</span>
+              </td>
+              <td style="text-align:right;padding:.3rem .5rem;">
+                {% if a.replacement_cost %}${{ "{:,.0f}".format(a.replacement_cost) }}{% else %}<span style="color:var(--text-subtle);">$0</span>{% endif %}
+              </td>
+              <td style="text-align:center;padding:.3rem .4rem;color:var(--text-muted);">{{ "%.0f"|format(a.annual_inflation * 100) }}%</td>
+              <td style="text-align:right;padding:.3rem .5rem;">
+                {% if a.replacement_cost %}${{ "{:,.0f}".format(future) }}{% else %}<span style="color:var(--text-subtle);">$0</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+
+  <p style="font-weight:700;margin-top:.75rem;">
+    Total Current Replacement Cost: ${{ "{:,.0f}".format(total_cost) }}
+  </p>
+
+  <div class="rpt-no-break" style="margin-top:1rem;">
+    <h3 style="font-size:.85rem;font-weight:700;margin-bottom:.4rem;">Condition Rating Key</h3>
+    <table style="width:auto;font-size:.82rem;">
+      <tbody>
+        {% for rating, pill_class, desc in condition_key %}
+          <tr style="{% if loop.index is odd %}background:var(--surface-muted);{% endif %}">
+            <td style="padding:.3rem .75rem;width:90px;">
+              <span class="pill {{ pill_class }}" style="font-size:.7rem;">{{ rating }}</span>
+            </td>
+            <td style="padding:.3rem .75rem;color:var(--text-muted);">{{ desc }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════
+   3. FUNDING PLAN
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-section">
+  <h2 style="border-bottom:2px solid var(--border);padding-bottom:.35rem;margin-bottom:.75rem;">
+    3. {{ assumptions.projection_years }}-Year Reserve Funding Plan
+  </h2>
+  <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.5rem;">
+    Opening balance: <strong>${{ "{:,.0f}".format(opening_balance) }}</strong> &nbsp;·&nbsp;
+    Annual contribution: <strong>${{ "{:,.0f}".format(assumptions.annual_contribution) }}</strong> growing at
+    <strong>{{ "%.1f"|format(assumptions.contribution_growth_rate * 100) }}%/yr</strong> &nbsp;·&nbsp;
+    Investment return: <strong>{{ "%.1f"|format(assumptions.investment_return_rate * 100) }}%/yr</strong>
+  </p>
+
+  <table style="width:100%;font-size:.8rem;">
+    <thead>
+      <tr style="background:#2C3E50;color:#fff;">
+        <th style="text-align:center;padding:.35rem .4rem;">Year</th>
+        <th style="text-align:right;padding:.35rem .5rem;">Beg. Balance</th>
+        <th style="text-align:right;padding:.35rem .5rem;">Contribution</th>
+        <th style="text-align:right;padding:.35rem .5rem;">Investment</th>
+        <th style="text-align:right;padding:.35rem .5rem;">Expenditures</th>
+        <th style="text-align:right;padding:.35rem .5rem;">End Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in plan_rows %}
+        <tr style="{% if row.deficit %}background:#fff0f0;color:#c0392b;{% elif loop.index is odd %}background:var(--surface-muted);{% endif %}">
+          <td style="text-align:center;padding:.28rem .4rem;font-weight:700;">{{ row.year }}</td>
+          <td style="text-align:right;padding:.28rem .5rem;">
+            {% if row.beginning_balance < 0 %}({{ "${:,.0f}".format(row.beginning_balance | abs) }})
+            {% else %}${{ "{:,.0f}".format(row.beginning_balance) }}{% endif %}
+          </td>
+          <td style="text-align:right;padding:.28rem .5rem;">${{ "{:,.0f}".format(row.contribution) }}</td>
+          <td style="text-align:right;padding:.28rem .5rem;color:var(--text-muted);">
+            {% if row.investment_income > 0 %}${{ "{:,.0f}".format(row.investment_income) }}{% endif %}
+          </td>
+          <td style="text-align:right;padding:.28rem .5rem;">
+            {% if row.total_spent > 0 %}
+              <span style="color:var(--danger);font-weight:600;">(${{ "{:,.0f}".format(row.total_spent) }})</span>
+              {% for label, cost in row.expenditures %}
+                <div style="font-size:.72rem;color:var(--text-subtle);">{{ label }}: ${{ "{:,.0f}".format(cost) }}</div>
+              {% endfor %}
+            {% endif %}
+          </td>
+          <td style="text-align:right;padding:.28rem .5rem;font-weight:700;">
+            {% if row.ending_balance < 0 %}({{ "${:,.0f}".format(row.ending_balance | abs) }})
+            {% else %}${{ "{:,.0f}".format(row.ending_balance) }}{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="font-size:.78rem;color:var(--text-subtle);margin-top:.5rem;font-style:italic;">
+    Rows highlighted in red indicate a projected reserve deficit. Expenditure amounts are inflated from
+    current-dollar replacement costs using each asset's annual inflation rate.
+  </p>
+</div>
+
+{# ════════════════════════════════════════════════════════════════
+   4. SCENARIO ANALYSIS
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-section">
+  <h2 style="border-bottom:2px solid var(--border);padding-bottom:.35rem;margin-bottom:.75rem;">4. Emergency Scenario Analysis</h2>
+  <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.75rem;">
+    The following scenarios model the financial impact if a major capital asset fails before sufficient
+    reserves are accumulated. Special assessment per lot assumes the full cost is divided equally across
+    all {{ assumptions.num_lots }} lots.
+  </p>
+
+  {% for impact in dues_impacts %}
+  {% set s = scenario_rows[loop.index0] %}
+  <div class="rpt-no-break" style="border:1px solid var(--border);border-radius:6px;margin-bottom:1rem;overflow:hidden;">
+
+    {# Header bar #}
+    <div style="background:#2C3E50;color:#fff;padding:.5rem .75rem;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:700;font-size:.9rem;">{{ impact.scenario_name }}</div>
+      <div style="font-size:.8rem;opacity:.85;">
+        {% if impact.has_year %}Expected failure: {{ impact.expected_year }}{% else %}No expected year set{% endif %}
+      </div>
+    </div>
+
+    {% if s.description or s.notes %}
+    <div style="padding:.4rem .75rem;font-size:.8rem;color:var(--text-muted);border-bottom:1px solid var(--border);">
+      {% if s.description %}{{ s.description }}{% endif %}
+      {% if s.notes %}<span style="font-style:italic;"> · {{ s.notes }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {# Key figures row #}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border);">
+      {% set cells = [
+        ("Emergency Cost",      "${:,.0f}".format(impact.emergency_cost),  ""),
+        (("Projected Reserves (" ~ impact.expected_year ~ ")" if impact.has_year else "Current Reserves"),
+         "${:,.0f}".format(impact.balance_at_year), "green"),
+        ("Shortfall After Reserves",
+         ("${:,.0f}".format(impact.shortfall) if impact.shortfall > 0 else "None — Fully Funded"),
+         ("red" if impact.shortfall > 0 else "green")),
+        ("Lump-Sum Assessment / Lot",
+         ("${:,.0f}".format(impact.per_lot_lump) if impact.per_lot_lump > 0 else "$0"),
+         ("red" if impact.per_lot_lump > 0 else "green")),
+      ] %}
+      {% for label, value, hue in cells %}
+      <div style="padding:.5rem .75rem;{% if not loop.last %}border-right:1px solid var(--border);{% endif %}">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.2rem;">{{ label }}</div>
+        <div style="font-size:1rem;font-weight:700;{% if hue == 'red' %}color:var(--danger);{% elif hue == 'green' %}color:var(--green);{% endif %}">{{ value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Dues increase table or fully-funded message #}
+    {% if impact.shortfall > 0 %}
+    <div style="padding:.6rem .75rem;">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.4rem;">Annual Dues Increase Options (per lot)</div>
+      <table style="width:auto;font-size:.82rem;">
+        <thead>
+          <tr style="background:var(--surface-muted);">
+            <th style="text-align:left;padding:.3rem .6rem;">Spread Over</th>
+            <th style="text-align:right;padding:.3rem .6rem;">Annual Increase / Lot</th>
+            <th style="text-align:right;padding:.3rem .6rem;">Monthly Increase / Lot</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for opt in impact.spread_options %}
+          <tr style="{% if loop.index is odd %}background:var(--surface-muted);{% endif %}">
+            <td style="padding:.3rem .6rem;font-weight:600;">{{ opt.years }} years</td>
+            <td style="padding:.3rem .6rem;text-align:right;color:var(--danger);font-weight:700;">+${{ "{:,.2f}".format(opt.annual) }}/yr</td>
+            <td style="padding:.3rem .6rem;text-align:right;color:var(--text-muted);">+${{ "{:,.2f}".format(opt.monthly) }}/mo</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="font-size:.72rem;color:var(--text-subtle);margin-top:.35rem;">
+        Shortfall ÷ {{ assumptions.num_lots }} lots ÷ spread years. Does not account for investment growth on accumulated dues increases.
+      </div>
+    </div>
+    {% else %}
+    <div style="padding:.6rem .75rem;font-size:.85rem;font-weight:600;color:var(--green);">
+      ✓ Projected reserves are sufficient — no dues increase required for this scenario.
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+</div>
+
+{# ════════════════════════════════════════════════════════════════
+   5. ASSUMPTIONS & METHODOLOGY
+════════════════════════════════════════════════════════════════ #}
+<div class="rpt-section">
+  <h2 style="border-bottom:2px solid var(--border);padding-bottom:.35rem;margin-bottom:.75rem;">5. Study Assumptions &amp; Methodology</h2>
+
+  <h3 style="font-size:.95rem;margin-bottom:.4rem;">Key Assumptions</h3>
+  <table style="width:auto;min-width:400px;font-size:.85rem;margin-bottom:1.25rem;">
+    <thead>
+      <tr style="background:var(--surface-muted);">
+        <th style="text-align:left;padding:.35rem .6rem;">Assumption</th>
+        <th style="text-align:right;padding:.35rem .6rem;">Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, value in assumption_rows %}
+        <tr style="{% if loop.index is odd %}background:var(--surface-muted);{% endif %}">
+          <td style="padding:.3rem .6rem;">{{ label }}</td>
+          <td style="padding:.3rem .6rem;text-align:right;font-weight:600;">{{ value }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3 style="font-size:.95rem;margin-bottom:.4rem;">Methodology</h3>
+  <p style="font-size:.88rem;color:var(--text-muted);">
+    Replacement costs are expressed in current (study-year) dollars. Future replacement costs are
+    calculated by compounding current costs at each component's annual inflation rate for the number
+    of years until the projected replacement date (install year + useful life).
+  </p>
+  <p style="font-size:.88rem;color:var(--text-muted);">
+    The percent-funded ratio is the current reserve balance divided by total current-dollar replacement
+    liability. A ratio of 70% or higher is considered adequate by industry standards; below 30% is
+    critically underfunded.
+  </p>
+  <p style="font-size:.88rem;color:var(--text-muted);">
+    The funding plan projects annual reserve balances by starting with the opening balance, adding the
+    annual contribution (grown at the specified rate), adding investment income on the beginning-year
+    balance, and subtracting scheduled expenditures in each replacement year.
+  </p>
+
+  {% if assumptions.notes %}
+    <h3 style="font-size:.95rem;margin:.75rem 0 .35rem;">Study Notes</h3>
+    <p style="font-size:.88rem;color:var(--text-muted);white-space:pre-line;">{{ assumptions.notes }}</p>
+  {% endif %}
+
+  <p style="font-size:.78rem;color:var(--text-subtle);margin-top:2rem;padding-top:.75rem;border-top:1px solid var(--border);font-style:italic;">
+    This Reserve Fund Study was prepared for {{ org.name }} for internal planning purposes. Replacement cost
+    estimates are based on current market data and professional judgment. Actual future costs may differ.
+    This document is CONFIDENTIAL and intended for distribution to lot owners and board members only.
+  </p>
+</div>
+
+{% endblock %}

@@ -1,0 +1,62 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Vendor</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.vendor_name }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Period</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      {{ summary.from_date }} – {{ summary.to_date }}
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.grand_total }}</span>
+  </div>
+</div>
+
+{% if summary.rows %}
+  {# Group rows by vendor for display when showing all vendors #}
+  {% set ns = namespace(current_vendor='', vendor_total='0.00') %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Vendor</th>
+          <th>Date</th>
+          <th>Entry #</th>
+          <th>Account</th>
+          <th>Category</th>
+          <th>Group</th>
+          <th>Description</th>
+          <th class="num">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.rows %}
+          <tr>
+            <td>{% if row.vendor_name != ns.current_vendor %}
+              <strong>{{ row.vendor_name }}</strong>
+              {% set ns.current_vendor = row.vendor_name %}
+            {% endif %}</td>
+            <td>{{ row.entry_date }}</td>
+            <td class="mono">{{ row.entry_number }}</td>
+            <td class="mono">{{ row.account_number }}</td>
+            <td>{{ row.account_name }}</td>
+            <td><span class="pill pill--muted">{{ row.group_code }}</span></td>
+            <td>{{ row.memo }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="7" style="text-align:right;font-weight:600;">Total</td>
+          <td class="num" style="font-weight:600;">{{ summary.grand_total }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% else %}
+  <div class="empty">No vendor expense activity in this period.</div>
+{% endif %}

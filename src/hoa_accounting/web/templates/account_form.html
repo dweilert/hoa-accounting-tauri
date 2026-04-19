@@ -124,7 +124,9 @@
         <span style="font-size:.8rem;color:var(--color-text-muted);">Has activity — deactivate instead of deleting</span>
       {% else %}
         <form method="post" action="/accounts/{{ account_id }}/delete"
-              onsubmit="return confirm('Delete this account? This cannot be undone.');">
+              data-confirm="This will permanently delete this account. This cannot be undone."
+              data-confirm-title="Delete Account"
+              data-confirm-label="Delete">
           <button type="submit" class="btn btn--danger btn--sm">Delete Account</button>
         </form>
       {% endif %}

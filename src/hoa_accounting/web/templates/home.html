@@ -1,46 +1,175 @@
 {% extends "base.html" %}
-
-{% block title %}Dashboard · {{ org.name }}{% endblock %}
-{% block heading %}Dashboard{% endblock %}
-
-{% block topbar_meta %}
-  <span class="pill pill--{% if api_status == 'READY' %}ok{% else %}error{% endif %}">
-    API {{ api_status }}
-  </span>
-{% endblock %}
+{% block title %}Dashboard · {{ hoa_name }}{% endblock %}
+{% block heading %}{{ hoa_name }}{% endblock %}
 
 {% block content %}
-  <div class="panel">
-    <div class="panel__header">
-      <div>
-        <div class="panel__title">{{ org.name }}</div>
-        {% if org.legal_name and org.legal_name != org.name %}
-          <div class="panel__description">{{ org.legal_name }}</div>
-        {% endif %}
-      </div>
-    </div>
-    <p class="muted" style="margin: 0;">
-      Read-only operator shell. Reports are executed against the posted
-      general ledger. Transaction entry forms will appear as each is added.
-    </p>
-  </div>
+<style>
+/* ── Financial summary tiles ─────────────────────────────────────── */
+.fin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+.fin-tile {
+  border-radius: var(--radius-md);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.fin-tile__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .85; }
+.fin-tile__value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.fin-tile__sub   { font-size: 12px; opacity: .8; margin-top: 2px; }
 
-  <div class="panel">
-    <div class="panel__header">
-      <div class="panel__title">Quick Reports</div>
-      <a href="/reports" class="muted">Open report console →</a>
-    </div>
-    <div class="card-grid">
-      {% for card in report_cards %}
-        <div class="card">
-          <div class="card__title">{{ card.title }}</div>
-          <div class="card__description">{{ card.description }}</div>
-          <div class="card__footer">
-            <a href="/reports?report_name={{ card.name }}">Open in console</a>
-            <a href="/run-report?report_name={{ card.name }}{{ card.example_query }}">Run example</a>
-          </div>
+/* Budget progress bar */
+.fin-tile__bar-bg { background: rgba(255,255,255,.25); border-radius: 3px; height: 5px; margin-top: 6px; }
+.fin-tile__bar-fill { background: #fff; border-radius: 3px; height: 5px; max-width: 100%; transition: width .4s ease; }
+
+/* ── Activity card grid ───────────────────────────────────────────── */
+.act-section-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-subtle);
+  margin-bottom: var(--sp-3);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.act-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-3);
+}
+.act-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--act-color, var(--accent));
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+  cursor: pointer;
+  text-decoration: none;
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  transition: box-shadow .12s ease, transform .12s ease;
+}
+.act-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+.act-card__title { font-size: 14px; font-weight: 700; color: var(--text); }
+.act-card__desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; flex: 1; }
+.act-card__arrow { font-size: 12px; color: var(--text-subtle); align-self: flex-end; }
+
+/* Section divider — spans full grid width */
+.act-section-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: var(--sp-3);
+}
+.act-section-bar__desc {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-weight: 400;
+  line-height: 1.3;
+}
+.act-section-bar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.act-section-bar__title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--section-bar-color, var(--text-subtle));
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.act-section-bar__rule {
+  flex: 1;
+  border-top: 1px solid var(--section-bar-color, var(--border));
+  opacity: .35;
+}
+</style>
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-3);">
+  <a href="/dashboard-config"
+     style="font-size:12px;font-weight:500;color:var(--text-subtle);text-decoration:none;">
+    ⚙ Customize
+  </a>
+</div>
+
+{# ── Financial Summary ───────────────────────────────────────────── #}
+{% set fin_cards = cards | selectattr('card_type', 'equalto', 'FINANCIAL') | list %}
+{% set act_cards = cards | rejectattr('card_type', 'equalto', 'FINANCIAL') | list %}
+
+{% if fin_cards %}
+<div class="fin-grid">
+  {% for card in fin_cards %}
+    {% set bg = card.color %}
+
+    {% if card.report_name == 'bank_tiles' %}
+      {% for tile in bank_tiles %}
+        <div class="fin-tile" style="background:{{ bg }};">
+          <div class="fin-tile__label">{{ tile.account_name }}</div>
+          <div class="fin-tile__value">${{ '{:,.0f}'.format(tile.balance) }}</div>
+          <div class="fin-tile__sub">{{ tile.fund_code }} Fund</div>
         </div>
       {% endfor %}
-    </div>
-  </div>
+
+    {% elif card.report_name == 'budget_ytd' and budget_tile %}
+      <div class="fin-tile" style="background:{{ bg }};">
+        <div class="fin-tile__label">{{ fiscal_year }} Budget</div>
+        <div class="fin-tile__value">${{ '{:,.0f}'.format(budget_tile.actual_spent) }}</div>
+        <div class="fin-tile__sub">of ${{ '{:,.0f}'.format(budget_tile.total_budget) }} budget</div>
+        <div class="fin-tile__bar-bg">
+          <div class="fin-tile__bar-fill" style="width:{{ [budget_tile.pct_used, 100]|min|round|int }}%"></div>
+        </div>
+      </div>
+
+    {% elif card.report_name == 'last_recon' and last_recon %}
+      <div class="fin-tile" style="background:{{ bg }};">
+        <div class="fin-tile__label">Last Reconciliation</div>
+        <div class="fin-tile__value">${{ '{:,.0f}'.format(last_recon.ending_balance) }}</div>
+        <div class="fin-tile__sub">{{ last_recon.account_name }} · {{ last_recon.ending_date }}</div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="act-grid">
+  {% for card in act_cards %}
+    {% if card.card_type == 'SECTION' %}
+      <div class="act-section-bar" style="--section-bar-color:{{ card.color }};">
+        {% if card.description %}<div class="act-section-bar__desc">{{ card.description }}</div>{% endif %}
+        <div class="act-section-bar__row">
+          <span class="act-section-bar__title">{{ card.title }}</span>
+          <div class="act-section-bar__rule"></div>
+        </div>
+      </div>
+    {% elif card.card_type == 'COMMENT' %}
+      <div class="act-card" style="--act-color:{{ card.color }};cursor:default;">
+        <div class="act-card__title">{{ card.title }}</div>
+        <div class="act-card__desc">{{ card.description }}</div>
+      </div>
+    {% elif card.card_type == 'REPORT' and card.report_name %}
+      <a class="act-card" style="--act-color:{{ card.color }};"
+         href="/reports?report_name={{ card.report_name }}">
+        <div class="act-card__title">{{ card.title }}</div>
+        <div class="act-card__desc">{{ card.description }}</div>
+        <div class="act-card__arrow">Open report →</div>
+      </a>
+    {% else %}
+      <a class="act-card" style="--act-color:{{ card.color }};"
+         href="{{ card.target_url }}">
+        <div class="act-card__title">{{ card.title }}</div>
+        <div class="act-card__desc">{{ card.description }}</div>
+        <div class="act-card__arrow">Go →</div>
+      </a>
+    {% endif %}
+  {% endfor %}
+</div>
 {% endblock %}

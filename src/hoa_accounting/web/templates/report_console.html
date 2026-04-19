@@ -4,6 +4,15 @@
 {% block heading %}Reports{% endblock %}
 
 {% block content %}
+  {# ── Print-only report header (hidden on screen, repeats on every printed page) #}
+  <div class="print-report-header" id="print-report-header" aria-hidden="true">
+    <div class="print-report-header__org">{{ org.name }}</div>
+    <div class="print-report-header__row">
+      <div class="print-report-header__title">{{ report_title }}</div>
+      <div class="print-report-header__meta" id="print-report-meta"></div>
+    </div>
+  </div>
+
   <div class="panel">
     <div class="panel__header">
       <div>
@@ -37,12 +46,29 @@
       {% for field in parameter_fields %}
         <label class="field">
           <span class="field__label">{{ field.label }}</span>
-          <input
-            type="text"
-            name="{{ field.name }}"
-            value="{{ field.value }}"
-            placeholder="{{ field.placeholder }}"
-          />
+          {% if field.field_type == 'select' %}
+            <select name="{{ field.name }}">
+              {% if not field.label.endswith(' *') %}
+                {# optional select — offer a blank "all" option #}
+                <option value="">— All —</option>
+              {% else %}
+                <option value="">— Select —</option>
+              {% endif %}
+              {% set opts = lookup_options.get(field.name, []) %}
+              {% for opt in opts %}
+                <option value="{{ opt.value }}"{% if opt.value == field.value %} selected{% endif %}>
+                  {{ opt.label }}
+                </option>
+              {% endfor %}
+            </select>
+          {% else %}
+            <input
+              type="text"
+              name="{{ field.name }}"
+              value="{{ field.value }}"
+              placeholder="{{ field.placeholder }}"
+            />
+          {% endif %}
         </label>
       {% endfor %}
 
@@ -53,9 +79,14 @@
     </form>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="report-output-panel">
     <div class="panel__header">
       <div class="panel__title">Formatted Output</div>
+      <div style="display:flex;gap:.5rem;">
+        <button type="button" class="btn btn--ghost btn--sm" onclick="printReport()" title="Print or save as PDF">
+          Print / Save as PDF
+        </button>
+      </div>
     </div>
     {% if error_message %}
       <div class="alert alert--error">
@@ -66,4 +97,21 @@
 
     {% include summary_template %}
   </div>
+
+  <script>
+  function printReport() {
+    var meta = document.getElementById('print-report-meta');
+    if (meta) {
+      var now = new Date();
+      var dateStr = now.toLocaleDateString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+      var timeStr = now.toLocaleTimeString(undefined, {
+        hour: 'numeric', minute: '2-digit'
+      });
+      meta.textContent = 'Generated: ' + dateStr + ' at ' + timeStr;
+    }
+    window.print();
+  }
+  </script>
 {% endblock %}

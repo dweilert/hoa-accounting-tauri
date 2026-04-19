@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Asset Inventory · {{ org.name }}{% endblock %}
+{% block heading %}Reserve Study — Asset Inventory{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/reserve-study/assets/new" class="btn btn--primary btn--sm">+ Add Asset</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {% if groups %}
+    {% for group_name, assets in groups.items() %}
+      <div class="panel" style="margin-bottom:1.25rem;">
+        <div class="panel__header">
+          <div class="panel__title">{{ group_name }}</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th style="text-align:center;">Install Year</th>
+                <th style="text-align:center;">Useful Life</th>
+                <th style="text-align:center;">Replace Year</th>
+                <th style="text-align:center;">Condition</th>
+                <th style="text-align:right;">2026 Cost</th>
+                <th style="text-align:center;">Inflation</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in assets %}
+                <tr>
+                  <td>
+                    {{ a.component }}
+                    {% if a.notes %}
+                      <div style="font-size:11px;color:var(--text-subtle);margin-top:2px;">{{ a.notes }}</div>
+                    {% endif %}
+                  </td>
+                  <td style="text-align:center;">{{ a.install_year }}</td>
+                  <td style="text-align:center;">{{ a.useful_life_years }} yr</td>
+                  <td style="text-align:center;font-weight:600;">{{ a.install_year + a.useful_life_years }}</td>
+                  <td style="text-align:center;">
+                    <span class="pill {{ condition_pill[a.condition] }}" style="font-size:.72rem;">
+                      {{ a.condition }}
+                    </span>
+                  </td>
+                  <td style="text-align:right;">
+                    {% if a.replacement_cost == 0 %}
+                      <span style="color:var(--text-subtle);">$0</span>
+                    {% else %}
+                      ${{ "{:,.0f}".format(a.replacement_cost) }}
+                    {% endif %}
+                  </td>
+                  <td style="text-align:center;color:var(--text-muted);">
+                    {{ "%.0f"|format(a.annual_inflation * 100) }}%
+                  </td>
+                  <td style="text-align:right;">
+                    <a href="/reserve-study/assets/{{ a.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+
+    <div class="panel" style="margin-bottom:1rem;">
+      <div style="padding:.6rem 1rem;display:flex;justify-content:space-between;font-weight:600;">
+        <span>Total Current Replacement Cost</span>
+        <span>${{ "{:,.0f}".format(total_current) }}</span>
+      </div>
+    </div>
+
+  {% else %}
+    <div class="panel">
+      <div class="empty">No assets yet. <a href="/reserve-study/assets/new">Add the first one.</a></div>
+    </div>
+  {% endif %}
+{% endblock %}

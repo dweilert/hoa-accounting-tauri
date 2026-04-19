@@ -41,35 +41,41 @@ class OpeningBalancesRepository(BaseRepository):
         )
 
     def get_lots_with_balances(self) -> list[sqlite3.Row]:
-        """All lots with current primary owner and opening-balance record (if any)."""
+        """One row per lot with the earliest current owner and opening-balance records."""
         return list(
             self.conn.execute(
                 """
                 SELECT
-                    l.id            AS lot_id,
+                    l.id              AS lot_id,
                     l.lot_number,
-                    o.display_name  AS owner_name,
-                    COALESCE(ob.amount, 0) AS amount,
-                    ob.as_of_date,
-                    ob.journal_entry_id
+                    l.street_address_1 AS street_address,
+                    TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,'')) AS owner_name,
+                    COALESCE(od.amount, 0) AS dues_amount,
+                    COALESCE(oa.amount, 0) AS assessment_amount,
+                    COALESCE(od.as_of_date, oa.as_of_date) AS as_of_date,
+                    COALESCE(od.journal_entry_id, oa.journal_entry_id) AS journal_entry_id
                 FROM lots l
-                LEFT JOIN lot_ownership lo
-                    ON lo.lot_id = l.id
-                    AND lo.end_date IS NULL
-                    AND lo.is_primary_contact = 1
+                LEFT JOIN (
+                    SELECT lot_id, MIN(owner_id) AS owner_id
+                    FROM lot_ownership
+                    WHERE end_date IS NULL
+                    GROUP BY lot_id
+                ) lo ON lo.lot_id = l.id
                 LEFT JOIN owners o ON o.id = lo.owner_id
-                LEFT JOIN opening_balances ob
-                    ON ob.entity_type = 'LOT' AND ob.entity_id = l.id
+                LEFT JOIN opening_balances od
+                    ON od.entity_type = 'LOT_DUES' AND od.entity_id = l.id
+                LEFT JOIN opening_balances oa
+                    ON oa.entity_type = 'LOT_ASSESSMENT' AND oa.entity_id = l.id
                 ORDER BY l.lot_number COLLATE NOCASE
                 """
             ).fetchall()
         )
 
     def get_lot_opening_balance(self, lot_id: int) -> Decimal | None:
-        """Return the opening balance for a specific lot, or None if not set."""
+        """Return the total opening balance (dues + assessment) for a specific lot."""
         row = self.conn.execute(
-            "SELECT amount FROM opening_balances "
-            "WHERE entity_type = 'LOT' AND entity_id = ?",
+            "SELECT SUM(amount) AS total FROM opening_balances "
+            "WHERE entity_type IN ('LOT_DUES', 'LOT_ASSESSMENT') AND entity_id = ?",
             (lot_id,),
         ).fetchone()
         return Decimal(str(row["amount"])) if row else None

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Scenario Analysis · {{ org.name }}{% endblock %}
+{% block heading %}Reserve Study — Scenario Analysis{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/reserve-study/scenarios/new" class="btn btn--primary btn--sm">+ Add Scenario</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Emergency Cost Scenarios table ─────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">Emergency Cost Scenarios</div>
+      <span style="font-size:12px;color:var(--text-muted);">Based on {{ num_lots }} lots</span>
+    </div>
+
+    {% if rows %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th style="text-align:center;">Expected Year</th>
+              <th style="text-align:right;">Emergency Cost</th>
+              <th style="text-align:right;">Special Assessment / Lot</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in rows %}
+              <tr>
+                <td>
+                  <div style="font-weight:600;">{{ s.scenario_name }}</div>
+                  {% if s.description %}
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ s.description }}</div>
+                  {% endif %}
+                  {% if s.notes %}
+                    <div style="font-size:11px;color:var(--text-subtle);margin-top:2px;font-style:italic;">{{ s.notes }}</div>
+                  {% endif %}
+                </td>
+                <td style="text-align:center;color:var(--text-muted);">
+                  {{ s.expected_year if s.expected_year else "—" }}
+                </td>
+                <td style="text-align:right;font-weight:600;">
+                  ${{ "{:,.0f}".format(s.emergency_cost) }}
+                </td>
+                <td style="text-align:right;">
+                  <span style="font-weight:700;font-size:1.05rem;color:var(--red,#c0392b);">
+                    ${{ "{:,.0f}".format(s.per_lot_assessment) }}
+                  </span>
+                  <div style="font-size:11px;color:var(--text-subtle);">per household</div>
+                </td>
+                <td style="text-align:right;">
+                  <a href="/reserve-study/scenarios/{{ s.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No scenarios yet. <a href="/reserve-study/scenarios/new">Add one.</a></div>
+    {% endif %}
+  </div>
+
+  <div style="margin-top:.5rem;margin-bottom:2rem;font-size:11px;color:var(--text-subtle);">
+    Special assessment per lot = Emergency Cost ÷ {{ num_lots }} lots. Assumes full cost falls on current lot owners.
+    Update the number of lots in <a href="/reserve-study/assumptions/edit">Assumptions</a>.
+  </div>
+
+  {# ── Dues Increase Impact section ───────────────────────────────── #}
+  {% if dues_impacts %}
+  <div style="margin-bottom:1rem;">
+    <h2 style="font-size:1.05rem;font-weight:700;margin:0 0 .5rem;">How Much Would Dues Need to Increase?</h2>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 1.25rem;max-width:700px;">
+      For each scenario, this section shows the projected reserve balance at the expected failure year,
+      the remaining shortfall, and how much annual dues would need to increase per lot to cover it —
+      spread over 3, 5, or 10 years.
+    </p>
+  </div>
+
+  {% for impact in dues_impacts %}
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div class="panel__header">
+      <div class="panel__title">{{ impact.scenario_name }}</div>
+      {% if impact.has_year %}
+        <span style="font-size:12px;color:var(--text-muted);">Expected failure: {{ impact.expected_year }}</span>
+      {% endif %}
+    </div>
+
+    {# Key numbers row #}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;padding:.75rem 1rem 0;">
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.2rem;">Emergency Cost</div>
+        <div style="font-size:1.2rem;font-weight:700;">${{ "{:,.0f}".format(impact.emergency_cost) }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.2rem;">
+          {% if impact.has_year %}Projected Reserves ({{ impact.expected_year }}){% else %}Current Reserve Balance{% endif %}
+        </div>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--green);">${{ "{:,.0f}".format(impact.balance_at_year) }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.2rem;">Shortfall After Reserves</div>
+        <div style="font-size:1.2rem;font-weight:700;color:{% if impact.shortfall > 0 %}var(--red,#c0392b){% else %}var(--green){% endif %};">
+          {% if impact.shortfall > 0 %}${{ "{:,.0f}".format(impact.shortfall) }}{% else %}None{% endif %}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.2rem;">Lump-Sum Assessment / Lot</div>
+        <div style="font-size:1.2rem;font-weight:700;color:{% if impact.per_lot_lump > 0 %}var(--red,#c0392b){% else %}var(--green){% endif %};">
+          {% if impact.per_lot_lump > 0 %}${{ "{:,.0f}".format(impact.per_lot_lump) }}{% else %}$0{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if impact.shortfall > 0 %}
+    {# Dues increase options table #}
+    <div style="padding:.75rem 1rem 1rem;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-subtle);margin-bottom:.5rem;text-transform:uppercase;">
+        Annual Dues Increase Options (per lot)
+      </div>
+      <div class="table-wrap">
+        <table style="width:auto;min-width:380px;">
+          <thead>
+            <tr>
+              <th>Spread Over</th>
+              <th style="text-align:right;">Annual Increase / Lot</th>
+              <th style="text-align:right;">Monthly Increase / Lot</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for opt in impact.spread_options %}
+            <tr {% if loop.first %}style="background:var(--row-stripe,rgba(0,0,0,.03));"{% endif %}>
+              <td style="font-weight:600;">{{ opt.years }} years</td>
+              <td style="text-align:right;color:var(--red,#c0392b);font-weight:700;">
+                +${{ "{:,.2f}".format(opt.annual) }}/yr
+              </td>
+              <td style="text-align:right;color:var(--text-muted);">
+                +${{ "{:,.2f}".format(opt.monthly) }}/mo
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:.5rem;">
+        Shortfall ÷ {{ num_lots }} lots ÷ spread years. Does not account for investment growth on accumulated dues increases.
+      </div>
+    </div>
+    {% else %}
+    <div style="padding:.75rem 1rem 1rem;font-size:13px;color:var(--green);font-weight:600;">
+      ✓ Projected reserves are sufficient to cover this scenario — no dues increase required.
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+  {% endif %}
+
+{% endblock %}

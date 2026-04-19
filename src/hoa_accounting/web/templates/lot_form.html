@@ -8,6 +8,12 @@
 {% endblock %}
 
 {% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
   {% if error_message %}
     <div class="alert alert--error">
       <div class="alert__content">{{ error_message }}</div>
@@ -102,9 +108,148 @@
     {% if is_edit %}
       <span style="flex:1;"></span>
       <form method="post" action="/lots/{{ lot_id }}/delete"
-            onsubmit="return confirm('Delete this lot and all its ownership history? This cannot be undone.');">
+            data-confirm="This will permanently delete this lot and all its ownership history. This cannot be undone."
+            data-confirm-title="Delete Lot"
+            data-confirm-label="Delete">
         <button type="submit" class="btn btn--danger btn--sm">Delete Lot</button>
       </form>
     {% endif %}
   </div>
+
+  {# ── Owners panel — edit view only ───────────────────────────── #}
+  {% if is_edit %}
+    {% if ownership_error %}
+      <div class="alert alert--error" style="margin-top:1.5rem;">
+        <div class="alert__content">{{ ownership_error }}</div>
+        <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+      </div>
+    {% endif %}
+
+    <div class="panel" style="margin-top:1.5rem;">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Current Owners</div>
+          <div class="panel__description">
+            Owners currently linked to this lot. End an ownership when someone sells or transfers.
+          </div>
+        </div>
+      </div>
+
+      {% if current_ownerships %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Owner</th>
+                <th>Since</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ow in current_ownerships %}
+                <tr>
+                  <td>{{ ow.owner_name }}</td>
+                  <td class="mono">{{ ow.start_date }}</td>
+                  <td style="white-space:nowrap;">
+                    {# Edit-dates inline form #}
+                    <button type="button"
+                            class="btn btn--sm btn--ghost"
+                            onclick="toggleEditDates({{ ow.id }})">Edit Dates</button>
+                    {# End-ownership form #}
+                    <form method="post"
+                          action="/lots/{{ lot_id }}/owners/{{ ow.id }}/end"
+                          style="display:inline-flex;gap:.375rem;align-items:center;margin-left:.25rem;"
+                          data-confirm="End ownership for {{ ow.owner_name }}?"
+                          data-confirm-title="End Ownership"
+                          data-confirm-label="End">
+                      <input type="date" name="end_date"
+                             value="{{ today }}"
+                             required
+                             style="font-size:.8rem;" />
+                      <button type="submit" class="btn btn--sm btn--danger">End</button>
+                    </form>
+                  </td>
+                </tr>
+                {# Edit-dates expandable row #}
+                <tr id="edit-dates-{{ ow.id }}" style="display:none;background:var(--surface-2,#f9f9f9);">
+                  <td colspan="3" style="padding:.75rem 1rem;">
+                    <form method="post"
+                          action="/lots/{{ lot_id }}/owners/{{ ow.id }}/edit-dates"
+                          style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;">
+                      <label class="field" style="margin:0;min-width:9rem;">
+                        <span class="field__label" style="font-size:.8rem;">Start Date *</span>
+                        <input type="date" name="start_date"
+                               value="{{ ow.start_date }}"
+                               required style="font-size:.85rem;" />
+                      </label>
+                      <label class="field" style="margin:0;min-width:9rem;">
+                        <span class="field__label" style="font-size:.8rem;">End Date</span>
+                        <input type="date" name="end_date"
+                               value="{{ ow.end_date or '' }}"
+                               style="font-size:.85rem;" />
+                        <span class="field__hint" style="font-size:.75rem;">Leave blank = current</span>
+                      </label>
+                      <button type="submit" class="btn btn--sm btn--primary">Save Dates</button>
+                      <button type="button" class="btn btn--sm btn--ghost"
+                              onclick="toggleEditDates({{ ow.id }})">Cancel</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty">No current owners linked to this lot.</div>
+      {% endif %}
+    </div>
+
+    {# ── Link Owner panel ───────────────────────────────────────── #}
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Link an Owner</div>
+          <div class="panel__description">
+            Add an existing owner to this lot. Create the owner first if they are not in the list.
+          </div>
+        </div>
+      </div>
+
+      {% if owner_options %}
+        <form method="post" action="/lots/{{ lot_id }}/owners/link"
+              style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;padding:1rem 1.25rem 1.25rem;">
+          <label class="field" style="margin:0;min-width:14rem;flex:1;">
+            <span class="field__label">Owner *</span>
+            <select name="owner_id" required>
+              <option value="">— Select owner —</option>
+              {% for o in owner_options %}
+                <option value="{{ o.id }}">{{ o.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field" style="margin:0;min-width:9rem;">
+            <span class="field__label">Start Date *</span>
+            <input type="date" name="start_date"
+                   value="{{ today }}"
+                   required />
+          </label>
+          <button type="submit" class="btn btn--primary">Link Owner</button>
+        </form>
+      {% else %}
+        <div class="empty" style="padding:1rem 1.25rem;">
+          All active owners are already linked to this lot, or there are no owners on record.
+          <a href="/owners/add">Add a new owner.</a>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <script>
+    function toggleEditDates(ownershipId) {
+      var row = document.getElementById('edit-dates-' + ownershipId);
+      if (row) {
+        row.style.display = row.style.display === 'none' ? '' : 'none';
+      }
+    }
+  </script>
 {% endblock %}

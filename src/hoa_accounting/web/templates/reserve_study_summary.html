@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Reserve Study · {{ org.name }}{% endblock %}
+{% block heading %}Reserve Study — Summary{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/reserve-study/report" class="btn btn--primary btn--sm">View Report</a>
+  <a href="/reserve-study/assumptions/edit" class="btn btn--sm btn--ghost">Edit Assumptions</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+  {% endif %}
+
+  {% if assumptions %}
+
+  {# ── Funding status banner ───────────────────────────────────────── #}
+  {% if funding_status == 'CRITICAL' %}
+    <div class="alert alert--err" style="margin-bottom:1.25rem;font-weight:600;">
+      ⚠ CRITICALLY UNDERFUNDED — Reserves cover less than 30% of total replacement liability.
+      Special assessments or significant contribution increases are likely required.
+    </div>
+  {% elif funding_status == 'LOW' %}
+    <div class="alert alert--warn" style="margin-bottom:1.25rem;">
+      Reserves are below the 70% industry benchmark. Consider increasing contributions.
+    </div>
+  {% else %}
+    <div class="alert alert--ok" style="margin-bottom:1.25rem;">
+      Reserves meet the 70%+ industry benchmark.
+    </div>
+  {% endif %}
+
+  {# ── Key metrics tiles ────────────────────────────────────────────── #}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem;">
+
+    <div class="panel" style="margin:0;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.35rem;">Reserve Balance</div>
+      <div style="font-size:1.5rem;font-weight:700;">
+        ${{ "{:,.0f}".format(opening_balance) }}
+      </div>
+      {% if balance_source == 'override' %}
+        <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">Manual override</div>
+      {% else %}
+        <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">From reserve GL accounts</div>
+      {% endif %}
+    </div>
+
+    <div class="panel" style="margin:0;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.35rem;">Total Replacement Liability</div>
+      <div style="font-size:1.5rem;font-weight:700;">${{ "{:,.0f}".format(total_current_cost) }}</div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">{{ asset_count }} components (2026 $)</div>
+    </div>
+
+    <div class="panel" style="margin:0;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.35rem;">Percent Funded</div>
+      <div style="font-size:1.5rem;font-weight:700;color:{% if funding_status == 'CRITICAL' %}var(--red){% elif funding_status == 'LOW' %}var(--orange,#d97706){% else %}var(--green){% endif %};">
+        {{ "%.1f"|format(percent_funded) }}%
+      </div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">Industry benchmark: 70–100%</div>
+    </div>
+
+    <div class="panel" style="margin:0;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.35rem;">Annual Contribution</div>
+      <div style="font-size:1.5rem;font-weight:700;">${{ "{:,.0f}".format(assumptions.annual_contribution) }}</div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">
+        Growing {{ "%.1f"|format(assumptions.contribution_growth_rate * 100) }}%/yr
+      </div>
+    </div>
+
+    <div class="panel" style="margin:0;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.35rem;">Per-Lot Balance</div>
+      <div style="font-size:1.5rem;font-weight:700;">${{ "{:,.0f}".format(per_lot) }}</div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">{{ num_lots }} lots</div>
+    </div>
+
+    <div class="panel" style="margin:0;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text-subtle);margin-bottom:.35rem;">Per-Lot Liability</div>
+      <div style="font-size:1.5rem;font-weight:700;">${{ "{:,.0f}".format(per_lot_liability) }}</div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:.25rem;">Total ÷ {{ num_lots }} lots</div>
+    </div>
+
+  </div>
+
+  {# ── Asset condition summary ────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1.5rem;">
+    <div class="panel__header">
+      <div class="panel__title">Asset Condition Summary</div>
+      <a href="/reserve-study/assets" class="btn btn--sm btn--ghost">View All Assets</a>
+    </div>
+    <div style="display:flex;gap:1.5rem;padding:.75rem 1rem;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <span class="pill pill--excellent" style="font-size:.75rem;">Excellent</span>
+        <span style="font-weight:600;">{{ condition_counts.Excellent }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <span class="pill pill--ok" style="font-size:.75rem;">Good</span>
+        <span style="font-weight:600;">{{ condition_counts.Good }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <span class="pill pill--warn" style="font-size:.75rem;">Moderate</span>
+        <span style="font-weight:600;">{{ condition_counts.Moderate }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <span class="pill pill--danger" style="font-size:.75rem;">Poor</span>
+        <span style="font-weight:600;">{{ condition_counts.Poor }}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <span class="pill pill--critical" style="font-size:.75rem;">Critical</span>
+        <span style="font-weight:600;">{{ condition_counts.Critical }}</span>
+      </div>
+    </div>
+  </div>
+
+  {# ── Quick nav ────────────────────────────────────────────────────── #}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+    <a href="/reserve-study/assets" class="panel" style="margin:0;text-decoration:none;color:inherit;cursor:pointer;">
+      <div style="font-weight:600;margin-bottom:.25rem;">Asset Inventory</div>
+      <div style="font-size:12px;color:var(--text-muted);">{{ asset_count }} active components across all groups</div>
+    </a>
+    <a href="/reserve-study/funding-plan" class="panel" style="margin:0;text-decoration:none;color:inherit;cursor:pointer;">
+      <div style="font-weight:600;margin-bottom:.25rem;">{{ assumptions.projection_years }}-Year Funding Plan</div>
+      <div style="font-size:12px;color:var(--text-muted);">Projected contributions, expenditures, and balances</div>
+    </a>
+    <a href="/reserve-study/scenarios" class="panel" style="margin:0;text-decoration:none;color:inherit;cursor:pointer;">
+      <div style="font-weight:600;margin-bottom:.25rem;">Scenario Analysis</div>
+      <div style="font-size:12px;color:var(--text-muted);">What-if emergency cost scenarios and special assessments</div>
+    </a>
+  </div>
+
+  {# ── Charts ───────────────────────────────────────────────────────── #}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;margin-top:1.5rem;">
+
+    {# Funding gauge doughnut #}
+    <div class="panel" style="margin:0;">
+      <div class="panel__header"><div class="panel__title">Percent Funded</div></div>
+      <div style="padding:.75rem 1rem;position:relative;max-width:280px;margin:0 auto;">
+        <canvas id="chartGauge" height="200"></canvas>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-30%);text-align:center;pointer-events:none;">
+          <div style="font-size:1.4rem;font-weight:700;color:{% if funding_status == 'CRITICAL' %}var(--red){% elif funding_status == 'LOW' %}#d97706{% else %}var(--green){% endif %};">
+            {{ "%.1f"|format(percent_funded) }}%
+          </div>
+          <div style="font-size:10px;color:var(--text-subtle);">funded</div>
+        </div>
+      </div>
+    </div>
+
+    {# Expenditure timeline bar chart #}
+    <div class="panel" style="margin:0;">
+      <div class="panel__header"><div class="panel__title">Planned Expenditures by Year</div></div>
+      <div style="padding:.75rem 1rem;">
+        <canvas id="chartExpend" height="200"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  {# 30-year balance chart — full width #}
+  <div class="panel" style="margin-top:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">{{ assumptions.projection_years }}-Year Reserve Balance Projection</div>
+      <span style="font-size:11px;color:var(--text-subtle);">Red bars indicate deficit years</span>
+    </div>
+    <div style="padding:.75rem 1rem;">
+      <canvas id="chartBalance" height="120"></canvas>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const pf     = {{ "%.4f"|format(percent_funded) }};
+    const years  = {{ chart_years | tojson }};
+    const bals   = {{ chart_balances | tojson }};
+    const expend = {{ chart_expenditures | tojson }};
+
+    // ── Funding gauge ──────────────────────────────────────────────
+    const gaugeColor = pf < 30 ? '#c0392b' : pf < 70 ? '#d97706' : '#1e8449';
+    new Chart(document.getElementById('chartGauge'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Funded', 'Unfunded', '70% Benchmark'],
+        datasets: [{
+          data: [Math.min(pf, 100), Math.max(0, 100 - pf), 0],
+          backgroundColor: [gaugeColor, '#e5e7eb', 'transparent'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        cutout: '72%',
+        rotation: -90,
+        circumference: 180,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false },
+        },
+      }
+    });
+
+    // ── Expenditure timeline ───────────────────────────────────────
+    new Chart(document.getElementById('chartExpend'), {
+      type: 'bar',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'Expenditures ($)',
+          data: expend,
+          backgroundColor: '#e67e22',
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+          y: {
+            ticks: {
+              font: { size: 10 },
+              callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v)
+            }
+          }
+        }
+      }
+    });
+
+    // ── 30-year balance ────────────────────────────────────────────
+    new Chart(document.getElementById('chartBalance'), {
+      type: 'bar',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'Reserve Balance ($)',
+          data: bals,
+          backgroundColor: bals.map(v => v < 0 ? '#c0392b' : '#1e8449'),
+          borderRadius: 3,
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 12, font: { size: 10 } } },
+          y: {
+            ticks: {
+              font: { size: 10 },
+              callback: v => '$' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v)
+            }
+          }
+        }
+      }
+    });
+  })();
+  </script>
+
+  {% if assumptions.notes %}
+    <div class="panel" style="margin-top:1.5rem;">
+      <div class="panel__header"><div class="panel__title">Study Notes</div></div>
+      <div style="padding:.75rem 1rem;font-size:13px;color:var(--text-muted);white-space:pre-line;">{{ assumptions.notes }}</div>
+    </div>
+  {% endif %}
+
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}GL Transaction Import · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  color: var(--text-muted);
+  font-size: 15px;
+  user-select: none;
+}
+.drop-zone--over  { border-color: var(--primary); background: var(--surface-raised,var(--surface)); }
+.drop-zone--ready { border-style: solid; border-color: #4caf50; background: #f0faf0; color: #2e7d32; }
+.drop-zone--error { border-style: solid; border-color: #e57373; background: #fdf3f3; color: #c62828; }
+</style>
+
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+    <div class="alert__content">{{ error_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div class="panel__title">Import 2026 General Ledger CSV</div>
+    <div class="panel__description">
+      Imports your existing spreadsheet GL into HOA Accounting transactions.
+      Handles <strong>OwnerBill</strong>, <strong>OwnerPay</strong>,
+      <strong>Exp</strong>, and <strong>Income</strong> record types.
+      A full preview is shown before any data is written.
+    </div>
+  </div>
+
+  <form id="upload-form" method="post" action="/admin/gl-import/preview">
+    <input type="file" id="file-input" accept=".csv" style="display:none;">
+    <input type="hidden" name="csv_content" id="csv-content-field">
+
+    <div id="drop-zone" class="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:2rem;margin-bottom:.5rem;">📂</div>
+      <div id="drop-label">Drag your CSV file here, or click to browse</div>
+      <div id="drop-sublabel" style="font-size:12px;margin-top:.3rem;color:var(--text-muted);">
+        Accepts standard comma-separated CSV files
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <button type="submit" class="btn btn--primary" id="submit-btn" disabled>
+        Upload &amp; Preview
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel__header">
+    <div class="panel__title">What This Import Does</div>
+  </div>
+  <table style="font-size:13px;">
+    <thead>
+      <tr>
+        <th>Record Type</th>
+        <th>System Action</th>
+        <th>Key Fields Used</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>OwnerBill</code></td>
+        <td>Post dues assessment (DUES)</td>
+        <td>House # → lot, Billings → amount, Billing Month → description</td>
+      </tr>
+      <tr>
+        <td><code>OwnerPay</code></td>
+        <td>Record dues payment (auto-applies to open assessments)</td>
+        <td>House # → lot, Payments → amount, Check # → reference</td>
+      </tr>
+      <tr>
+        <td><code>Exp</code></td>
+        <td>Vendor bill + immediate payment</td>
+        <td>Name → vendor, Payments → amount, Expense Group/Category → GL account</td>
+      </tr>
+      <tr>
+        <td><code>Income</code> (Title Xfer)</td>
+        <td>Resale fee assessment + payment (Lot 4207)</td>
+        <td>Payments → amount, posts to account 4070</td>
+      </tr>
+      <tr>
+        <td><code>Income</code> (other)</td>
+        <td>Non-dues income (bank interest → acct 4200)</td>
+        <td>Name → description, Payments → amount</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function () {
+  var zone       = document.getElementById("drop-zone");
+  var input      = document.getElementById("file-input");
+  var label      = document.getElementById("drop-label");
+  var sublabel   = document.getElementById("drop-sublabel");
+  var submitBtn  = document.getElementById("submit-btn");
+  var csvField   = document.getElementById("csv-content-field");
+
+  function setReady(name, rowCount) {
+    zone.className = "drop-zone drop-zone--ready";
+    label.textContent = "✓ " + name + " — " + rowCount + " data row(s)";
+    sublabel.textContent = "Click to choose a different file";
+    submitBtn.disabled = false;
+  }
+
+  function setError(msg) {
+    zone.className = "drop-zone drop-zone--error";
+    label.textContent = "⚠ " + msg;
+    sublabel.textContent = "Drop a different file to try again";
+    submitBtn.disabled = true;
+    csvField.value = "";
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setError("Only .csv files are accepted.");
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var text  = ev.target.result || "";
+      csvField.value = text;
+      var lines = text.trim().split(/\r?\n/).filter(function (l) { return l.trim().replace(/,/g, ""); });
+      var rows  = Math.max(0, lines.length - 1);
+      setReady(file.name, rows);
+    };
+    reader.readAsText(file);
+  }
+
+  // Drag events
+  zone.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    zone.classList.add("drop-zone--over");
+  });
+  zone.addEventListener("dragleave", function () {
+    zone.classList.remove("drop-zone--over");
+  });
+  zone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    zone.classList.remove("drop-zone--over");
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) { handleFile(file); }
+  });
+
+  // Click-to-browse
+  input.addEventListener("change", function () {
+    handleFile(input.files && input.files[0]);
+  });
+})();
+</script>
+{% endblock %}

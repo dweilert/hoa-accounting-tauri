@@ -1,14 +1,15 @@
+{# ── Lot & year header ──────────────────────────────────────────────────── #}
 <div class="summary-totals">
   <div class="summary-totals__item">
-    <span class="summary-totals__label">Owner</span>
-    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.owner_name }}</span>
+    <span class="summary-totals__label">Lot</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      <span class="mono">{{ summary.lot_number }}</span>
+      {% if summary.lot_address %} · {{ summary.lot_address }}{% endif %}
+    </span>
   </div>
   <div class="summary-totals__item">
-    <span class="summary-totals__label">Receivable Account</span>
-    <span class="summary-totals__value summary-totals__value--neutral" style="font-size: 14px;">
-      <span class="mono">{{ summary.receivable_account_number }}</span>
-      · {{ summary.receivable_account_name }}
-    </span>
+    <span class="summary-totals__label">Year</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.year }}</span>
   </div>
   <div class="summary-totals__item">
     <span class="summary-totals__label">Opening Balance</span>
@@ -20,39 +21,134 @@
   </div>
 </div>
 
+{# ── Owner contact block ─────────────────────────────────────────────────── #}
+{% if summary.owners %}
+  <div style="margin-bottom:1rem;padding:.6rem .75rem;
+              border:1px solid var(--border);border-radius:6px;
+              background:var(--surface-raised,var(--surface));">
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;
+                letter-spacing:.06em;color:var(--text-muted);margin-bottom:.4rem;">
+      {{ "Owner" if summary.owners|length == 1 else "Owners" }}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(18rem,1fr));gap:.4rem;">
+      {% for o in summary.owners %}
+        <div style="font-size:13px;line-height:1.6;">
+          <strong>
+            {%- if o.first_name or o.last_name -%}
+              {{ o.first_name }} {{ o.last_name }}
+            {%- else -%}
+              {{ o.display_name }}
+            {%- endif -%}
+          </strong>
+          {% if (o.first_name or o.last_name) and o.display_name
+                and o.display_name != (o.first_name ~ ' ' ~ o.last_name)|trim %}
+            <span style="color:var(--text-muted);"> ({{ o.display_name }})</span>
+          {% endif %}
+          {% if o.email %}
+            <br><span style="color:var(--text-muted);">Email:</span> {{ o.email }}
+          {% endif %}
+          {% if o.phone %}
+            <br><span style="color:var(--text-muted);">Phone:</span> {{ o.phone }}
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{# ── Opening balance breakdown ───────────────────────────────────────────── #}
+{% if summary.opening_balance_lines %}
+  <div style="margin-bottom:1rem;padding:.6rem .75rem;
+              border:1px solid var(--border);border-radius:6px;
+              background:var(--surface-raised,var(--surface));">
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;
+                letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">
+      Beginning Balance Detail
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:.25rem .5rem;border-bottom:1px solid var(--border);
+                     font-weight:600;color:var(--text-muted);">Charge Type</th>
+          <th style="text-align:right;padding:.25rem .5rem;border-bottom:1px solid var(--border);
+                     font-weight:600;color:var(--text-muted);">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in summary.opening_balance_lines %}
+          <tr>
+            <td style="padding:.25rem .5rem;">{{ line.label }}</td>
+            <td class="num" style="padding:.25rem .5rem;text-align:right;">{{ line.amount }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td style="padding:.3rem .5rem;border-top:1px solid var(--border);
+                     font-weight:600;text-align:right;">Total Opening Balance</td>
+          <td class="num" style="padding:.3rem .5rem;border-top:1px solid var(--border);
+                                 font-weight:600;text-align:right;">{{ summary.opening_balance }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% endif %}
+
 {% if summary.rows %}
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Date</th>
-          <th>Entry #</th>
-          <th>Source</th>
-          <th>Lot</th>
+          <th>Type</th>
+          <th>Description</th>
           <th>Due Date</th>
+          <th>Status</th>
           <th>Receipt</th>
-          <th class="num">Debit</th>
-          <th class="num">Credit</th>
-          <th class="num">Running</th>
+          <th class="num">Charge</th>
+          <th class="num">Payment</th>
+          <th class="num">Balance</th>
         </tr>
       </thead>
       <tbody>
         {% for row in summary.rows %}
           <tr>
             <td>{{ row.entry_date }}</td>
-            <td class="mono">{{ row.entry_number }}</td>
-            <td><span class="pill pill--muted">{{ row.source_type }}</span></td>
-            <td class="mono">{{ row.lot_number or '' }}</td>
-            <td>{{ row.due_date or '' }}</td>
-            <td class="mono">{{ row.receipt_number or '' }}</td>
-            <td class="num">{{ row.debit_amount }}</td>
-            <td class="num">{{ row.credit_amount }}</td>
+            <td>
+              {% if row.entry_type == 'PAYMENT' %}
+                <span class="pill" style="background:#e8f0fe;color:#1a56db;">Payment</span>
+              {% elif row.entry_type == 'ADJUSTMENT' %}
+                <span class="pill" style="background:#fef3e2;color:#b45309;">Adjustment</span>
+              {% elif row.charge_type == 'LATE_FEE' %}
+                <span class="pill" style="background:#fef2f2;color:#991b1b;">Late Fee</span>
+              {% elif row.charge_type == 'LEGAL_FEE' %}
+                <span class="pill" style="background:#fef2f2;color:#991b1b;">Legal Fee</span>
+              {% else %}
+                <span class="pill pill--muted">{{ row.charge_type }}</span>
+              {% endif %}
+            </td>
+            <td>{{ row.description }}</td>
+            <td>{{ row.due_date }}</td>
+            <td>
+              {% if row.status %}
+                <span class="pill pill--muted" style="font-size:11px;">{{ row.status }}</span>
+              {% endif %}
+            </td>
+            <td class="mono">{{ row.receipt_number }}</td>
+            <td class="num">{% if row.debit_amount != '0.00' %}{{ row.debit_amount }}{% endif %}</td>
+            <td class="num">{% if row.credit_amount != '0.00' %}{{ row.credit_amount }}{% endif %}</td>
             <td class="num">{{ row.running_balance }}</td>
           </tr>
         {% endfor %}
       </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="8" style="text-align:right;font-weight:600;">Closing Balance</td>
+          <td class="num" style="font-weight:600;">{{ summary.closing_balance }}</td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 {% else %}
-  <div class="empty">No activity in this range.</div>
+  <div class="empty">No activity for this lot in {{ summary.year }}.</div>
 {% endif %}

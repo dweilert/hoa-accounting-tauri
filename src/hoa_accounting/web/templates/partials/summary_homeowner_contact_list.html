@@ -1,0 +1,55 @@
+<style>
+@media print {
+  @page { margin: 8mm 6mm; }
+  #report-output-panel table { font-size: 8.5pt; }
+  #report-output-panel thead th { padding: 3px 5px; }
+  #report-output-panel tbody td { padding: 2px 5px; }
+  #report-output-panel td:nth-child(4),
+  #report-output-panel td:nth-child(5) { white-space: nowrap; }
+}
+</style>
+
+{% if summary.rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:1.5rem;"></th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Address</th>
+          <th>Phone</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.rows %}
+          <tr{% if row.role == 'RENTER' %} style="color:var(--text-muted);"{% endif %}>
+            <td style="text-align:center;font-size:11px;font-weight:600;color:var(--text-subtle);">
+              {% if row.role == 'RENTER' %}(R){% endif %}
+            </td>
+            <td>{{ row.first_name }}</td>
+            <td>{{ row.last_name }}</td>
+            <td>{{ row.address }}</td>
+            <td>
+              {% if row.cell_phone and row.home_phone %}
+                {{ row.cell_phone }} (C)<br>{{ row.home_phone }} (H)
+              {% elif row.cell_phone %}
+                {{ row.cell_phone }}
+              {% elif row.home_phone %}
+                {{ row.home_phone }}
+              {% endif %}
+            </td>
+            <td>{{ row.email }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% set renter_count = summary.rows | selectattr('role', 'equalto', 'RENTER') | list | length %}
+  {% if renter_count > 0 %}
+    <p style="font-size:11px;color:var(--text-subtle);margin-top:.5rem;">(R) = Renter</p>
+  {% endif %}
+{% else %}
+  <div class="empty">No active homeowners or renters found.</div>
+{% endif %}

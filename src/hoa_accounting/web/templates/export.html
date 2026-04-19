@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Export Data · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+
+  {# ── Alerts ──────────────────────────────────────────────────────── #}
+  {% if flash_message %}
+    <div class="alert alert--ok"
+         style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error"
+         style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Select Data to Export</div>
+      <div class="panel__description">
+        Each selected data set is exported as a comma-separated file (.csv)
+        and packaged into a single ZIP archive (<code>hoa-download.zip</code>)
+        that your browser will download automatically.<br />
+        Any comma that appears inside a field value is encoded as
+        <code>&amp;#x2C;</code> so it is never confused with the delimiter.
+        When importing, convert <code>&amp;#x2C;</code> back to a comma.
+      </div>
+    </div>
+
+    <form method="post" action="/admin/export/download" id="export-form">
+
+      {# ── Select / Deselect All ──────────────────────────────────────── #}
+      <div style="margin-bottom:.75rem;display:flex;gap:1rem;align-items:center;">
+        <button type="button" class="btn btn--ghost btn--sm"
+                onclick="setAll(true)">Select All</button>
+        <button type="button" class="btn btn--ghost btn--sm"
+                onclick="setAll(false)">Deselect All</button>
+      </div>
+
+      {# ── Checkboxes, grouped by category ──────────────────────────── #}
+      {% for group in export_groups %}
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;
+                      letter-spacing:.06em;color:var(--text-muted);
+                      margin-bottom:.5rem;">{{ group.title }}</div>
+          <div style="display:grid;
+                      grid-template-columns:repeat(auto-fill,minmax(20rem,1fr));
+                      gap:.4rem;">
+            {% for et in group.types %}
+              <label style="display:flex;align-items:center;gap:.6rem;
+                             padding:.55rem .75rem;
+                             border:1px solid var(--border);
+                             border-radius:6px;
+                             cursor:pointer;
+                             background:var(--surface-raised,var(--surface));">
+                <input type="checkbox"
+                       name="export_key"
+                       value="{{ et.key }}"
+                       class="export-chk"
+                       checked />
+                <span style="font-size:14px;">{{ et.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+
+      {# ── Download button ────────────────────────────────────────────── #}
+      <div style="display:flex;gap:.75rem;align-items:center;">
+        <button type="submit" class="btn btn--primary" id="download-btn">
+          Download ZIP
+        </button>
+        <span style="font-size:12px;color:var(--text-muted);" id="selection-note">
+          {{ export_types | length }} data set(s) selected
+        </span>
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+  function setAll(checked) {
+    document.querySelectorAll(".export-chk").forEach(function (c) {
+      c.checked = checked;
+    });
+    updateNote();
+  }
+
+  function updateNote() {
+    var total    = document.querySelectorAll(".export-chk").length;
+    var selected = document.querySelectorAll(".export-chk:checked").length;
+    var note = document.getElementById("selection-note");
+    if (note) {
+      note.textContent = selected + " of " + total + " data set(s) selected";
+    }
+    var btn = document.getElementById("download-btn");
+    if (btn) btn.disabled = selected === 0;
+  }
+
+  document.querySelectorAll(".export-chk").forEach(function (c) {
+    c.addEventListener("change", updateNote);
+  });
+
+  updateNote();
+  </script>
+
+{% endblock %}

@@ -1,0 +1,697 @@
+{% extends "base.html" %}
+
+{% block title %}Database · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+
+  {# ── Alerts ──────────────────────────────────────────────────────── #}
+  {% if flash_message %}
+    <div class="alert alert--ok"
+         style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error"
+         style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Database Stats ──────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Database Overview</div>
+      <div class="panel__description" style="font-family:monospace;font-size:12px;
+           color:var(--text-muted);">{{ stats.file_path }}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));
+                gap:1rem;margin-bottom:1.25rem;">
+      {% for label, value in [
+          ('File Size',      stats.file_size_mb),
+          ('Total Pages',    stats.page_count),
+          ('Used Pages',     stats.used_pages),
+          ('Free Pages',     stats.freelist_count),
+          ('Fragmentation',  stats.fragmentation_pct ~ '%'),
+          ('Journal Mode',   stats.journal_mode | upper),
+        ] %}
+        <div style="border:1px solid var(--border);border-radius:6px;
+                    padding:.6rem .85rem;background:var(--surface-raised,var(--surface));">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+                      color:var(--text-muted);margin-bottom:.2rem;">{{ label }}</div>
+          <div style="font-size:1.1rem;font-weight:700;">{{ value }}</div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Table row counts #}
+    <details style="margin-top:.25rem;">
+      <summary style="cursor:pointer;font-size:13px;color:var(--text-muted);
+                      user-select:none;">Table row counts</summary>
+      <div style="margin-top:.75rem;display:grid;
+                  grid-template-columns:repeat(auto-fill,minmax(18rem,1fr));gap:.3rem;">
+        {% for t in table_counts %}
+          <div style="display:flex;justify-content:space-between;
+                      font-size:12px;padding:.2rem .5rem;
+                      background:var(--surface-raised,var(--surface));
+                      border-radius:4px;">
+            <span class="mono">{{ t.table }}</span>
+            <span style="color:var(--text-muted);">{{ '{:,}'.format(t.rows) }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+
+  {# ── Health Check ────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Health Check</div>
+      <div class="panel__description">
+        Runs SQLite's built-in integrity check and foreign key verification.
+        Safe to run at any time — read-only, no changes made.
+      </div>
+    </div>
+
+    {% if health_result %}
+      {# Timestamp banner #}
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:.75rem;">
+        Last checked at <strong>{{ health_result.checked_at }}</strong>
+        {% if health_result.all_ok %}
+          — everything looks good.
+        {% else %}
+          — issues found, see details below.
+        {% endif %}
+      </div>
+
+      {# Results #}
+      <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+
+        {# Integrity check result #}
+        <div style="flex:1;min-width:14rem;border-radius:6px;padding:.75rem 1rem;
+             {% if health_result.integrity_ok %}
+               border:1px solid #b7dfb8;background:#f0faf0;
+             {% else %}
+               border:1px solid #f5c2c2;background:#fdf3f3;
+             {% endif %}">
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;
+                      color:var(--text-muted);margin-bottom:.3rem;">Data Integrity</div>
+          {% if health_result.integrity_ok %}
+            <div style="font-weight:700;color:#2e7d32;">✓ No problems found</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:.2rem;">
+              All data pages and indexes are intact.
+            </div>
+          {% else %}
+            <div style="font-weight:700;color:#c62828;margin-bottom:.4rem;">
+              {{ health_result.integrity_errors | length }} problem(s) detected
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:.5rem;">
+              The database found internal inconsistencies. Run
+              <strong>Rebuild Indexes</strong> first — if issues persist,
+              contact your system administrator.
+            </div>
+            <details style="font-size:12px;">
+              <summary style="cursor:pointer;color:var(--text-muted);">
+                Technical details ({{ health_result.integrity_errors | length }})
+              </summary>
+              <ul style="margin:.4rem 0 0;padding-left:1.2rem;">
+                {% for err in health_result.integrity_errors %}
+                  <li class="mono" style="font-size:11px;">{{ err }}</li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+        </div>
+
+        {# FK check result #}
+        <div style="flex:1;min-width:14rem;border-radius:6px;padding:.75rem 1rem;
+             {% if not health_result.fk_violations %}
+               border:1px solid #b7dfb8;background:#f0faf0;
+             {% else %}
+               border:1px solid #f5c2c2;background:#fdf3f3;
+             {% endif %}">
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;
+                      color:var(--text-muted);margin-bottom:.3rem;">Linked Records</div>
+          {% if not health_result.fk_violations %}
+            <div style="font-weight:700;color:#2e7d32;">✓ All links are valid</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:.2rem;">
+              No orphaned or broken references found.
+            </div>
+          {% else %}
+            <div style="font-weight:700;color:#c62828;margin-bottom:.4rem;">
+              {{ health_result.fk_violations | length }} broken link(s) found
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:.5rem;">
+              Some records refer to data that no longer exists. These are
+              usually left over from a manual deletion. They won't cause
+              day-to-day problems, but should be cleaned up.
+            </div>
+            <details style="font-size:12px;">
+              <summary style="cursor:pointer;color:var(--text-muted);">
+                Affected records ({{ health_result.fk_violations | length }})
+              </summary>
+              <table style="font-size:11px;width:100%;border-collapse:collapse;margin-top:.4rem;">
+                <tr style="color:var(--text-muted);">
+                  <th style="text-align:left;padding-bottom:.2rem;">Table</th>
+                  <th style="text-align:left;">Row ID</th>
+                  <th style="text-align:left;">Missing parent</th>
+                </tr>
+                {% for v in health_result.fk_violations %}
+                  <tr>
+                    <td class="mono">{{ v.table }}</td>
+                    <td>{{ v.rowid }}</td>
+                    <td class="mono">{{ v.parent_table }}</td>
+                  </tr>
+                {% endfor %}
+              </table>
+            </details>
+          {% endif %}
+        </div>
+
+      </div>
+    {% endif %}
+
+    <form method="post" action="/admin/database/check">
+      <button type="submit" class="btn btn--primary">Run Health Check</button>
+    </form>
+  </div>
+
+  {# ── Maintenance ─────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Maintenance</div>
+      <div class="panel__description">
+        Routine operations to keep the database fast and compact.
+        Each runs immediately — no data is changed or deleted.
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));
+                gap:1rem;">
+
+      {# Rebuild Indexes #}
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;">
+        <div style="font-weight:600;margin-bottom:.3rem;">Rebuild Indexes</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:.75rem;
+                    line-height:1.5;">
+          Drops and recreates every index. Useful after bulk deletes or if
+          the health check reports index corruption.
+        </div>
+        <form method="post" action="/admin/database/reindex"
+              data-confirm="This will drop and recreate every database index. It usually completes in under a second and causes no data changes."
+              data-confirm-title="Rebuild Indexes"
+              data-confirm-label="Rebuild"
+              data-confirm-danger="false">
+          <button type="submit" class="btn">Rebuild Indexes</button>
+        </form>
+      </div>
+
+      {# Compact (VACUUM) #}
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;">
+        <div style="font-weight:600;margin-bottom:.3rem;">Compact Database</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:.75rem;
+                    line-height:1.5;">
+          Rebuilds the database file from scratch, reclaiming space from
+          deleted rows. Run after large batch deletes. Shows size before
+          and after.
+        </div>
+        <form method="post" action="/admin/database/vacuum"
+              data-confirm="This rebuilds the database file from scratch to reclaim unused space. It may take a few seconds on a large database. No data is changed or deleted."
+              data-confirm-title="Compact Database"
+              data-confirm-label="Compact"
+              data-confirm-danger="false">
+          <button type="submit" class="btn">Compact Database</button>
+        </form>
+      </div>
+
+      {# WAL Checkpoint #}
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;">
+        <div style="font-weight:600;margin-bottom:.3rem;">WAL Checkpoint</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:.75rem;
+                    line-height:1.5;">
+          Flushes the write-ahead log back into the main database file.
+          Only applicable when journal mode is WAL — current mode:
+          <strong>{{ stats.journal_mode | upper }}</strong>.
+        </div>
+        <form method="post" action="/admin/database/wal-checkpoint">
+          <button type="submit" class="btn"
+                  {% if stats.journal_mode != 'wal' %}disabled
+                  title="Not applicable — journal mode is {{ stats.journal_mode }}"
+                  {% endif %}>
+            WAL Checkpoint
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── Backup & Restore ───────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Backup &amp; Restore</div>
+      <div class="panel__description">
+        Download a point-in-time backup of the live database, or restore from a
+        previously saved backup file. The backup uses SQLite's built-in snapshot
+        mechanism, so it is always consistent even while the app is running.
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));
+                gap:1rem;">
+
+      {# Backup and Download #}
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;">
+        <div style="font-weight:600;margin-bottom:.3rem;">Database Backup</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:.75rem;
+                    line-height:1.5;">
+          Creates a consistent, read-safe snapshot of the entire database and
+          downloads it as a timestamped <code>.db</code> file. Store it somewhere
+          safe — it contains all your accounting data.
+        </div>
+        <button type="button" class="btn btn--primary" id="backup-btn">
+          Create and Download Database Backup
+        </button>
+        <div id="backup-status" style="display:none;margin-top:.6rem;font-size:12px;
+             padding:.4rem .65rem;border-radius:4px;"></div>
+
+        {# Stats panel — pre-populated server-side if a backup has been made #}
+        {% macro stat_row(label, value) %}
+          <div style="display:flex;justify-content:space-between;gap:1rem;">
+            <span style="color:var(--text-muted);">{{ label }}</span>
+            <span style="font-weight:600;">{{ value if value else '—' }}</span>
+          </div>
+        {% endmacro %}
+
+        <div id="backup-stats"
+             style="margin-top:.6rem;font-size:12px;line-height:1.7;
+                    padding:.6rem .75rem;border-radius:4px;
+                    background:var(--surface-raised,var(--surface));
+                    border:1px solid var(--border);
+                    {% if not last_backup %}display:none;{% endif %}">
+          {% if last_backup %}
+            <div style="font-weight:600;margin-bottom:.4rem;color:var(--text);">
+              Last Backup
+            </div>
+            {{ stat_row('Backed up at',    last_backup.backed_up_at_display) }}
+            {{ stat_row('Lots',            last_backup.lot_count) }}
+            {{ stat_row('Owners',          last_backup.owner_count) }}
+            {{ stat_row('Renters',         last_backup.renter_count) }}
+            {{ stat_row('Journal entries', last_backup.journal_entry_count) }}
+            {{ stat_row('Last GL entry',   last_backup.last_gl_entry_date) }}
+          {% endif %}
+        </div>
+      </div>
+
+      {# Restore from Backup #}
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;"
+           id="restore-card">
+        <div style="font-weight:600;margin-bottom:.3rem;">Restore from Backup</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:.75rem;
+                    line-height:1.5;">
+          Drag a <code>.db</code> backup file onto the zone below, or click to
+          browse. The file is validated before anything changes. Only backups
+          created by this system are accepted.
+        </div>
+
+        {# Drop zone #}
+        <div id="drop-zone"
+             style="border:2px dashed var(--border);border-radius:6px;
+                    padding:1.5rem 1rem;text-align:center;cursor:pointer;
+                    transition:border-color .15s,background .15s;
+                    color:var(--text-muted);font-size:13px;user-select:none;">
+          <div style="font-size:1.5rem;margin-bottom:.4rem;">📂</div>
+          <div><strong>Drag a backup file here</strong></div>
+          <div style="margin-top:.25rem;">or <span style="color:var(--accent);
+               text-decoration:underline;cursor:pointer;"
+               id="browse-link">click to browse</span></div>
+        </div>
+
+        {# Hidden file input — triggered by drop or click #}
+        <form method="post" action="/admin/database/restore"
+              enctype="multipart/form-data" id="restore-form"
+              style="display:none;">
+          <input type="file" name="backup_file" id="backup-file-input"
+                 accept=".db" style="display:none;" />
+        </form>
+
+        {# Validation + preview panel — shown after file selected #}
+        <div id="restore-validation" style="display:none;margin-top:.75rem;">
+          <div id="restore-file-info"
+               style="font-size:12px;color:var(--text-muted);margin-bottom:.5rem;"></div>
+
+          {# Client-side error (bad file type) #}
+          <div id="restore-client-error"
+               style="display:none;color:#c62828;font-size:12px;
+                      padding:.4rem .6rem;background:#fdf3f3;
+                      border:1px solid #f5c2c2;border-radius:4px;
+                      margin-bottom:.5rem;"></div>
+
+          {# Loading indicator while calling preview endpoint #}
+          <div id="restore-preview-loading"
+               style="display:none;font-size:12px;color:var(--text-muted);
+                      margin-bottom:.5rem;">
+            Analysing backup…
+          </div>
+
+          {# Backup stats panel — shown on successful preview #}
+          <div id="restore-preview-stats"
+               style="display:none;font-size:12px;line-height:1.7;
+                      padding:.6rem .75rem;border-radius:4px;margin-bottom:.6rem;
+                      background:var(--surface-raised,var(--surface));
+                      border:1px solid var(--border);">
+          </div>
+
+          <button type="button" class="btn btn--danger" id="restore-begin-btn"
+                  style="display:none;">
+            Restore Database…
+          </button>
+        </div>
+
+        {# Server response — shown after restore attempt #}
+        <div id="restore-server-result" style="display:none;margin-top:.75rem;
+             font-size:12px;padding:.6rem .75rem;border-radius:4px;
+             line-height:1.5;"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    // ── Backup and Download ───────────────────────────────────────────
+    var backupBtn    = document.getElementById("backup-btn");
+    var backupStatus = document.getElementById("backup-status");
+    var backupStats  = document.getElementById("backup-stats");
+
+    function showBackupStatus(msg, isError) {
+      // Inline status below the button
+      backupStatus.textContent   = msg;
+      backupStatus.style.display = "";
+      if (isError) {
+        backupStatus.style.background = "#fdf3f3";
+        backupStatus.style.border     = "1px solid #f5c2c2";
+        backupStatus.style.color      = "#c62828";
+      } else {
+        backupStatus.style.background = "#f0faf0";
+        backupStatus.style.border     = "1px solid #b7dfb8";
+        backupStatus.style.color      = "#2e7d32";
+      }
+      backupStatus.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      // Fixed toast so it's visible wherever the user is scrolled
+      var toast = document.createElement("div");
+      toast.textContent = msg;
+      toast.style.cssText = [
+        "position:fixed",
+        "top:1.25rem",
+        "right:1.25rem",
+        "z-index:3000",
+        "max-width:26rem",
+        "padding:.75rem 1.1rem",
+        "border-radius:6px",
+        "font-size:13px",
+        "font-weight:500",
+        "box-shadow:0 4px 16px rgba(0,0,0,.18)",
+        "transition:opacity .4s",
+        isError
+          ? "background:#fdf3f3;border:1px solid #f5c2c2;color:#c62828;"
+          : "background:#f0faf0;border:1px solid #b7dfb8;color:#2e7d32;"
+      ].join(";");
+      document.body.appendChild(toast);
+      // Auto-dismiss after 6 s
+      setTimeout(function () {
+        toast.style.opacity = "0";
+        setTimeout(function () {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 450);
+      }, 6000);
+    }
+
+    backupBtn.addEventListener("click", function () {
+      backupBtn.disabled         = true;
+      backupBtn.textContent      = "Creating backup…";
+      backupStatus.style.display = "none";
+      backupStats.style.display  = "none";
+      backupStats.innerHTML      = "";
+
+      fetch("/admin/database/backup")
+        .then(function (r) {
+          if (!r.ok) throw new Error("Server returned " + r.status);
+          var cd = r.headers.get("Content-Disposition") || "";
+          var m  = cd.match(/filename="?([^"]+)"?/);
+          var filename = m ? m[1] : "hoa_backup.db";
+          var statsJson = r.headers.get("X-Backup-Stats");
+          var stats = null;
+          try { stats = statsJson ? JSON.parse(statsJson) : null; } catch (e) {}
+          return r.blob().then(function (blob) {
+            return { blob: blob, filename: filename, stats: stats };
+          });
+        })
+        .then(function (result) {
+          var url = URL.createObjectURL(result.blob);
+          var a   = document.createElement("a");
+          a.href     = url;
+          a.download = result.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          backupBtn.disabled    = false;
+          backupBtn.textContent = "Create and Download Database Backup";
+          showBackupStatus("✓ Backup created and downloaded: " + result.filename, false);
+          if (result.stats) {
+            renderBackupStats(result.stats);
+          }
+        })
+        .catch(function (err) {
+          backupBtn.disabled    = false;
+          backupBtn.textContent = "Create and Download Database Backup";
+          showBackupStatus("Backup failed: " + err.message, true);
+        });
+    });
+
+    // ── Restore from Backup ───────────────────────────────────────────
+    var dropZone        = document.getElementById("drop-zone");
+    var browseLink      = document.getElementById("browse-link");
+    var fileInput       = document.getElementById("backup-file-input");
+    var restoreForm     = document.getElementById("restore-form");
+    var validation      = document.getElementById("restore-validation");
+    var fileInfo        = document.getElementById("restore-file-info");
+    var clientErr       = document.getElementById("restore-client-error");
+    var previewLoading  = document.getElementById("restore-preview-loading");
+    var previewStats    = document.getElementById("restore-preview-stats");
+    var beginBtn        = document.getElementById("restore-begin-btn");
+    var serverResult    = document.getElementById("restore-server-result");
+
+    function showRestoreResult(msg, isError) {
+      serverResult.textContent   = msg;
+      serverResult.style.display = "";
+      if (isError) {
+        serverResult.style.background = "#fdf3f3";
+        serverResult.style.border     = "1px solid #f5c2c2";
+        serverResult.style.color      = "#c62828";
+      } else {
+        serverResult.style.background = "#f0faf0";
+        serverResult.style.border     = "1px solid #b7dfb8";
+        serverResult.style.color      = "#2e7d32";
+      }
+      serverResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function buildStatsHtml(data) {
+      function row(label, value) {
+        return "<div style='display:flex;justify-content:space-between;gap:1rem;'>" +
+          "<span style='color:var(--text-muted);'>" + label + "</span>" +
+          "<span style='font-weight:600;'>" + (value !== null && value !== undefined ? value : "—") + "</span>" +
+          "</div>";
+      }
+      var backedUpAt = data.backed_up_at
+        ? new Date(data.backed_up_at).toLocaleString()
+        : "Unknown (older backup)";
+      return "<div style='font-weight:600;margin-bottom:.4rem;color:var(--text);'>Backup Contents</div>" +
+        row("Backed up at",    backedUpAt) +
+        row("Lots",            data.lot_count) +
+        row("Owners",          data.owner_count) +
+        row("Renters",         data.renter_count) +
+        row("Journal entries", data.journal_entry_count) +
+        row("Last GL entry",   data.last_gl_entry_date || "—");
+    }
+
+    function renderBackupStats(data) {
+      backupStats.innerHTML     = buildStatsHtml(data);
+      backupStats.style.display = "";
+    }
+
+    function renderPreviewStats(data) {
+      previewStats.innerHTML     = buildStatsHtml(data);
+      previewStats.style.display = "";
+    }
+
+    var SQLITE_MAGIC = "SQLite format 3\u0000";  // 16 bytes
+    var chosenFile   = null;
+
+    // ── Drag-and-drop styling ─────────────────────────────────────────
+    dropZone.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      dropZone.style.borderColor  = "var(--accent)";
+      dropZone.style.background   = "var(--accent-subtle,#f0f4ff)";
+    });
+    dropZone.addEventListener("dragleave", function () {
+      dropZone.style.borderColor = "";
+      dropZone.style.background  = "";
+    });
+    dropZone.addEventListener("drop", function (e) {
+      e.preventDefault();
+      dropZone.style.borderColor = "";
+      dropZone.style.background  = "";
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length > 0) handleFile(files[0]);
+    });
+
+    // ── Click to browse ───────────────────────────────────────────────
+    dropZone.addEventListener("click",  function () { fileInput.click(); });
+    browseLink.addEventListener("click", function (e) {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", function () {
+      if (fileInput.files && fileInput.files.length > 0) {
+        handleFile(fileInput.files[0]);
+      }
+    });
+
+    // ── File selected ─────────────────────────────────────────────────
+    function handleFile(file) {
+      chosenFile = file;
+      var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      fileInfo.textContent         = "Selected: " + file.name + " (" + sizeMB + " MB)";
+      clientErr.style.display      = "none";
+      clientErr.textContent        = "";
+      previewLoading.style.display = "none";
+      previewStats.style.display   = "none";
+      previewStats.innerHTML       = "";
+      beginBtn.style.display       = "none";
+      beginBtn.disabled            = false;
+      beginBtn.textContent         = "Restore Database…";
+      serverResult.style.display   = "none";
+      serverResult.textContent     = "";
+      validation.style.display     = "";
+
+      // Step 1 — quick client-side magic-byte check
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var bytes = new Uint8Array(ev.target.result);
+        var magic = "";
+        for (var i = 0; i < 16; i++) magic += String.fromCharCode(bytes[i]);
+        if (magic !== SQLITE_MAGIC) {
+          clientErr.textContent   = "This file does not appear to be a SQLite database. Please select a valid .db backup file.";
+          clientErr.style.display = "";
+          return;
+        }
+
+        // Step 2 — send to server for metadata read
+        previewLoading.style.display = "";
+        var fd = new FormData();
+        fd.append("backup_file", file);
+        fetch("/admin/database/restore-preview", { method: "POST", body: fd })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            previewLoading.style.display = "none";
+            if (!data.ok) {
+              clientErr.textContent   = data.error || "Could not read backup.";
+              clientErr.style.display = "";
+              return;
+            }
+            renderPreviewStats(data);
+            beginBtn.style.display = "";
+            beginBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          })
+          .catch(function () {
+            previewLoading.style.display = "none";
+            clientErr.textContent   = "Could not contact server to read backup info.";
+            clientErr.style.display = "";
+          });
+      };
+      reader.readAsArrayBuffer(file.slice(0, 16));
+    }
+
+    // ── Two-warning confirmation chain ────────────────────────────────
+    beginBtn.addEventListener("click", function () {
+      if (!chosenFile) return;
+
+      // First warning
+      showConfirm({
+        title:        "Warning: All Data Will Be Overwritten",
+        message:
+          "You are about to replace the entire database with the backup file:\n\n" +
+          "  " + chosenFile.name + "\n\n" +
+          "Every owner, lot, transaction, journal entry, and balance " +
+          "currently in the system will be PERMANENTLY DELETED and replaced " +
+          "with the contents of the backup.\n\n" +
+          "This action cannot be undone.",
+        confirmLabel: "I understand — show final warning",
+        isDanger:     true,
+        onConfirm: function () {
+
+          // Second warning
+          showConfirm({
+            title:        "Final Warning — Last Chance to Cancel",
+            message:
+              "Are you absolutely certain?\n\n" +
+              "Clicking \"Restore Now\" will immediately and permanently " +
+              "replace ALL accounting data with the selected backup. " +
+              "There is no undo, no recovery, and no going back.\n\n" +
+              "File: " + chosenFile.name,
+            confirmLabel: "Restore Now",
+            isDanger:     true,
+            onConfirm: function () {
+              beginBtn.disabled    = true;
+              beginBtn.textContent = "Restoring…";
+              serverResult.style.display = "none";
+
+              var fd = new FormData();
+              fd.append("backup_file", chosenFile);
+
+              fetch("/admin/database/restore", {
+                method:  "POST",
+                headers: { "X-Restore-Fetch": "1" },
+                body:    fd,
+              })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  beginBtn.disabled    = false;
+                  beginBtn.style.display = "none";
+                  validation.style.display = "none";
+                  if (data.ok) {
+                    showRestoreResult(
+                      "✓ " + data.message, false
+                    );
+                    // Reset drop zone so it's ready for another restore
+                    dropZone.style.borderColor = "";
+                    dropZone.style.background  = "";
+                    chosenFile = null;
+                  } else {
+                    showRestoreResult("Restore failed: " + data.error, true);
+                    beginBtn.disabled    = false;
+                    beginBtn.style.display = "";
+                    beginBtn.textContent = "Restore Database…";
+                  }
+                })
+                .catch(function (err) {
+                  beginBtn.disabled    = false;
+                  beginBtn.textContent = "Restore Database…";
+                  showRestoreResult("Restore failed: " + err.message, true);
+                });
+            }
+          });
+
+        }
+      });
+    });
+  })();
+  </script>
+
+{% endblock %}

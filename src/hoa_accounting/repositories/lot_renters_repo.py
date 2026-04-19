@@ -21,7 +21,6 @@ class LotRentersRepository(BaseRepository):
         phone: str | None,
         start_date: str,
         end_date: str | None = None,
-        is_primary_contact: bool = True,
         notes: str | None = None,
     ) -> int:
         """Insert a renter row for a lot and return its id."""
@@ -29,9 +28,8 @@ class LotRentersRepository(BaseRepository):
             """
             INSERT INTO lot_renters (
                 lot_id, display_name, first_name, last_name,
-                email, phone, start_date, end_date,
-                is_primary_contact, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                email, phone, start_date, end_date, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 lot_id,
@@ -42,7 +40,6 @@ class LotRentersRepository(BaseRepository):
                 phone,
                 start_date,
                 end_date,
-                1 if is_primary_contact else 0,
                 notes,
             ),
         )
@@ -56,21 +53,16 @@ class LotRentersRepository(BaseRepository):
         )
 
     def get_current_renters(self, lot_id: int) -> list[sqlite3.Row]:
-        """Return all renters currently living at a lot (end_date IS NULL).
-
-        Primary-contact renter is ordered first so callers that only
-        want the lead renter can take row[0].
-        """
+        """Return all renters currently living at a lot (end_date IS NULL)."""
         return list(
             self.conn.execute(
                 """
                 SELECT id, lot_id, display_name, first_name, last_name,
-                       email, phone, start_date, end_date,
-                       is_primary_contact, notes
+                       email, phone, start_date, end_date, notes
                 FROM lot_renters
                 WHERE lot_id = ?
                   AND end_date IS NULL
-                ORDER BY is_primary_contact DESC, start_date DESC, id DESC
+                ORDER BY start_date ASC, id ASC
                 """,
                 (lot_id,),
             ).fetchall()
@@ -152,7 +144,7 @@ class LotRentersRepository(BaseRepository):
                 """
                 SELECT id, lot_id, display_name, first_name, last_name,
                        email, phone, start_date, end_date,
-                       is_primary_contact, notes
+                       notes
                 FROM lot_renters
                 WHERE lot_id = ?
                 ORDER BY COALESCE(end_date, '9999-12-31') DESC,

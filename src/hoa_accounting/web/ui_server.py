@@ -54,6 +54,7 @@ class ReportConsolePageService:
         *,
         selected_report: str = "trial-balance",
         org: dict[str, object] | None = None,
+        lookup_options: dict | None = None,
     ) -> UIResponse:
         """Render the default console page without report output."""
         return UIResponse(
@@ -64,6 +65,7 @@ class ReportConsolePageService:
                 api_payload=None,
                 error_message="",
                 org=org,
+                lookup_options=lookup_options,
             ),
         )
 
@@ -73,6 +75,7 @@ class ReportConsolePageService:
         report_name: str,
         query_params: dict[str, str],
         org: dict[str, object] | None = None,
+        lookup_options: dict | None = None,
     ) -> UIResponse:
         """Render the page with report results."""
         api_response = self.api_service.get_report(
@@ -94,6 +97,7 @@ class ReportConsolePageService:
                 api_payload=api_response.body,
                 error_message=error_message,
                 org=org,
+                lookup_options=lookup_options,
             ),
         )
 
@@ -105,6 +109,7 @@ class ReportConsolePageService:
         api_payload: dict[str, object] | None,
         error_message: str,
         org: dict[str, object] | None = None,
+        lookup_options: dict | None = None,
     ) -> str:
         summary_vm = build_summary_view_model(
             selected_report=selected_report,
@@ -119,6 +124,7 @@ class ReportConsolePageService:
             error_message=error_message,
             api_payload=api_payload,
             org=org,
+            lookup_options=lookup_options,
         )
 
         return render_template(self.template_name, asdict(page_context))

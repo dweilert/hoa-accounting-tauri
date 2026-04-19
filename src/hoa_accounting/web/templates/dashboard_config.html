@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Configuration · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+/* ── Two-panel layout ────────────────────────────────────────────── */
+.dc-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+/* ── Catalog panel ───────────────────────────────────────────────── */
+.dc-catalog { display: flex; flex-direction: column; gap: var(--sp-2); }
+.dc-group-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-subtle);
+  padding: var(--sp-2) 0 var(--sp-1);
+  border-bottom: 1px solid var(--border);
+  margin-top: var(--sp-2);
+}
+.dc-group-label:first-child { margin-top: 0; }
+
+.catalog-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+}
+.catalog-row:hover { background: var(--surface-muted); }
+.catalog-row__dot { flex-shrink:0; width:10px; height:10px; border-radius:50%; }
+.catalog-row__title { flex:1; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.catalog-row__badge {
+  font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--text-subtle); background:var(--surface-muted); border:1px solid var(--border);
+  border-radius:3px; padding:1px 5px; flex-shrink:0;
+}
+.catalog-row__actions { display:flex; gap:4px; flex-shrink:0; }
+.catalog-row__btn {
+  font-size:11px; padding:2px 7px;
+  background:none; border:1px solid var(--border);
+  border-radius:var(--radius); cursor:pointer;
+  color:var(--text-subtle); line-height:1.4;
+}
+.catalog-row__btn:hover { background:var(--surface-muted); color:var(--text); }
+.catalog-row__btn--add  { color:var(--accent); border-color:var(--accent); }
+.catalog-row__btn--add:hover  { background:var(--accent-subtle); }
+.catalog-row__btn--del  { color:var(--danger); border-color:var(--danger-border,#f5c2c2); }
+.catalog-row__btn--del:hover  { background:#fdf3f3; }
+.catalog-row__btn--on   { color:var(--text-subtle); cursor:default; }
+
+/* ── Dashboard list panel ────────────────────────────────────────── */
+.dc-list-panel { display:flex; flex-direction:column; gap:var(--sp-3); }
+.dc-list {
+  display:flex; flex-direction:column; gap:6px;
+  min-height:120px; padding:var(--sp-2);
+  background:var(--surface-muted);
+  border:2px dashed var(--border);
+  border-radius:var(--radius-md);
+}
+.dc-list--over { border-color:var(--accent); background:var(--accent-subtle); }
+.dc-list-empty {
+  display:flex; align-items:center; justify-content:center;
+  min-height:80px; font-size:12px; color:var(--text-subtle);
+}
+
+.dc-item {
+  display:flex; align-items:center; gap:var(--sp-2);
+  padding:8px var(--sp-2) 8px 6px;
+  background:var(--surface); border:1px solid var(--border);
+  border-left:4px solid var(--item-color,var(--accent));
+  border-radius:var(--radius);
+  font-size:13px; cursor:grab; user-select:none;
+}
+.dc-item:active { cursor:grabbing; opacity:.7; }
+.dc-item.dragging { opacity:.4; }
+.dc-item--section {
+  background:var(--surface-muted);
+  border-style:dashed;
+  border-left:4px solid var(--item-color,var(--text-subtle));
+  font-style:italic;
+}
+.dc-item__handle { color:var(--text-subtle); font-size:14px; cursor:grab; flex-shrink:0; }
+.dc-item__dot    { flex-shrink:0; width:10px; height:10px; border-radius:50%; }
+.dc-item__title  { flex:1; font-weight:600; color:var(--text); }
+.dc-item__badge  { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--text-subtle); flex-shrink:0; }
+.dc-item__rm {
+  background:none; border:none; cursor:pointer;
+  font-size:15px; color:var(--text-subtle); line-height:1; padding:0 2px; flex-shrink:0;
+}
+.dc-item__rm:hover { color:var(--danger); }
+
+/* ── Section bar quick-add ──────────────────────────────────────── */
+.section-adder {
+  display:flex; align-items:center; gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-3);
+  background:var(--surface-muted);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.section-adder__label { font-size:11px; font-weight:600; color:var(--text-subtle); flex-shrink:0; }
+.section-adder input[type="color"] {
+  width:30px; height:26px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:2px; cursor:pointer; background:none; flex-shrink:0;
+}
+.section-adder input[type="text"] {
+  flex:1; padding:4px 8px; font-size:12px; font-family:inherit;
+  border:1px solid var(--border); border-radius:var(--radius); background:var(--surface);
+  color:var(--text);
+}
+.section-adder input[type="text"]:focus { outline:2px solid var(--accent-border); }
+
+/* ── Color picker ────────────────────────────────────────────────── */
+.color-pick-row { display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; }
+.color-swatch {
+  width:22px; height:22px; border-radius:50%;
+  border:2px solid transparent; cursor:pointer; flex-shrink:0;
+}
+.color-swatch:hover, .color-swatch.active { border-color:var(--text); }
+.color-pick-native {
+  width:36px; height:30px; border:1px solid var(--border);
+  border-radius:var(--radius); padding:2px; cursor:pointer; background:none;
+}
+</style>
+
+{% if flash %}
+  <div class="alert alert--ok" style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+    {{ flash }}<button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+{% if error %}
+  <div class="alert alert--error" style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+    <div class="alert__content">{{ error }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{# Set of card IDs currently on the dashboard #}
+{% set on_dash = layout_cards | map(attribute='id') | list %}
+
+{# Macro: one catalog row — used for all groups #}
+{% macro cat_row(card, badge, can_delete) %}
+  <div class="catalog-row" id="cat-{{ card.id }}">
+    <div class="catalog-row__dot" style="background:{{ card.color }};"></div>
+    <span class="catalog-row__title" title="{{ card.description or '' }}">{{ card.title }}</span>
+    <span class="catalog-row__badge">{{ badge }}</span>
+    <div class="catalog-row__actions">
+      {% if card.id in on_dash %}
+        <button type="button" class="catalog-row__btn catalog-row__btn--on"
+                disabled id="add-btn-{{ card.id }}">✓ On</button>
+      {% else %}
+        <button type="button" class="catalog-row__btn catalog-row__btn--add"
+                onclick="addCard({{ card.id }},'{{ card.title|e }}','{{ card.card_type }}','{{ card.color|e }}')"
+                id="add-btn-{{ card.id }}">+</button>
+      {% endif %}
+      <button type="button" class="catalog-row__btn"
+              onclick="editCard({{ card.id }},'{{ card.title|e }}','{{ card.description|e }}','{{ card.card_type }}','{{ card.target_url|e }}','{{ card.report_name|e }}','{{ card.color|e }}')">
+        Edit
+      </button>
+      {% if can_delete %}
+        <form method="post" action="/dashboard-config/delete-card/{{ card.id }}"
+              style="display:inline;"
+              data-confirm="Delete '{{ card.title|e }}' and remove it from the dashboard?"
+              data-confirm-title="Delete Card" data-confirm-label="Delete">
+          <button type="submit" class="catalog-row__btn catalog-row__btn--del">Del</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div class="panel__title">Dashboard Layout</div>
+    <div class="panel__description">
+      Click <strong>+</strong> to add a catalog card to the dashboard.
+      Drag the right column to reorder. Click <strong>×</strong> to remove.
+      Use <strong>Edit</strong> to change any card's title or border color.
+    </div>
+  </div>
+
+  <div class="dc-layout">
+
+    {# ── Left: Card Catalog ──────────────────────────────────────── #}
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-2);">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">Card Catalog</span>
+        <button type="button" class="btn btn--ghost" style="font-size:12px;padding:3px 10px;"
+                onclick="showCardForm()">+ New Card</button>
+      </div>
+
+      <div class="dc-catalog" id="catalog">
+
+        {% set fin_cards  = cards | selectattr('card_type','equalto','FINANCIAL') | list %}
+        {% set nav_sys    = cards | selectattr('card_type','equalto','NAV')       | selectattr('is_system','equalto',1) | list %}
+        {% set rpt_sys    = cards | selectattr('card_type','equalto','REPORT')    | selectattr('is_system','equalto',1) | list %}
+        {% set user_cards = cards | selectattr('is_system','equalto',0) | list %}
+
+        {% if fin_cards %}
+          <div class="dc-group-label">Financial Summary</div>
+          {% for card in fin_cards %}{{ cat_row(card,'FIN',false) }}{% endfor %}
+        {% endif %}
+
+        {% if nav_sys %}
+          <div class="dc-group-label">Quick Actions</div>
+          {% for card in nav_sys %}{{ cat_row(card,'NAV',false) }}{% endfor %}
+        {% endif %}
+
+        {% if rpt_sys %}
+          <div class="dc-group-label">Reports</div>
+          {% for card in rpt_sys %}{{ cat_row(card,'RPT',false) }}{% endfor %}
+        {% endif %}
+
+        {% if user_cards %}
+          <div class="dc-group-label">Custom Cards</div>
+          {% for card in user_cards %}{{ cat_row(card, card.card_type[:3]|upper, true) }}{% endfor %}
+        {% endif %}
+
+      </div>{# /catalog #}
+    </div>
+
+    {# ── Right: Cards on Dashboard ───────────────────────────────── #}
+    <div class="dc-list-panel">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">
+        Cards on Dashboard <span style="font-weight:400;">(drag to reorder)</span>
+      </div>
+
+      <div class="dc-list" id="dash-list">
+        {% if layout_cards %}
+          {% for card in layout_cards %}
+            <div class="dc-item{% if card.card_type=='SECTION' %} dc-item--section{% endif %}"
+                 draggable="true"
+                 data-card-id="{{ card.id }}"
+                 data-title="{{ card.title }}"
+                 data-type="{{ card.card_type }}"
+                 data-color="{{ card.color }}"
+                 style="--item-color:{{ card.color }};">
+              <span class="dc-item__handle">⠿</span>
+              <div class="dc-item__dot" style="background:{{ card.color }};"></div>
+              <span class="dc-item__title">{{ card.title }}</span>
+              <span class="dc-item__badge">{{ card.card_type[:3] }}</span>
+              <button type="button" class="dc-item__rm"
+                      onclick="removeCard(this, {{ card.id }})">×</button>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="dc-list-empty" id="empty-msg">Click + on a catalog card to add it here</div>
+        {% endif %}
+      </div>
+
+      {# ── Section bar quick-add ─────────────────────────────────── #}
+      <form method="post" action="/dashboard-config/save-card" id="section-bar-form"
+            onsubmit="syncLayoutBeforeSubmit()">
+        <input type="hidden" name="card_type"          value="SECTION">
+        <input type="hidden" name="target_url"         value="">
+        <input type="hidden" name="report_name"        value="">
+        <input type="hidden" name="auto_add_to_layout" value="1">
+        <input type="hidden" name="current_layout"     id="current-layout-field" value="">
+        <div class="section-adder">
+          <span class="section-adder__label">Add section bar:</span>
+          <input type="color" name="color" value="#4a5462" id="section-color">
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+            <input type="text" name="title" placeholder="Bar label, e.g. BILLING" required
+                   style="font-weight:600;text-transform:uppercase;">
+            <input type="text" name="description" placeholder="Description shown above bar (optional)"
+                   style="font-size:11px;">
+          </div>
+          <button type="submit" class="btn btn--ghost"
+                  style="font-size:12px;padding:3px 10px;flex-shrink:0;align-self:flex-start;">
+            + Insert
+          </button>
+        </div>
+      </form>
+
+      <div style="display:flex;gap:var(--sp-2);">
+        <button type="button" class="btn btn--primary" id="save-layout-btn">Save Layout</button>
+        <a href="/" class="btn btn--ghost">View Dashboard</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Create / Edit Card Form ─────────────────────────────────────── #}
+<div class="panel" id="card-form-panel" style="display:none;margin-bottom:1rem;">
+  <div class="panel__header">
+    <div class="panel__title" id="card-form-title">New Card</div>
+    <div class="panel__description">Add a custom card to the catalog, or update an existing card's title, color, or settings.</div>
+  </div>
+
+  <form method="post" action="/dashboard-config/save-card" class="form" style="grid-template-columns:1fr 1fr;">
+    <input type="hidden" name="card_id" id="edit-card-id" value="">
+
+    <label class="field">
+      <span class="field__label">Title *</span>
+      <input type="text" name="title" id="edit-title" required />
+    </label>
+
+    <label class="field">
+      <span class="field__label">Card Type</span>
+      <select name="card_type" id="edit-card-type" onchange="toggleCardFields(this.value)">
+        {% for val, label in card_types if val != 'FINANCIAL' %}
+          <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="field form__row--full">
+      <span class="field__label">Description</span>
+      <textarea name="description" id="edit-description" rows="2" style="resize:vertical;"></textarea>
+    </label>
+
+    <label class="field" id="field-url">
+      <span class="field__label">Target URL</span>
+      <input type="text" name="target_url" id="edit-url" placeholder="/some-screen" />
+    </label>
+
+    <label class="field" id="field-report" style="display:none;">
+      <span class="field__label">Report</span>
+      <select name="report_name" id="edit-report">
+        <option value="">— select report —</option>
+        {% for val, label in report_choices %}
+          <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div class="field form__row--full">
+      <span class="field__label">Border / Label Color</span>
+      <div class="color-pick-row">
+        <input type="color" class="color-pick-native" id="color-native"
+               value="#4a5462" oninput="setColor(this.value)">
+        {% for hex, name in colors %}
+          <button type="button" class="color-swatch" style="background:{{ hex }};"
+                  data-hex="{{ hex }}" title="{{ name }}"
+                  onclick="setColor('{{ hex }}')"></button>
+        {% endfor %}
+        <input type="hidden" name="color" id="edit-color" value="#4a5462">
+        <span id="color-preview" style="font-size:12px;color:var(--text-subtle);margin-left:4px;"></span>
+      </div>
+    </div>
+
+    <div class="form__row--full" style="display:flex;gap:var(--sp-2);align-items:center;">
+      <button type="submit" class="btn btn--primary">Save Card</button>
+      <button type="button" class="btn btn--ghost" onclick="hideCardForm()">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+// ── Color picker ─────────────────────────────────────────────────────
+function setColor(hex) {
+  document.getElementById('edit-color').value = hex;
+  document.getElementById('color-native').value = hex;
+  document.getElementById('color-preview').textContent = hex;
+  document.querySelectorAll('.color-swatch').forEach(function(s) {
+    s.classList.toggle('active', s.dataset.hex === hex);
+  });
+}
+setColor('#4a5462');
+
+// ── Card form helpers ─────────────────────────────────────────────────
+function toggleCardFields(type) {
+  document.getElementById('field-url').style.display    = (type === 'NAV')    ? '' : 'none';
+  document.getElementById('field-report').style.display = (type === 'REPORT') ? '' : 'none';
+}
+function showCardForm() {
+  clearCardForm();
+  document.getElementById('card-form-panel').style.display = '';
+  document.getElementById('card-form-title').textContent = 'New Card';
+  document.getElementById('edit-title').focus();
+}
+function hideCardForm() {
+  document.getElementById('card-form-panel').style.display = 'none';
+}
+function clearCardForm() {
+  document.getElementById('edit-card-id').value = '';
+  document.getElementById('edit-title').value = '';
+  document.getElementById('edit-description').value = '';
+  document.getElementById('edit-card-type').value = 'NAV';
+  document.getElementById('edit-url').value = '';
+  document.getElementById('edit-report').value = '';
+  setColor('#4a5462');
+  toggleCardFields('NAV');
+}
+function editCard(id, title, desc, type, url, report, color) {
+  document.getElementById('edit-card-id').value = id;
+  document.getElementById('edit-title').value = title;
+  document.getElementById('edit-description').value = desc;
+  document.getElementById('edit-card-type').value = type;
+  document.getElementById('edit-url').value = url;
+  document.getElementById('edit-report').value = report;
+  setColor(color || '#4a5462');
+  toggleCardFields(type);
+  document.getElementById('card-form-panel').style.display = '';
+  document.getElementById('card-form-title').textContent = 'Edit Card';
+  document.getElementById('card-form-panel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── Dashboard list management ────────────────────────────────────────
+var listEl = document.getElementById('dash-list');
+
+function syncLayoutField() {
+  var order = Array.from(listEl.querySelectorAll('[data-card-id]'))
+                   .map(function(s){ return s.dataset.cardId; }).join(',');
+  document.getElementById('current-layout-field').value = order;
+}
+syncLayoutField(); // init
+
+function syncLayoutBeforeSubmit() { syncLayoutField(); }
+
+function makeItem(cardId, title, type, color) {
+  var div = document.createElement('div');
+  div.className = 'dc-item' + (type === 'SECTION' ? ' dc-item--section' : '');
+  div.draggable = true;
+  div.dataset.cardId = String(cardId);
+  div.dataset.title = title;
+  div.dataset.type = type;
+  div.dataset.color = color;
+  div.style.setProperty('--item-color', color);
+  div.innerHTML =
+    '<span class="dc-item__handle">⠿</span>' +
+    '<div class="dc-item__dot" style="background:' + color + ';"></div>' +
+    '<span class="dc-item__title">' + title + '</span>' +
+    '<span class="dc-item__badge">' + type.substring(0,3) + '</span>' +
+    '<button type="button" class="dc-item__rm" onclick="removeCard(this,' + cardId + ')">×</button>';
+  bindItem(div);
+  return div;
+}
+
+function addCard(cardId, title, type, color) {
+  if (listEl.querySelector('[data-card-id="' + cardId + '"]')) return;
+  var empty = document.getElementById('empty-msg');
+  if (empty) empty.remove();
+  listEl.appendChild(makeItem(cardId, title, type, color));
+  syncLayoutField();
+  var btn = document.getElementById('add-btn-' + cardId);
+  if (btn) { btn.textContent = '✓ On'; btn.className = 'catalog-row__btn catalog-row__btn--on'; btn.disabled = true; btn.onclick = null; }
+}
+
+function removeCard(btn, cardId) {
+  var item = btn.closest('.dc-item');
+  if (item) item.remove();
+  if (!listEl.querySelector('.dc-item')) {
+    var empty = document.createElement('div');
+    empty.id = 'empty-msg'; empty.className = 'dc-list-empty';
+    empty.textContent = 'Click + on a catalog card to add it here';
+    listEl.appendChild(empty);
+  }
+  syncLayoutField();
+  // Restore + button in catalog
+  var addBtn = document.getElementById('add-btn-' + cardId);
+  if (addBtn) {
+    var catRow = document.getElementById('cat-' + cardId);
+    if (catRow) {
+      var dot   = catRow.querySelector('.catalog-row__dot');
+      var titleEl = catRow.querySelector('.catalog-row__title');
+      var badge   = catRow.querySelector('.catalog-row__badge');
+      var color   = dot   ? dot.style.background   : '#4a5462';
+      var cardTitle = titleEl ? titleEl.textContent.trim() : '';
+      var bText   = badge ? badge.textContent.trim() : 'NAV';
+      var typeMap = {'FIN':'FINANCIAL','NAV':'NAV','RPT':'REPORT','CMT':'COMMENT','SEC':'SECTION','NAV':'NAV'};
+      var fullType = typeMap[bText] || bText;
+      addBtn.textContent = '+';
+      addBtn.className = 'catalog-row__btn catalog-row__btn--add';
+      addBtn.disabled = false;
+      addBtn.onclick = function() { addCard(cardId, cardTitle, fullType, color); };
+    }
+  }
+}
+
+// ── Drag-to-reorder within dashboard list ───────────────────────────
+var dragging = null;
+function bindItem(el) {
+  el.addEventListener('dragstart', function(e) {
+    dragging = el; el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', function() {
+    el.classList.remove('dragging'); dragging = null; syncLayoutField();
+  });
+  el.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    if (!dragging || dragging === el) return;
+    var rect = el.getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) listEl.insertBefore(dragging, el);
+    else listEl.insertBefore(dragging, el.nextSibling);
+  });
+}
+Array.from(listEl.querySelectorAll('.dc-item')).forEach(bindItem);
+
+listEl.addEventListener('dragover',  function(e) { e.preventDefault(); });
+listEl.addEventListener('dragenter', function()  { listEl.classList.add('dc-list--over'); });
+listEl.addEventListener('dragleave', function(e) {
+  if (!listEl.contains(e.relatedTarget)) listEl.classList.remove('dc-list--over');
+});
+listEl.addEventListener('drop', function(e) {
+  e.preventDefault(); listEl.classList.remove('dc-list--over');
+});
+
+// ── Save layout ──────────────────────────────────────────────────────
+document.getElementById('save-layout-btn').addEventListener('click', function() {
+  syncLayoutField();
+  var order = document.getElementById('current-layout-field').value;
+  var form = document.createElement('form');
+  form.method = 'post'; form.action = '/dashboard-config/save-layout';
+  var inp = document.createElement('input');
+  inp.type = 'hidden'; inp.name = 'layout_order'; inp.value = order;
+  form.appendChild(inp);
+  document.body.appendChild(form);
+  form.submit();
+});
+</script>
+{% endblock %}

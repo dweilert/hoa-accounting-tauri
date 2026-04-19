@@ -239,3 +239,183 @@ class YtdExpenseSummaryReport:
     groups: list[YtdExpenseGroup]
     grand_total: Decimal
     total_record_count: int
+
+
+# ── Lot Statement (Owner Ledger — lot-based, source-table view) ───────────────
+
+@dataclass(frozen=True)
+class OpeningBalanceLine:
+    """One line in the beginning-balance breakdown."""
+    charge_type: str   # DUES | LATE_FEE | LEGAL_FEE | ADJUSTMENT
+    label: str         # human-readable label
+    amount: Decimal    # positive = owed to HOA; negative = credit
+
+
+@dataclass(frozen=True)
+class LotOwnerInfo:
+    """Contact details for one owner of a lot."""
+    display_name: str
+    first_name: str
+    last_name: str
+    email: str
+    phone: str
+
+
+@dataclass(frozen=True)
+class LotStatementRow:
+    """One line in a lot statement — a charge, payment, or adjustment."""
+    entry_date: str
+    entry_type: str      # CHARGE | PAYMENT | ADJUSTMENT
+    charge_type: str     # DUES, LATE_FEE, LEGAL_FEE, PAYMENT, CREDIT_MEMO, WRITE_OFF, OTHER
+    description: str
+    due_date: str        # populated for charges; blank for payments/adjustments
+    debit_amount: Decimal
+    credit_amount: Decimal
+    running_balance: Decimal
+    status: str          # assessment status for charges; blank otherwise
+    receipt_number: str  # populated for payments; blank otherwise
+
+
+@dataclass(frozen=True)
+class LotStatementReport:
+    """Full lot statement for one lot for a full year."""
+    lot_id: int
+    lot_number: str
+    lot_address: str
+    owners: list[LotOwnerInfo]
+    year: int
+    from_date: str
+    to_date: str
+    opening_balance: Decimal
+    opening_balance_lines: list[OpeningBalanceLine]
+    closing_balance: Decimal
+    rows: list[LotStatementRow]
+
+
+# ── Expenses by Date ──────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class ExpensesByDateRow:
+    """One row in the expenses-by-date report."""
+    entry_date: str
+    entry_number: str
+    account_number: str
+    account_name: str
+    group_code: str
+    fund_code: str
+    memo: str
+    amount: Decimal
+
+
+@dataclass(frozen=True)
+class ExpensesByDateReport:
+    """All expense journal lines in date order."""
+    from_date: str
+    to_date: str
+    rows: list[ExpensesByDateRow]
+    grand_total: Decimal
+
+
+# ── Income by Date ────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class IncomeByDateRow:
+    """One row in the income-by-date report."""
+    entry_date: str
+    entry_number: str
+    account_number: str
+    account_name: str
+    fund_code: str
+    memo: str
+    amount: Decimal
+
+
+@dataclass(frozen=True)
+class IncomeByDateReport:
+    """All income journal lines in date order."""
+    from_date: str
+    to_date: str
+    rows: list[IncomeByDateRow]
+    grand_total: Decimal
+
+
+# ── Vendor Expenses ───────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class VendorExpensesRow:
+    """One row in the vendor expenses report."""
+    vendor_name: str
+    entry_date: str
+    entry_number: str
+    account_number: str
+    account_name: str
+    group_code: str
+    memo: str
+    amount: Decimal
+
+
+@dataclass(frozen=True)
+class VendorExpensesReport:
+    """Expense journal lines grouped by vendor."""
+    from_date: str
+    to_date: str
+    vendor_id: int | None
+    vendor_name: str | None
+    rows: list[VendorExpensesRow]
+    grand_total: Decimal
+
+
+# ── Homeowner Contact List ────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class HomeownerContactRow:
+    """One contact row (owner or renter) in the homeowner contact list."""
+    role: str          # "OWNER" | "RENTER"
+    first_name: str
+    last_name: str
+    address: str
+    cell_phone: str
+    home_phone: str
+    email: str
+
+
+@dataclass(frozen=True)
+class HomeownerContactListReport:
+    """Directory of all active owners with contact information."""
+    rows: list[HomeownerContactRow]
+
+
+# ── Expenses vs Budget ────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class ExpenseVsBudgetRow:
+    """One account row comparing budget to actual."""
+    account_number: str
+    account_name: str
+    group_code: str
+    budget_amount: Decimal
+    actual_amount: Decimal
+    variance: Decimal
+
+
+@dataclass(frozen=True)
+class ExpenseVsBudgetGroup:
+    """One expense group bucket with its category rows."""
+    group_code: str
+    rows: list[ExpenseVsBudgetRow]
+    group_budget: Decimal
+    group_actual: Decimal
+    group_variance: Decimal
+
+
+@dataclass(frozen=True)
+class ExpenseVsBudgetReport:
+    """Actual expenses vs approved budget for a fiscal year."""
+    fiscal_year: int
+    fund_code: str
+    from_date: str
+    to_date: str
+    groups: list[ExpenseVsBudgetGroup]
+    total_budget: Decimal
+    total_actual: Decimal
+    total_variance: Decimal

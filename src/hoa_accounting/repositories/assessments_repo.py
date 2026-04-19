@@ -19,6 +19,7 @@ class AssessmentsRepository(BaseRepository):
         amount: str,
         description: str,
         journal_entry_id: int,
+        charge_type: str = "DUES",
     ) -> int:
         """Insert an assessment and return its id."""
         cur = self.conn.execute(
@@ -32,8 +33,9 @@ class AssessmentsRepository(BaseRepository):
                 amount,
                 description,
                 status,
-                journal_entry_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
+                journal_entry_id,
+                charge_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)
             """,
             (
                 lot_id,
@@ -44,6 +46,7 @@ class AssessmentsRepository(BaseRepository):
                 amount,
                 description,
                 journal_entry_id,
+                charge_type,
             ),
         )
         return int(cur.lastrowid)
@@ -70,7 +73,12 @@ class AssessmentsRepository(BaseRepository):
         )
 
     def list_open_for_owner(self, owner_id: int) -> list:
-        """Return an owner's still-owed assessments, oldest due-date first.
+        """Return an owner's still-owed assessments in state-mandated payment order.
+
+        Order: DUES first, then LATE_FEE, then LEGAL_FEE, then any other
+        charge types. Within each charge type, oldest due-date first.
+        This ensures payments are applied to current/past dues before
+        late fees and legal fees, as required by state law.
 
         Each row reports the original amount plus the sum of what's been
         applied to it so callers can compute the remaining balance
@@ -82,16 +90,28 @@ class AssessmentsRepository(BaseRepository):
                 """
                 SELECT
                     a.id,
+                    a.description,
                     a.amount,
+                    a.assessment_date,
                     a.due_date,
                     a.status,
+                    a.charge_type,
                     COALESCE(SUM(pa.applied_amount), 0) AS already_applied
                 FROM assessments a
                 LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
                 WHERE a.owner_id = ?
                   AND a.status IN ('OPEN', 'PARTIAL')
-                GROUP BY a.id, a.amount, a.due_date, a.status
-                ORDER BY a.due_date ASC, a.id ASC
+                GROUP BY a.id, a.description, a.amount, a.assessment_date,
+                         a.due_date, a.status, a.charge_type
+                ORDER BY
+                    CASE a.charge_type
+                        WHEN 'DUES'      THEN 1
+                        WHEN 'LATE_FEE'  THEN 2
+                        WHEN 'LEGAL_FEE' THEN 3
+                        ELSE 4
+                    END ASC,
+                    a.due_date ASC,
+                    a.id ASC
                 """,
                 (owner_id,),
             ).fetchall()

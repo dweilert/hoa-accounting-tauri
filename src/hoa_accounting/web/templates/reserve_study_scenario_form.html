@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{% if scenario_id %}Edit Scenario{% else %}New Scenario{% endif %} · {{ org.name }}{% endblock %}
+{% block heading %}{% if scenario_id %}Edit Scenario{% else %}New Scenario{% endif %}{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <div class="alert alert--err" style="margin-bottom:1rem;">{{ error }}</div>
+  {% endif %}
+
+  <form method="post"
+        action="{% if scenario_id %}/reserve-study/scenarios/{{ scenario_id }}/edit{% else %}/reserve-study/scenarios/new{% endif %}">
+    <div class="panel">
+      <div class="panel__header">
+        <div class="panel__title">Scenario Details</div>
+      </div>
+      <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field__label">Scenario Name *</label>
+          <input type="text" name="scenario_name" class="field__input"
+                 value="{{ fd.scenario_name }}" required
+                 placeholder="e.g. Limestone Wall Collapse (150 ft)">
+        </div>
+
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field__label">Description</label>
+          <input type="text" name="description" class="field__input"
+                 value="{{ fd.description }}"
+                 placeholder="Brief description of the failure or emergency event">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Emergency Cost ($) *</label>
+          <input type="text" name="emergency_cost" class="field__input"
+                 value="{{ fd.emergency_cost }}" required placeholder="0">
+        </div>
+
+        <div class="field">
+          <label class="field__label">Expected Year (optional)</label>
+          <input type="number" name="expected_year" class="field__input"
+                 value="{{ fd.expected_year }}" placeholder="e.g. 2028">
+          <div class="field__help">Leave blank if timing is unknown.</div>
+        </div>
+
+        <div class="field" style="grid-column:1/-1;">
+          <label class="field__label">Notes</label>
+          <textarea name="notes" class="field__input" rows="2"
+                    placeholder="Source of estimate, risk context…">{{ fd.notes }}</textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;margin-top:1rem;align-items:center;">
+      <button type="submit" class="btn btn--primary">
+        {% if scenario_id %}Save Changes{% else %}Add Scenario{% endif %}
+      </button>
+      <a href="/reserve-study/scenarios" class="btn">Cancel</a>
+      {% if scenario_id %}
+        <form method="post" action="/reserve-study/scenarios/{{ scenario_id }}/delete"
+              style="margin-left:auto;"
+              data-confirm="Remove this scenario?"
+              data-confirm-title="Remove Scenario"
+              data-confirm-label="Remove">
+          <button type="submit" class="btn btn--danger btn--sm">Remove</button>
+        </form>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

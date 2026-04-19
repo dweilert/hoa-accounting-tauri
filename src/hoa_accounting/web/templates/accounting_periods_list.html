@@ -72,17 +72,25 @@
                 <td style="display:flex;gap:.4rem;justify-content:flex-end;">
                   {% if p.is_closed %}
                     <form method="post" action="/accounting-periods/{{ p.id }}/reopen"
-                          onsubmit="return confirm('Reopen {{ p.period_name }}? This allows new postings.');">
+                          data-confirm="Reopen {{ p.period_name }}? This will allow new transactions to be posted to it."
+                          data-confirm-title="Reopen Period"
+                          data-confirm-label="Reopen"
+                          data-confirm-danger="false">
                       <button type="submit" class="btn btn--sm btn--ghost">Reopen</button>
                     </form>
                   {% else %}
                     <form method="post" action="/accounting-periods/{{ p.id }}/close"
-                          onsubmit="return confirm('Close {{ p.period_name }}? No new entries can be posted to it.');">
+                          data-confirm="Close {{ p.period_name }}? No new transactions can be posted to a closed period."
+                          data-confirm-title="Close Period"
+                          data-confirm-label="Close Period"
+                          data-confirm-danger="false">
                       <button type="submit" class="btn btn--sm btn--ghost">Close</button>
                     </form>
                   {% endif %}
                   <form method="post" action="/accounting-periods/{{ p.id }}/delete"
-                        onsubmit="return confirm('Delete {{ p.period_name }}? This cannot be undone.');">
+                        data-confirm="Delete {{ p.period_name }}? This cannot be undone."
+                        data-confirm-title="Delete Period"
+                        data-confirm-label="Delete">
                     <button type="submit" class="btn btn--sm btn--danger">Delete</button>
                   </form>
                 </td>

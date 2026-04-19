@@ -26,7 +26,7 @@
       <div>
         <div class="panel__title">Lots</div>
         <div class="panel__description">
-          Every lot in the association. Add lots here before assigning owners.
+          Every lot in the association. Use the Edit screen to link owners to a lot.
         </div>
       </div>
       <a href="/lots/add" class="btn btn--primary btn--sm">Add Lot</a>
@@ -42,8 +42,7 @@
               <th>City</th>
               <th>State</th>
               <th>Postal Code</th>
-              <th>Owner 1</th>
-              <th>Owner 2</th>
+              <th>Owners</th>
               <th>Occupancy</th>
               <th>Status</th>
               <th></th>
@@ -60,8 +59,7 @@
                 <td>{{ l.city or '' }}</td>
                 <td>{{ l.state or '' }}</td>
                 <td class="mono">{{ l.postal_code or '' }}</td>
-                <td>{{ l.owner_name or '—' }}</td>
-                <td>{{ l.owner2_name or '—' }}</td>
+                <td>{{ l.owner_names or '—' }}</td>
                 <td>
                   {% if l.is_owner_occupied %}
                     Owner Occupied

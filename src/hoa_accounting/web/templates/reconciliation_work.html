@@ -37,7 +37,9 @@
         </button>
       </form>
       <form method="post" action="/reconciliations/{{ recon.id }}/delete" style="display:inline;"
-            onsubmit="return confirm('Delete this reconciliation and all cleared items?');">
+            data-confirm="This will permanently delete this reconciliation and all of its cleared items. This cannot be undone."
+            data-confirm-title="Delete Reconciliation"
+            data-confirm-label="Delete">
         <button type="submit" class="btn btn--danger btn--sm">Delete</button>
       </form>
     {% else %}
@@ -256,7 +258,19 @@
         msg.scrollIntoView({behavior: "smooth", block: "nearest"});
         return false;
       }
-      return confirm("Mark this reconciliation as complete? This cannot be undone without reopening it.");
+      // Show modal instead of browser confirm()
+      e.preventDefault();
+      showConfirm({
+        title:        "Complete Reconciliation",
+        message:      "Mark this reconciliation as complete?\n\nThis cannot be undone without reopening it.",
+        confirmLabel: "Complete",
+        isDanger:     false,
+        onConfirm: function () {
+          document.getElementById("finalize-form")._appConfirmed = true;
+          document.getElementById("finalize-form").submit();
+        },
+      });
+      return false;
     };
 
     // ── Checkbox toggle ────────────────────────────────────────────

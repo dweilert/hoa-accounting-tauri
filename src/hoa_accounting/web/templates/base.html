@@ -31,6 +31,7 @@
         {% endif %}
       </div>
 
+      <div class="sidebar__body">
       <div class="sidebar__section" data-section="overview">
         <button type="button" class="sidebar__section-header"
                 data-toggle-section="overview"
@@ -75,6 +76,18 @@
         </button>
         <ul class="sidebar__nav" id="sidebar-transactions">
           <li>
+            <a href="/dues-billing"
+               class="sidebar__link{% if page_key == 'bill-dues' %} sidebar__link--active{% endif %}">
+              Bill Dues
+            </a>
+          </li>
+          <li>
+            <a href="/late-fees"
+               class="sidebar__link{% if page_key == 'late-fees' %} sidebar__link--active{% endif %}">
+              Late Fees
+            </a>
+          </li>
+          <li>
             <a href="/assessments/bill"
                class="sidebar__link{% if active_nav == 'transactions' and page_key == 'bill-assessments' %} sidebar__link--active{% endif %}">
               Bill Assessments
@@ -83,7 +96,7 @@
           <li>
             <a href="/deposits"
                class="sidebar__link{% if active_nav == 'transactions' and page_key == 'deposits' %} sidebar__link--active{% endif %}">
-              Deposits
+              Deposits / Payments
             </a>
           </li>
           <li>
@@ -111,21 +124,68 @@
             </a>
           </li>
           <li>
+            <a href="/year-end-close"
+               class="sidebar__link{% if page_key == 'year-end-close' %} sidebar__link--active{% endif %}">
+              Year-End Close
+            </a>
+          </li>
+          <li>
             <a href="/reconciliations"
                class="sidebar__link{% if page_key == 'reconciliations' %} sidebar__link--active{% endif %}">
               Reconciliations
             </a>
           </li>
           <li>
-            <a href="/opening-balances"
-               class="sidebar__link{% if page_key == 'opening-balances' %} sidebar__link--active{% endif %}">
-              Opening Balances
-            </a>
-          </li>
-          <li>
             <a href="/reserve-transfers"
                class="sidebar__link{% if page_key == 'reserve-transfers' %} sidebar__link--active{% endif %}">
               Reserve Transfers
+            </a>
+          </li>
+          <li>
+            <a href="/resale-fee"
+               class="sidebar__link{% if page_key == 'resale-fee' %} sidebar__link--active{% endif %}">
+              Resale Certificate Fee
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar__section" data-section="reserve-study">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="reserve-study"
+                aria-expanded="true" aria-controls="sidebar-reserve-study">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Reserve Study</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-reserve-study">
+          <li>
+            <a href="/reserve-study"
+               class="sidebar__link{% if active_nav == 'reserve-study' and page_key == 'reserve-study' %} sidebar__link--active{% endif %}">
+              Summary
+            </a>
+          </li>
+          <li>
+            <a href="/reserve-study/assets"
+               class="sidebar__link{% if page_key == 'reserve-assets' %} sidebar__link--active{% endif %}">
+              Asset Inventory
+            </a>
+          </li>
+          <li>
+            <a href="/reserve-study/funding-plan"
+               class="sidebar__link{% if page_key == 'reserve-funding-plan' %} sidebar__link--active{% endif %}">
+              Funding Plan
+            </a>
+          </li>
+          <li>
+            <a href="/reserve-study/scenarios"
+               class="sidebar__link{% if page_key == 'reserve-scenarios' %} sidebar__link--active{% endif %}">
+              Scenario Analysis
+            </a>
+          </li>
+          <li>
+            <a href="/reserve-study/assumptions/edit"
+               class="sidebar__link{% if page_key == 'reserve-assumptions' %} sidebar__link--active{% endif %}">
+              Assumptions
             </a>
           </li>
         </ul>
@@ -185,6 +245,81 @@
         </ul>
       </div>
 
+      <div class="sidebar__section" data-section="system">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="system"
+                aria-expanded="true" aria-controls="sidebar-system">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>System</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-system">
+          <li>
+            <a href="/admin/database"
+               class="sidebar__link{% if page_key == 'database-admin' %} sidebar__link--active{% endif %}">
+              Database
+            </a>
+          </li>
+          <li>
+            <a href="/admin/export"
+               class="sidebar__link{% if page_key == 'export' %} sidebar__link--active{% endif %}">
+              Export Data
+            </a>
+          </li>
+          <li>
+            <a href="/admin/import"
+               class="sidebar__link{% if page_key == 'import' %} sidebar__link--active{% endif %}">
+              Import Data
+            </a>
+          </li>
+          <li>
+            <a href="/admin/gl-import"
+               class="sidebar__link{% if page_key == 'gl-import' %} sidebar__link--active{% endif %}">
+              GL Transaction Import
+            </a>
+          </li>
+          <li>
+            <a href="/opening-balances"
+               class="sidebar__link{% if page_key == 'opening-balances' %} sidebar__link--active{% endif %}">
+              Opening Balances
+            </a>
+          </li>
+          <li>
+            <a href="/system-settings"
+               class="sidebar__link{% if page_key == 'system-settings' %} sidebar__link--active{% endif %}">
+              System Settings
+            </a>
+          </li>
+          <li>
+            <a href="/dashboard-config"
+               class="sidebar__link{% if page_key == 'dashboard-config' %} sidebar__link--active{% endif %}">
+              Dashboard Config
+            </a>
+          </li>
+          <li>
+            <a href="/batch-pdf"
+               class="sidebar__link{% if page_key == 'batch-pdf' %} sidebar__link--active{% endif %}">
+              Publish Owner PDFs
+            </a>
+          </li>
+          {% if current_user and current_user.role == 'admin' %}
+          <li>
+            <a href="/system/users"
+               class="sidebar__link{% if page_key == 'users' %} sidebar__link--active{% endif %}">
+              Local Users
+            </a>
+          </li>
+          <li>
+            <a href="/system/overrides"
+               class="sidebar__link{% if page_key == 'overrides' %} sidebar__link--active{% endif %}">
+              Role Overrides
+            </a>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+
+      </div>{# /sidebar__body #}
+
       <div class="sidebar__footer">
         Environment: <span class="mono">{{ org.environment|default('local') }}</span><br />
         Fiscal year starts month {{ org.fiscal_year_start_month|default(1) }}
@@ -193,6 +328,14 @@
 
     <main class="main">
       <header class="topbar">
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle"
+                aria-label="Toggle navigation" title="Toggle sidebar">☰</button>
+        <a href="/" class="home-shortcut" title="Go to Dashboard">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 1.5L1.5 7v7.5h4.5V10h4v4.5H14.5V7L8 1.5z"
+                  fill="currentColor" opacity=".85"/>
+          </svg>
+        </a>
         <div class="topbar__title">
           {% if breadcrumb %}
             <div class="topbar__breadcrumb">{{ breadcrumb }}</div>
@@ -202,6 +345,14 @@
         <div class="topbar__meta">
           {% block topbar_meta %}{% endblock %}
         </div>
+        {% if current_user %}
+        <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto;padding-right:.25rem;font-size:.82rem;">
+          <span style="color:var(--text-muted);">{{ current_user.display_name or current_user.email }}</span>
+          <span class="pill {% if current_user.role == 'admin' %}pill--ok{% else %}pill--warn{% endif %}"
+                style="font-size:.72rem;padding:.15rem .5rem;">{{ current_user.role }}</span>
+          <a href="/logout" class="btn btn--sm btn--ghost" style="padding:.25rem .6rem;font-size:.8rem;">Sign out</a>
+        </div>
+        {% endif %}
       </header>
 
       <div class="content">
@@ -258,6 +409,38 @@
   </script>
 
   {#
+    Sidebar show/hide toggle.
+    The ☰ button in the topbar collapses/restores the sidebar. State is
+    persisted in localStorage so it survives page navigation.
+  #}
+  <script>
+    (function () {
+      var SKEY = "hoa-sidebar-hidden";
+      var app  = document.querySelector(".app");
+      var btn  = document.getElementById("sidebar-toggle");
+      if (!app || !btn) return;
+
+      function applyState(hidden) {
+        app.classList.toggle("app--sidebar-hidden", hidden);
+        btn.setAttribute("aria-pressed", hidden ? "true" : "false");
+        btn.title = hidden ? "Show sidebar" : "Hide sidebar";
+      }
+
+      // Restore saved state before first paint (already applied by inline script for theme;
+      // sidebar runs after DOMContentLoaded so there may be a brief flash — acceptable).
+      var saved = false;
+      try { saved = localStorage.getItem(SKEY) === "1"; } catch (e) {}
+      applyState(saved);
+
+      btn.addEventListener("click", function () {
+        var willHide = !app.classList.contains("app--sidebar-hidden");
+        applyState(willHide);
+        try { localStorage.setItem(SKEY, willHide ? "1" : "0"); } catch (e) {}
+      });
+    })();
+  </script>
+
+  {#
     Alert dismissal.
     Any .alert with a .alert__close button can be clicked away. One
     delegated listener at the document level catches clicks from all
@@ -270,6 +453,175 @@
       var alertEl = btn.closest(".alert");
       if (alertEl) alertEl.remove();
     });
+  </script>
+
+  {#
+    App Confirmation Modal
+    ──────────────────────
+    Replaces browser confirm() dialogs across the app with a styled modal.
+
+    Usage 1 — data attribute on a <form> (handles submit interception automatically):
+      <form data-confirm="Are you sure?" data-confirm-title="Delete Vendor"
+            data-confirm-label="Delete" method="post" action="...">
+
+    Usage 2 — JS call (for custom logic like reconciliation finalize):
+      showConfirm({
+        title:        "Complete Reconciliation",
+        message:      "This cannot be undone.",
+        confirmLabel: "Complete",
+        isDanger:     true,           // optional, default true → btn--danger
+        onConfirm:    function() { document.getElementById("my-form").submit(); }
+      });
+  #}
+  <style>
+    .app-modal { position:fixed; inset:0; z-index:2000;
+                 display:flex; align-items:center; justify-content:center; }
+    .app-modal[hidden] { display:none !important; }
+    .app-modal__backdrop { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+    .app-modal__dialog  { position:relative; z-index:1;
+                          background:var(--surface);
+                          border:1px solid var(--border);
+                          border-radius:8px;
+                          box-shadow:0 8px 32px rgba(0,0,0,.2);
+                          max-width:32rem; width:90%;
+                          padding:1.5rem; }
+    .app-modal__title   { font-size:1.05rem; font-weight:700;
+                          margin-bottom:.65rem; }
+    .app-modal__body    { font-size:14px; color:var(--text-muted);
+                          line-height:1.65; margin-bottom:1.25rem;
+                          white-space:pre-line; }
+    .app-modal__footer  { display:flex; gap:.75rem; justify-content:flex-end; }
+
+    /* ── Print / Save as PDF ──────────────────────────────────────────── */
+    @page {
+      size: auto;
+      margin: 14mm 12mm;   /* explicit margin removes browser URL/date chrome */
+    }
+
+    /* Report print header — hidden on screen, fixed at top of every printed page */
+    .print-report-header { display: none; }
+
+    @media print {
+      .app-sidebar, .app-topbar, .app-breadcrumb,
+      .panel:not(#report-output-panel),
+      .btn, button, #report-output-panel .panel__header { display: none !important; }
+      #report-output-panel { box-shadow: none !important; border: none !important;
+                              margin: 0 !important; padding-top: 72px !important; }
+      body, .app-main, .app-content { margin: 0 !important; padding: 0 !important; }
+      .table-wrap { overflow: visible !important; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      .section-heading { page-break-after: avoid; }
+
+      /* Repeating report header on every page */
+      .print-report-header {
+        display: block;
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        background: #fff;
+        padding-bottom: 6px;
+        border-bottom: 2px solid #222;
+        font-family: inherit;
+      }
+      .print-report-header__org {
+        font-size: 15pt;
+        font-weight: 700;
+        color: #000;
+        line-height: 1.2;
+        margin-bottom: 2px;
+      }
+      .print-report-header__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .print-report-header__title {
+        font-size: 11pt;
+        font-weight: 600;
+        color: #000;
+      }
+      .print-report-header__meta {
+        font-size: 9pt;
+        color: #444;
+        text-align: right;
+      }
+    }
+  </style>
+
+  <div id="app-modal" class="app-modal" role="dialog" aria-modal="true"
+       aria-labelledby="app-modal-title" hidden>
+    <div class="app-modal__backdrop"></div>
+    <div class="app-modal__dialog">
+      <div class="app-modal__title" id="app-modal-title"></div>
+      <div class="app-modal__body"  id="app-modal-body"></div>
+      <div class="app-modal__footer">
+        <button type="button" class="btn" id="app-modal-cancel">Cancel</button>
+        <button type="button" class="btn btn--danger" id="app-modal-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modal      = document.getElementById("app-modal");
+      var titleEl    = document.getElementById("app-modal-title");
+      var bodyEl     = document.getElementById("app-modal-body");
+      var cancelBtn  = document.getElementById("app-modal-cancel");
+      var confirmBtn = document.getElementById("app-modal-confirm");
+      var _callback  = null;
+
+      window.showConfirm = function (opts) {
+        titleEl.textContent    = opts.title        || "Confirm";
+        bodyEl.textContent     = opts.message      || "";
+        confirmBtn.textContent = opts.confirmLabel || "Confirm";
+        confirmBtn.className   = "btn " + (opts.isDanger === false ? "btn--primary" : "btn--danger");
+        _callback = opts.onConfirm || null;
+        modal.hidden = false;
+        confirmBtn.focus();
+      };
+
+      window.closeAppModal = function () {
+        modal.hidden = true;
+        _callback = null;
+      };
+
+      cancelBtn.addEventListener("click", closeAppModal);
+      confirmBtn.addEventListener("click", function () {
+        var cb = _callback;
+        closeAppModal();
+        if (cb) cb();
+      });
+
+      // Backdrop click closes
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal || e.target === modal.querySelector(".app-modal__backdrop")) {
+          closeAppModal();
+        }
+      });
+
+      // Escape key closes
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !modal.hidden) closeAppModal();
+      });
+
+      // Delegated submit handler: intercepts any form with data-confirm attribute.
+      document.addEventListener("submit", function (e) {
+        var form = e.target;
+        var msg  = form.getAttribute("data-confirm");
+        if (!msg || form._appConfirmed) return;
+        e.preventDefault();
+        showConfirm({
+          title:        form.getAttribute("data-confirm-title")  || "Confirm Action",
+          message:      msg,
+          confirmLabel: form.getAttribute("data-confirm-label")  || "Confirm",
+          isDanger:     form.getAttribute("data-confirm-danger") !== "false",
+          onConfirm: function () {
+            form._appConfirmed = true;
+            form.submit();
+          },
+        });
+      });
+    })();
   </script>
 </body>
 </html>

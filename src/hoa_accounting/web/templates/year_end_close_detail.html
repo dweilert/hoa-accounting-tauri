@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Year-End Close {{ fiscal_year }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+<style>
+.checklist { list-style: none; margin: 0; padding: 0; }
+.checklist li {
+  display: flex; align-items: flex-start; gap: .65rem;
+  padding: .55rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.checklist li:last-child { border-bottom: none; }
+.checklist__icon { flex-shrink: 0; font-size: 1rem; margin-top: .05rem; }
+.checklist__detail { font-size: 11px; color: var(--text-muted); margin-top: .15rem; }
+
+.fund-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .75rem 1rem;
+  font-size: 13px;
+}
+.fund-card__title {
+  font-weight: 700; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted); margin-bottom: .5rem;
+}
+.fund-card__row {
+  display: flex; justify-content: space-between;
+  padding: .2rem 0;
+}
+.fund-card__net {
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  margin-top: .3rem; padding-top: .3rem;
+}
+.fund-card__net--loss { color: #c62828; }
+.fund-card__net--income { color: #2e7d32; }
+</style>
+
+{% if flash_message %}
+  <div class="alert alert--{{ flash_type }}"
+       style="margin-bottom:1rem;
+              {% if flash_type == 'error' %}border:1px solid #f5c2c2;background:#fdf3f3;
+              {% else %}border:1px solid #b7dfb8;background:#f0faf0;{% endif %}">
+    <div class="alert__content">{{ flash_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+<div style="display:flex;gap:.75rem;align-items:center;margin-bottom:1rem;">
+  <a href="/year-end-close" class="btn btn--ghost btn--sm">← All Years</a>
+</div>
+
+{# ── Status banner when already closed ─────────────────────────────────── #}
+{% if is_closed and close_rec %}
+  <div class="panel" style="margin-bottom:1rem;border-left:4px solid #4caf50;">
+    <div class="panel__header">
+      <div class="panel__title" style="color:#2e7d32;">
+        ✓ Fiscal Year {{ fiscal_year }} Is Closed
+      </div>
+      <div class="panel__description">
+        Closed {{ close_rec.closed_at[:10] }}.
+        {% if close_rec.closing_je_operating_id or close_rec.closing_je_reserve_id %}
+          Closing journal entries have been posted to the ledger.
+        {% else %}
+          No income or expense activity was found — no closing entries were needed.
+        {% endif %}
+      </div>
+    </div>
+    <div style="padding:0 .85rem .85rem;">
+      <form method="post" action="/year-end-close/{{ fiscal_year }}/reopen"
+            data-confirm="Re-opening will reverse all closing journal entries for {{ fiscal_year }}. Individual periods will remain closed — you will need to reopen them manually. Are you sure?"
+            data-confirm-title="Re-open Fiscal Year {{ fiscal_year }}"
+            data-confirm-label="Re-open Year"
+            data-confirm-danger="true">
+        <button type="submit" class="btn btn--danger btn--sm">
+          Re-open Fiscal Year
+        </button>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+{# ── Checklist panel ────────────────────────────────────────────────────── #}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div class="panel__title">Pre-Close Checklist</div>
+    <div class="panel__description">All items must pass before the year can be closed.</div>
+  </div>
+  <div style="padding:.25rem .85rem .75rem;">
+    <ul class="checklist">
+      {% for item in checklist.items %}
+        <li>
+          <span class="checklist__icon">
+            {% if item.passed %}✅{% else %}❌{% endif %}
+          </span>
+          <div>
+            <div>{{ item.label }}</div>
+            {% if item.detail %}
+              <div class="checklist__detail">{{ item.detail }}</div>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+{# ── Net income preview ─────────────────────────────────────────────────── #}
+{% if checklist.fund_summaries %}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Closing Entry Preview</div>
+      <div class="panel__description">
+        Net income / loss by fund that will be transferred to Fund Balance.
+      </div>
+    </div>
+    <div style="padding:.25rem .85rem .85rem;
+                display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.75rem;">
+      {% for fs in checklist.fund_summaries %}
+        <div class="fund-card">
+          <div class="fund-card__title">{{ fs.fund_code|capitalize }} Fund</div>
+          <div class="fund-card__row">
+            <span>Total Income</span>
+            <span>${{ "{:,.2f}".format(fs.total_income) }}</span>
+          </div>
+          <div class="fund-card__row">
+            <span>Total Expense</span>
+            <span>${{ "{:,.2f}".format(fs.total_expense) }}</span>
+          </div>
+          <div class="fund-card__row fund-card__net
+                       {% if fs.net_income >= 0 %}fund-card__net--income{% else %}fund-card__net--loss{% endif %}">
+            <span>{{ "Net Income" if fs.net_income >= 0 else "Net Loss" }}</span>
+            <span>
+              {% if fs.net_income >= 0 %}
+                ${{ "{:,.2f}".format(fs.net_income) }}
+              {% else %}
+                (${{ "{:,.2f}".format(fs.net_income|abs) }})
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{# ── Close button ───────────────────────────────────────────────────────── #}
+{% if not is_closed %}
+  <div class="panel">
+    <div class="panel__header">
+      <div class="panel__title">Close Fiscal Year {{ fiscal_year }}</div>
+      <div class="panel__description">
+        This will post closing journal entries to zero out income and expense accounts
+        into Fund Balance, then lock the fiscal year against further postings.
+      </div>
+    </div>
+    <div style="padding:0 .85rem .85rem;">
+      {% if checklist.can_close %}
+        <form method="post" action="/year-end-close/{{ fiscal_year }}/close"
+              data-confirm="Post closing entries and lock fiscal year {{ fiscal_year }}? This cannot be undone without re-opening the year."
+              data-confirm-title="Close Fiscal Year {{ fiscal_year }}"
+              data-confirm-label="Close Year"
+              data-confirm-danger="true">
+          <button type="submit" class="btn btn--primary">
+            Close Fiscal Year {{ fiscal_year }}
+          </button>
+        </form>
+      {% else %}
+        <button type="button" class="btn btn--primary" disabled
+                title="Resolve all checklist items first.">
+          Close Fiscal Year {{ fiscal_year }}
+        </button>
+        <p style="margin-top:.5rem;font-size:12px;color:var(--text-muted);">
+          Resolve the failed checklist items above before closing.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
