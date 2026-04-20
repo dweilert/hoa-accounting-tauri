@@ -88,7 +88,8 @@
           <td style="text-align:right;white-space:nowrap;">
             <button type="button"
                     class="btn btn--ghost btn--sm"
-                    onclick="editRule({{ rule | tojson }})">Edit</button>
+                    data-rule="{{ rule | tojson | forceescape }}"
+                    onclick="editRule(JSON.parse(this.dataset.rule))">Edit</button>
             <form method="post"
                   action="/admin/transaction-rules/{{ rule.id }}/delete"
                   style="display:inline;"
