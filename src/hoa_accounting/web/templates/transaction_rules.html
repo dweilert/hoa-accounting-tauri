@@ -12,6 +12,113 @@
   </div>
 {% endif %}
 
+{# ── How this works ────────────────────────────────────────────────────── #}
+<details class="panel" style="margin-bottom:1.5rem;" id="help-panel">
+  <summary style="padding:.75rem 1rem;cursor:pointer;list-style:none;
+                  display:flex;align-items:center;gap:.5rem;
+                  font-weight:600;font-size:.9rem;user-select:none;">
+    <span style="font-size:1.1rem;">ⓘ</span>
+    How Transaction Rules Work
+    <span id="help-chevron" style="margin-left:auto;font-size:.8rem;color:var(--text-muted);">▼ show</span>
+  </summary>
+  <div style="padding:0 1.25rem 1.25rem;border-top:1px solid var(--border);margin-top:0;">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1rem;">
+
+      {# col 1 #}
+      <div>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">What rules do</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
+          When you import a bank statement, each transaction's description is compared
+          against your saved rules. A match automatically creates a posted journal entry
+          so you don't have to post it by hand.
+        </p>
+
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">How matching works</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .4rem;">
+          The "Description Contains" text is matched case-insensitively anywhere in the
+          bank transaction description. Leave it blank and the rule matches
+          <em>every</em> transaction — useful as a catch-all at the bottom of your list.
+        </p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
+          Match priority: <strong>Rules</strong> win over existing GL matches, which win
+          over batch grouping. A transaction can only be claimed by one rule.
+        </p>
+
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">Active / inactive</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0;">
+          Toggle a rule Off to suspend it without deleting it — handy for seasonal
+          vendors or accounts that change periodically.
+        </p>
+      </div>
+
+      {# col 2 #}
+      <div>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.6rem;">The four transaction types</div>
+
+        <div style="display:flex;flex-direction:column;gap:.55rem;">
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#fef2f2;border:1px solid #fecaca;">
+            <div style="font-size:.8rem;font-weight:700;color:#991b1b;">↑ Recurring Bill / Auto-Pay</div>
+            <div style="font-size:.76rem;color:#7f1d1d;margin-top:.15rem;">
+              Money leaving the account for a known vendor: utilities, insurance,
+              landscaping, management fees. Posts <em>DR Expense / CR Bank</em>.
+            </div>
+          </div>
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#fef2f2;border:1px solid #fecaca;">
+            <div style="font-size:.8rem;font-weight:700;color:#991b1b;">↑ Bank Fee or Charge</div>
+            <div style="font-size:.76rem;color:#7f1d1d;margin-top:.15rem;">
+              Service fees, wire charges, and NSF fees charged by the bank itself.
+              Posts <em>DR Bank Expense / CR Bank</em>.
+            </div>
+          </div>
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div style="font-size:.8rem;font-weight:700;color:#166534;">↓ Dues or Assessment Payment</div>
+            <div style="font-size:.76rem;color:#14532d;margin-top:.15rem;">
+              Deposits from homeowners for monthly dues or special assessments.
+              Posts <em>DR Bank / CR Dues Income</em>. Optionally assigns a specific
+              Lot so the deposit is also recorded as an AR payment and applied to
+              any open assessments for that homeowner.
+            </div>
+          </div>
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div style="font-size:.8rem;font-weight:700;color:#166534;">↓ Fee or Other Income</div>
+            <div style="font-size:.76rem;color:#14532d;margin-top:.15rem;">
+              Late fees, resale certificate fees, refunds, and interest earned.
+              Posts <em>DR Bank / CR Income Account</em>.
+            </div>
+          </div>
+
+        </div>
+
+        <div style="font-weight:700;font-size:.85rem;margin:.9rem 0 .35rem;">Lot assignment (dues rules only)</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0;">
+          When you pick a Lot / Homeowner, the import engine creates a second record in
+          the AR system — a payment receipt — and automatically applies it to that
+          lot's oldest open assessments, marking them Partial or Paid. If no open
+          assessments exist the receipt is still recorded and can be applied later.
+          Leave the lot blank if the deposit covers multiple owners.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</details>
+<script>
+(function () {
+  var det  = document.getElementById('help-panel');
+  var chev = document.getElementById('help-chevron');
+  if (det && chev) {
+    det.addEventListener('toggle', function () {
+      chev.textContent = det.open ? '▲ hide' : '▼ show';
+    });
+  }
+})();
+</script>
+
 {# ── Existing rules ────────────────────────────────────────────────────── #}
 <div class="panel" style="margin-bottom:1.5rem;">
   <div class="panel__header">
