@@ -102,8 +102,9 @@ class TransactionRulePages:
     def _get_rules(self) -> list[dict]:
         rows = self._conn.execute(
             """
-            SELECT r.id, r.rule_name, r.description_contains, r.action_type,
-                   r.gl_account_id, r.default_memo, r.active_flag, r.created_at,
+            SELECT r.id, r.rule_name, r.description_contains,
+                   r.match_type, r.match_memo, r.match_amount,
+                   r.action_type, r.gl_account_id, r.default_memo, r.active_flag, r.created_at,
                    r.lot_id,
                    a.account_number, a.account_name,
                    l.lot_number,
@@ -141,6 +142,9 @@ class TransactionRulePages:
         rule_id        = form_data.get("rule_id", "").strip()
         rule_name      = form_data.get("rule_name", "").strip()
         desc_contains  = form_data.get("description_contains", "").strip()
+        match_type     = form_data.get("match_type", "").strip()
+        match_memo     = form_data.get("match_memo", "").strip()
+        match_amount   = form_data.get("match_amount", "").strip().lstrip("$").replace(",", "")
         action_type    = form_data.get("action_type", "recurring_bill").strip()
         gl_account_id  = form_data.get("gl_account_id", "").strip() or None
         lot_id_raw     = form_data.get("lot_id", "").strip()
@@ -171,23 +175,25 @@ class TransactionRulePages:
             self._conn.execute(
                 """
                 UPDATE bank_transaction_rules
-                SET rule_name = ?, description_contains = ?, action_type = ?,
-                    gl_account_id = ?, lot_id = ?, default_memo = ?, active_flag = ?
+                SET rule_name = ?, description_contains = ?,
+                    match_type = ?, match_memo = ?, match_amount = ?,
+                    action_type = ?, gl_account_id = ?, lot_id = ?,
+                    default_memo = ?, active_flag = ?
                 WHERE id = ?
                 """,
-                (rule_name, desc_contains, action_type,
-                 gl_account_id, lot_id, default_memo, active_flag, int(rule_id)),
+                (rule_name, desc_contains, match_type, match_memo, match_amount,
+                 action_type, gl_account_id, lot_id, default_memo, active_flag, int(rule_id)),
             )
         else:
             self._conn.execute(
                 """
                 INSERT INTO bank_transaction_rules
-                    (rule_name, description_contains, action_type,
-                     gl_account_id, lot_id, default_memo, active_flag)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (rule_name, description_contains, match_type, match_memo, match_amount,
+                     action_type, gl_account_id, lot_id, default_memo, active_flag)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (rule_name, desc_contains, action_type,
-                 gl_account_id, lot_id, default_memo, active_flag),
+                (rule_name, desc_contains, match_type, match_memo, match_amount,
+                 action_type, gl_account_id, lot_id, default_memo, active_flag),
             )
 
         self._conn.commit()

@@ -101,8 +101,9 @@ class BankStatementPages:
     def _load_rules(self) -> list[dict]:
         rows = self._conn.execute(
             """
-            SELECT r.id, r.rule_name, r.description_contains, r.action_type,
-                   r.gl_account_id, r.lot_id, r.default_memo, r.active_flag,
+            SELECT r.id, r.rule_name, r.description_contains,
+                   r.match_type, r.match_memo, r.match_amount,
+                   r.action_type, r.gl_account_id, r.lot_id, r.default_memo, r.active_flag,
                    a.account_number, a.account_name
             FROM bank_transaction_rules r
             LEFT JOIN accounts a ON a.id = r.gl_account_id

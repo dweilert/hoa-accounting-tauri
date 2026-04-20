@@ -36,9 +36,12 @@
 
         <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">How matching works</div>
         <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .4rem;">
-          The "Description Contains" text is matched case-insensitively anywhere in the
-          bank transaction description. Leave it blank and the rule matches
-          <em>every</em> transaction — useful as a catch-all at the bottom of your list.
+          Each criteria field you fill in must match — they are combined with AND logic.
+          You can match on any combination of <strong>Description</strong>,
+          <strong>Transaction Type</strong>, <strong>Memo</strong>, and <strong>Amount</strong>.
+          Leave all blank and the rule matches every transaction (useful as a catch-all).
+          All text matches are case-insensitive and check if the value appears
+          <em>anywhere</em> in the field.
         </p>
         <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
           Match priority: <strong>Rules</strong> win over existing GL matches, which win
@@ -137,7 +140,7 @@
       <thead>
         <tr>
           <th>Rule Name</th>
-          <th>Matches When Description Contains</th>
+          <th>Match Criteria (all must match)</th>
           <th>Transaction Type</th>
           <th>Account</th>
           <th>Lot / Owner</th>
@@ -151,14 +154,29 @@
         {% set atype = action_types.get(rule.action_type, {}) %}
         <tr style="{% if not rule.active_flag %}opacity:.5;{% endif %}">
           <td style="font-weight:600;font-size:13px;">{{ rule.rule_name }}</td>
-          <td>
-            {% if rule.description_contains %}
-              <code style="font-size:.8rem;background:var(--surface-muted);
-                           padding:.1rem .35rem;border-radius:3px;">
-                {{ rule.description_contains }}
-              </code>
+          <td style="font-size:12px;">
+            {% set has_criteria = rule.description_contains or rule.match_type or rule.match_memo or rule.match_amount %}
+            {% if has_criteria %}
+              <div style="display:flex;flex-direction:column;gap:.2rem;">
+                {% if rule.description_contains %}
+                  <span><span style="color:var(--text-muted);">desc:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.description_contains }}</code></span>
+                {% endif %}
+                {% if rule.match_type %}
+                  <span><span style="color:var(--text-muted);">type:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.match_type }}</code></span>
+                {% endif %}
+                {% if rule.match_memo %}
+                  <span><span style="color:var(--text-muted);">memo:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.match_memo }}</code></span>
+                {% endif %}
+                {% if rule.match_amount %}
+                  <span><span style="color:var(--text-muted);">amt:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">${{ rule.match_amount }}</code></span>
+                {% endif %}
+              </div>
             {% else %}
-              <span style="color:var(--text-muted);font-size:12px;">any transaction</span>
+              <span style="color:var(--text-muted);">any transaction</span>
             {% endif %}
           </td>
           <td style="white-space:nowrap;">
@@ -240,25 +258,48 @@
   <form method="post" action="/admin/transaction-rules/save" style="padding:1rem 1rem 1.25rem;">
     <input type="hidden" name="rule_id" id="rule_id" value="">
 
-    {# ── Name + trigger ─────────────────────────────────────────────── #}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
-      <div>
-        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
-          Rule Name <span style="color:var(--danger);">*</span>
-        </label>
-        <input type="text" name="rule_name" id="rule_name" required
-               placeholder="e.g. City Utility Bill"
-               style="width:100%;">
+    {# ── Rule name ───────────────────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+        Rule Name <span style="color:var(--danger);">*</span>
+      </label>
+      <input type="text" name="rule_name" id="rule_name" required
+             placeholder="e.g. City Utility Bill"
+             style="width:100%;">
+    </div>
+
+    {# ── Match criteria ──────────────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;padding:.75rem 1rem;
+                border:1px solid var(--border);border-radius:var(--radius);
+                background:var(--surface-muted);">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:.1rem;">Match Criteria</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.75rem;">
+        All fields you fill in must match — leave blank to skip that check.
       </div>
-      <div>
-        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
-          Description Contains
-        </label>
-        <input type="text" name="description_contains" id="description_contains"
-               placeholder="e.g. city of austin  or  529905"
-               style="width:100%;">
-        <div style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;">
-          Case-insensitive. Leave blank to match every transaction.
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Description contains</label>
+          <input type="text" name="description_contains" id="description_contains"
+                 placeholder="e.g. CITY OF AUSTIN"
+                 style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Transaction type contains</label>
+          <input type="text" name="match_type" id="match_type"
+                 placeholder="e.g. CREDIT or Teller Deposit"
+                 style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Memo contains</label>
+          <input type="text" name="match_memo" id="match_memo"
+                 placeholder="e.g. ACH or 529905"
+                 style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Amount equals</label>
+          <input type="text" name="match_amount" id="match_amount"
+                 placeholder="e.g. 155.02"
+                 style="width:100%;">
         </div>
       </div>
     </div>
@@ -494,6 +535,9 @@
     document.getElementById("rule_id").value              = rule.id;
     document.getElementById("rule_name").value            = rule.rule_name;
     document.getElementById("description_contains").value = rule.description_contains || "";
+    document.getElementById("match_type").value           = rule.match_type || "";
+    document.getElementById("match_memo").value           = rule.match_memo || "";
+    document.getElementById("match_amount").value         = rule.match_amount || "";
     document.getElementById("default_memo").value         = rule.default_memo || "";
     document.getElementById("active_flag").checked        = !!rule.active_flag;
     document.getElementById("show-all-accts").checked     = false;
@@ -528,6 +572,9 @@
     document.getElementById("rule_id").value              = "";
     document.getElementById("rule_name").value            = "";
     document.getElementById("description_contains").value = "";
+    document.getElementById("match_type").value           = "";
+    document.getElementById("match_memo").value           = "";
+    document.getElementById("match_amount").value         = "";
     document.getElementById("default_memo").value         = "";
     document.getElementById("active_flag").checked        = true;
     document.getElementById("show-all-accts").checked     = false;

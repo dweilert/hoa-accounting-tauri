@@ -220,19 +220,34 @@ def apply_rules(
     rules: list[dict],
     skip_indices: set[int] | None = None,
 ) -> dict[int, dict]:
-    """Return {txn_idx: rule_dict} for the first matching rule per transaction."""
+    """Return {txn_idx: rule_dict} for the first rule where ALL set criteria match."""
     matches: dict[int, dict] = {}
     for i, txn in enumerate(transactions):
         if skip_indices and i in skip_indices:
             continue
-        desc = (txn.description + " " + txn.memo).lower()
         for rule in rules:
             if not rule.get("active_flag", 1):
                 continue
-            pattern = str(rule.get("description_contains", "")).lower().strip()
-            if pattern and pattern in desc:
-                matches[i] = rule
-                break
+            # Each non-empty criterion must match (AND logic)
+            desc_pat = str(rule.get("description_contains", "")).lower().strip()
+            if desc_pat and desc_pat not in txn.description.lower():
+                continue
+            memo_pat = str(rule.get("match_memo", "")).lower().strip()
+            if memo_pat and memo_pat not in txn.memo.lower():
+                continue
+            type_pat = str(rule.get("match_type", "")).lower().strip()
+            if type_pat and type_pat not in txn.transaction_type.lower():
+                continue
+            amount_str = str(rule.get("match_amount", "")).strip()
+            if amount_str:
+                try:
+                    target = abs(Decimal(amount_str.lstrip("$").replace(",", "")))
+                    if abs(abs(txn.amount) - target) > Decimal("0.01"):
+                        continue
+                except Exception:
+                    pass
+            matches[i] = rule
+            break
     return matches
 
 
