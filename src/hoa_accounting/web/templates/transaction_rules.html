@@ -33,6 +33,7 @@
           <th>Matches When Description Contains</th>
           <th>Transaction Type</th>
           <th>Account</th>
+          <th>Lot / Owner</th>
           <th>Memo</th>
           <th style="text-align:center;">Active</th>
           <th></th>
@@ -67,6 +68,16 @@
           <td style="font-size:13px;">
             {% if rule.account_number %}
               {{ rule.account_number }} {{ rule.account_name }}
+            {% else %}
+              <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="font-size:13px;">
+            {% if rule.action_type == 'dues_payment' and rule.lot_id %}
+              <span style="font-weight:600;">Lot {{ rule.lot_number }}</span>
+              {% if rule.lot_owner_name %}
+                <br><span style="color:var(--text-muted);font-size:11px;">{{ rule.lot_owner_name }}</span>
+              {% endif %}
             {% else %}
               <span style="color:var(--text-muted);">—</span>
             {% endif %}
@@ -192,6 +203,27 @@
       </div>
     </div>
 
+    {# ── Lot / Homeowner (dues_payment only) ─────────────────────────── #}
+    <div id="lot-section" style="display:none;margin-bottom:1.25rem;
+         background:var(--accent-subtle);border:1px solid var(--accent);
+         border-radius:var(--radius);padding:.75rem 1rem;">
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:.4rem;color:var(--accent-dark,var(--accent));">
+        Lot / Homeowner
+      </div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem;">
+        Optional. When set, each matched deposit will also record an AR payment
+        for this lot and automatically apply it to any open assessments.
+      </div>
+      <select name="lot_id" id="lot_id" style="width:100%;">
+        <option value="">— no specific lot (GL entry only) —</option>
+        {% for lot in lots %}
+          <option value="{{ lot.id }}">
+            Lot {{ lot.lot_number }}{% if lot.owner_name %} · {{ lot.owner_name }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
     {# ── GL account ──────────────────────────────────────────────────── #}
     <div style="margin-bottom:1.25rem;">
       <div style="display:flex;align-items:baseline;gap:.75rem;margin-bottom:.35rem;">
@@ -311,7 +343,6 @@
       opt.hidden = !showAll && !!preferred && opt.getAttribute("data-acct-type") !== preferred;
     });
 
-    // If currently selected account got hidden, clear it
     var cur = sel.querySelector('option[value="' + current + '"]');
     if (cur && cur.hidden) sel.value = "";
 
@@ -329,6 +360,16 @@
       var card = document.getElementById("card-" + action);
       if (card) card.classList.add("action-card--selected");
     }
+
+    // Show lot selector only for dues_payment
+    var lotSection = document.getElementById("lot-section");
+    if (lotSection) {
+      lotSection.style.display = (action === "dues_payment") ? "" : "none";
+      if (action !== "dues_payment") {
+        document.getElementById("lot_id").value = "";
+      }
+    }
+
     window.filterAccounts();
   };
 
@@ -355,7 +396,6 @@
     var target = rule.action_type;
     var radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
     if (!radio) {
-      // legacy direct_expense / direct_income — map to closest card
       target = (target === "direct_income") ? "dues_payment" : "recurring_bill";
       radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
     }
@@ -364,8 +404,11 @@
     });
     window.onActionChange();
 
-    // Restore the account selection after filtering
+    // Restore account and lot selections after filtering
     document.getElementById("gl_account_id").value = rule.gl_account_id || "";
+    if (rule.action_type === "dues_payment") {
+      document.getElementById("lot_id").value = rule.lot_id || "";
+    }
 
     document.getElementById("rule-form-panel")
             .scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -382,6 +425,7 @@
     document.getElementById("active_flag").checked        = true;
     document.getElementById("show-all-accts").checked     = false;
     document.getElementById("gl_account_id").value        = "";
+    document.getElementById("lot_id").value               = "";
     document.getElementById("save-btn").textContent       = "Save Rule";
 
     var radios = document.querySelectorAll('input[name="action_type"]');

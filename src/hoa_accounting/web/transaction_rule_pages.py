@@ -84,14 +84,35 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def _get_lots(self) -> list[dict]:
+        """Return all active lots with their current owner name."""
+        rows = self._conn.execute(
+            """
+            SELECT l.id, l.lot_number,
+                   COALESCE(o.display_name, '') AS owner_name
+            FROM lots l
+            LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
+            LEFT JOIN owners o ON o.id = lo.owner_id
+            WHERE l.active_flag = 1
+            ORDER BY l.lot_number
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def _get_rules(self) -> list[dict]:
         rows = self._conn.execute(
             """
             SELECT r.id, r.rule_name, r.description_contains, r.action_type,
                    r.gl_account_id, r.default_memo, r.active_flag, r.created_at,
-                   a.account_number, a.account_name
+                   r.lot_id,
+                   a.account_number, a.account_name,
+                   l.lot_number,
+                   o.display_name AS lot_owner_name
             FROM bank_transaction_rules r
             LEFT JOIN accounts a ON a.id = r.gl_account_id
+            LEFT JOIN lots l ON l.id = r.lot_id
+            LEFT JOIN lot_ownership lo ON lo.lot_id = r.lot_id AND lo.end_date IS NULL
+            LEFT JOIN owners o ON o.id = lo.owner_id
             ORDER BY r.rule_name
             """
         ).fetchall()
@@ -100,12 +121,14 @@ class TransactionRulePages:
     def render_list(self, org: dict, theme: str) -> PageResponse:
         rules = self._get_rules()
         accounts = self._get_accounts()
+        lots = self._get_lots()
         return self._render(
             "transaction_rules.html",
             org=org, theme=theme,
             page_key="transaction-rules",
             rules=rules,
             accounts=accounts,
+            lots=lots,
             action_types=ACTION_TYPES,
         )
 
@@ -120,8 +143,14 @@ class TransactionRulePages:
         desc_contains  = form_data.get("description_contains", "").strip()
         action_type    = form_data.get("action_type", "recurring_bill").strip()
         gl_account_id  = form_data.get("gl_account_id", "").strip() or None
+        lot_id_raw     = form_data.get("lot_id", "").strip()
+        lot_id         = int(lot_id_raw) if lot_id_raw else None
         default_memo   = form_data.get("default_memo", "").strip()
         active_flag    = 1 if form_data.get("active_flag") else 0
+
+        # lot_id only applies to dues_payment rules
+        if action_type != "dues_payment":
+            lot_id = None
 
         if not rule_name:
             return None, self._render(
@@ -130,6 +159,7 @@ class TransactionRulePages:
                 page_key="transaction-rules",
                 rules=self._get_rules(),
                 accounts=self._get_accounts(),
+                lots=self._get_lots(),
                 action_types=ACTION_TYPES,
                 error="Rule name is required.",
             )
@@ -142,22 +172,22 @@ class TransactionRulePages:
                 """
                 UPDATE bank_transaction_rules
                 SET rule_name = ?, description_contains = ?, action_type = ?,
-                    gl_account_id = ?, default_memo = ?, active_flag = ?
+                    gl_account_id = ?, lot_id = ?, default_memo = ?, active_flag = ?
                 WHERE id = ?
                 """,
                 (rule_name, desc_contains, action_type,
-                 gl_account_id, default_memo, active_flag, int(rule_id)),
+                 gl_account_id, lot_id, default_memo, active_flag, int(rule_id)),
             )
         else:
             self._conn.execute(
                 """
                 INSERT INTO bank_transaction_rules
                     (rule_name, description_contains, action_type,
-                     gl_account_id, default_memo, active_flag)
-                VALUES (?, ?, ?, ?, ?, ?)
+                     gl_account_id, lot_id, default_memo, active_flag)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (rule_name, desc_contains, action_type,
-                 gl_account_id, default_memo, active_flag),
+                 gl_account_id, lot_id, default_memo, active_flag),
             )
 
         self._conn.commit()

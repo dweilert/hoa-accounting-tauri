@@ -102,7 +102,7 @@ class BankStatementPages:
         rows = self._conn.execute(
             """
             SELECT r.id, r.rule_name, r.description_contains, r.action_type,
-                   r.gl_account_id, r.default_memo, r.active_flag,
+                   r.gl_account_id, r.lot_id, r.default_memo, r.active_flag,
                    a.account_number, a.account_name
             FROM bank_transaction_rules r
             LEFT JOIN accounts a ON a.id = r.gl_account_id
@@ -111,6 +111,84 @@ class BankStatementPages:
             """
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def _next_receipt_number(self, payment_date: str) -> str:
+        prefix = "RCT-" + payment_date.replace("-", "") + "-"
+        row = self._conn.execute(
+            "SELECT receipt_number FROM payments WHERE receipt_number LIKE ? ORDER BY receipt_number DESC LIMIT 1",
+            (prefix + "%",),
+        ).fetchone()
+        seq = int(row["receipt_number"].rsplit("-", 1)[1]) + 1 if row else 1
+        return f"{prefix}{seq:04d}"
+
+    def _record_ar_payment(
+        self,
+        lot_id: int,
+        je_id: int,
+        bank_account_id: int,
+        amount: Decimal,
+        txn_date: str,
+        description: str,
+    ) -> None:
+        """Insert a payment record + apply to open assessments for the lot."""
+        owner_row = self._conn.execute(
+            """SELECT lo.owner_id FROM lot_ownership lo
+               WHERE lo.lot_id = ? AND lo.end_date IS NULL
+               ORDER BY lo.start_date DESC LIMIT 1""",
+            (lot_id,),
+        ).fetchone()
+        if not owner_row:
+            return
+
+        owner_id = owner_row["owner_id"]
+        receipt_number = self._next_receipt_number(txn_date)
+
+        cur = self._conn.execute(
+            """
+            INSERT INTO payments
+                (receipt_number, owner_id, payment_date, amount,
+                 payment_method, bank_account_id, journal_entry_id, notes)
+            VALUES (?, ?, ?, ?, 'ACH', ?, ?, ?)
+            """,
+            (receipt_number, owner_id, txn_date, str(amount),
+             bank_account_id, je_id, description),
+        )
+        payment_id = int(cur.lastrowid)  # type: ignore[arg-type]
+
+        # Apply to oldest open assessments first
+        asmt_rows = self._conn.execute(
+            """
+            SELECT a.id, a.amount,
+                   COALESCE(SUM(pa.applied_amount), 0) AS already_applied
+            FROM assessments a
+            LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
+            WHERE a.lot_id = ? AND a.status IN ('OPEN', 'PARTIAL')
+            GROUP BY a.id
+            HAVING a.amount - already_applied > 0
+            ORDER BY a.due_date ASC
+            """,
+            (lot_id,),
+        ).fetchall()
+
+        remaining = amount
+        for asmt in asmt_rows:
+            if remaining <= 0:
+                break
+            outstanding = Decimal(str(asmt["amount"])) - Decimal(str(asmt["already_applied"]))
+            apply_amt = min(remaining, outstanding)
+            self._conn.execute(
+                """INSERT OR IGNORE INTO payment_applications
+                       (payment_id, assessment_id, applied_amount)
+                   VALUES (?, ?, ?)""",
+                (payment_id, asmt["id"], str(apply_amt)),
+            )
+            new_applied = Decimal(str(asmt["already_applied"])) + apply_amt
+            status = "PAID" if new_applied >= Decimal(str(asmt["amount"])) else "PARTIAL"
+            self._conn.execute(
+                "UPDATE assessments SET status = ? WHERE id = ?",
+                (status, asmt["id"]),
+            )
+            remaining -= apply_amt
 
     def _period_for_date(self, date_str: str) -> int | None:
         row = self._conn.execute(
@@ -640,7 +718,7 @@ class BankStatementPages:
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
                    bt.matched_line_id, bt.match_type, bt.batch_match_ids, bt.rule_id,
-                   r.action_type, r.gl_account_id, r.default_memo
+                   r.action_type, r.gl_account_id, r.lot_id, r.default_memo
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
             WHERE bt.import_batch_id = ?
@@ -669,6 +747,17 @@ class BankStatementPages:
                     "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
                     (je_id, txn["id"]),
                 )
+                # Record AR payment if this is a dues rule with a specific lot
+                if txn["action_type"] == "dues_payment" and txn["lot_id"]:
+                    amount = abs(Decimal(str(txn["amount"])))
+                    self._record_ar_payment(
+                        lot_id=int(txn["lot_id"]),
+                        je_id=je_id,
+                        bank_account_id=int(recon["bank_account_id"]),
+                        amount=amount,
+                        txn_date=txn["transaction_date"],
+                        description=txn["default_memo"] or txn["description"] or "",
+                    )
                 matched_count += 1
 
             elif mt == "GL" and txn["matched_line_id"]:
