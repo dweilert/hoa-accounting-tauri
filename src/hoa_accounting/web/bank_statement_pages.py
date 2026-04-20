@@ -10,6 +10,7 @@ import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal
 
+from hoa_accounting.web.transaction_rule_pages import action_pattern
 from hoa_accounting.web.bank_statement_import import (
     ParsedTransaction,
     ParseError,
@@ -251,17 +252,17 @@ class BankStatementPages:
         )
         je_id = int(cur.lastrowid)  # type: ignore[arg-type]
 
-        action_type = rule.get("action_type", "direct_expense")
-        if action_type == "direct_expense":
+        pattern = action_pattern(rule.get("action_type", "recurring_bill"))
+        if pattern == "expense":
             lines = [
-                (1, gl_account_id,       amount, "0"),    # DR expense
+                (1, gl_account_id,       amount, "0"),    # DR expense/charge acct
                 (2, bank_gl_account_id,  "0",    amount), # CR bank
             ]
             bank_line_num = 2
         else:
             lines = [
                 (1, bank_gl_account_id,  amount, "0"),    # DR bank
-                (2, gl_account_id,       "0",    amount), # CR income
+                (2, gl_account_id,       "0",    amount), # CR income acct
             ]
             bank_line_num = 1
 

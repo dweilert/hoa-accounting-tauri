@@ -18,8 +18,8 @@
     <div>
       <div class="panel__title">Saved Rules</div>
       <div class="panel__description">
-        When a bank statement is imported, transactions matching a rule's
-        description are automatically posted as journal entries.
+        When a bank statement is imported, transactions whose description matches
+        a rule are automatically posted as journal entries.
       </div>
     </div>
   </div>
@@ -30,8 +30,8 @@
       <thead>
         <tr>
           <th>Rule Name</th>
-          <th>Description Contains</th>
-          <th>Type</th>
+          <th>Matches When Description Contains</th>
+          <th>Transaction Type</th>
           <th>Account</th>
           <th>Memo</th>
           <th style="text-align:center;">Active</th>
@@ -40,23 +40,28 @@
       </thead>
       <tbody>
         {% for rule in rules %}
+        {% set atype = action_types.get(rule.action_type, {}) %}
         <tr style="{% if not rule.active_flag %}opacity:.5;{% endif %}">
           <td style="font-weight:600;font-size:13px;">{{ rule.rule_name }}</td>
           <td>
             {% if rule.description_contains %}
               <code style="font-size:.8rem;background:var(--surface-muted);
-                           padding:.1rem .3rem;border-radius:3px;">
+                           padding:.1rem .35rem;border-radius:3px;">
                 {{ rule.description_contains }}
               </code>
             {% else %}
-              <span style="color:var(--text-muted);font-size:12px;">any</span>
+              <span style="color:var(--text-muted);font-size:12px;">any transaction</span>
             {% endif %}
           </td>
-          <td>
-            {% if rule.action_type == 'direct_expense' %}
-              <span class="pill" style="font-size:.7rem;background:#fef2f2;color:#991b1b;border:none;">Expense</span>
+          <td style="white-space:nowrap;">
+            {% if atype.get('pattern') == 'expense' %}
+              <span class="pill" style="font-size:.7rem;background:#fef2f2;color:#991b1b;border:none;">
+                ↑ {{ atype.get('label') or rule.action_type }}
+              </span>
             {% else %}
-              <span class="pill" style="font-size:.7rem;background:#f0fdf4;color:#166534;border:none;">Income</span>
+              <span class="pill" style="font-size:.7rem;background:#f0fdf4;color:#166534;border:none;">
+                ↓ {{ atype.get('label') or rule.action_type }}
+              </span>
             {% endif %}
           </td>
           <td style="font-size:13px;">
@@ -66,7 +71,7 @@
               <span style="color:var(--text-muted);">—</span>
             {% endif %}
           </td>
-          <td style="font-size:12px;color:var(--text-muted);max-width:200px;">
+          <td style="font-size:12px;color:var(--text-muted);max-width:180px;">
             {{ rule.default_memo or '—' }}
           </td>
           <td style="text-align:center;">
@@ -75,7 +80,7 @@
                   style="display:inline;">
               <button type="submit"
                       class="btn btn--ghost btn--sm"
-                      style="padding:.15rem .4rem;font-size:.75rem;">
+                      style="padding:.15rem .5rem;font-size:.75rem;">
                 {% if rule.active_flag %}On{% else %}Off{% endif %}
               </button>
             </form>
@@ -104,61 +109,126 @@
 </div>
 
 {# ── Add / edit rule form ──────────────────────────────────────────────── #}
-<div class="panel" style="max-width:640px;">
+<div class="panel" style="max-width:660px;" id="rule-form-panel">
   <div class="panel__header">
-    <div class="panel__title" id="form-title">Add Rule</div>
+    <div>
+      <div class="panel__title" id="form-title">Add Rule</div>
+      <div class="panel__description" id="form-subtitle">
+        Define when a bank transaction should be auto-posted.
+      </div>
+    </div>
   </div>
-  <form method="post" action="/admin/transaction-rules/save" style="padding:1rem;">
+  <form method="post" action="/admin/transaction-rules/save" style="padding:1rem 1rem 1.25rem;">
     <input type="hidden" name="rule_id" id="rule_id" value="">
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-
+    {# ── Name + trigger ─────────────────────────────────────────────── #}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
       <div>
-        <label style="font-size:.8rem;font-weight:600;">Rule Name <span style="color:var(--danger);">*</span></label>
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Rule Name <span style="color:var(--danger);">*</span>
+        </label>
         <input type="text" name="rule_name" id="rule_name" required
                placeholder="e.g. City Utility Bill"
-               style="width:100%;margin-top:.25rem;">
+               style="width:100%;">
       </div>
-
       <div>
-        <label style="font-size:.8rem;font-weight:600;">Description Contains</label>
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Description Contains
+        </label>
         <input type="text" name="description_contains" id="description_contains"
-               placeholder="e.g. city of austin"
-               style="width:100%;margin-top:.25rem;">
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem;">
-          Case-insensitive. Leave blank to match all transactions.
+               placeholder="e.g. city of austin  or  529905"
+               style="width:100%;">
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;">
+          Case-insensitive. Leave blank to match every transaction.
         </div>
       </div>
+    </div>
 
-      <div>
-        <label style="font-size:.8rem;font-weight:600;">Action Type</label>
-        <select name="action_type" id="action_type" style="width:100%;margin-top:.25rem;">
-          <option value="direct_expense">Direct Expense (DR expense / CR bank)</option>
-          <option value="direct_income">Direct Income (DR bank / CR income)</option>
-        </select>
+    {# ── Transaction type cards ──────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.5rem;">
+        What kind of transaction is this?
+      </label>
+      <div id="action-cards"
+           style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+
+        <label id="card-recurring_bill" class="action-card">
+          <input type="radio" name="action_type" value="recurring_bill"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#991b1b;">↑ Recurring Bill / Auto-Pay</div>
+            <div class="action-card__hint">Utilities, insurance, landscaping, management fees</div>
+          </div>
+        </label>
+
+        <label id="card-bank_charge" class="action-card">
+          <input type="radio" name="action_type" value="bank_charge"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#991b1b;">↑ Bank Fee or Charge</div>
+            <div class="action-card__hint">Monthly service fees, wire charges, NSF fees</div>
+          </div>
+        </label>
+
+        <label id="card-dues_payment" class="action-card">
+          <input type="radio" name="action_type" value="dues_payment"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#166534;">↓ Dues or Assessment Payment</div>
+            <div class="action-card__hint">Monthly dues deposits or special assessments received</div>
+          </div>
+        </label>
+
+        <label id="card-fee_income" class="action-card">
+          <input type="radio" name="action_type" value="fee_income"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#166534;">↓ Fee or Other Income</div>
+            <div class="action-card__hint">Late fees, resale fees, refunds, interest earned</div>
+          </div>
+        </label>
+
       </div>
+    </div>
 
-      <div>
+    {# ── GL account ──────────────────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;">
+      <div style="display:flex;align-items:baseline;gap:.75rem;margin-bottom:.35rem;">
         <label style="font-size:.8rem;font-weight:600;">GL Account</label>
-        <select name="gl_account_id" id="gl_account_id" style="width:100%;margin-top:.25rem;">
-          <option value="">— select account —</option>
-          {% for acct in accounts %}
-            <option value="{{ acct.id }}">
-              {{ acct.account_number }} {{ acct.account_name }}
-            </option>
-          {% endfor %}
-        </select>
+        <label style="font-size:.75rem;color:var(--text-muted);cursor:pointer;
+                      display:flex;align-items:center;gap:.3rem;">
+          <input type="checkbox" id="show-all-accts" onchange="filterAccounts()">
+          Show all accounts
+        </label>
       </div>
-
-      <div style="grid-column:span 2;">
-        <label style="font-size:.8rem;font-weight:600;">Default Memo</label>
-        <input type="text" name="default_memo" id="default_memo"
-               placeholder="Leave blank to use transaction description"
-               style="width:100%;margin-top:.25rem;">
+      <select name="gl_account_id" id="gl_account_id" style="width:100%;">
+        <option value="">— select account —</option>
+        {% for acct in accounts %}
+          <option value="{{ acct.id }}"
+                  data-acct-type="{{ acct.account_type }}">
+            {{ acct.account_number }} · {{ acct.account_name }}
+          </option>
+        {% endfor %}
+      </select>
+      <div id="acct-hint"
+           style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;min-height:1rem;">
       </div>
+    </div>
 
+    {# ── Memo + active ───────────────────────────────────────────────── #}
+    <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;
+                align-items:end;margin-bottom:1.25rem;">
       <div>
-        <label style="display:flex;align-items:center;gap:.5rem;font-size:.9rem;cursor:pointer;">
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Default Memo
+        </label>
+        <input type="text" name="default_memo" id="default_memo"
+               placeholder="Leave blank to use the bank transaction description"
+               style="width:100%;">
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:.4rem;
+                      font-size:.9rem;cursor:pointer;padding-bottom:.35rem;">
           <input type="checkbox" name="active_flag" id="active_flag" value="1" checked>
           Active
         </label>
@@ -172,30 +242,152 @@
   </form>
 </div>
 
-<script>
-function editRule(rule) {
-  document.getElementById("form-title").textContent = "Edit Rule";
-  document.getElementById("rule_id").value = rule.id;
-  document.getElementById("rule_name").value = rule.rule_name;
-  document.getElementById("description_contains").value = rule.description_contains || "";
-  document.getElementById("action_type").value = rule.action_type;
-  document.getElementById("gl_account_id").value = rule.gl_account_id || "";
-  document.getElementById("default_memo").value = rule.default_memo || "";
-  document.getElementById("active_flag").checked = !!rule.active_flag;
-  document.getElementById("save-btn").textContent = "Update Rule";
-  document.getElementById("form-title").scrollIntoView({ behavior: "smooth", block: "nearest" });
+<style>
+.action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  padding: .65rem .75rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 120ms, background 120ms;
 }
+.action-card input[type="radio"] {
+  margin-top: .18rem;
+  flex-shrink: 0;
+}
+.action-card__title {
+  font-weight: 700;
+  font-size: .88rem;
+}
+.action-card__hint {
+  font-size: .75rem;
+  color: var(--text-muted);
+  margin-top: .1rem;
+}
+.action-card--selected {
+  border-color: var(--accent) !important;
+  background: var(--accent-subtle) !important;
+}
+</style>
 
-function resetForm() {
-  document.getElementById("form-title").textContent = "Add Rule";
-  document.getElementById("rule_id").value = "";
-  document.getElementById("rule_name").value = "";
-  document.getElementById("description_contains").value = "";
-  document.getElementById("action_type").value = "direct_expense";
-  document.getElementById("gl_account_id").value = "";
-  document.getElementById("default_memo").value = "";
-  document.getElementById("active_flag").checked = true;
-  document.getElementById("save-btn").textContent = "Save Rule";
-}
+<script>
+(function () {
+
+  var ACCT_PREF = {
+    recurring_bill: "EXPENSE",
+    bank_charge:    "EXPENSE",
+    dues_payment:   "INCOME",
+    fee_income:     "INCOME",
+    direct_expense: "EXPENSE",
+    direct_income:  "INCOME",
+  };
+
+  var ACCT_HINTS = {
+    recurring_bill: "Showing expense accounts — utilities, insurance, maintenance, etc.",
+    bank_charge:    "Showing expense accounts — bank fees and service charges.",
+    dues_payment:   "Showing income accounts — dues revenue and assessments.",
+    fee_income:     "Showing income accounts — fees, interest, and other income.",
+  };
+
+  function selectedAction() {
+    var r = document.querySelector('input[name="action_type"]:checked');
+    return r ? r.value : "";
+  }
+
+  window.filterAccounts = function () {
+    var action    = selectedAction();
+    var showAll   = document.getElementById("show-all-accts").checked;
+    var preferred = ACCT_PREF[action] || "";
+    var sel       = document.getElementById("gl_account_id");
+    var hint      = document.getElementById("acct-hint");
+    var current   = sel.value;
+
+    Array.from(sel.options).forEach(function (opt) {
+      if (!opt.value) return;
+      opt.hidden = !showAll && !!preferred && opt.getAttribute("data-acct-type") !== preferred;
+    });
+
+    // If currently selected account got hidden, clear it
+    var cur = sel.querySelector('option[value="' + current + '"]');
+    if (cur && cur.hidden) sel.value = "";
+
+    hint.textContent = showAll
+      ? "Showing all accounts."
+      : (ACCT_HINTS[action] || "");
+  };
+
+  window.onActionChange = function () {
+    var action = selectedAction();
+    document.querySelectorAll(".action-card").forEach(function (card) {
+      card.classList.remove("action-card--selected");
+    });
+    if (action) {
+      var card = document.getElementById("card-" + action);
+      if (card) card.classList.add("action-card--selected");
+    }
+    window.filterAccounts();
+  };
+
+  // Initialise: select first card
+  var first = document.querySelector('input[name="action_type"]');
+  if (first && !selectedAction()) {
+    first.checked = true;
+  }
+  window.onActionChange();
+
+  // ── Edit existing rule ──────────────────────────────────────────────
+  window.editRule = function (rule) {
+    document.getElementById("form-title").textContent     = "Edit Rule";
+    document.getElementById("form-subtitle").textContent  = "Update the settings below, then click Update Rule.";
+    document.getElementById("rule_id").value              = rule.id;
+    document.getElementById("rule_name").value            = rule.rule_name;
+    document.getElementById("description_contains").value = rule.description_contains || "";
+    document.getElementById("default_memo").value         = rule.default_memo || "";
+    document.getElementById("active_flag").checked        = !!rule.active_flag;
+    document.getElementById("show-all-accts").checked     = false;
+    document.getElementById("save-btn").textContent       = "Update Rule";
+
+    // Pick the matching radio (fall back to recurring_bill for legacy types)
+    var target = rule.action_type;
+    var radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
+    if (!radio) {
+      // legacy direct_expense / direct_income — map to closest card
+      target = (target === "direct_income") ? "dues_payment" : "recurring_bill";
+      radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
+    }
+    document.querySelectorAll('input[name="action_type"]').forEach(function (r) {
+      r.checked = (r === radio);
+    });
+    window.onActionChange();
+
+    // Restore the account selection after filtering
+    document.getElementById("gl_account_id").value = rule.gl_account_id || "";
+
+    document.getElementById("rule-form-panel")
+            .scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  // ── Reset / Cancel ──────────────────────────────────────────────────
+  window.resetForm = function () {
+    document.getElementById("form-title").textContent     = "Add Rule";
+    document.getElementById("form-subtitle").textContent  = "Define when a bank transaction should be auto-posted.";
+    document.getElementById("rule_id").value              = "";
+    document.getElementById("rule_name").value            = "";
+    document.getElementById("description_contains").value = "";
+    document.getElementById("default_memo").value         = "";
+    document.getElementById("active_flag").checked        = true;
+    document.getElementById("show-all-accts").checked     = false;
+    document.getElementById("gl_account_id").value        = "";
+    document.getElementById("save-btn").textContent       = "Save Rule";
+
+    var radios = document.querySelectorAll('input[name="action_type"]');
+    radios.forEach(function (r, i) { r.checked = (i === 0); });
+    window.onActionChange();
+  };
+
+})();
 </script>
 {% endblock %}

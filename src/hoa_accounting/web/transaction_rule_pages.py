@@ -7,6 +7,56 @@ from dataclasses import dataclass
 
 from hoa_accounting.web.template_engine import render_template
 
+# Maps action_type → (label, accounting_pattern, preferred_account_type)
+# pattern "expense" = DR gl_account / CR bank
+# pattern "income"  = DR bank       / CR gl_account
+ACTION_TYPES: dict[str, dict] = {
+    "recurring_bill": {
+        "label":        "Recurring Bill / Auto-Pay",
+        "description":  "Utilities, insurance, landscaping, management fees",
+        "pattern":      "expense",
+        "acct_type":    "EXPENSE",
+    },
+    "dues_payment": {
+        "label":        "Dues or Assessment Payment",
+        "description":  "Monthly dues deposits or special assessments received",
+        "pattern":      "income",
+        "acct_type":    "INCOME",
+    },
+    "fee_income": {
+        "label":        "Fee or Other Income",
+        "description":  "Late fees, resale fees, interest earned, refunds",
+        "pattern":      "income",
+        "acct_type":    "INCOME",
+    },
+    "bank_charge": {
+        "label":        "Bank Fee or Charge",
+        "description":  "Monthly service fees, wire fees, NSF charges",
+        "pattern":      "expense",
+        "acct_type":    "EXPENSE",
+    },
+    # Legacy values kept for backward compatibility
+    "direct_expense": {
+        "label":        "Direct Expense (legacy)",
+        "description":  "",
+        "pattern":      "expense",
+        "acct_type":    "EXPENSE",
+    },
+    "direct_income": {
+        "label":        "Direct Income (legacy)",
+        "description":  "",
+        "pattern":      "income",
+        "acct_type":    "INCOME",
+    },
+}
+
+VALID_ACTION_TYPES = set(ACTION_TYPES.keys())
+
+
+def action_pattern(action_type: str) -> str:
+    """Return 'expense' or 'income' for the given action_type."""
+    return ACTION_TYPES.get(action_type, ACTION_TYPES["recurring_bill"])["pattern"]
+
 
 @dataclass(frozen=True)
 class PageResponse:
@@ -22,13 +72,13 @@ class TransactionRulePages:
         return PageResponse(200, render_template(template, ctx))
 
     def _get_accounts(self) -> list[dict]:
+        """Return all active accounts with their type code."""
         rows = self._conn.execute(
             """
             SELECT a.id, a.account_number, a.account_name, at.code AS account_type
             FROM accounts a
             JOIN account_types at ON at.id = a.account_type_id
-            WHERE at.code IN ('EXPENSE', 'INCOME')
-              AND a.is_active = 1
+            WHERE a.is_active = 1
             ORDER BY a.account_number
             """
         ).fetchall()
@@ -56,6 +106,7 @@ class TransactionRulePages:
             page_key="transaction-rules",
             rules=rules,
             accounts=accounts,
+            action_types=ACTION_TYPES,
         )
 
     def handle_save(
@@ -64,28 +115,27 @@ class TransactionRulePages:
         org: dict,
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
-        rule_id = form_data.get("rule_id", "").strip()
-        rule_name = form_data.get("rule_name", "").strip()
-        desc_contains = form_data.get("description_contains", "").strip()
-        action_type = form_data.get("action_type", "direct_expense").strip()
-        gl_account_id = form_data.get("gl_account_id", "").strip() or None
-        default_memo = form_data.get("default_memo", "").strip()
-        active_flag = 1 if form_data.get("active_flag") else 0
+        rule_id        = form_data.get("rule_id", "").strip()
+        rule_name      = form_data.get("rule_name", "").strip()
+        desc_contains  = form_data.get("description_contains", "").strip()
+        action_type    = form_data.get("action_type", "recurring_bill").strip()
+        gl_account_id  = form_data.get("gl_account_id", "").strip() or None
+        default_memo   = form_data.get("default_memo", "").strip()
+        active_flag    = 1 if form_data.get("active_flag") else 0
 
         if not rule_name:
-            rules = self._get_rules()
-            accounts = self._get_accounts()
             return None, self._render(
                 "transaction_rules.html",
                 org=org, theme=theme,
                 page_key="transaction-rules",
-                rules=rules,
-                accounts=accounts,
+                rules=self._get_rules(),
+                accounts=self._get_accounts(),
+                action_types=ACTION_TYPES,
                 error="Rule name is required.",
             )
 
-        if action_type not in ("direct_expense", "direct_income"):
-            action_type = "direct_expense"
+        if action_type not in VALID_ACTION_TYPES:
+            action_type = "recurring_bill"
 
         if rule_id:
             self._conn.execute(
