@@ -25,6 +25,33 @@
     </div>
   {% endif %}
 
+  {% if pending_import %}
+    <div style="margin-bottom:1rem;background:var(--accent-subtle);
+         border:1px solid var(--accent);border-radius:var(--radius);
+         display:flex;align-items:center;gap:1rem;padding:.75rem 1rem;flex-wrap:wrap;">
+      <div style="flex:1;min-width:0;font-size:.9rem;">
+        <strong>📥 Pending import:</strong>
+        {{ pending_import.source_filename }}
+        <span style="color:var(--text-muted);">
+          ({{ pending_import.transaction_count }} transactions,
+           {{ pending_import.matched_count }} matched)
+        </span>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-shrink:0;">
+        <a href="/reconciliations/{{ recon.id }}/import-statement/{{ pending_import.id }}"
+           class="btn btn--primary btn--sm">Review →</a>
+        <form method="post"
+              action="/reconciliations/{{ recon.id }}/import-statement/{{ pending_import.id }}/delete"
+              style="display:inline;"
+              data-confirm="Discard this pending import?"
+              data-confirm-title="Discard Import"
+              data-confirm-label="Discard">
+          <button type="submit" class="btn btn--ghost btn--sm">Discard</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
   {# ── Action bar ──────────────────────────────────────────────────── #}
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
     <a href="/reconciliations" class="btn btn--ghost btn--sm">← All Reconciliations</a>
@@ -36,6 +63,8 @@
           Complete Reconciliation
         </button>
       </form>
+      <a href="/reconciliations/{{ recon.id }}/import-statement"
+         class="btn btn--ghost btn--sm">🏦 Import Bank Statement</a>
       <form method="post" action="/reconciliations/{{ recon.id }}/delete" style="display:inline;"
             data-confirm="This will permanently delete this reconciliation and all of its cleared items. This cannot be undone."
             data-confirm-title="Delete Reconciliation"

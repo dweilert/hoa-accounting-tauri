@@ -1,0 +1,602 @@
+{% extends "base.html" %}
+{% block title %}Built with Claude · {{ org.name }}{% endblock %}
+{% block heading %}Built with Claude AI{% endblock %}
+
+{% block content %}
+<style>
+  .ccg-hero {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 10%, var(--surface)),
+      color-mix(in srgb, var(--accent) 4%, var(--surface)));
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+    border-radius: 10px;
+    padding: 2rem 2rem 1.75rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  .ccg-hero__logo {
+    font-size: 3rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .ccg-hero__title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: .4rem;
+  }
+  .ccg-hero__sub {
+    font-size: .92rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 640px;
+  }
+  .ccg-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+  }
+  .ccg-section__header {
+    background: var(--surface-muted);
+    border-bottom: 1px solid var(--border);
+    padding: .65rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+  .ccg-section__icon { font-size: 1.1rem; }
+  .ccg-section__title {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .ccg-section__body { padding: 1.1rem 1.25rem; }
+  .ccg-step {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+  .ccg-step:last-child { margin-bottom: 0; }
+  .ccg-step__num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: .8rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: .1rem;
+  }
+  .ccg-step__body { flex: 1; }
+  .ccg-step__title {
+    font-weight: 600;
+    font-size: .9rem;
+    color: var(--text);
+    margin-bottom: .25rem;
+  }
+  .ccg-step__desc {
+    font-size: .85rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .ccg-step__desc a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .ccg-step__desc a:hover { text-decoration: underline; }
+  .ccg-step__code {
+    font-family: ui-monospace, monospace;
+    font-size: .82rem;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: .45rem .7rem;
+    margin-top: .4rem;
+    display: block;
+    color: var(--text);
+    word-break: break-all;
+  }
+
+  .ccg-prompts { display: flex; flex-direction: column; gap: 1rem; }
+  .ccg-prompt {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .ccg-prompt__label {
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+    padding: .4rem .85rem;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .ccg-prompt__copy {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: .72rem;
+    color: var(--accent);
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    font-weight: 600;
+    transition: background .15s;
+  }
+  .ccg-prompt__copy:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .ccg-prompt__text {
+    padding: .7rem .85rem;
+    font-size: .85rem;
+    color: var(--text);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    font-family: inherit;
+  }
+
+  .ccg-tips { list-style: none; padding: 0; margin: 0; }
+  .ccg-tips li {
+    display: flex;
+    gap: .65rem;
+    align-items: flex-start;
+    padding: .55rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .87rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .ccg-tips li:last-child { border-bottom: none; }
+  .ccg-tips li strong { color: var(--text); }
+  .ccg-tip__icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
+
+  .ccg-oss {
+    background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
+    font-size: .87rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .ccg-oss a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .ccg-oss a:hover { text-decoration: underline; }
+</style>
+
+<div class="ccg-hero">
+  <div class="ccg-hero__logo">🤖</div>
+  <div>
+    <div class="ccg-hero__title">This app was built entirely by Claude AI</div>
+    <div class="ccg-hero__sub">
+      Every screen, every calculation, and every line of code in this HOA accounting
+      system was written by <strong>Claude</strong> — <a href="https://www.anthropic.com" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">Anthropic's ↗</a> AI assistant — guided
+      by a real HOA treasurer who described what he needed in plain English.
+      No traditional software development team was involved.
+      <br><br>
+      The same AI that built this app can help <em>you</em> customize it, fix things,
+      and add features — even if you've never written a line of code in your life.
+    </div>
+  </div>
+</div>
+
+<!-- What is Claude Code -->
+<div class="ccg-section">
+  <div class="ccg-section__header">
+    <span class="ccg-section__icon">💡</span>
+    <span class="ccg-section__title">What is Claude Code?</span>
+  </div>
+  <div class="ccg-section__body">
+    <p style="font-size:.9rem;color:var(--text-muted);line-height:1.7;margin:0 0 .85rem;">
+      <strong style="color:var(--text);">Claude Code</strong> is a tool made by <a href="https://www.anthropic.com" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">Anthropic ↗</a> that lets you have a
+      conversation with an AI that can actually read, write, and change the code for your application —
+      like texting a knowledgeable developer friend who never sleeps, never gets impatient,
+      and already knows your entire codebase.
+    </p>
+    <p style="font-size:.9rem;color:var(--text-muted);line-height:1.7;margin:0 0 .85rem;">
+      You describe what you want in plain English. Claude Code reads the existing code,
+      figures out what needs to change, makes the edits, and explains what it did.
+      You don't need to understand the code — you just need to describe the outcome you want.
+    </p>
+    <div style="background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:7px;padding:.85rem 1rem;font-size:.87rem;color:var(--text-muted);line-height:1.65;">
+      <strong style="color:var(--text);">Already have Claude for Mac?</strong>
+      Great news — Claude Code is already inside it. Look at the top of the Claude for Mac window.
+      You'll see three icons: <strong>Chat</strong> (conversation), <strong>Routines</strong>, and
+      <strong>&lt;/&gt; Code</strong>. That Code button <em>is</em> Claude Code.
+      Click it and you're ready — no installs, no terminal, nothing extra needed.
+      This entire HOA app was built using exactly that button.
+    </div>
+  </div>
+</div>
+
+<!-- Getting Started -->
+<div class="ccg-section">
+  <div class="ccg-section__header">
+    <span class="ccg-section__icon">🚀</span>
+    <span class="ccg-section__title">Pick Your Path — Choose What Fits You</span>
+  </div>
+  <div class="ccg-section__body">
+
+    <p style="font-size:.87rem;color:var(--text-muted);margin:0 0 1.1rem;line-height:1.6;">
+      Pick the option that works best for you. They all give you the same AI and the same results.
+    </p>
+
+    <!-- Option cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.25rem;">
+
+      <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;">
+        <div style="font-size:1.4rem;margin-bottom:.4rem;">🍎</div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.3rem;">Claude for Mac</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          The easiest way to get started.
+          <a href="https://claude.ai/download" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">Download Claude for Mac ↗</a>,
+          install it, and click the <strong>&lt;/&gt; Code</strong> button at the top.
+          Claude Code is built right in — no extra steps. This entire app was built exactly this way.
+        </div>
+        <div style="margin-top:auto;padding-top:.6rem;">
+          <a href="https://claude.ai/download" target="_blank" rel="noopener" style="text-decoration:none;">
+            <span class="pill pill--ok" style="font-size:.7rem;">● 1 Download ↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;">
+        <div style="font-size:1.4rem;margin-bottom:.4rem;">🪟</div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.3rem;">Claude for Windows</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Same as Mac — download
+          <a href="https://claude.ai/download" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">Claude for Windows</a>
+          from Anthropic, install it, and click the <strong>&lt;/&gt; Code</strong> button.
+          Claude Code is built right in.
+        </div>
+        <div style="margin-top:auto;padding-top:.6rem;">
+          <a href="https://claude.ai/download" target="_blank" rel="noopener" style="text-decoration:none;">
+            <span class="pill pill--ok" style="font-size:.7rem;">● 1 download ↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;">
+        <div style="font-size:1.4rem;margin-bottom:.4rem;">🌐</div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.3rem;">Web Browser</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Nothing to install at all. Visit
+          <a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">claude.ai/code</a>
+          in any browser, sign in, and start working. Great for trying it out first.
+        </div>
+        <div style="margin-top:auto;padding-top:.6rem;">
+          <a href="https://claude.ai/code" target="_blank" rel="noopener" style="text-decoration:none;">
+            <span class="pill pill--warn" style="font-size:.7rem;">● No install ↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;">
+        <div style="font-size:1.4rem;margin-bottom:.4rem;">📝</div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.3rem;">VS Code Extension</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Download <a href="https://code.visualstudio.com" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">VS Code</a>
+          (free), open the Extensions panel (puzzle-piece icon on the left),
+          search <strong>"Claude Code"</strong>, click Install. Good if you want to browse files visually alongside the AI chat.
+        </div>
+        <div style="margin-top:auto;padding-top:.6rem;">
+          <a href="https://code.visualstudio.com" target="_blank" rel="noopener" style="text-decoration:none;">
+            <span class="pill pill--muted" style="font-size:.7rem;">● 2 downloads ↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;">
+        <div style="font-size:1.4rem;margin-bottom:.4rem;">🧩</div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.3rem;">JetBrains IDEs</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Already use <a href="https://www.jetbrains.com" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">IntelliJ, PyCharm, WebStorm ↗</a>, or another JetBrains tool?
+          Open <strong>Settings → Plugins</strong>, search <strong>"Claude Code"</strong>,
+          and install. Works the same as the VS Code version.
+        </div>
+        <div style="margin-top:auto;padding-top:.6rem;">
+          <a href="https://plugins.jetbrains.com/search?search=claude+code" target="_blank" rel="noopener" style="text-decoration:none;">
+            <span class="pill pill--muted" style="font-size:.7rem;">● Plugin only ↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--surface);display:flex;flex-direction:column;">
+        <div style="font-size:1.4rem;margin-bottom:.4rem;">⌨️</div>
+        <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.3rem;">Terminal (Power Users)</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">
+          Comfortable with a terminal? On Mac (<a href="https://brew.sh" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">Homebrew ↗</a> required):
+          <code style="font-size:.76rem;background:var(--surface-muted);padding:.1rem .3rem;border-radius:3px;">brew install claude-code</code>.
+          On Windows/Linux (<a href="https://nodejs.org" target="_blank" rel="noopener" style="color:var(--accent);font-weight:500;">Node.js ↗</a> required):
+          <code style="font-size:.76rem;background:var(--surface-muted);padding:.1rem .3rem;border-radius:3px;">npm install -g @anthropic-ai/claude-code</code>.
+          Most flexible option.
+        </div>
+        <div style="margin-top:auto;padding-top:.6rem;">
+          <a href="https://docs.anthropic.com/en/docs/claude-code/getting-started" target="_blank" rel="noopener" style="text-decoration:none;">
+            <span class="pill pill--muted" style="font-size:.7rem;">● Technical docs ↗</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Shared steps after picking a path -->
+    <div style="border-top:1px solid var(--border);padding-top:1.1rem;">
+      <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-subtle);margin-bottom:.85rem;">
+        Once you're in — same for all options
+      </div>
+      <div class="ccg-step">
+        <div class="ccg-step__num">1</div>
+        <div class="ccg-step__body">
+          <div class="ccg-step__title">Sign in or create a free Anthropic account</div>
+          <div class="ccg-step__desc">
+            Go to <a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a> and sign up.
+            For Claude Code you'll want a <a href="https://claude.ai/upgrade" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">Pro plan ↗</a> ($20/month) — it unlocks
+            the full model and the ability to work with your project files.
+            If you already have Claude Desktop, you likely already have an account.
+          </div>
+        </div>
+      </div>
+      <div class="ccg-step">
+        <div class="ccg-step__num">2</div>
+        <div class="ccg-step__body">
+          <div class="ccg-step__title">Open this app's folder</div>
+          <div class="ccg-step__desc">
+            Point Claude Code at the folder where this application lives on your computer.
+            In the web or VS Code version there's an "Open folder" button.
+            Claude will read the project and be ready for instructions.
+          </div>
+        </div>
+      </div>
+      <div class="ccg-step">
+        <div class="ccg-step__num">3</div>
+        <div class="ccg-step__body">
+          <div class="ccg-step__title">Just start talking to it in plain English</div>
+          <div class="ccg-step__desc">
+            Type what you want. Claude will ask clarifying questions if needed,
+            show you what it plans to change before doing anything, and explain
+            everything without jargon. You're always in control — it asks for
+            your approval before modifying any files.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Prompt Examples -->
+<div class="ccg-section">
+  <div class="ccg-section__header">
+    <span class="ccg-section__icon">💬</span>
+    <span class="ccg-section__title">Ready-to-Use Prompts — Copy &amp; Paste These</span>
+  </div>
+  <div class="ccg-section__body">
+    <p style="font-size:.87rem;color:var(--text-muted);margin:0 0 1rem;line-height:1.6;">
+      Not sure what to say? Start with one of these. Click the copy button, paste it
+      into Claude Code, and edit the parts in <em>[brackets]</em> to match what you
+      actually want.
+    </p>
+    <div class="ccg-prompts">
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Add a new feature
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I'd like to add a new feature to the HOA accounting app. Here's what I need:
+
+[Describe what you want in plain English. Example: "I want a page where I can track parking violations — record the date, lot number, description of the violation, and whether a fine was issued."]
+
+Please show me what you plan to build before making any changes, and explain how it will fit into the existing app.</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Fix something that's broken
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">Something isn't working correctly in the app and I need help fixing it.
+
+Here's what's happening: [Describe the problem. Example: "When I try to save a new vendor, I get an error message that says 'Internal Server Error' and the vendor doesn't get saved."]
+
+Here's what I expected to happen: [Example: "The vendor should be saved and I should see it in the vendor list."]
+
+Steps to reproduce: [List the exact steps you took before the problem appeared.]
+
+Can you find and fix the issue?</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Change how something looks
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I'd like to change the appearance of something in the app.
+
+What I want to change: [Example: "On the Owners list page, the table feels cramped. I'd like more breathing room between rows, and I'd like the owner's name to be bold."]
+
+Please make the change and show me a screenshot so I can confirm it looks right before we finalize.</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Add a new report
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I need a new report added to the Reports section of the app.
+
+Report name: [Example: "Annual Dues Collection Summary"]
+
+What it should show: [Example: "For a selected year, show each lot, the total dues charged, total payments received, and the outstanding balance. Group by quarter and show totals at the bottom."]
+
+Format: [Example: "A table I can print or export to PDF."]
+
+Please add this report to the Reports page and include it in the navigation.</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Change a label, message, or default value
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I'd like to change some text or a default value in the app.
+
+What to change: [Example: "On the Bill Assessments page, the button currently says 'Post Assessments'. I'd like it to say 'Charge Dues' instead because that's clearer for our board members."]
+
+[Or: "The default late fee amount is $25. We've changed our policy and it should default to $35."]
+
+Please find everywhere this text or value appears and update it consistently.</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Understand how something works
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I have a question about how the app works internally. I'm not a developer but I want to understand this so I can make a good decision about changing it.
+
+My question: [Example: "When I post a payment from an owner, what exactly happens in the system? Does it touch the journal entries? Does it update the owner's balance automatically?"]
+
+Please explain it in plain English without assuming I know accounting software terminology.</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Add a new field to an existing page
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I'd like to add a new field to an existing page in the app.
+
+Page: [Example: "The Owners / Homeowners edit page"]
+
+New field: [Example: "An optional 'Board Role' field — a dropdown with options: None, President, Vice President, Treasurer, Secretary, Board Member at Large."]
+
+Where to store it: [Example: "Save it with the owner record so it shows in the owners list."]
+
+Please add the field to the form, save it to the database, and display it in the owners list.</pre>
+      </div>
+
+      <div class="ccg-prompt">
+        <div class="ccg-prompt__label">
+          Ask for help deciding what to build next
+          <button class="ccg-prompt__copy" onclick="copyPrompt(this)">Copy</button>
+        </div>
+        <pre class="ccg-prompt__text">I'm trying to decide what to improve next in this HOA accounting app. Here's some context about our association:
+
+[Example: "We have 47 homes, collect annual dues of $850, and our biggest pain points are tracking who is late on payments and communicating with owners about their balances."]
+
+Based on what already exists in this app, what features or improvements would have the most impact for an HOA like ours? Give me 3-5 ideas with a brief explanation of what each would involve.</pre>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Tips for writing good prompts -->
+<div class="ccg-section">
+  <div class="ccg-section__header">
+    <span class="ccg-section__icon">✨</span>
+    <span class="ccg-section__title">Tips for Getting Great Results</span>
+  </div>
+  <div class="ccg-section__body">
+    <ul class="ccg-tips">
+      <li>
+        <span class="ccg-tip__icon">🎯</span>
+        <span><strong>Be specific about what you want, not how to build it.</strong>
+        Say "I need to track parking violations" not "create a database table with these columns."
+        Claude figures out the technical details — you describe the outcome.</span>
+      </li>
+      <li>
+        <span class="ccg-tip__icon">📸</span>
+        <span><strong>You can share screenshots.</strong>
+        If something looks wrong or you want to show Claude what you're seeing,
+        paste a screenshot right into the Claude Code chat. It can see images.</span>
+      </li>
+      <li>
+        <span class="ccg-tip__icon">🔁</span>
+        <span><strong>It's a conversation — go back and forth.</strong>
+        If the first result isn't quite right, just say what you'd like changed.
+        "That's close, but can you make the table sortable?" You don't start over.</span>
+      </li>
+      <li>
+        <span class="ccg-tip__icon">✅</span>
+        <span><strong>Claude will ask before changing anything significant.</strong>
+        You'll see a summary of what it plans to do. If something looks wrong,
+        just say "no" or "let's try a different approach." Nothing is irreversible
+        without your approval.</span>
+      </li>
+      <li>
+        <span class="ccg-tip__icon">💾</span>
+        <span><strong>Use git to save your work.</strong>
+        Claude Code works with git — a system that saves snapshots of your code.
+        Ask Claude Code: <em>"Create a git commit to save these changes."</em>
+        This means you can always go back if something goes wrong.</span>
+      </li>
+      <li>
+        <span class="ccg-tip__icon">🤝</span>
+        <span><strong>You don't need to be a developer.</strong>
+        The person who built this entire app isn't a software developer —
+        he's an HOA treasurer who described what he needed in plain English.
+        If he can do it, you can too.</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Anthropic promo banner -->
+<div style="background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 12%,var(--surface)),color-mix(in srgb,var(--accent) 5%,var(--surface)));border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));border-radius:10px;padding:1.5rem 1.75rem;margin-bottom:1.25rem;display:flex;gap:1.25rem;align-items:flex-start;">
+  <div style="font-size:2rem;line-height:1;flex-shrink:0;">✨</div>
+  <div>
+    <div style="font-weight:700;font-size:1rem;color:var(--text);margin-bottom:.4rem;">
+      Claude does a lot more than write code
+    </div>
+    <div style="font-size:.87rem;color:var(--text-muted);line-height:1.7;margin-bottom:.85rem;">
+      Writing emails, summarizing documents, answering questions, brainstorming ideas,
+      drafting letters to homeowners, analyzing a contract — Claude handles all of it in
+      plain conversation. If you've only used it to build this app, you've barely scratched the surface.
+      Anthropic offers a range of plans and products worth exploring.
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:.6rem;">
+      <a href="https://claude.ai" target="_blank" rel="noopener"
+         class="btn btn--primary btn--sm">
+        Try Claude at claude.ai →
+      </a>
+      <a href="https://www.anthropic.com" target="_blank" rel="noopener"
+         class="btn btn--ghost btn--sm">
+        Explore Anthropic at anthropic.com
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Open Source credit -->
+<div class="ccg-oss">
+  <strong>🌐 Open Source</strong> &mdash; This application is free and open source.
+  You're welcome to use it, customize it for your HOA, and share it with others.
+  It was built entirely through conversations with
+  <a href="https://claude.ai" target="_blank" rel="noopener">Claude</a> by Anthropic.
+  If you make improvements you think others would benefit from, consider sharing them
+  with the community — Claude Code can even help you do that.
+</div>
+
+<script>
+  function copyPrompt(btn) {
+    var pre = btn.closest('.ccg-prompt').querySelector('.ccg-prompt__text');
+    navigator.clipboard.writeText(pre.textContent.trim()).then(function () {
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function () { btn.textContent = orig; }, 1800);
+    });
+  }
+</script>
+{% endblock %}

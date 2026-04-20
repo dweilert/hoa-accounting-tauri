@@ -2,6 +2,15 @@
 {% block title %}Dashboard Configuration · {{ org.name }}{% endblock %}
 {% block heading %}{{ heading }}{% endblock %}
 
+{% block topbar_help %}
+<button type="button"
+        onclick="document.getElementById('dc-help-modal').style.display='flex'"
+        title="How to use this screen"
+        style="width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);
+               background:none;color:var(--accent);font-weight:800;font-size:13px;
+               cursor:pointer;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;">?</button>
+{% endblock %}
+
 {% block content %}
 <style>
 /* ── Sticky zone 1: top bar with action buttons ──────────────── */
@@ -248,6 +257,81 @@
       Reset to Default
     </button>
     <a href="/" class="btn btn--ghost">View Dashboard</a>
+  </div>
+</div>
+
+{# ── Help modal ───────────────────────────────────────────────── #}
+<div id="dc-help-modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:2rem 2.25rem;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;position:relative;">
+    <button onclick="document.getElementById('dc-help-modal').style.display='none'"
+            style="position:absolute;top:1rem;right:1.1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);">×</button>
+    <div style="font-size:1.15rem;font-weight:800;color:var(--text);margin-bottom:1.25rem;">How to customize your dashboard</div>
+
+    <div style="display:flex;flex-direction:column;gap:1.1rem;font-size:.88rem;color:var(--text-muted);line-height:1.65;">
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+        <div><strong style="color:var(--text);">Two columns — left is the menu, right is your dashboard.</strong><br>
+        The left side shows every card available to you. The right side shows what's currently on your dashboard.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+        <div><strong style="color:var(--text);">Financial Summary is always at the top.</strong><br>
+        Bank balances, budget progress, and reconciliation tiles are pinned to the top of your dashboard. You can add or remove individual tiles but they will always appear before your activity cards.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+        <div><strong style="color:var(--text);">Add a card to your dashboard.</strong><br>
+        Find a card you want on the left side and click the <strong>+</strong> button next to it. It will appear on your dashboard immediately.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+        <div><strong style="color:var(--text);">Remove a card from your dashboard.</strong><br>
+        On the right side, click the <strong>×</strong> button on any card to remove it. It stays in the catalog — you can always add it back.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">5</div>
+        <div><strong style="color:var(--text);">Reorder your dashboard cards.</strong><br>
+        On the right side, drag any card up or down to change its position. The order here is the order you'll see on the dashboard.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">6</div>
+        <div><strong style="color:var(--text);">Group cards with a section bar.</strong><br>
+        Use the <strong>Add section bar</strong> field on the right column to insert a labeled divider — great for organizing cards into groups like "Billing", "Reports", or "Month-End".</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">7</div>
+        <div><strong style="color:var(--text);">Create a brand-new card.</strong><br>
+        Click <strong>+ New Card</strong> in the top-left to create your own card — a shortcut link, a note, or a section header to organize your dashboard.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">8</div>
+        <div><strong style="color:var(--text);">Alerts appear just below the Financial Summary on the dashboard.</strong><br>
+        Time-sensitive reminders (overdue reconciliations, missing budgets, etc.) show up right after the tiles. You can dismiss individual alerts or collapse the whole section — they come back when something new needs attention. To configure which alerts are active, scroll to the bottom of this configuration screen.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">9</div>
+        <div><strong style="color:var(--text);">Always save when you're done.</strong><br>
+        Click <strong>Save Layout</strong> in the top-right when you're happy with your changes. Nothing is permanent until you save.</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--text-subtle);">
+      💡 Tip: Click <strong>Reset to Default</strong> anytime to restore the original dashboard layout.
+    </div>
+
+    <div style="margin-top:1.25rem;text-align:center;">
+      <button onclick="document.getElementById('dc-help-modal').style.display='none'" class="btn btn--primary" style="min-width:120px;">Got it</button>
+    </div>
   </div>
 </div>
 

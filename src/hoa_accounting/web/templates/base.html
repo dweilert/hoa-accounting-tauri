@@ -54,6 +54,54 @@
               Reports
             </a>
           </li>
+          <li>
+            <a href="/workflow-guide"
+               class="sidebar__link{% if page_key == 'workflow-guide' %} sidebar__link--active{% endif %}">
+              Workflow Guide
+            </a>
+          </li>
+          <li>
+            <a href="/workflow-cheatsheet"
+               class="sidebar__link{% if page_key == 'workflow-cheatsheet' %} sidebar__link--active{% endif %}">
+              Quick Reference
+            </a>
+          </li>
+          <li>
+            <a href="/claude-code-guide"
+               class="sidebar__link{% if page_key == 'claude-code-guide' %} sidebar__link--active{% endif %}">
+              🤖 Built with Claude
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      {# ── Getting Started ─────────────────────────────────────────────── #}
+      <div class="sidebar__section" data-section="getting-started">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="getting-started"
+                aria-expanded="true" aria-controls="sidebar-getting-started">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Getting Started</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-getting-started">
+          <li>
+            <a href="/accounts/wizard"
+               class="sidebar__link{% if page_key == 'account-wizard' %} sidebar__link--active{% endif %}">
+              Account Setup Wizard
+            </a>
+          </li>
+          <li>
+            <a href="/opening-balances"
+               class="sidebar__link{% if page_key == 'opening-balances' %} sidebar__link--active{% endif %}">
+              Starting Balances
+            </a>
+          </li>
+          <li>
+            <a href="/admin/import"
+               class="sidebar__link{% if page_key == 'import' %} sidebar__link--active{% endif %}">
+              Import Data
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -66,59 +114,35 @@
           <span>Money In</span>
         </button>
         <ul class="sidebar__nav" id="sidebar-money-in">
-          <li>
-            <a href="/dues-billing"
-               class="sidebar__link{% if page_key == 'bill-dues' %} sidebar__link--active{% endif %}">
-              Charge Annual Dues
-            </a>
+          <li class="sidebar__subsection" data-subsection="money-in-billing">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="money-in-billing">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Billing
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/dues-billing" class="sidebar__link{% if page_key == 'bill-dues' %} sidebar__link--active{% endif %}">Charge Annual Dues</a></li>
+              <li><a href="/late-fees" class="sidebar__link{% if page_key == 'late-fees' %} sidebar__link--active{% endif %}">Charge Late Fees</a></li>
+              <li><a href="/assessments/bill" class="sidebar__link{% if page_key == 'bill-assessments' %} sidebar__link--active{% endif %}">Other Charges</a></li>
+              <li><a href="/resale-fee" class="sidebar__link{% if page_key == 'resale-fee' %} sidebar__link--active{% endif %}">Resale Certificate Fee</a></li>
+            </ul>
           </li>
-          <li>
-            <a href="/late-fees"
-               class="sidebar__link{% if page_key == 'late-fees' %} sidebar__link--active{% endif %}">
-              Charge Late Fees
-            </a>
+          <li class="sidebar__subsection" data-subsection="money-in-receiving">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="money-in-receiving">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Receiving
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/deposits" class="sidebar__link{% if page_key == 'deposits' %} sidebar__link--active{% endif %}">Record Payments</a></li>
+              <li><a href="/income" class="sidebar__link{% if page_key == 'income' %} sidebar__link--active{% endif %}">Other Income</a></li>
+            </ul>
           </li>
-          <li>
-            <a href="/assessments/bill"
-               class="sidebar__link{% if page_key == 'bill-assessments' %} sidebar__link--active{% endif %}">
-              Other Charges
-            </a>
-          </li>
-          <li>
-            <a href="/resale-fee"
-               class="sidebar__link{% if page_key == 'resale-fee' %} sidebar__link--active{% endif %}">
-              Resale Certificate Fee
-            </a>
-          </li>
-          <li>
-            <a href="/income"
-               class="sidebar__link{% if page_key == 'income' %} sidebar__link--active{% endif %}">
-              Other Income
-            </a>
-          </li>
-          <li>
-            <a href="/deposits"
-               class="sidebar__link{% if page_key == 'deposits' %} sidebar__link--active{% endif %}">
-              Record Payments
-            </a>
-          </li>
-          <li>
-            <a href="/ar/lots"
-               class="sidebar__link{% if page_key == 'ar-lots' %} sidebar__link--active{% endif %}">
-              Who Owes Money
-            </a>
-          </li>
-          <li>
-            <a href="/delinquency-report"
-               class="sidebar__link{% if page_key == 'delinquency-report' %} sidebar__link--active{% endif %}">
-              Past Due Accounts
-            </a>
-          </li>
-          <li>
-            <a href="/batch-pdf"
-               class="sidebar__link{% if page_key == 'batch-pdf' %} sidebar__link--active{% endif %}">
-              Owner Statements
-            </a>
+          <li class="sidebar__subsection" data-subsection="money-in-collections">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="money-in-collections">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Collections
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/ar/lots" class="sidebar__link{% if page_key == 'ar-lots' %} sidebar__link--active{% endif %}">Who Owes Money</a></li>
+              <li><a href="/delinquency-report" class="sidebar__link{% if page_key == 'delinquency-report' %} sidebar__link--active{% endif %}">Past Due Accounts</a></li>
+              <li><a href="/batch-pdf" class="sidebar__link{% if page_key == 'batch-pdf' %} sidebar__link--active{% endif %}">Owner Statements</a></li>
+            </ul>
           </li>
         </ul>
       </div>
@@ -169,15 +193,27 @@
             </a>
           </li>
           <li>
-            <a href="/journal-entries"
-               class="sidebar__link{% if page_key == 'journal-entries' %} sidebar__link--active{% endif %}">
-              Manual Adjustments
-            </a>
-          </li>
-          <li>
             <a href="/year-end-close"
                class="sidebar__link{% if page_key == 'year-end-close' %} sidebar__link--active{% endif %}">
               Year-End Close
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      {# ── Corrections ──────────────────────────────────────────────────── #}
+      <div class="sidebar__section" data-section="corrections">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="corrections"
+                aria-expanded="true" aria-controls="sidebar-corrections">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Corrections</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-corrections">
+          <li>
+            <a href="/journal-entries/new"
+               class="sidebar__link{% if page_key == 'journal-entries' %} sidebar__link--active{% endif %}">
+              Make a Correction
             </a>
           </li>
         </ul>
@@ -189,7 +225,7 @@
                 data-toggle-section="reserve-fund"
                 aria-expanded="true" aria-controls="sidebar-reserve-fund">
           <span class="sidebar__chevron" aria-hidden="true">▸</span>
-          <span>Reserve Fund</span>
+          <span>Reserve Fund Study</span>
         </button>
         <ul class="sidebar__nav" id="sidebar-reserve-fund">
           <li>
@@ -225,110 +261,37 @@
         </ul>
       </div>
 
-      {# ── Look It Up ───────────────────────────────────────────────────── #}
-      <div class="sidebar__section" data-section="lookup">
+      {# ── Manage (was Setup) ──────────────────────────────────────────── #}
+      <div class="sidebar__section" data-section="manage">
         <button type="button" class="sidebar__section-header"
-                data-toggle-section="lookup"
-                aria-expanded="true" aria-controls="sidebar-lookup">
+                data-toggle-section="manage"
+                aria-expanded="true" aria-controls="sidebar-manage">
           <span class="sidebar__chevron" aria-hidden="true">▸</span>
-          <span>Look It Up</span>
+          <span>Manage</span>
         </button>
-        <ul class="sidebar__nav" id="sidebar-lookup">
-          <li>
-            <a href="/ledger/transactions"
-               class="sidebar__link{% if page_key == 'all-transactions' %} sidebar__link--active{% endif %}">
-              Transaction History
-            </a>
+        <ul class="sidebar__nav" id="sidebar-manage">
+          <li class="sidebar__subsection" data-subsection="manage-people">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="manage-people">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>People
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/owners" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'owners' %} sidebar__link--active{% endif %}">Homeowners</a></li>
+              <li><a href="/lots" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'lots' %} sidebar__link--active{% endif %}">Properties</a></li>
+              <li><a href="/renters" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'renters' %} sidebar__link--active{% endif %}">Renters</a></li>
+              <li><a href="/vendors" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'vendors' %} sidebar__link--active{% endif %}">Vendors</a></li>
+            </ul>
           </li>
-          <li>
-            <a href="/ledger/by-account"
-               class="sidebar__link{% if page_key == 'ledger-by-account' %} sidebar__link--active{% endif %}">
-              Account Detail
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {# ── Setup ────────────────────────────────────────────────────────── #}
-      <div class="sidebar__section" data-section="setup">
-        <button type="button" class="sidebar__section-header"
-                data-toggle-section="setup"
-                aria-expanded="true" aria-controls="sidebar-setup">
-          <span class="sidebar__chevron" aria-hidden="true">▸</span>
-          <span>Setup</span>
-        </button>
-        <ul class="sidebar__nav" id="sidebar-setup">
-          <li>
-            <a href="/owners"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'owners' %} sidebar__link--active{% endif %}">
-              Homeowners
-            </a>
-          </li>
-          <li>
-            <a href="/lots"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'lots' %} sidebar__link--active{% endif %}">
-              Properties
-            </a>
-          </li>
-          <li>
-            <a href="/renters"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'renters' %} sidebar__link--active{% endif %}">
-              Renters
-            </a>
-          </li>
-          <li>
-            <a href="/vendors"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'vendors' %} sidebar__link--active{% endif %}">
-              Vendors
-            </a>
-          </li>
-          <li>
-            <a href="/bill-templates"
-               class="sidebar__link{% if page_key == 'bill-templates' %} sidebar__link--active{% endif %}">
-              Bill Templates
-            </a>
-          </li>
-          <li>
-            <a href="/bank-accounts"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">
-              Bank Accounts
-            </a>
-          </li>
-          <li>
-            <a href="/budgets"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'budgets' %} sidebar__link--active{% endif %}">
-              Budget
-            </a>
-          </li>
-          <li>
-            <a href="/accounts"
-               class="sidebar__link{% if active_nav == 'master-data' and page_key == 'accounts' %} sidebar__link--active{% endif %}">
-              Account Setup
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      {# ── Guides ───────────────────────────────────────────────────────── #}
-      <div class="sidebar__section" data-section="guides">
-        <button type="button" class="sidebar__section-header"
-                data-toggle-section="guides"
-                aria-expanded="true" aria-controls="sidebar-guides">
-          <span class="sidebar__chevron" aria-hidden="true">▸</span>
-          <span>Guides</span>
-        </button>
-        <ul class="sidebar__nav" id="sidebar-guides">
-          <li>
-            <a href="/workflow-guide"
-               class="sidebar__link{% if page_key == 'workflow-guide' %} sidebar__link--active{% endif %}">
-              Workflow Guide
-            </a>
-          </li>
-          <li>
-            <a href="/workflow-cheatsheet"
-               class="sidebar__link{% if page_key == 'workflow-cheatsheet' %} sidebar__link--active{% endif %}">
-              Quick Reference
-            </a>
+          <li class="sidebar__subsection" data-subsection="manage-accounts">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="manage-accounts">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Accounts &amp; Banking
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/bank-accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">Bank Accounts</a></li>
+              <li><a href="/accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'accounts' %} sidebar__link--active{% endif %}">Account Setup</a></li>
+              <li><a href="/admin/transaction-rules" class="sidebar__link{% if page_key == 'transaction-rules' %} sidebar__link--active{% endif %}">Transaction Rules</a></li>
+              <li><a href="/budgets" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'budgets' %} sidebar__link--active{% endif %}">Budget</a></li>
+              <li><a href="/bill-templates" class="sidebar__link{% if page_key == 'bill-templates' %} sidebar__link--active{% endif %}">Bill Templates</a></li>
+            </ul>
           </li>
         </ul>
       </div>
@@ -342,80 +305,53 @@
           <span>Admin</span>
         </button>
         <ul class="sidebar__nav" id="sidebar-admin">
-          <li>
-            <a href="/system-settings"
-               class="sidebar__link{% if page_key == 'system-settings' %} sidebar__link--active{% endif %}">
-              Preferences
-            </a>
+          <li class="sidebar__subsection" data-subsection="admin-config">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="admin-config">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Configuration
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/system-settings" class="sidebar__link{% if page_key == 'system-settings' %} sidebar__link--active{% endif %}">Preferences</a></li>
+              <li><a href="/dashboard-config" class="sidebar__link{% if page_key == 'dashboard-config' %} sidebar__link--active{% endif %}">Dashboard Layout</a></li>
+            </ul>
           </li>
-          <li>
-            <a href="/dashboard-config"
-               class="sidebar__link{% if page_key == 'dashboard-config' %} sidebar__link--active{% endif %}">
-              Dashboard Layout
-            </a>
+          <li class="sidebar__subsection" data-subsection="admin-data">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="admin-data">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Data I/O
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/admin/export" class="sidebar__link{% if page_key == 'export' %} sidebar__link--active{% endif %}">Export / Backup</a></li>
+              <li><a href="/admin/gl-import" class="sidebar__link{% if page_key == 'gl-import' %} sidebar__link--active{% endif %}">Import GL Data</a></li>
+            </ul>
           </li>
-          <li>
-            <a href="/opening-balances"
-               class="sidebar__link{% if page_key == 'opening-balances' %} sidebar__link--active{% endif %}">
-              Starting Balances
-            </a>
-          </li>
-          <li>
-            <a href="/admin/audit-log"
-               class="sidebar__link{% if page_key == 'audit-log' %} sidebar__link--active{% endif %}">
-              Activity Log
-            </a>
-          </li>
-          <li>
-            <a href="/admin/export"
-               class="sidebar__link{% if page_key == 'export' %} sidebar__link--active{% endif %}">
-              Export / Backup
-            </a>
-          </li>
-          <li>
-            <a href="/admin/import"
-               class="sidebar__link{% if page_key == 'import' %} sidebar__link--active{% endif %}">
-              Import Data
-            </a>
-          </li>
-          <li>
-            <a href="/admin/gl-import"
-               class="sidebar__link{% if page_key == 'gl-import' %} sidebar__link--active{% endif %}">
-              Import GL Data
-            </a>
-          </li>
-          <li>
-            <a href="/admin/wizard-catalog"
-               class="sidebar__link{% if page_key == 'wizard-catalog' %} sidebar__link--active{% endif %}">
-              Wizard Catalog
-            </a>
-          </li>
-          <li>
-            <a href="/admin/workflow-guide"
-               class="sidebar__link{% if page_key == 'workflow-editor' %} sidebar__link--active{% endif %}">
-              Workflow Editor
-            </a>
-          </li>
-          <li>
-            <a href="/admin/database"
-               class="sidebar__link{% if page_key == 'database-admin' %} sidebar__link--active{% endif %}">
-              Technical / Database
-            </a>
+          <li class="sidebar__subsection" data-subsection="admin-custom">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="admin-custom">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Customization
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/admin/wizard-catalog" class="sidebar__link{% if page_key == 'wizard-catalog' %} sidebar__link--active{% endif %}">Wizard Catalog</a></li>
+              <li><a href="/admin/workflow-guide" class="sidebar__link{% if page_key == 'workflow-editor' %} sidebar__link--active{% endif %}">Workflow Editor</a></li>
+            </ul>
           </li>
           {% if current_user and current_user.role == 'admin' %}
-          <li>
-            <a href="/system/users"
-               class="sidebar__link{% if page_key == 'users' %} sidebar__link--active{% endif %}">
-              Users
-            </a>
-          </li>
-          <li>
-            <a href="/system/overrides"
-               class="sidebar__link{% if page_key == 'overrides' %} sidebar__link--active{% endif %}">
-              Role Overrides
-            </a>
+          <li class="sidebar__subsection" data-subsection="admin-access">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="admin-access">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Access
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/system/users" class="sidebar__link{% if page_key == 'users' %} sidebar__link--active{% endif %}">Users</a></li>
+              <li><a href="/system/overrides" class="sidebar__link{% if page_key == 'overrides' %} sidebar__link--active{% endif %}">Role Overrides</a></li>
+            </ul>
           </li>
           {% endif %}
+          <li class="sidebar__subsection" data-subsection="admin-troubleshoot">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="admin-troubleshoot">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Troubleshooting
+            </button>
+            <ul class="sidebar__subnav">
+              <li><a href="/admin/audit-log" class="sidebar__link{% if page_key == 'audit-log' %} sidebar__link--active{% endif %}">Activity Log</a></li>
+              <li><a href="/admin/database" class="sidebar__link{% if page_key == 'database-admin' %} sidebar__link--active{% endif %}">Technical / Database</a></li>
+            </ul>
+          </li>
         </ul>
       </div>
 
@@ -425,6 +361,21 @@
         Environment: <span class="mono">{{ org.environment|default('local') }}</span><br />
         Fiscal year starts month {{ org.fiscal_year_start_month|default(1) }}
       </div>
+      <a href="https://claude.ai" target="_blank" rel="noopener"
+         title="This app was built entirely by Claude — click to learn more"
+         style="display:flex;align-items:center;justify-content:center;gap:.55rem;
+                text-decoration:none;padding:.55rem 1rem;
+                background:#F5EDE0;border-top:1px solid #D4845A;
+                margin:0 -12px;
+                transition:background .15s;">
+        <img src="/static/img/claude-starburst.png" alt=""
+             style="display:block;mix-blend-mode:multiply;width:22px;height:22px;flex-shrink:0;">
+        <span style="font-size:.82rem;font-weight:700;color:#7A3520;line-height:1;">Built by Claude</span>
+        <svg width="9" height="9" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"
+             style="flex-shrink:0;opacity:.6;">
+          <path d="M1 9L9 1M9 1H4M9 1V6" stroke="#7A3520" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
     </aside>
 
     <main class="main">
@@ -437,6 +388,15 @@
               <path d="M8 1.5L1.5 7v7.5h4.5V10h4v4.5H14.5V7L8 1.5z"
                     fill="currentColor" opacity=".85"/>
             </svg>
+          </a>
+          <a id="back-btn" href="#" title="Go back"
+             style="display:none;align-items:center;gap:.25rem;font-size:.8rem;
+                    color:var(--text-muted);text-decoration:none;padding:.2rem .4rem;
+                    border-radius:4px;border:1px solid var(--border);line-height:1;
+                    white-space:nowrap;transition:color .15s,border-color .15s;"
+             onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+             onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">
+            ← Back
           </a>
           <div class="topbar__title">
             {% if breadcrumb %}
@@ -456,8 +416,8 @@
           </div>
           {% endif %}
         </div>
-        <div class="topbar__search-row">
-          <form method="get" action="/search" role="search" style="display:contents;">
+        <div class="topbar__search-row" style="display:flex;align-items:center;gap:.75rem;">
+          <form method="get" action="/search" role="search" style="flex:1;min-width:0;">
             <div class="search-box">
               <svg class="search-box__icon" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
@@ -470,6 +430,7 @@
               <kbd class="search-box__kbd" aria-label="Press / to focus search">/</kbd>
             </div>
           </form>
+          {% block topbar_help %}{% endblock %}
         </div>
       </header>
 
@@ -521,6 +482,49 @@
             cur = cur.filter(function (s) { return s !== section; });
           }
           write(cur);
+        });
+      });
+
+      // ── Sub-section collapse (second-level groups) ─────────────────
+      var SUB_KEY = "hoa-sidebar-sub-collapsed";
+      function subRead() {
+        try {
+          var raw = window.localStorage && localStorage.getItem(SUB_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+      }
+      function subWrite(arr) {
+        try { localStorage.setItem(SUB_KEY, JSON.stringify(arr)); } catch (e) {}
+      }
+      // Default: sub-sections start collapsed unless the user has expanded
+      // them, or they contain the active link (so the user's current page is
+      // visible). First load with no saved state → collapse all.
+      var saved = subRead();
+      var hasSaved = window.localStorage && localStorage.getItem(SUB_KEY) !== null;
+      document.querySelectorAll("[data-subsection]").forEach(function (el) {
+        var key = el.getAttribute("data-subsection");
+        var containsActive = !!el.querySelector(".sidebar__link--active");
+        var shouldCollapse;
+        if (hasSaved) {
+          shouldCollapse = saved.indexOf(key) !== -1 && !containsActive;
+        } else {
+          shouldCollapse = !containsActive;
+        }
+        if (shouldCollapse) el.classList.add("sidebar__subsection--collapsed");
+      });
+      document.querySelectorAll("[data-toggle-subsection]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var key = btn.getAttribute("data-toggle-subsection");
+          var el = document.querySelector('[data-subsection="' + key + '"]');
+          if (!el) return;
+          var collapsed = el.classList.toggle("sidebar__subsection--collapsed");
+          var cur = subRead();
+          if (collapsed) {
+            if (cur.indexOf(key) === -1) cur.push(key);
+          } else {
+            cur = cur.filter(function (s) { return s !== key; });
+          }
+          subWrite(cur);
         });
       });
     })();
@@ -792,6 +796,22 @@
           e.target.value = formatDollar(e.target.value);
         }
       });
+    })();
+  </script>
+  <script>
+    /* Back button: show only when referrer is same origin and different page. */
+    (function () {
+      var btn = document.getElementById("back-btn");
+      if (!btn) return;
+      try {
+        var ref = document.referrer;
+        if (!ref) return;
+        var refUrl = new URL(ref);
+        if (refUrl.origin !== window.location.origin) return;
+        if (refUrl.pathname === window.location.pathname) return;
+        btn.href = ref;
+        btn.style.display = "flex";
+      } catch (e) {}
     })();
   </script>
 </body>

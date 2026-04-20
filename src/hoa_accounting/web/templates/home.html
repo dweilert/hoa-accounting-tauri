@@ -101,6 +101,34 @@
   </a>
 </div>
 
+{# ── Setup complete modal (one-time) ─────────────────────────────── #}
+{% if setup_complete %}
+<div id="setup-complete-modal" style="
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(2px);">
+  <div style="
+    background:var(--surface);border-radius:12px;
+    box-shadow:0 8px 40px rgba(0,0,0,.22);
+    padding:2.25rem 2.5rem;max-width:480px;width:90%;
+    text-align:center;position:relative;">
+    <div style="font-size:3rem;line-height:1;margin-bottom:.75rem;">🎉</div>
+    <div style="font-size:1.35rem;font-weight:800;color:var(--text);margin-bottom:.5rem;">
+      Setup Complete!
+    </div>
+    <div style="font-size:.9rem;color:var(--text-muted);line-height:1.7;margin-bottom:1.5rem;">
+      Welcome to your HOA dashboard. Your account is ready to go.<br><br>
+      You can update your HOA name, assessment amount, and account
+      categories anytime under <strong>Account Setup</strong> in the sidebar.
+    </div>
+    <button onclick="document.getElementById('setup-complete-modal').remove()"
+            class="btn btn--primary" style="min-width:140px;">
+      Let's Go →
+    </button>
+  </div>
+</div>
+{% endif %}
+
 {# ── Financial Summary ───────────────────────────────────────────── #}
 {% set fin_cards = cards | selectattr('card_type', 'equalto', 'FINANCIAL') | list %}
 {% set act_cards = cards | rejectattr('card_type', 'equalto', 'FINANCIAL') | list %}

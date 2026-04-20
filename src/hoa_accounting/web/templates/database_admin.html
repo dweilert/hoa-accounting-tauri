@@ -4,6 +4,7 @@
 {% block heading %}{{ heading }}{% endblock %}
 
 {% block content %}
+{% include "_troubleshoot_nudge.html" %}
 
   {# ── Alerts ──────────────────────────────────────────────────────── #}
   {% if flash_message %}

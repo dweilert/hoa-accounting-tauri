@@ -71,20 +71,21 @@ class DashboardRepository:
         legal_name: str,
         display_name: str,
         theme: str = "warm",
-        default_annual_dues: str = "0.00",
+        default_assessment_amount: str = "0.00",
+        default_billing_frequency: str = "annual",
     ) -> None:
         existing = self._conn.execute("SELECT id FROM hoa_profile LIMIT 1").fetchone()
         if existing:
             self._conn.execute(
                 "UPDATE hoa_profile SET legal_name=?, display_name=?, theme=?, "
-                "default_annual_dues=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (legal_name, display_name, theme, default_annual_dues, existing["id"]),
+                "default_assessment_amount=?, default_billing_frequency=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (legal_name, display_name, theme, default_assessment_amount, default_billing_frequency, existing["id"]),
             )
         else:
             self._conn.execute(
-                "INSERT INTO hoa_profile (legal_name, display_name, theme, default_annual_dues) "
-                "VALUES (?,?,?,?)",
-                (legal_name, display_name, theme, default_annual_dues),
+                "INSERT INTO hoa_profile (legal_name, display_name, theme, default_assessment_amount, default_billing_frequency) "
+                "VALUES (?,?,?,?,?)",
+                (legal_name, display_name, theme, default_assessment_amount, default_billing_frequency),
             )
         self._conn.commit()
 

@@ -17,7 +17,7 @@
 
   <form method="post" action="/system-settings/save">
 
-    <div class="panel" style="margin-bottom:1rem;">
+    <div id="identity" class="panel" style="margin-bottom:1rem;">
       <div class="panel__header">
         <div class="panel__title">HOA Identity</div>
         <div class="panel__description">
@@ -42,13 +42,22 @@
                  required />
           <span class="field__hint">Shown in the sidebar and page headings.</span>
         </label>
-        <label class="field">
-          <span class="field__label">Default Annual Dues ($)</span>
-          <input type="text" name="default_annual_dues"
+        <label id="dues" class="field">
+          <span class="field__label">Default Assessment Amount ($)</span>
+          <input type="text" name="default_assessment_amount"
                  class="dollar-input"
-                 value="{{ org.default_annual_dues | default('0.00') }}"
+                 value="{{ org.default_assessment_amount | default('0.00') }}"
                  placeholder="0.00" />
-          <span class="field__hint">Pre-fills the bulk amount on the Bill Assessments page. Change once per year.</span>
+          <span class="field__hint">Pre-fills the bulk amount on the Bill Assessments page.</span>
+        </label>
+        <label class="field">
+          <span class="field__label">Billing Frequency</span>
+          <select name="default_billing_frequency">
+            {% for val, label in [('monthly','Monthly'),('quarterly','Quarterly'),('semi-annual','Semi-Annual'),('annual','Annual')] %}
+              <option value="{{ val }}" {% if (org.default_billing_frequency | default('annual')) == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <span class="field__hint">How often homeowners are billed their assessment.</span>
         </label>
       </div>
 
@@ -57,7 +66,7 @@
       </div>
     </div>
 
-    <div class="panel" style="margin-bottom:1rem;">
+    <div id="theme" class="panel" style="margin-bottom:1rem;">
       <div class="panel__header">
         <div class="panel__title">UI Theme</div>
         <div class="panel__description">Choose a color palette for the application.</div>

@@ -182,6 +182,17 @@ class ReconciliationPages:
 
         is_open = recon["status"] == "OPEN"
 
+        # Check for a pending bank statement import
+        pending_import = self._conn.execute(
+            """
+            SELECT id, source_filename, transaction_count, matched_count
+            FROM bank_import_batches
+            WHERE reconciliation_id = ? AND status = 'PENDING'
+            ORDER BY id DESC LIMIT 1
+            """,
+            (reconciliation_id,),
+        ).fetchone()
+
         # Beginning balance mismatch warning
         beginning_balance_warning: str | None = None
         stmt_beg = recon["statement_beginning_balance"]
@@ -210,6 +221,7 @@ class ReconciliationPages:
             show_prior=show_prior,
             flash_message=flash_message,
             beginning_balance_warning=beginning_balance_warning,
+            pending_import=dict(pending_import) if pending_import else None,
         )
 
     # ── Toggle (AJAX) ──────────────────────────────────────────────────

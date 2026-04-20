@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction Rules · {{ org.name }}{% endblock %}
+{% block heading %}Transaction Rules{% endblock %}
+
+{% block content %}
+
+{% if error %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{# ── Existing rules ────────────────────────────────────────────────────── #}
+<div class="panel" style="margin-bottom:1.5rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Saved Rules</div>
+      <div class="panel__description">
+        When a bank statement is imported, transactions matching a rule's
+        description are automatically posted as journal entries.
+      </div>
+    </div>
+  </div>
+
+  {% if rules %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Rule Name</th>
+          <th>Description Contains</th>
+          <th>Type</th>
+          <th>Account</th>
+          <th>Memo</th>
+          <th style="text-align:center;">Active</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rule in rules %}
+        <tr style="{% if not rule.active_flag %}opacity:.5;{% endif %}">
+          <td style="font-weight:600;font-size:13px;">{{ rule.rule_name }}</td>
+          <td>
+            {% if rule.description_contains %}
+              <code style="font-size:.8rem;background:var(--surface-muted);
+                           padding:.1rem .3rem;border-radius:3px;">
+                {{ rule.description_contains }}
+              </code>
+            {% else %}
+              <span style="color:var(--text-muted);font-size:12px;">any</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if rule.action_type == 'direct_expense' %}
+              <span class="pill" style="font-size:.7rem;background:#fef2f2;color:#991b1b;border:none;">Expense</span>
+            {% else %}
+              <span class="pill" style="font-size:.7rem;background:#f0fdf4;color:#166534;border:none;">Income</span>
+            {% endif %}
+          </td>
+          <td style="font-size:13px;">
+            {% if rule.account_number %}
+              {{ rule.account_number }} {{ rule.account_name }}
+            {% else %}
+              <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);max-width:200px;">
+            {{ rule.default_memo or '—' }}
+          </td>
+          <td style="text-align:center;">
+            <form method="post"
+                  action="/admin/transaction-rules/{{ rule.id }}/toggle"
+                  style="display:inline;">
+              <button type="submit"
+                      class="btn btn--ghost btn--sm"
+                      style="padding:.15rem .4rem;font-size:.75rem;">
+                {% if rule.active_flag %}On{% else %}Off{% endif %}
+              </button>
+            </form>
+          </td>
+          <td style="text-align:right;white-space:nowrap;">
+            <button type="button"
+                    class="btn btn--ghost btn--sm"
+                    onclick="editRule({{ rule | tojson }})">Edit</button>
+            <form method="post"
+                  action="/admin/transaction-rules/{{ rule.id }}/delete"
+                  style="display:inline;"
+                  data-confirm="Delete rule '{{ rule.rule_name }}'?"
+                  data-confirm-title="Delete Rule"
+                  data-confirm-label="Delete">
+              <button type="submit" class="btn btn--danger btn--sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">No rules yet. Add one below.</div>
+  {% endif %}
+</div>
+
+{# ── Add / edit rule form ──────────────────────────────────────────────── #}
+<div class="panel" style="max-width:640px;">
+  <div class="panel__header">
+    <div class="panel__title" id="form-title">Add Rule</div>
+  </div>
+  <form method="post" action="/admin/transaction-rules/save" style="padding:1rem;">
+    <input type="hidden" name="rule_id" id="rule_id" value="">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+
+      <div>
+        <label style="font-size:.8rem;font-weight:600;">Rule Name <span style="color:var(--danger);">*</span></label>
+        <input type="text" name="rule_name" id="rule_name" required
+               placeholder="e.g. City Utility Bill"
+               style="width:100%;margin-top:.25rem;">
+      </div>
+
+      <div>
+        <label style="font-size:.8rem;font-weight:600;">Description Contains</label>
+        <input type="text" name="description_contains" id="description_contains"
+               placeholder="e.g. city of austin"
+               style="width:100%;margin-top:.25rem;">
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem;">
+          Case-insensitive. Leave blank to match all transactions.
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:.8rem;font-weight:600;">Action Type</label>
+        <select name="action_type" id="action_type" style="width:100%;margin-top:.25rem;">
+          <option value="direct_expense">Direct Expense (DR expense / CR bank)</option>
+          <option value="direct_income">Direct Income (DR bank / CR income)</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="font-size:.8rem;font-weight:600;">GL Account</label>
+        <select name="gl_account_id" id="gl_account_id" style="width:100%;margin-top:.25rem;">
+          <option value="">— select account —</option>
+          {% for acct in accounts %}
+            <option value="{{ acct.id }}">
+              {{ acct.account_number }} {{ acct.account_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="grid-column:span 2;">
+        <label style="font-size:.8rem;font-weight:600;">Default Memo</label>
+        <input type="text" name="default_memo" id="default_memo"
+               placeholder="Leave blank to use transaction description"
+               style="width:100%;margin-top:.25rem;">
+      </div>
+
+      <div>
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.9rem;cursor:pointer;">
+          <input type="checkbox" name="active_flag" id="active_flag" value="1" checked>
+          Active
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;">
+      <button type="submit" class="btn btn--primary" id="save-btn">Save Rule</button>
+      <button type="button" class="btn btn--ghost" onclick="resetForm()">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function editRule(rule) {
+  document.getElementById("form-title").textContent = "Edit Rule";
+  document.getElementById("rule_id").value = rule.id;
+  document.getElementById("rule_name").value = rule.rule_name;
+  document.getElementById("description_contains").value = rule.description_contains || "";
+  document.getElementById("action_type").value = rule.action_type;
+  document.getElementById("gl_account_id").value = rule.gl_account_id || "";
+  document.getElementById("default_memo").value = rule.default_memo || "";
+  document.getElementById("active_flag").checked = !!rule.active_flag;
+  document.getElementById("save-btn").textContent = "Update Rule";
+  document.getElementById("form-title").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function resetForm() {
+  document.getElementById("form-title").textContent = "Add Rule";
+  document.getElementById("rule_id").value = "";
+  document.getElementById("rule_name").value = "";
+  document.getElementById("description_contains").value = "";
+  document.getElementById("action_type").value = "direct_expense";
+  document.getElementById("gl_account_id").value = "";
+  document.getElementById("default_memo").value = "";
+  document.getElementById("active_flag").checked = true;
+  document.getElementById("save-btn").textContent = "Save Rule";
+}
+</script>
+{% endblock %}

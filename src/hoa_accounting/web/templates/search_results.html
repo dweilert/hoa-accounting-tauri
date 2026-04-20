@@ -28,9 +28,10 @@
     {% else %}
       {% for group in groups %}
         {% if group.total > 0 %}
+        {% set is_features = (group.label == 'Pages & Features') %}
         <div style="border-top: 1px solid var(--border);">
-          <div style="display:flex;align-items:baseline;gap:.5rem;padding:.6rem 1rem .3rem;background:var(--surface-muted);">
-            <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-subtle);">{{ group.label }}</span>
+          <div style="display:flex;align-items:baseline;gap:.5rem;padding:.6rem 1rem .3rem;{% if is_features %}background:color-mix(in srgb,var(--accent) 8%,var(--surface));{% else %}background:var(--surface-muted);{% endif %}">
+            <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:{% if is_features %}var(--accent){% else %}var(--text-subtle){% endif %};">{{ group.label }}</span>
             <span class="pill pill--muted" style="font-size:.68rem;">{{ group.total }}</span>
           </div>
           <div class="table-wrap">
@@ -49,7 +50,9 @@
                   <td style="text-align:right;white-space:nowrap;">
                     {% if hit.badge %}
                       {% set b = hit.badge %}
-                      {% if b in ('POSTED', 'PAID', 'CLEARED') %}
+                      {% if is_features %}
+                        <span class="pill pill--muted" style="font-size:.68rem;">{{ b }}</span>
+                      {% elif b in ('POSTED', 'PAID', 'CLEARED') %}
                         <span class="pill pill--ok" style="font-size:.68rem;">{{ b }}</span>
                       {% elif b in ('DRAFT', 'OPEN', 'PARTIAL') %}
                         <span class="pill pill--warn" style="font-size:.68rem;">{{ b }}</span>
@@ -59,7 +62,7 @@
                         <span class="pill pill--muted" style="font-size:.68rem;">{{ b }}</span>
                       {% endif %}
                     {% endif %}
-                    <a href="{{ hit.url }}" class="btn btn--sm btn--ghost" style="margin-left:.25rem;">Open →</a>
+                    <a href="{{ hit.url }}" class="btn btn--sm btn--ghost" style="margin-left:.25rem;">{% if is_features %}Go →{% else %}Open →{% endif %}</a>
                   </td>
                 </tr>
                 {% endfor %}

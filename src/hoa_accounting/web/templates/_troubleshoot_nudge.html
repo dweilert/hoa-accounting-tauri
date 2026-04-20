@@ -1,0 +1,47 @@
+{# ── Troubleshooting nudge modal — shown once per browser session ── #}
+<div id="ts-nudge-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+     align-items:center;justify-content:center;
+     background:rgba(0,0,0,.5);backdrop-filter:blur(3px);">
+  <div style="background:var(--surface);border-radius:14px;
+              box-shadow:0 12px 48px rgba(0,0,0,.28);
+              padding:2rem 2.25rem;max-width:480px;width:90%;
+              text-align:center;position:relative;">
+
+    <div style="font-size:2.8rem;line-height:1;margin-bottom:.75rem;">🔦</div>
+
+    <div style="font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:.5rem;">
+      Welcome to the technical side
+    </div>
+
+    <div style="font-size:.88rem;color:var(--text-muted);line-height:1.75;margin-bottom:1.5rem;">
+      Activity logs and database tools are here when something doesn't look right.
+      Most of the time you won't need them — but when you do, it's good to know
+      you're not alone.<br><br>
+      <strong style="color:var(--text);">Claude Code can read your logs, spot problems, and walk you through fixes</strong>
+      in plain English — no IT experience required. Think of it as having a
+      knowledgeable friend on call whenever something breaks.
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:.6rem;align-items:center;">
+      <a href="/claude-code-guide" class="btn btn--primary" style="min-width:180px;">
+        🤖 Learn about Claude Code
+      </a>
+      <button type="button"
+              onclick="document.getElementById('ts-nudge-modal').style.display='none'"
+              class="btn btn--ghost" style="min-width:180px;">
+        Got it, carry on
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'hoa_ts_nudge_shown';
+  if (!sessionStorage.getItem(KEY)) {
+    document.getElementById('ts-nudge-modal').style.display = 'flex';
+    sessionStorage.setItem(KEY, '1');
+  }
+})();
+</script>

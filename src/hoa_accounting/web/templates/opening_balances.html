@@ -3,7 +3,62 @@
 {% block title %}Opening Balances · {{ org.name }}{% endblock %}
 {% block heading %}{{ heading }}{% endblock %}
 
+{% block topbar_help %}
+<button type="button"
+        onclick="document.getElementById('ob-help-modal').style.display='flex'"
+        title="How to use this screen"
+        style="width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);
+               background:none;color:var(--accent);font-weight:800;font-size:13px;
+               cursor:pointer;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;">?</button>
+{% endblock %}
+
 {% block content %}
+{# ── Help modal ───────────────────────────────────────────────── #}
+<div id="ob-help-modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:2rem 2.25rem;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;position:relative;">
+    <button onclick="document.getElementById('ob-help-modal').style.display='none'"
+            style="position:absolute;top:1rem;right:1.1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);">×</button>
+    <div style="font-size:1.15rem;font-weight:800;color:var(--text);margin-bottom:1.25rem;">How to set up Starting Balances</div>
+
+    <div style="display:flex;flex-direction:column;gap:1.1rem;font-size:.88rem;color:var(--text-muted);line-height:1.65;">
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+        <div><strong style="color:var(--text);">What this screen does.</strong><br>
+        Think of it as telling the system "here's how much money we have right now." You enter the current balance of each bank account so the system knows where things stand from day one.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+        <div><strong style="color:var(--text);">Where to get the numbers.</strong><br>
+        Grab your most recent bank statement for each account and enter the ending balance shown. If you're starting mid-year, use the balance from the day before you began using this system.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+        <div><strong style="color:var(--text);">What happens when you save.</strong><br>
+        The system records those balances and uses them as the starting point for all future reports and statements. Nothing complicated — it's just telling the system where you're starting from.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+        <div><strong style="color:var(--text);">Homeowner balances (optional).</strong><br>
+        If any homeowners had unpaid dues or assessments before you started using this system, you can enter what each one owes here. This keeps the "Who Owes Money" and past-due reports accurate from day one. If everyone is starting fresh with a zero balance, you can skip this section.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">5</div>
+        <div><strong style="color:var(--text);">Made a mistake? No problem.</strong><br>
+        Just come back to this screen, fix the number, and save again. The system will update to reflect your correction — nothing is permanent until you're happy with it.</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:1.25rem;text-align:center;">
+      <button onclick="document.getElementById('ob-help-modal').style.display='none'" class="btn btn--primary" style="min-width:120px;">Got it</button>
+    </div>
+  </div>
+</div>
   {% if flash %}
     <div class="alert alert--ok" style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
       {{ flash }}

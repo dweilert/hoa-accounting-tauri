@@ -2,7 +2,62 @@
 {% block title %}COA Setup Wizard · {{ org.name }}{% endblock %}
 {% block heading %}{{ heading }}{% endblock %}
 
+{% block topbar_help %}
+<button type="button"
+        onclick="document.getElementById('coa-wiz-help-modal').style.display='flex'"
+        title="How to use this wizard"
+        style="width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);
+               background:none;color:var(--accent);font-weight:800;font-size:13px;
+               cursor:pointer;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;">?</button>
+{% endblock %}
+
 {% block content %}
+{# ── Help modal ───────────────────────────────────────────────── #}
+<div id="coa-wiz-help-modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:2rem 2.25rem;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;position:relative;">
+    <button onclick="document.getElementById('coa-wiz-help-modal').style.display='none'"
+            style="position:absolute;top:1rem;right:1.1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);">×</button>
+    <div style="font-size:1.15rem;font-weight:800;color:var(--text);margin-bottom:1.25rem;">How to use the Account Setup Wizard</div>
+
+    <div style="display:flex;flex-direction:column;gap:1.1rem;font-size:.88rem;color:var(--text-muted);line-height:1.65;">
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+        <div><strong style="color:var(--text);">What this wizard does.</strong><br>
+        It helps you set up the spending and income categories for your HOA — things like Landscaping, Insurance, and Dues. Once set up, every dollar you record gets filed under one of these categories so you can see where money comes from and where it goes.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+        <div><strong style="color:var(--text);">Just answer a few questions.</strong><br>
+        The wizard asks simple things about your HOA — what bank accounts you have, what you typically spend money on, and whether you have a reserve fund. No accounting experience needed.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+        <div><strong style="color:var(--text);">Check your work before finishing.</strong><br>
+        The last step shows a summary of everything that will be created. You can go back and change any answer before hitting Save.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+        <div><strong style="color:var(--text);">You can always add more categories later.</strong><br>
+        If you think of something you missed, go to <strong>Manage → Accounts &amp; Banking → Account Setup</strong> and add it anytime. Nothing is locked in forever.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">5</div>
+        <div><strong style="color:var(--text);">What to do next.</strong><br>
+        After the wizard is done, head to <strong>Getting Started → Starting Balances</strong> to tell the system how much money is in each bank account right now.</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:1.25rem;text-align:center;">
+      <button onclick="document.getElementById('coa-wiz-help-modal').style.display='none'" class="btn btn--primary" style="min-width:120px;">Got it</button>
+    </div>
+  </div>
+</div>
 <style>
 /* ── Wizard shell ─────────────────────────────────────────────────── */
 .wiz-wrap { max-width: 820px; margin: 0 auto; }

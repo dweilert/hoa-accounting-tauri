@@ -1,5 +1,6 @@
-"""Global search — LIKE queries across owners, lots, vendors, journal entries,
-payments, and assessments. Results grouped by category, max 8 per group."""
+"""Global search — LIKE queries across app features, workflow steps, owners,
+lots, vendors, journal entries, payments, and assessments.
+Results grouped by category; app features always appear first."""
 
 from __future__ import annotations
 
@@ -50,6 +51,7 @@ class SearchPages:
         if q:
             term = f"%{q}%"
             groups = [
+                self._search_features(term),
                 self._search_owners(term),
                 self._search_lots(term),
                 self._search_vendors(term),
@@ -71,6 +73,54 @@ class SearchPages:
         return SearchPageResponse(status_code=HTTPStatus.OK, body_html=html)
 
     # ── Category queries ───────────────────────────────────────────────
+
+    def _search_features(self, term: str) -> SearchGroup:
+        """Search app_features catalog + workflow_cards for page/feature matches."""
+        hits: list[SearchHit] = []
+
+        # App feature catalog
+        rows = self._conn.execute(
+            """SELECT name, description, category, icon, href
+               FROM app_features
+               WHERE is_active=1
+                 AND (name LIKE ? OR description LIKE ? OR keywords LIKE ?)
+               ORDER BY sort_order, name
+               LIMIT ?""",
+            (term, term, term, MAX_PER_GROUP),
+        ).fetchall()
+        for r in rows:
+            hits.append(SearchHit(
+                title=f"{r['icon']} {r['name']}" if r["icon"] else r["name"],
+                subtitle=r["description"],
+                url=r["href"],
+                badge=r["category"],
+            ))
+
+        # Workflow cards (already in DB, always current)
+        if len(hits) < MAX_PER_GROUP:
+            remaining = MAX_PER_GROUP - len(hits)
+            wf_rows = self._conn.execute(
+                """SELECT wc.title, wc.description, wc.icon, wc.href,
+                          wt.label AS tab_label
+                   FROM workflow_cards wc
+                   JOIN workflow_sections ws ON ws.id = wc.section_id
+                   JOIN workflow_tabs wt ON wt.id = ws.tab_id
+                   WHERE wc.is_active=1 AND wc.href != '#'
+                     AND (wc.title LIKE ? OR wc.description LIKE ? OR wc.link_label LIKE ?)
+                   ORDER BY wt.sort_order, ws.sort_order, wc.sort_order
+                   LIMIT ?""",
+                (term, term, term, remaining),
+            ).fetchall()
+            for r in wf_rows:
+                hits.append(SearchHit(
+                    title=f"{r['icon']} {r['title']}" if r["icon"] else r["title"],
+                    subtitle=r["description"] or "",
+                    url=r["href"],
+                    badge=f"Workflow · {r['tab_label']}",
+                ))
+
+        total = len(hits)
+        return SearchGroup(label="Pages & Features", hits=hits[:MAX_PER_GROUP], total=total)
 
     def _search_owners(self, term: str) -> SearchGroup:
         rows = self._conn.execute(

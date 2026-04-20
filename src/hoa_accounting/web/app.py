@@ -45,6 +45,7 @@ from hoa_accounting.web.dues_billing_pages import DuesBillingPages
 from hoa_accounting.web.late_fee_pages import LateFeePages
 from hoa_accounting.web.opening_balances_pages import OpeningBalancesPages
 from hoa_accounting.web.reconciliation_pages import ReconciliationPages
+from hoa_accounting.web.bank_statement_pages import BankStatementPages
 from hoa_accounting.web.reserve_transfer_pages import ReserveTransferPages
 from hoa_accounting.web.vendor_pages import VendorPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
@@ -61,6 +62,8 @@ from hoa_accounting.web.reserve_study_pages import ReserveStudyPages
 from hoa_accounting.web.ar_pages import ARPages
 from hoa_accounting.web.audit_log_pages import AuditLogPages
 from hoa_accounting.web.search_pages import SearchPages
+from hoa_accounting.web.setup_pages import SetupPages, needs_setup
+from hoa_accounting.web.transaction_rule_pages import TransactionRulePages
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -113,12 +116,13 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
     hoa_legal = config.hoa.legal_name
     db_theme = getattr(config.app, "theme", "warm")
     db_dues = "0.00"
+    db_freq = "annual"
     try:
         import sqlite3 as _sq3
         _c = _sq3.connect(config.database.path)
         _c.row_factory = _sq3.Row
         _row = _c.execute(
-            "SELECT display_name, legal_name, theme, default_annual_dues FROM hoa_profile LIMIT 1"
+            "SELECT display_name, legal_name, theme, default_assessment_amount, default_billing_frequency FROM hoa_profile LIMIT 1"
         ).fetchone()
         if _row and _row["display_name"]:
             hoa_name = _row["display_name"]
@@ -126,8 +130,9 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
             hoa_legal = _row["legal_name"]
         if _row and _row["theme"]:
             db_theme = _row["theme"]
-        if _row and _row["default_annual_dues"]:
-            db_dues = _row["default_annual_dues"]
+        if _row and _row["default_assessment_amount"]:
+            db_dues = _row["default_assessment_amount"]
+        db_freq = (_row["default_billing_frequency"] if _row else None) or "annual"
         _c.close()
     except Exception:
         pass
@@ -137,7 +142,8 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "environment": config.app.environment,
         "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
         "theme": db_theme,
-        "default_annual_dues": db_dues,
+        "default_assessment_amount": db_dues,
+        "default_billing_frequency": db_freq,
         "db_path": config.database.path,
         "dues_receivable_account_number": getattr(
             config.accounting, "dues_receivable_account_number", "1100"
@@ -239,8 +245,43 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         g.org = org_context
         g.current_user = _get_current_user()
 
+    # ── Setup wizard ──────────────────────────────────────────────────────
+    _setup = SetupPages(str(db_path), org_context)
+
+    _SETUP_PATHS = {"/setup", "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment"}
+
+    @app.before_request
+    def _setup_guard() -> Response | None:
+        from flask import redirect as _redir
+        if request.path in _SETUP_PATHS or request.path.startswith("/static"):
+            return None
+        if needs_setup(str(db_path)):
+            return _redir("/setup")
+        return None
+
+    @app.get("/setup")
+    def setup_get() -> Response:
+        return _setup.get_setup()
+
+    @app.post("/setup/admin")
+    def setup_post_admin() -> Response:
+        return _setup.post_admin()
+
+    @app.post("/setup/login")
+    def setup_post_login() -> Response:
+        return _setup.post_login()
+
+    @app.post("/setup/identity")
+    def setup_post_identity() -> Response:
+        return _setup.post_identity()
+
+    @app.post("/setup/assessment")
+    def setup_post_assessment() -> Response:
+        return _setup.post_assessment()
+
     # ── CSRF enforcement ──────────────────────────────────────────────────
-    _CSRF_EXEMPT = {"/login", "/logout", "/auth/callback"}
+    _CSRF_EXEMPT = {"/login", "/logout", "/auth/callback",
+                    "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment"}
 
     @app.before_request
     def _enforce_csrf() -> Response | None:
@@ -381,9 +422,11 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/")
     def home() -> Response:
+        from flask import session as _session
         theme = str(org_context.get("theme", "warm"))
         pages = _open_dashboard()
-        resp = pages.render_dashboard(org=org_context, theme=theme)
+        setup_flash = _session.pop("setup_complete_flash", False)
+        resp = pages.render_dashboard(org=org_context, theme=theme, setup_complete=setup_flash)
         return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
 
     @app.get("/system-settings")
@@ -403,6 +446,17 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if redirect_url:
             return redirect(redirect_url)
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
+
+    @app.get("/claude-code-guide")
+    def claude_code_guide_page() -> Response:
+        from hoa_accounting.web.template_engine import render_template as _render
+        theme = str(org_context.get("theme", "warm"))
+        html = _render("claude_code_guide.html", {
+            "org": org_context,
+            "theme": theme,
+            "page_key": "claude-code-guide",
+        })
+        return Response(html, mimetype="text/html")
 
     @app.get("/workflow-cheatsheet")
     def workflow_cheatsheet_page() -> Response:
@@ -1144,6 +1198,149 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
+
+    # ── Bank statement import ─────────────────────────────────────────
+
+    def _open_bank_stmt_pages() -> BankStatementPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        conn = _open_db()
+        return BankStatementPages(conn)
+
+    @app.get("/reconciliations/<int:reconciliation_id>/import-statement")
+    def reconciliation_import_statement_form(reconciliation_id: int) -> Response:
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_upload_form(reconciliation_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/import-statement")
+    def reconciliation_import_statement_upload(reconciliation_id: int) -> Response:
+        from flask import redirect, request
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        file = request.files.get("statement_file")
+        if not file or not file.filename:
+            resp = pages.render_upload_form(
+                reconciliation_id, org=org_context, theme=theme,
+                error="Please select a file to upload.",
+            )
+            return Response(resp.body_html, status=resp.status_code,
+                            mimetype="text/html; charset=utf-8")
+        file_bytes = file.read()
+        redirect_url, form_resp = pages.handle_upload(
+            reconciliation_id,
+            file_bytes=file_bytes,
+            filename=file.filename,
+            org=org_context,
+            theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/reconciliations/<int:reconciliation_id>/import-statement/<int:batch_id>")
+    def reconciliation_import_statement_preview(
+        reconciliation_id: int, batch_id: int
+    ) -> Response:
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_batch_preview(
+            reconciliation_id, batch_id, org=org_context, theme=theme
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/import-statement/<int:batch_id>/remap")
+    def reconciliation_import_statement_remap(
+        reconciliation_id: int, batch_id: int
+    ) -> Response:
+        from flask import redirect, request
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_remap(
+            reconciliation_id, batch_id,
+            form_data=request.form.to_dict(),
+            org=org_context,
+            theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/import-statement/<int:batch_id>/apply")
+    def reconciliation_import_statement_apply(
+        reconciliation_id: int, batch_id: int
+    ) -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_apply(
+            reconciliation_id, batch_id,
+            org=org_context,
+            theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/reconciliations/<int:reconciliation_id>/import-statement/<int:batch_id>/delete")
+    def reconciliation_import_statement_delete(
+        reconciliation_id: int, batch_id: int
+    ) -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        redirect_url = pages.handle_delete(reconciliation_id, batch_id)
+        return redirect(redirect_url, code=303)
+
+    # ── Transaction rules ─────────────────────────────────────────────
+
+    def _open_txn_rule_pages() -> TransactionRulePages:
+        conn = _open_db()
+        return TransactionRulePages(conn)
+
+    @app.get("/admin/transaction-rules")
+    def transaction_rules_list() -> Response:
+        pages = _open_txn_rule_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_list(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/transaction-rules/save")
+    def transaction_rules_save() -> Response:
+        from flask import redirect, request
+        pages = _open_txn_rule_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save(
+            form_data=request.form.to_dict(),
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/admin/transaction-rules/<int:rule_id>/delete")
+    def transaction_rules_delete(rule_id: int) -> Response:
+        from flask import redirect
+        pages = _open_txn_rule_pages()
+        return redirect(pages.handle_delete(rule_id), code=303)
+
+    @app.post("/admin/transaction-rules/<int:rule_id>/toggle")
+    def transaction_rules_toggle(rule_id: int) -> Response:
+        from flask import redirect
+        pages = _open_txn_rule_pages()
+        return redirect(pages.handle_toggle(rule_id), code=303)
 
     # ── Lot pages ─────────────────────────────────────────────────────
 

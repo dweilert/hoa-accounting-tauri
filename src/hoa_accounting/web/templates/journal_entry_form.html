@@ -7,7 +7,62 @@
   <a href="/journal-entries" class="btn btn--ghost">Cancel</a>
 {% endblock %}
 
+{% block topbar_help %}
+<button type="button"
+        onclick="document.getElementById('je-help-modal').style.display='flex'"
+        title="How to make a correction"
+        style="width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);
+               background:none;color:var(--accent);font-weight:800;font-size:13px;
+               cursor:pointer;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;">?</button>
+{% endblock %}
+
 {% block content %}
+{# ── Help modal ───────────────────────────────────────────────── #}
+<div id="je-help-modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:2rem 2.25rem;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;position:relative;">
+    <button onclick="document.getElementById('je-help-modal').style.display='none'"
+            style="position:absolute;top:1rem;right:1.1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);">×</button>
+    <div style="font-size:1.15rem;font-weight:800;color:var(--text);margin-bottom:1.25rem;">How to make a correction</div>
+
+    <div style="display:flex;flex-direction:column;gap:1.1rem;font-size:.88rem;color:var(--text-muted);line-height:1.65;">
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+        <div><strong style="color:var(--text);">Start with "What are you trying to do?"</strong><br>
+        Pick the situation that best matches yours from the dropdown at the top. The system will recognize common situations and set things up for you — no accounting knowledge needed.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+        <div><strong style="color:var(--text);">Answer the guided questions.</strong><br>
+        Once you pick a situation, a short set of plain-English questions appears — things like which bank account, which expense category, and how much. Fill those in and you're done.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+        <div><strong style="color:var(--text);">Common situations include:</strong><br>
+        Expense in the wrong category · Waiving a late fee · Homeowner refund · Bounced check · Bank fee or interest · Vendor refund · Moving money between accounts · Reserve fund projects — and more.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+        <div><strong style="color:var(--text);">Don't see your situation?</strong><br>
+        Scroll past the guided section to the manual form below — or ask Claude Code to walk you through it. Describe what happened in plain English and it will tell you exactly what to enter.</div>
+      </div>
+
+      <div style="display:flex;gap:.85rem;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--surface);font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">5</div>
+        <div><strong style="color:var(--text);">Your history is always saved.</strong><br>
+        Every correction is recorded with a date and description so you can look back and see what was changed and why. Nothing disappears — corrections create a new record rather than erasing the old one.</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:1.25rem;text-align:center;">
+      <button onclick="document.getElementById('je-help-modal').style.display='none'" class="btn btn--primary" style="min-width:120px;">Got it</button>
+    </div>
+  </div>
+</div>
   {% if error_message %}
     <div class="alert alert--error">
       <div class="alert__content">{{ error_message }}</div>
@@ -41,6 +96,12 @@
             </option>
           {% endfor %}
         </select>
+        <div style="margin-top:.6rem;">
+          <a href="#" id="go-manual-link"
+             style="font-size:12px;color:var(--text-muted);text-decoration:none;">
+            I need to enter the accounting entries myself →
+          </a>
+        </div>
       </div>
     </div>
 
@@ -107,8 +168,8 @@
       </div>
     </div>
 
-    {# ── Manual lines table (always in DOM for form submission; hidden in guided mode) #}
-    <div id="manual-panel">
+    {# ── Manual lines table (hidden until scenario selected or user requests it) #}
+    <div id="manual-panel" style="display:none;">
       <div class="panel">
         <div class="panel__header">
           <div class="panel__title">
@@ -527,7 +588,8 @@
 
     if (!tpl || tpl.id === "blank") {
       callout.style.display = "none";
-      showManualMode();
+      document.getElementById("guided-panel").style.display = "none";
+      document.getElementById("manual-panel").style.display = "none";
       return;
     }
 
@@ -556,6 +618,12 @@
 
   document.getElementById("template-picker").addEventListener("change", function () {
     applyTemplate(this.value);
+  });
+
+  document.getElementById("go-manual-link").addEventListener("click", function (e) {
+    e.preventDefault();
+    showManualMode();
+    document.getElementById("template-picker").value = "blank";
   });
 
   // Auto-select scenario from ?scenario= URL param (used by Quick Action dashboard cards)

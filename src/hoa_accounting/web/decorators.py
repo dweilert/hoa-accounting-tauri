@@ -11,7 +11,7 @@ from hoa_accounting.web.auth_pages import _get_current_user
 from hoa_accounting.web.template_engine import render_template
 
 # Paths that never require authentication
-_PUBLIC_PREFIXES = ("/login", "/logout", "/auth/", "/static/")
+_PUBLIC_PREFIXES = ("/login", "/logout", "/auth/", "/static/", "/setup")
 
 # Paths that reports-level users can access (GET only)
 _REPORTS_ALLOWED_PREFIXES = (

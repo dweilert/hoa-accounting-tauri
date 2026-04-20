@@ -197,7 +197,7 @@ class AssessmentBillingPages:
                 "entry_date": values.get("entry_date", _today()),
                 "due_date": values.get("due_date", ""),
                 "income_account_id": values.get("income_account_id", ""),
-                "bulk_amount": values.get("bulk_amount") or str((org or {}).get("default_annual_dues", "") or ""),
+                "bulk_amount": values.get("bulk_amount") or str((org or {}).get("default_assessment_amount", "") or ""),
             },
             "error_message": resolved_error,
             "success_message": success_message,

@@ -54,7 +54,7 @@ class DashboardPages:
 
     # ── Dashboard home ─────────────────────────────────────────────────
 
-    def render_dashboard(self, org: dict, theme: str) -> PageResponse:
+    def render_dashboard(self, org: dict, theme: str, setup_complete: bool = False) -> PageResponse:
         profile = self._repo.get_hoa_profile()
         bank_tiles = self._repo.get_bank_tiles()
         last_recon = self._repo.get_last_reconciliation()
@@ -80,6 +80,7 @@ class DashboardPages:
             cards=cards,
             nudges=nudges,
             fiscal_year=self._fiscal_year,
+            setup_complete=setup_complete,
         )
 
     # ── System Settings ────────────────────────────────────────────────
@@ -110,15 +111,17 @@ class DashboardPages:
             return None, self.render_settings(org, new_theme, error="Full HOA name is required.")
         if not display_name:
             return None, self.render_settings(org, new_theme, error="Abbreviated name is required.")
-        raw_dues = form.get("default_annual_dues", "0.00").strip() or "0.00"
+        raw_dues = form.get("default_assessment_amount", "0.00").strip() or "0.00"
         try:
             from decimal import Decimal, InvalidOperation
             new_dues = str(Decimal(raw_dues).quantize(Decimal("0.01")))
         except (ValueError, InvalidOperation):
             new_dues = "0.00"
-        self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme, default_annual_dues=new_dues)
+        new_freq = form.get("default_billing_frequency", "annual")
+        self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme, default_assessment_amount=new_dues, default_billing_frequency=new_freq)
         org["theme"] = new_theme
-        org["default_annual_dues"] = new_dues
+        org["default_assessment_amount"] = new_dues
+        org["default_billing_frequency"] = new_freq
         return "/system-settings?msg=Settings+saved.", None
 
     # ── Card Catalog ───────────────────────────────────────────────────

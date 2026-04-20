@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="warm">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HOA Accounting Setup</title>
+  <link rel="stylesheet" href="/static/app.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem 4rem;
+      font-family: var(--font-sans, system-ui, sans-serif);
+    }
+    .setup-shell {
+      width: 100%;
+      max-width: 560px;
+    }
+    .setup-alert {
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      font-size: .875rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .setup-alert strong { color: var(--accent); }
+    .setup-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 2rem;
+    }
+    .setup-stepper {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      margin-bottom: 1.5rem;
+    }
+    .setup-stepper__dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background .2s;
+    }
+    .setup-stepper__dot--active { background: var(--accent); }
+    .setup-stepper__dot--done   { background: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+    .setup-stepper__label {
+      margin-left: .5rem;
+      font-size: .78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .setup-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: .35rem;
+    }
+    .setup-subtitle {
+      font-size: .875rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    .setup-error {
+      background: #fdf3f3;
+      border: 1px solid #f5c2c2;
+      border-radius: 6px;
+      padding: .75rem 1rem;
+      margin-bottom: 1rem;
+      font-size: .84rem;
+      color: #7a1f1f;
+    }
+    .setup-error ul { margin: .25rem 0 0 1rem; padding: 0; }
+    .setup-field { margin-bottom: 1rem; }
+    .setup-field label {
+      display: block;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: .3rem;
+    }
+    .setup-field input,
+    .setup-field select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: .55rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: .9rem;
+    }
+    .setup-field input:focus,
+    .setup-field select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    .setup-field__hint {
+      font-size: .76rem;
+      color: var(--text-subtle);
+      margin-top: .25rem;
+    }
+    .setup-row { display: flex; gap: .75rem; }
+    .setup-row .setup-field { flex: 1; }
+    .setup-actions {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-top: 1.5rem;
+    }
+    .setup-skip {
+      font-size: .8rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .setup-skip:hover { color: var(--text); text-decoration: underline; }
+
+    /* CoA preview toggle */
+    .coa-toggle {
+      font-size: .8rem;
+      color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      text-decoration: underline;
+      margin-top: .5rem;
+      display: inline-block;
+    }
+    .coa-list {
+      display: none;
+      margin-top: .75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .coa-list.open { display: block; }
+    .coa-list table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .coa-list td { padding: .3rem .6rem; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+    .coa-list td:first-child { font-weight: 600; color: var(--text); white-space: nowrap; width: 60px; }
+    .coa-list td:last-child { text-align: right; font-size: .7rem; }
+    .coa-list tr:last-child td { border-bottom: none; }
+    .coa-section-row td { background: var(--surface-muted); font-weight: 700; color: var(--text-subtle); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; padding: .4rem .6rem; }
+
+    /* Option cards for CoA choice */
+    .option-cards { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1.25rem; }
+    .option-card {
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      display: flex;
+      gap: .75rem;
+      align-items: flex-start;
+    }
+    .option-card:hover { border-color: var(--accent); background: color-mix(in srgb,var(--accent) 4%,var(--surface)); }
+    .option-card__icon { font-size: 1.4rem; line-height: 1; flex-shrink: 0; margin-top: .1rem; }
+    .option-card__title { font-weight: 700; font-size: .9rem; color: var(--text); margin-bottom: .2rem; }
+    .option-card__desc { font-size: .8rem; color: var(--text-muted); line-height: 1.5; }
+    .option-card--recommended { border-color: color-mix(in srgb,var(--accent) 40%,var(--border)); background: color-mix(in srgb,var(--accent) 4%,var(--surface)); }
+
+    .setup-brand {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: .78rem;
+      color: var(--text-subtle);
+    }
+  </style>
+</head>
+<body>
+
+<div class="setup-shell">
+
+  <!-- Top alert: setup mode notice -->
+  <div class="setup-alert">
+    <strong>🔧 You're in setup mode.</strong>
+    Complete the steps below to unlock the full application.
+    Once finished, this screen will become your HOA financial dashboard —
+    showing account balances, recent transactions, and monthly summaries.
+  </div>
+
+  <div class="setup-card">
+
+    <!-- Step indicator -->
+    <div class="setup-stepper">
+      {% for s in steps %}
+        {% set idx = loop.index %}
+        <div class="setup-stepper__dot
+          {% if idx < step_index %}setup-stepper__dot--done
+          {% elif idx == step_index %}setup-stepper__dot--active
+          {% endif %}"></div>
+      {% endfor %}
+      <span class="setup-stepper__label">Step {{ step_index }} of {{ step_total }} — {{ step_label }}</span>
+    </div>
+
+    <!-- ── STEP 1: Create Admin ─────────────────────────────────────── -->
+    {% if step == 'admin' %}
+      <div class="setup-title">Create your admin account</div>
+      <div class="setup-subtitle">
+        This is the account you'll use to log in and manage the HOA accounting system.
+        You can add other users later from the Admin menu.
+      </div>
+
+      {% if errors %}
+        <div class="setup-error">
+          <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+
+      <form method="post" action="/setup/admin">
+        <div class="setup-field">
+          <label>Your Name</label>
+          <input type="text" name="display_name" value="{{ (form.display_name if form else '') or '' }}"
+                 placeholder="e.g. Jane Smith" autocomplete="name" required />
+        </div>
+        <div class="setup-field">
+          <label>Email Address</label>
+          <input type="email" name="email" value="{{ (form.email if form else '') or '' }}"
+                 placeholder="you@example.com" autocomplete="email" required />
+          <div class="setup-field__hint">This will be your login username.</div>
+        </div>
+        <div class="setup-row">
+          <div class="setup-field">
+            <label>Password</label>
+            <input type="password" name="password" placeholder="At least 8 characters"
+                   autocomplete="new-password" required />
+          </div>
+          <div class="setup-field">
+            <label>Confirm Password</label>
+            <input type="password" name="confirm_password" placeholder="Same password again"
+                   autocomplete="new-password" required />
+          </div>
+        </div>
+        <div class="setup-actions">
+          <button type="submit" class="btn btn--primary">Create Account &amp; Continue →</button>
+        </div>
+      </form>
+
+    <!-- ── STEP 2: Confirm Login ───────────────────────────────────── -->
+    {% elif step == 'login' %}
+      <div class="setup-title">Confirm your login works</div>
+      <div class="setup-subtitle">
+        Before continuing, let's make sure your password is correct.
+        Sign in with the account you just created — this only takes a moment
+        and ensures you won't be locked out later.
+      </div>
+
+      {% if errors %}
+        <div class="setup-error">
+          <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+
+      <form method="post" action="/setup/login">
+        <div class="setup-field">
+          <label>Email Address</label>
+          <input type="email" name="email"
+                 value="{{ setup_admin_email or (form.email if form else '') or '' }}"
+                 autocomplete="email" required />
+        </div>
+        <div class="setup-field">
+          <label>Password</label>
+          <input type="password" name="password" placeholder="Enter your password"
+                 autocomplete="current-password" required />
+        </div>
+        <div class="setup-actions">
+          <button type="submit" class="btn btn--primary">Sign In &amp; Continue →</button>
+        </div>
+      </form>
+
+    <!-- ── STEP 3: HOA Identity ────────────────────────────────────── -->
+    {% elif step == 'identity' %}
+      <div class="setup-title">Tell us about your HOA</div>
+      <div class="setup-subtitle">
+        Your HOA name appears on reports, statements, and documents.
+        The abbreviated name shows in the sidebar navigation.
+        You can change both at any time in System Settings.
+      </div>
+
+      {% if errors %}
+        <div class="setup-error">
+          <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+
+      <form method="post" action="/setup/identity">
+        <div class="setup-field">
+          <label>Full Legal Name</label>
+          <input type="text" name="legal_name" value="{{ (form.legal_name if form else '') or '' }}"
+                 placeholder="e.g. Canyonside Homeowners Association, Inc." required />
+          <div class="setup-field__hint">Used on reports and official documents.</div>
+        </div>
+        <div class="setup-field">
+          <label>Abbreviated Name</label>
+          <input type="text" name="display_name" value="{{ (form.display_name if form else '') or '' }}"
+                 placeholder="e.g. Canyonside HOA" required />
+          <div class="setup-field__hint">Shown in the sidebar and page headings.</div>
+        </div>
+        <div class="setup-field">
+          <label>Fiscal Year Start Month</label>
+          <select name="fiscal_year_start_month">
+            {% for m, name in [(1,'January'),(2,'February'),(3,'March'),(4,'April'),
+                               (5,'May'),(6,'June'),(7,'July'),(8,'August'),
+                               (9,'September'),(10,'October'),(11,'November'),(12,'December')] %}
+              <option value="{{ m }}" {% if (form.fiscal_year_start_month if form else '1')|string == m|string %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+          <div class="setup-field__hint">Most HOAs use January. Ask your CPA if unsure.</div>
+        </div>
+        <div class="setup-actions">
+          <button type="submit" class="btn btn--primary">Save &amp; Continue →</button>
+        </div>
+      </form>
+
+    <!-- ── STEP 4: Assessment + Chart of Accounts ─────────────────── -->
+    {% elif step == 'assessment' %}
+      <div class="setup-title">Assessment amount &amp; account categories</div>
+      <div class="setup-subtitle">
+        Two quick things: how much homeowners are billed, and your category list.
+        Neither is set in stone — you can change everything later.
+      </div>
+
+      {% if errors %}
+        <div class="setup-error">
+          <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+
+      <form method="post" action="/setup/assessment">
+
+        <!-- Assessment amount -->
+        <div class="setup-row">
+          <div class="setup-field">
+            <label>Assessment Amount ($)</label>
+            <input type="text" name="default_assessment_amount" class="dollar-input"
+                   value="{{ (form.default_assessment_amount if form else '') or '0.00' }}"
+                   placeholder="0.00" />
+            <div class="setup-field__hint">Amount billed per homeowner per cycle. Can be $0 for now.</div>
+          </div>
+          <div class="setup-field">
+            <label>Billing Frequency</label>
+            <select name="default_billing_frequency">
+              {% for val, label in [('monthly','Monthly'),('quarterly','Quarterly'),('semi-annual','Semi-Annual'),('annual','Annual')] %}
+                <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Chart of Accounts section -->
+        <div style="border-top:1px solid var(--border);margin:1.25rem 0;"></div>
+
+        <div style="font-weight:700;font-size:.95rem;color:var(--text);margin-bottom:.35rem;">
+          Your Account Category List
+        </div>
+        <div style="font-size:.84rem;color:var(--text-muted);line-height:1.6;margin-bottom:1rem;">
+          Every HOA needs a list of categories for money coming in and going out —
+          things like <em>Dues &amp; Assessments</em>, <em>Landscaping</em>, <em>Insurance</em>,
+          and <em>Reserve Fund</em>. Accountants call this a "Chart of Accounts."
+          You can call it your category list.
+          <br><br>
+          <strong style="color:var(--text);">We've already built one for you.</strong>
+          It's a standard set used by HOAs just like yours. You don't need to do anything —
+          just click the green button below and you'll have a complete, working set of
+          categories. You can add, rename, or remove any of them later — this is just a starting point.
+          <br><br>
+          Or, if you prefer, use our <strong>Setup Wizard</strong> — it asks you a few plain-English
+          questions like <em>"How many bank accounts do you have?"</em> and builds your list
+          automatically. No accounting knowledge needed.
+        </div>
+
+        <div class="coa-list" id="coa-list">
+          <table>
+            <tr class="coa-section-row"><td colspan="3">Assets</td></tr>
+            <tr><td>1010</td><td>Operating Checking</td><td>Asset</td></tr>
+            <tr><td>1020</td><td>Reserve Checking</td><td>Asset</td></tr>
+            <tr><td>1100</td><td>Accounts Receivable</td><td>Asset</td></tr>
+            <tr class="coa-section-row"><td colspan="3">Liabilities</td></tr>
+            <tr><td>2010</td><td>Accounts Payable</td><td>Liability</td></tr>
+            <tr><td>2020</td><td>Prepaid Dues</td><td>Liability</td></tr>
+            <tr class="coa-section-row"><td colspan="3">Equity</td></tr>
+            <tr><td>3010</td><td>Retained Earnings</td><td>Equity</td></tr>
+            <tr><td>3020</td><td>Reserve Fund Balance</td><td>Equity</td></tr>
+            <tr class="coa-section-row"><td colspan="3">Income</td></tr>
+            <tr><td>4010</td><td>Dues &amp; Assessments</td><td>Income</td></tr>
+            <tr><td>4020</td><td>Late Fees</td><td>Income</td></tr>
+            <tr><td>4030</td><td>Interest Income</td><td>Income</td></tr>
+            <tr><td>4040</td><td>Miscellaneous Income</td><td>Income</td></tr>
+            <tr class="coa-section-row"><td colspan="3">Expenses</td></tr>
+            <tr><td>5010</td><td>Landscaping</td><td>Expense</td></tr>
+            <tr><td>5020</td><td>Insurance</td><td>Expense</td></tr>
+            <tr><td>5030</td><td>Utilities</td><td>Expense</td></tr>
+            <tr><td>5040</td><td>Repairs &amp; Maintenance</td><td>Expense</td></tr>
+            <tr><td>5050</td><td>Management Fees</td><td>Expense</td></tr>
+            <tr><td>5060</td><td>Administrative</td><td>Expense</td></tr>
+            <tr><td>5070</td><td>Legal &amp; Professional</td><td>Expense</td></tr>
+          </table>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-top:1.25rem;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:.5rem;">
+            <a href="/accounts/wizard" class="btn btn--primary">
+              🧙 Launch the Setup Wizard
+            </a>
+            <button type="button" class="btn btn--ghost" style="text-align:left;" onclick="document.getElementById('skip-modal').style.display='flex'">
+              I'll set up categories later
+            </button>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;">
+            <button type="submit" name="action" value="starter" class="btn btn--ghost">
+              Use the HOA Starter List
+            </button>
+            <button type="button" class="coa-toggle" id="coa-toggle-btn"
+                    onclick="var open=document.getElementById('coa-list').classList.toggle('open');this.textContent=open?'Hide Starter Accounts':'View Starter Accounts'">View Starter Accounts</button>
+          </div>
+        </div>
+
+        <!-- Skip confirmation modal -->
+        <div id="skip-modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);">
+          <div style="background:var(--surface);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.22);padding:2rem 2.25rem;max-width:420px;width:90%;text-align:center;">
+            <div style="font-size:2.5rem;margin-bottom:.6rem;">🤔</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:.5rem;">Are you sure?</div>
+            <div style="font-size:.88rem;color:var(--text-muted);line-height:1.7;margin-bottom:1.25rem;">
+              Setting up your account categories takes less than a minute and makes everything else in the app work better.<br><br>
+              The <strong>Setup Wizard</strong> just asks plain-English questions — no accounting knowledge needed. Or grab the <strong>HOA Starter List</strong> in one click and you're done.
+            </div>
+            <div style="display:flex;flex-direction:column;gap:.5rem;">
+              <a href="/accounts/wizard" class="btn btn--primary">🧙 Take me to the Wizard</a>
+              <button type="submit" name="action" value="starter" class="btn btn--ghost">Use the HOA Starter List</button>
+              <button type="submit" name="action" value="skip" class="btn btn--ghost" style="font-size:.8rem;color:var(--text-subtle);">No thanks, I'll set it up later</button>
+            </div>
+          </div>
+        </div>
+
+      </form>
+
+    {% endif %}
+
+  </div><!-- /.setup-card -->
+
+
+</div><!-- /.setup-shell -->
+
+<script>
+  // Dollar input formatting
+  document.querySelectorAll('.dollar-input').forEach(function(el) {
+    el.addEventListener('focus', function() {
+      this.select();
+    });
+    el.addEventListener('blur', function() {
+      var v = parseFloat(this.value.replace(/[^0-9.]/g, ''));
+      if (!isNaN(v)) this.value = v.toFixed(2);
+    });
+  });
+</script>
+
+</body>
+</html>
