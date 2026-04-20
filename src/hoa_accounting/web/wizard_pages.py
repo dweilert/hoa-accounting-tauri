@@ -276,7 +276,7 @@ class WizardService:
                     a["account_name"],
                     type_id,
                     a["fund_code"],
-                    a.get("group_code", ""),
+                    a.get("group_code") or None,
                     1 if a.get("is_bank_account") else 0,
                     a.get("description", ""),
                 ),
