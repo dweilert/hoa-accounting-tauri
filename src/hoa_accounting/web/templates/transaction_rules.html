@@ -394,7 +394,7 @@
         <label style="font-size:.8rem;font-weight:600;">GL Account</label>
         <label style="font-size:.75rem;color:var(--text-muted);cursor:pointer;
                       display:flex;align-items:center;gap:.3rem;">
-          <input type="checkbox" id="show-all-accts" onchange="filterAccounts()">
+          <input type="checkbox" id="show-all-accts" onchange="filterAccounts(false)">
           Show all accounts
         </label>
       </div>
@@ -471,6 +471,8 @@
 </style>
 
 <script>
+var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
+
 (function () {
 
   var ACCT_PREF = {
@@ -480,6 +482,15 @@
     fee_income:     "INCOME",
     direct_expense: "EXPENSE",
     direct_income:  "INCOME",
+  };
+
+  var ACCT_PATTERN = {
+    recurring_bill: "expense",
+    bank_charge:    "expense",
+    dues_payment:   "income",
+    fee_income:     "income",
+    direct_expense: "expense",
+    direct_income:  "income",
   };
 
   var ACCT_HINTS = {
@@ -494,25 +505,69 @@
     return r ? r.value : "";
   }
 
-  window.filterAccounts = function () {
+  window.filterAccounts = function (autoSelect) {
     var action    = selectedAction();
     var showAll   = document.getElementById("show-all-accts").checked;
     var preferred = ACCT_PREF[action] || "";
+    var pattern   = ACCT_PATTERN[action] || "";
+    var bankAcct  = document.getElementById("rule_bank_account_id").value;
     var sel       = document.getElementById("gl_account_id");
     var hint      = document.getElementById("acct-hint");
     var current   = sel.value;
 
+    // Get suggested account IDs from journal history
+    var baKey  = bankAcct || "any";
+    var baData = GL_SUGGESTIONS[baKey] || GL_SUGGESTIONS["any"] || {};
+    var suggested = (pattern && baData[pattern]) ? baData[pattern] : [];
+
+    // Hide/show options by type
     Array.from(sel.options).forEach(function (opt) {
       if (!opt.value) return;
       opt.hidden = !showAll && !!preferred && opt.getAttribute("data-acct-type") !== preferred;
     });
 
+    // If currently-selected option is now hidden, clear it
     var cur = sel.querySelector('option[value="' + current + '"]');
-    if (cur && cur.hidden) sel.value = "";
+    if (cur && cur.hidden) { sel.value = ""; current = ""; }
 
-    hint.textContent = showAll
-      ? "Showing all accounts."
-      : (ACCT_HINTS[action] || "");
+    // Reorder: move suggested accounts to the top (after the blank option)
+    if (suggested.length && !showAll) {
+      var sugMap = {};
+      suggested.forEach(function (id, i) { sugMap[String(id)] = i; });
+
+      // Split all non-blank options into: visible-suggested, visible-rest, hidden
+      var topOpts    = [];
+      var restOpts   = [];
+      var hiddenOpts = [];
+      Array.from(sel.options).forEach(function (o) {
+        if (!o.value) return;
+        if (o.hidden) { hiddenOpts.push(o); return; }
+        if (String(o.value) in sugMap) topOpts.push(o);
+        else restOpts.push(o);
+      });
+      topOpts.sort(function (a, b) { return sugMap[a.value] - sugMap[b.value]; });
+
+      // Rebuild: blank → visible-suggested → visible-rest → hidden
+      while (sel.options.length > 1) sel.remove(1);
+      topOpts.concat(restOpts).concat(hiddenOpts).forEach(function (o) { sel.appendChild(o); });
+
+      // Auto-select if exactly one visible suggestion and nothing already chosen
+      var visibleSuggested = topOpts.filter(function (o) { return !o.hidden; });
+      if (autoSelect && visibleSuggested.length === 1 && !current) {
+        sel.value = String(visibleSuggested[0].value);
+      }
+    }
+
+    // Build hint text
+    var hintParts = [];
+    if (!showAll && ACCT_HINTS[action]) hintParts.push(ACCT_HINTS[action]);
+    if (suggested.length === 1 && autoSelect) {
+      hintParts = ["Account auto-selected based on history for this bank account."];
+    } else if (suggested.length > 1) {
+      hintParts.push("Frequently used accounts shown first.");
+    }
+    if (showAll) hintParts = ["Showing all accounts."];
+    hint.textContent = hintParts.join(" ");
   };
 
   window.onActionChange = function () {
@@ -534,15 +589,31 @@
       }
     }
 
-    window.filterAccounts();
+    window.filterAccounts(true);
   };
 
-  // Initialise: select first card
+  // Re-filter and auto-select when bank account changes
+  var bankAcctSel = document.getElementById("rule_bank_account_id");
+  if (bankAcctSel) {
+    bankAcctSel.addEventListener("change", function () {
+      window.filterAccounts(true);
+    });
+  }
+
+  // Initialise: select first card (no auto-select on page load)
   var first = document.querySelector('input[name="action_type"]');
   if (first && !selectedAction()) {
     first.checked = true;
   }
-  window.onActionChange();
+  window.filterAccounts(false);
+  // highlight selected card without auto-selecting GL
+  (function () {
+    var action = selectedAction();
+    document.querySelectorAll(".action-card").forEach(function (c) { c.classList.remove("action-card--selected"); });
+    if (action) { var c = document.getElementById("card-" + action); if (c) c.classList.add("action-card--selected"); }
+    var ls = document.getElementById("lot-section");
+    if (ls) ls.style.display = (action === "dues_payment") ? "" : "none";
+  }());
 
   // ── Edit existing rule ──────────────────────────────────────────────
   window.editRule = function (rule) {

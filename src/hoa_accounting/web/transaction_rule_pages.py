@@ -133,11 +133,75 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def _get_gl_suggestions(self, bank_accounts: list[dict]) -> dict:
+        """Return {str(bank_account_id|"any"): {"income": [acct_id,...], "expense": [...]}}
+        built from journal entry history for smarter GL pre-selection."""
+        suggestions: dict[str, dict[str, list[int]]] = {}
+
+        def _query(gl_account_id: int | None) -> dict[str, list[int]]:
+            base = """
+                SELECT jel_other.account_id, at.code AS acct_type, COUNT(*) AS cnt
+                FROM journal_entry_lines jel_bank
+                JOIN journal_entries je ON je.id = jel_bank.journal_entry_id
+                JOIN journal_entry_lines jel_other
+                    ON jel_other.journal_entry_id = je.id
+                   AND jel_other.id != jel_bank.id
+                JOIN accounts a ON a.id = jel_other.account_id
+                JOIN account_types at ON at.id = a.account_type_id
+                WHERE {where}
+                  AND je.status = 'POSTED'
+                  AND at.code IN ('INCOME', 'EXPENSE')
+                GROUP BY jel_other.account_id
+                ORDER BY cnt DESC
+                LIMIT 10
+            """
+            result: dict[str, list[int]] = {"income": [], "expense": []}
+            if gl_account_id:
+                # income = money coming INTO bank (debit on bank line)
+                rows = self._conn.execute(
+                    base.format(where="jel_bank.account_id = ? AND jel_bank.debit_amount > 0"),
+                    (gl_account_id,),
+                ).fetchall()
+                for r in rows:
+                    if r["acct_type"] == "INCOME":
+                        result["income"].append(r["account_id"])
+                # expense = money going OUT of bank (credit on bank line)
+                rows = self._conn.execute(
+                    base.format(where="jel_bank.account_id = ? AND jel_bank.credit_amount > 0"),
+                    (gl_account_id,),
+                ).fetchall()
+                for r in rows:
+                    if r["acct_type"] == "EXPENSE":
+                        result["expense"].append(r["account_id"])
+            else:
+                rows = self._conn.execute(
+                    base.format(where="at.code = 'INCOME' AND jel_bank.debit_amount > 0"),
+                ).fetchall()
+                result["income"] = [r["account_id"] for r in rows]
+                rows = self._conn.execute(
+                    base.format(where="at.code = 'EXPENSE' AND jel_bank.credit_amount > 0"),
+                ).fetchall()
+                result["expense"] = [r["account_id"] for r in rows]
+            return result
+
+        suggestions["any"] = _query(None)
+        for ba in bank_accounts:
+            gl_id = self._conn.execute(
+                "SELECT gl_account_id FROM bank_accounts WHERE id = ?", (ba["id"],)
+            ).fetchone()
+            if gl_id and gl_id["gl_account_id"]:
+                suggestions[str(ba["id"])] = _query(int(gl_id["gl_account_id"]))
+            else:
+                suggestions[str(ba["id"])] = {"income": [], "expense": []}
+
+        return suggestions
+
     def render_list(self, org: dict, theme: str) -> PageResponse:
         rules = self._get_rules()
         accounts = self._get_accounts()
         lots = self._get_lots()
         bank_accounts = self._get_bank_accounts()
+        gl_suggestions = self._get_gl_suggestions(bank_accounts)
         return self._render(
             "transaction_rules.html",
             org=org, theme=theme,
@@ -146,6 +210,7 @@ class TransactionRulePages:
             accounts=accounts,
             lots=lots,
             bank_accounts=bank_accounts,
+            gl_suggestions=gl_suggestions,
             action_types=ACTION_TYPES,
         )
 
