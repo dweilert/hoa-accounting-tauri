@@ -219,6 +219,7 @@ def apply_rules(
     transactions: list[ParsedTransaction],
     rules: list[dict],
     skip_indices: set[int] | None = None,
+    bank_account_id: int | None = None,
 ) -> dict[int, dict]:
     """Return {txn_idx: rule_dict} for the first rule where ALL set criteria match."""
     matches: dict[int, dict] = {}
@@ -228,7 +229,11 @@ def apply_rules(
         for rule in rules:
             if not rule.get("active_flag", 1):
                 continue
-            # Each non-empty criterion must match (AND logic)
+            # Bank account restriction: skip rule if it targets a different account
+            rule_ba = rule.get("bank_account_id")
+            if rule_ba and bank_account_id and int(rule_ba) != int(bank_account_id):
+                continue
+            # Each non-empty text/amount criterion must match (AND logic)
             desc_pat = str(rule.get("description_contains", "")).lower().strip()
             if desc_pat and desc_pat not in txn.description.lower():
                 continue

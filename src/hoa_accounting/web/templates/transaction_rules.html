@@ -155,7 +155,7 @@
         <tr style="{% if not rule.active_flag %}opacity:.5;{% endif %}">
           <td style="font-weight:600;font-size:13px;">{{ rule.rule_name }}</td>
           <td style="font-size:12px;">
-            {% set has_criteria = rule.description_contains or rule.match_type or rule.match_memo or rule.match_amount %}
+            {% set has_criteria = rule.description_contains or rule.match_type or rule.match_memo or rule.match_amount or rule.bank_account_id %}
             {% if has_criteria %}
               <div style="display:flex;flex-direction:column;gap:.2rem;">
                 {% if rule.description_contains %}
@@ -173,6 +173,10 @@
                 {% if rule.match_amount %}
                   <span><span style="color:var(--text-muted);">amt:</span>
                   <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">${{ rule.match_amount }}</code></span>
+                {% endif %}
+                {% if rule.bank_account_id %}
+                  <span><span style="color:var(--text-muted);">acct:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.bank_account_name }}{% if rule.account_last4 %} ···{{ rule.account_last4 }}{% endif %}</code></span>
                 {% endif %}
               </div>
             {% else %}
@@ -300,6 +304,18 @@
           <input type="text" name="match_amount" id="match_amount"
                  placeholder="e.g. 155.02"
                  style="width:100%;">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Bank Account</label>
+          <select name="bank_account_id" id="rule_bank_account_id" style="width:100%;">
+            <option value="">— all accounts —</option>
+            {% for ba in bank_accounts %}
+              <option value="{{ ba.id }}">{{ ba.account_name }}{% if ba.account_last4 %} (···{{ ba.account_last4 }}){% endif %}</option>
+            {% endfor %}
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;">
+            Restrict this rule to one account, or leave blank to apply to any.
+          </div>
         </div>
       </div>
     </div>
@@ -538,6 +554,7 @@
     document.getElementById("match_type").value           = rule.match_type || "";
     document.getElementById("match_memo").value           = rule.match_memo || "";
     document.getElementById("match_amount").value         = rule.match_amount || "";
+    document.getElementById("rule_bank_account_id").value = rule.bank_account_id || "";
     document.getElementById("default_memo").value         = rule.default_memo || "";
     document.getElementById("active_flag").checked        = !!rule.active_flag;
     document.getElementById("show-all-accts").checked     = false;
@@ -575,6 +592,7 @@
     document.getElementById("match_type").value           = "";
     document.getElementById("match_memo").value           = "";
     document.getElementById("match_amount").value         = "";
+    document.getElementById("rule_bank_account_id").value = "";
     document.getElementById("default_memo").value         = "";
     document.getElementById("active_flag").checked        = true;
     document.getElementById("show-all-accts").checked     = false;

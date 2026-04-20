@@ -84,6 +84,17 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def _get_bank_accounts(self) -> list[dict]:
+        """Return all bank accounts for the rule restriction dropdown."""
+        rows = self._conn.execute(
+            """
+            SELECT id, account_name, account_last4, institution_name
+            FROM bank_accounts
+            ORDER BY account_name
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def _get_lots(self) -> list[dict]:
         """Return all active lots with their current owner name."""
         rows = self._conn.execute(
@@ -103,17 +114,20 @@ class TransactionRulePages:
         rows = self._conn.execute(
             """
             SELECT r.id, r.rule_name, r.description_contains,
-                   r.match_type, r.match_memo, r.match_amount,
+                   r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
                    r.action_type, r.gl_account_id, r.default_memo, r.active_flag, r.created_at,
                    r.lot_id,
                    a.account_number, a.account_name,
                    l.lot_number,
-                   o.display_name AS lot_owner_name
+                   o.display_name AS lot_owner_name,
+                   ba.account_name AS bank_account_name,
+                   ba.account_last4
             FROM bank_transaction_rules r
             LEFT JOIN accounts a ON a.id = r.gl_account_id
             LEFT JOIN lots l ON l.id = r.lot_id
             LEFT JOIN lot_ownership lo ON lo.lot_id = r.lot_id AND lo.end_date IS NULL
             LEFT JOIN owners o ON o.id = lo.owner_id
+            LEFT JOIN bank_accounts ba ON ba.id = r.bank_account_id
             ORDER BY r.rule_name
             """
         ).fetchall()
@@ -123,6 +137,7 @@ class TransactionRulePages:
         rules = self._get_rules()
         accounts = self._get_accounts()
         lots = self._get_lots()
+        bank_accounts = self._get_bank_accounts()
         return self._render(
             "transaction_rules.html",
             org=org, theme=theme,
@@ -130,6 +145,7 @@ class TransactionRulePages:
             rules=rules,
             accounts=accounts,
             lots=lots,
+            bank_accounts=bank_accounts,
             action_types=ACTION_TYPES,
         )
 
@@ -142,9 +158,11 @@ class TransactionRulePages:
         rule_id        = form_data.get("rule_id", "").strip()
         rule_name      = form_data.get("rule_name", "").strip()
         desc_contains  = form_data.get("description_contains", "").strip()
-        match_type     = form_data.get("match_type", "").strip()
-        match_memo     = form_data.get("match_memo", "").strip()
-        match_amount   = form_data.get("match_amount", "").strip().lstrip("$").replace(",", "")
+        match_type        = form_data.get("match_type", "").strip()
+        match_memo        = form_data.get("match_memo", "").strip()
+        match_amount      = form_data.get("match_amount", "").strip().lstrip("$").replace(",", "")
+        ba_id_raw         = form_data.get("bank_account_id", "").strip()
+        rule_bank_acct_id = int(ba_id_raw) if ba_id_raw else None
         action_type    = form_data.get("action_type", "recurring_bill").strip()
         gl_account_id  = form_data.get("gl_account_id", "").strip() or None
         lot_id_raw     = form_data.get("lot_id", "").strip()
@@ -164,6 +182,7 @@ class TransactionRulePages:
                 rules=self._get_rules(),
                 accounts=self._get_accounts(),
                 lots=self._get_lots(),
+                bank_accounts=self._get_bank_accounts(),
                 action_types=ACTION_TYPES,
                 error="Rule name is required.",
             )
@@ -176,24 +195,26 @@ class TransactionRulePages:
                 """
                 UPDATE bank_transaction_rules
                 SET rule_name = ?, description_contains = ?,
-                    match_type = ?, match_memo = ?, match_amount = ?,
+                    match_type = ?, match_memo = ?, match_amount = ?, bank_account_id = ?,
                     action_type = ?, gl_account_id = ?, lot_id = ?,
                     default_memo = ?, active_flag = ?
                 WHERE id = ?
                 """,
                 (rule_name, desc_contains, match_type, match_memo, match_amount,
-                 action_type, gl_account_id, lot_id, default_memo, active_flag, int(rule_id)),
+                 rule_bank_acct_id, action_type, gl_account_id, lot_id,
+                 default_memo, active_flag, int(rule_id)),
             )
         else:
             self._conn.execute(
                 """
                 INSERT INTO bank_transaction_rules
                     (rule_name, description_contains, match_type, match_memo, match_amount,
-                     action_type, gl_account_id, lot_id, default_memo, active_flag)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     bank_account_id, action_type, gl_account_id, lot_id, default_memo, active_flag)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (rule_name, desc_contains, match_type, match_memo, match_amount,
-                 action_type, gl_account_id, lot_id, default_memo, active_flag),
+                 rule_bank_acct_id, action_type, gl_account_id, lot_id,
+                 default_memo, active_flag),
             )
 
         self._conn.commit()

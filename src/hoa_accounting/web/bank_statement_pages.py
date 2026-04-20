@@ -102,7 +102,7 @@ class BankStatementPages:
         rows = self._conn.execute(
             """
             SELECT r.id, r.rule_name, r.description_contains,
-                   r.match_type, r.match_memo, r.match_amount,
+                   r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
                    r.action_type, r.gl_account_id, r.lot_id, r.default_memo, r.active_flag,
                    a.account_number, a.account_name
             FROM bank_transaction_rules r
@@ -212,9 +212,10 @@ class BankStatementPages:
         transactions: list[ParsedTransaction],
         gl_lines: list[dict],
         rules: list[dict],
+        bank_account_id: int | None = None,
     ) -> tuple[dict[int, dict], dict[int, int], dict[int, list[int]]]:
         """Return (rule_matches, gl_matches, batch_matches). Priority: RULE > GL > BATCH."""
-        rule_m = apply_rules(transactions, rules)
+        rule_m = apply_rules(transactions, rules, bank_account_id=bank_account_id)
         rule_skips = set(rule_m.keys())
         gl_m = match_transactions(transactions, gl_lines, skip_indices=rule_skips)
         gl_and_rule = rule_skips | set(gl_m.keys())
@@ -239,7 +240,9 @@ class BankStatementPages:
         rules: list[dict],
     ) -> int:
         """Insert PENDING batch + all transactions. Returns batch_id."""
-        rule_m, gl_m, batch_m = self._compute_matches(transactions, gl_lines, rules)
+        rule_m, gl_m, batch_m = self._compute_matches(
+            transactions, gl_lines, rules, bank_account_id=bank_account_id
+        )
         match_count = len(rule_m) + len(gl_m) + len(batch_m)
 
         cur = self._conn.execute(
@@ -642,9 +645,11 @@ class BankStatementPages:
 
         gl_lines = self._get_uncleared_lines(reconciliation_id)
         rules = self._load_rules()
-        rule_m, gl_m, batch_m = self._compute_matches(transactions, gl_lines, rules)
-        match_count = len(rule_m) + len(gl_m) + len(batch_m)
         bank_account_id = int(recon["bank_account_id"])
+        rule_m, gl_m, batch_m = self._compute_matches(
+            transactions, gl_lines, rules, bank_account_id=bank_account_id
+        )
+        match_count = len(rule_m) + len(gl_m) + len(batch_m)
 
         self._conn.execute(
             "DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,)
