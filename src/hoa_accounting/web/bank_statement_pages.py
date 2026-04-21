@@ -275,6 +275,64 @@ class BankStatementPages:
         )
         return rule_m, gl_m, batch_m
 
+    def _insert_bank_txn(
+        self,
+        *,
+        bank_account_id: int,
+        batch_id: int,
+        txn: ParsedTransaction,
+        idx: int,
+        rule_m: dict[int, dict],
+        gl_m: dict[int, int],
+        batch_m: dict[int, list[int]],
+    ) -> None:
+        """Insert one bank_transactions row, picking match fields by priority.
+
+        Priority: RULE > GL > BATCH > UNMATCHED. Centralised here so the
+        five import paths (preview/save × reconciliation/standalone, plus
+        re-apply) don't each drift their own copy of the match-field math.
+        """
+        if idx in rule_m:
+            match_type = "RULE"
+            matched_line_id: int | None = None
+            rule_id: int | None = int(rule_m[idx]["id"])
+            batch_ids_str = "[]"
+        elif idx in gl_m:
+            match_type = "GL"
+            matched_line_id = int(gl_m[idx])
+            rule_id = None
+            batch_ids_str = "[]"
+        elif idx in batch_m:
+            match_type = "BATCH"
+            matched_line_id = None
+            rule_id = None
+            batch_ids_str = json.dumps(batch_m[idx])
+        else:
+            match_type = "UNMATCHED"
+            matched_line_id = None
+            rule_id = None
+            batch_ids_str = "[]"
+
+        self._conn.execute(
+            """
+            INSERT INTO bank_transactions
+                (bank_account_id, import_batch_id, transaction_date,
+                 description, memo, amount, external_reference,
+                 transaction_type, matched_line_id, reconciliation_status,
+                 match_type, batch_match_ids, rule_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                bank_account_id, batch_id,
+                txn.transaction_date.isoformat(),
+                txn.description, txn.memo, str(txn.amount),
+                txn.fitid, txn.transaction_type,
+                matched_line_id,
+                "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
+                match_type, batch_ids_str, rule_id,
+            ),
+        )
+
     def _store_pending_batch(
         self,
         *,
@@ -323,46 +381,14 @@ class BankStatementPages:
             # Skip OFX transactions we've already imported (identified by FITID).
             if txn.fitid and txn.fitid in existing_fitids:
                 continue
-
-            if i in rule_m:
-                match_type = "RULE"
-                matched_line_id = None
-                rule_id = rule_m[i]["id"]
-                batch_ids_str = "[]"
-            elif i in gl_m:
-                match_type = "GL"
-                matched_line_id = gl_m[i]
-                rule_id = None
-                batch_ids_str = "[]"
-            elif i in batch_m:
-                match_type = "BATCH"
-                matched_line_id = None
-                rule_id = None
-                batch_ids_str = json.dumps(batch_m[i])
-            else:
-                match_type = "UNMATCHED"
-                matched_line_id = None
-                rule_id = None
-                batch_ids_str = "[]"
-
-            self._conn.execute(
-                """
-                INSERT INTO bank_transactions
-                    (bank_account_id, import_batch_id, transaction_date,
-                     description, memo, amount, external_reference,
-                     transaction_type, matched_line_id, reconciliation_status,
-                     match_type, batch_match_ids, rule_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    bank_account_id, batch_id,
-                    txn.transaction_date.isoformat(),
-                    txn.description, txn.memo, str(txn.amount),
-                    txn.fitid, txn.transaction_type,
-                    matched_line_id,
-                    "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
-                    match_type, batch_ids_str, rule_id,
-                ),
+            self._insert_bank_txn(
+                bank_account_id=bank_account_id,
+                batch_id=batch_id,
+                txn=txn,
+                idx=i,
+                rule_m=rule_m,
+                gl_m=gl_m,
+                batch_m=batch_m,
             )
             inserted += 1
 
@@ -671,37 +697,14 @@ class BankStatementPages:
         )
 
         for i, txn in enumerate(transactions):
-            if i in rule_m:
-                match_type = "RULE"; matched_line_id = None
-                rule_id = rule_m[i]["id"]; batch_ids = "[]"
-            elif i in gl_m:
-                match_type = "GL"; matched_line_id = gl_m[i]
-                rule_id = None; batch_ids = "[]"
-            elif i in batch_m:
-                match_type = "BATCH"; matched_line_id = None
-                rule_id = None; batch_ids = json.dumps(batch_m[i])
-            else:
-                match_type = "UNMATCHED"; matched_line_id = None
-                rule_id = None; batch_ids = "[]"
-
-            self._conn.execute(
-                """
-                INSERT INTO bank_transactions
-                    (bank_account_id, import_batch_id, transaction_date,
-                     description, memo, amount, external_reference,
-                     transaction_type, matched_line_id, reconciliation_status,
-                     match_type, batch_match_ids, rule_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    bank_account_id, batch_id,
-                    txn.transaction_date.isoformat(),
-                    txn.description, txn.memo, str(txn.amount),
-                    txn.fitid, txn.transaction_type,
-                    matched_line_id,
-                    "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
-                    match_type, batch_ids, rule_id,
-                ),
+            self._insert_bank_txn(
+                bank_account_id=bank_account_id,
+                batch_id=batch_id,
+                txn=txn,
+                idx=i,
+                rule_m=rule_m,
+                gl_m=gl_m,
+                batch_m=batch_m,
             )
 
         self._conn.execute(
@@ -764,37 +767,14 @@ class BankStatementPages:
         self._conn.execute("DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,))
 
         for i, txn in enumerate(transactions):
-            if i in rule_m:
-                match_type = "RULE"; matched_line_id = None
-                rule_id = rule_m[i]["id"]; batch_ids = "[]"
-            elif i in gl_m:
-                match_type = "GL"; matched_line_id = gl_m[i]
-                rule_id = None; batch_ids = "[]"
-            elif i in batch_m:
-                match_type = "BATCH"; matched_line_id = None
-                rule_id = None; batch_ids = json.dumps(batch_m[i])
-            else:
-                match_type = "UNMATCHED"; matched_line_id = None
-                rule_id = None; batch_ids = "[]"
-
-            self._conn.execute(
-                """
-                INSERT INTO bank_transactions
-                    (bank_account_id, import_batch_id, transaction_date,
-                     description, memo, amount, external_reference,
-                     transaction_type, matched_line_id, reconciliation_status,
-                     match_type, batch_match_ids, rule_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    bank_account_id, batch_id,
-                    txn.transaction_date.isoformat(),
-                    txn.description, txn.memo, str(txn.amount),
-                    txn.fitid, txn.transaction_type,
-                    matched_line_id,
-                    "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
-                    match_type, batch_ids, rule_id,
-                ),
+            self._insert_bank_txn(
+                bank_account_id=bank_account_id,
+                batch_id=batch_id,
+                txn=txn,
+                idx=i,
+                rule_m=rule_m,
+                gl_m=gl_m,
+                batch_m=batch_m,
             )
 
         self._conn.execute(
@@ -1331,37 +1311,14 @@ class BankStatementPages:
         )
 
         for i, txn in enumerate(transactions):
-            if i in rule_m:
-                match_type = "RULE"; matched_line_id = None
-                rule_id = rule_m[i]["id"]; batch_ids = "[]"
-            elif i in gl_m:
-                match_type = "GL"; matched_line_id = gl_m[i]
-                rule_id = None; batch_ids = "[]"
-            elif i in batch_m:
-                match_type = "BATCH"; matched_line_id = None
-                rule_id = None; batch_ids = json.dumps(batch_m[i])
-            else:
-                match_type = "UNMATCHED"; matched_line_id = None
-                rule_id = None; batch_ids = "[]"
-
-            self._conn.execute(
-                """
-                INSERT INTO bank_transactions
-                    (bank_account_id, import_batch_id, transaction_date,
-                     description, memo, amount, external_reference,
-                     transaction_type, matched_line_id, reconciliation_status,
-                     match_type, batch_match_ids, rule_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    bank_account_id, batch_id,
-                    txn.transaction_date.isoformat(),
-                    txn.description, txn.memo, str(txn.amount),
-                    txn.fitid, txn.transaction_type,
-                    matched_line_id,
-                    "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
-                    match_type, batch_ids, rule_id,
-                ),
+            self._insert_bank_txn(
+                bank_account_id=bank_account_id,
+                batch_id=batch_id,
+                txn=txn,
+                idx=i,
+                rule_m=rule_m,
+                gl_m=gl_m,
+                batch_m=batch_m,
             )
 
         self._conn.execute(
@@ -1424,37 +1381,14 @@ class BankStatementPages:
         self._conn.execute("DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,))
 
         for i, txn in enumerate(transactions):
-            if i in rule_m:
-                match_type = "RULE"; matched_line_id = None
-                rule_id = rule_m[i]["id"]; batch_ids = "[]"
-            elif i in gl_m:
-                match_type = "GL"; matched_line_id = gl_m[i]
-                rule_id = None; batch_ids = "[]"
-            elif i in batch_m:
-                match_type = "BATCH"; matched_line_id = None
-                rule_id = None; batch_ids = json.dumps(batch_m[i])
-            else:
-                match_type = "UNMATCHED"; matched_line_id = None
-                rule_id = None; batch_ids = "[]"
-
-            self._conn.execute(
-                """
-                INSERT INTO bank_transactions
-                    (bank_account_id, import_batch_id, transaction_date,
-                     description, memo, amount, external_reference,
-                     transaction_type, matched_line_id, reconciliation_status,
-                     match_type, batch_match_ids, rule_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    bank_account_id, batch_id,
-                    txn.transaction_date.isoformat(),
-                    txn.description, txn.memo, str(txn.amount),
-                    txn.fitid, txn.transaction_type,
-                    matched_line_id,
-                    "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
-                    match_type, batch_ids, rule_id,
-                ),
+            self._insert_bank_txn(
+                bank_account_id=bank_account_id,
+                batch_id=batch_id,
+                txn=txn,
+                idx=i,
+                rule_m=rule_m,
+                gl_m=gl_m,
+                batch_m=batch_m,
             )
 
         self._conn.execute(
