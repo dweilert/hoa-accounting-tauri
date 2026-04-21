@@ -243,6 +243,10 @@
       </form>
     {% endif %}
     <form method="post"
+          action="/reconciliations/{{ recon.id }}/import-statement/{{ batch.id }}/reapply-rules">
+      <button type="submit" class="btn btn--ghost btn--sm">↺ Re-run Rules</button>
+    </form>
+    <form method="post"
           action="/reconciliations/{{ recon.id }}/import-statement/{{ batch.id }}/delete"
           data-confirm="Discard this import? The file data will be removed."
           data-confirm-title="Discard Import"

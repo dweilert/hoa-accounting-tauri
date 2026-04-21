@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Import Bank Data · {{ org.name }}{% endblock %}
+{% block heading %}Import Bank Data{% endblock %}
+
+{% block content %}
+
+{% if error %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{% if success %}
+  <div class="alert alert--success" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ success }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{# ── Import history ─────────────────────────────────────────────────────── #}
+{% if batches %}
+<div class="panel" style="margin-bottom:1.5rem;">
+  <div class="panel__header">
+    <div class="panel__title">Import History</div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>File</th>
+          <th>Format</th>
+          <th style="text-align:right;">Transactions</th>
+          <th style="text-align:right;">Matched</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in batches %}
+        <tr>
+          <td style="font-size:13px;white-space:nowrap;">
+            {{ b.account_name }}{% if b.account_last4 %} <span style="color:var(--text-muted);">···{{ b.account_last4 }}</span>{% endif %}
+          </td>
+          <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {{ b.source_filename }}
+          </td>
+          <td><span class="pill pill--muted" style="font-size:.7rem;">{{ b.file_format }}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);font-size:13px;">{{ b.transaction_count }}</td>
+          <td style="text-align:right;font-family:var(--font-mono);font-size:13px;">
+            <span style="color:{% if b.matched_count > 0 %}#5b21b6{% else %}var(--text-muted){% endif %};">{{ b.matched_count }}</span>
+          </td>
+          <td>
+            {% if b.status == 'APPLIED' %}
+              <span class="pill pill--ok" style="font-size:.7rem;">Applied</span>
+            {% else %}
+              <span class="pill pill--warn" style="font-size:.7rem;">Pending</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+            {{ b.imported_at[:10] if b.imported_at else '—' }}
+          </td>
+          <td style="white-space:nowrap;">
+            <a href="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}"
+               class="btn btn--sm btn--ghost">View</a>
+            {% if b.status == 'PENDING' %}
+              {% if b.matched_count > 0 %}
+                <form method="post"
+                      action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/apply"
+                      style="display:inline;"
+                      data-confirm="Apply {{ b.matched_count }} rule match{% if b.matched_count != 1 %}es{% endif %} for {{ b.account_name }}? This will create journal entries."
+                      data-confirm-title="Apply Import"
+                      data-confirm-label="Apply">
+                  <button type="submit" class="btn btn--sm btn--primary">Apply</button>
+                </form>
+              {% endif %}
+              <form method="post"
+                    action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/reapply-rules"
+                    style="display:inline;">
+                <button type="submit" class="btn btn--sm btn--ghost">↺ Re-run Rules</button>
+              </form>
+              <form method="post"
+                    action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/delete"
+                    style="display:inline;"
+                    data-confirm="Discard this pending import?"
+                    data-confirm-title="Discard Import"
+                    data-confirm-label="Discard">
+                <button type="submit" class="btn btn--sm btn--danger">Discard</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Upload drop zone ────────────────────────────────────────────────────── #}
+<div class="panel" style="max-width:580px;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">{% if batches %}Import Another File{% else %}Import Bank Data{% endif %}</div>
+      <div class="panel__description">OFX files automatically route to the correct account. CSV files require account selection.</div>
+    </div>
+  </div>
+
+  <form method="post" action="/bank-import/upload" enctype="multipart/form-data" id="upload-form">
+    <div style="padding:1.25rem 1rem;">
+
+      <label id="drop-zone"
+             style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    gap:.5rem;padding:2.5rem 1.5rem;border:2px dashed var(--border);
+                    border-radius:var(--radius);cursor:pointer;text-align:center;
+                    background:var(--surface-muted);transition:border-color 120ms,background 120ms;">
+        <div style="font-size:2rem;line-height:1;">🏦</div>
+        <div style="font-weight:700;color:var(--text);font-size:.95rem;">
+          Drop your bank file here, or click to browse
+        </div>
+        <div style="font-size:.8rem;color:var(--text-muted);">
+          Supported: OFX · QFX (Quicken) · QBO (QuickBooks) · CSV
+        </div>
+        <input type="file" name="statement_file" id="file-input"
+               accept=".ofx,.qfx,.qbo,.csv,.txt"
+               style="display:none;" required>
+      </label>
+
+      <div id="file-chosen" style="display:none;margin-top:.75rem;padding:.5rem .75rem;
+           border-radius:var(--radius-sm);background:var(--surface);
+           border:1px solid var(--border);font-size:.85rem;">
+        <span id="file-name" style="font-weight:600;"></span>
+        <span id="file-size" style="color:var(--text-muted);margin-left:.5rem;"></span>
+      </div>
+
+      <div id="csv-account-row" style="display:none;margin-top:1rem;">
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.3rem;">
+          Which bank account is this CSV for?
+        </label>
+        <select name="csv_bank_account_id" style="width:100%;max-width:320px;">
+          <option value="">— select account —</option>
+          {% for ba in bank_accounts %}
+            <option value="{{ ba.id }}">{{ ba.account_name }}{% if ba.account_last4 %} ···{{ ba.account_last4 }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="margin-top:1.25rem;">
+        <button type="submit" class="btn btn--primary" id="upload-btn" disabled>Import Data</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var input  = document.getElementById("file-input");
+  var zone   = document.getElementById("drop-zone");
+  var chosen = document.getElementById("file-chosen");
+  var nameEl = document.getElementById("file-name");
+  var sizeEl = document.getElementById("file-size");
+  var btn    = document.getElementById("upload-btn");
+  var csvRow = document.getElementById("csv-account-row");
+
+  function showFile(file) {
+    if (!file) return;
+    nameEl.textContent = file.name;
+    sizeEl.textContent = "(" + (file.size / 1024).toFixed(1) + " KB)";
+    chosen.style.display = "block";
+    btn.disabled = false;
+    zone.style.borderColor = "var(--accent)";
+    zone.style.background  = "var(--accent-subtle)";
+    csvRow.style.display = /\.csv$/i.test(file.name) ? "block" : "none";
+  }
+
+  input.addEventListener("change", function () { showFile(input.files[0]); });
+
+  zone.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    zone.style.borderColor = "var(--accent)";
+  });
+  zone.addEventListener("dragleave", function () {
+    zone.style.borderColor = "var(--border)";
+  });
+  zone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    var file = e.dataTransfer.files[0];
+    if (file) {
+      var dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      showFile(file);
+    }
+  });
+})();
+</script>
+{% endblock %}
