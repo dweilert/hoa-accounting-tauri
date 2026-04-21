@@ -4,7 +4,11 @@
 {% block heading %}Import Bank Statement{% endblock %}
 
 {% block topbar_meta %}
-  <a href="/reconciliations/{{ recon.id }}" class="btn btn--ghost btn--sm">← Back to Reconciliation</a>
+  {% if recon %}
+    <a href="/reconciliations/{{ recon.id }}" class="btn btn--ghost btn--sm">← Back to Reconciliation</a>
+  {% else %}
+    <a href="{{ cancel_url }}" class="btn btn--ghost btn--sm">← Back</a>
+  {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -15,7 +19,7 @@
     <div style="padding:1rem 1.25rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
       <div style="flex:1;min-width:0;">
         <div style="font-weight:700;font-size:.95rem;">
-          📥 Pending import: {{ pending.source_filename }}
+          Pending import: {{ pending.source_filename }}
         </div>
         <div style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem;">
           {{ pending.transaction_count }} transaction{% if pending.transaction_count != 1 %}s{% endif %}
@@ -24,16 +28,18 @@
         </div>
       </div>
       <div style="display:flex;gap:.5rem;flex-shrink:0;">
-        <a href="/reconciliations/{{ recon.id }}/import-statement/{{ pending.id }}"
-           class="btn btn--primary btn--sm">Review →</a>
-        <form method="post"
-              action="/reconciliations/{{ recon.id }}/import-statement/{{ pending.id }}/delete"
-              style="display:inline;"
-              data-confirm="Discard this pending import?"
-              data-confirm-title="Discard Import"
-              data-confirm-label="Discard">
-          <button type="submit" class="btn btn--danger btn--sm">Discard</button>
-        </form>
+        {% if recon %}
+          <a href="/reconciliations/{{ recon.id }}/import-statement/{{ pending.id }}"
+             class="btn btn--primary btn--sm">Review →</a>
+          <form method="post"
+                action="/reconciliations/{{ recon.id }}/import-statement/{{ pending.id }}/delete"
+                style="display:inline;"
+                data-confirm="Discard this pending import?"
+                data-confirm-title="Discard Import"
+                data-confirm-label="Discard">
+            <button type="submit" class="btn btn--danger btn--sm">Discard</button>
+          </form>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -48,9 +54,14 @@
     <div>
       <div class="panel__title">Upload your bank statement</div>
       <div class="panel__description">
-        {{ recon.account_name }}{% if recon.institution_name %} · {{ recon.institution_name }}{% endif %}
-        {% if recon.account_last4 %} ···{{ recon.account_last4 }}{% endif %}
-        · Statement through {{ recon.statement_ending_date }}
+        {% if recon %}
+          {{ recon.account_name }}{% if recon.institution_name %} · {{ recon.institution_name }}{% endif %}
+          {% if recon.account_last4 %} ···{{ recon.account_last4 }}{% endif %}
+          · Statement through {{ recon.statement_ending_date }}
+        {% elif bank_account %}
+          {{ bank_account.account_name }}{% if bank_account.institution_name %} · {{ bank_account.institution_name }}{% endif %}
+          {% if bank_account.account_last4 %} ···{{ bank_account.account_last4 }}{% endif %}
+        {% endif %}
       </div>
     </div>
   </div>
@@ -62,7 +73,7 @@
   {% endif %}
 
   <form method="post"
-        action="/reconciliations/{{ recon.id }}/import-statement"
+        action="{{ upload_action if upload_action else '/reconciliations/' ~ recon.id ~ '/import-statement' }}"
         enctype="multipart/form-data"
         id="upload-form">
 
@@ -93,11 +104,26 @@
         <span id="file-size" style="color:var(--text-muted);margin-left:.5rem;"></span>
       </div>
 
+      {% if bank_accounts and not recon and not bank_account %}
+      <div id="csv-account-row" style="display:none;margin-top:1rem;">
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.3rem;">
+          For CSV files — which bank account is this?
+        </label>
+        <select name="csv_bank_account_id" style="width:100%;max-width:320px;">
+          <option value="">— select account —</option>
+          {% for ba in bank_accounts %}
+            <option value="{{ ba.id }}">{{ ba.account_name }}{% if ba.account_last4 %} ···{{ ba.account_last4 }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem;">OFX/QFX files detect the account automatically — ignore this for OFX.</div>
+      </div>
+      {% endif %}
+
       <div style="margin-top:1.25rem;display:flex;gap:.75rem;align-items:center;">
         <button type="submit" class="btn btn--primary" id="upload-btn" disabled>
           Parse File
         </button>
-        <a href="/reconciliations/{{ recon.id }}" class="btn btn--ghost">Cancel</a>
+        <a href="{{ cancel_url if cancel_url else '/reconciliations/' ~ recon.id }}" class="btn btn--ghost">Cancel</a>
       </div>
     </div>
   </form>
@@ -121,6 +147,7 @@
   var sizeEl  = document.getElementById("file-size");
   var btn     = document.getElementById("upload-btn");
 
+  var csvRow = document.getElementById("csv-account-row");
   function showFile(file) {
     if (!file) return;
     nameEl.textContent = file.name;
@@ -129,6 +156,7 @@
     btn.disabled = false;
     zone.style.borderColor = "var(--accent)";
     zone.style.background  = "var(--accent-subtle)";
+    if (csvRow) csvRow.style.display = /\.csv$/i.test(file.name) ? "block" : "none";
   }
 
   input.addEventListener("change", function () { showFile(input.files[0]); });

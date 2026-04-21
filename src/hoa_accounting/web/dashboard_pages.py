@@ -24,15 +24,14 @@ CARD_COLORS = [
 ]
 
 REPORT_CHOICES = [
-    ("owner-ledger",       "Owner Ledger"),
-    ("balance-sheet",      "Balance Sheet"),
-    ("income-statement",   "Income Statement"),
-    ("trial-balance",      "Trial Balance"),
-    ("ar-aging",           "AR Aging"),
-    ("expenses-vs-budget", "Budget vs Actual"),
-    ("vendor-expenses",    "Vendor Payment History"),
-    ("general-ledger",     "General Ledger"),
-    ("ytd-expense-summary","YTD Expense Summary"),
+    ("ytd-expense-summary",   "Expense Summary"),
+    ("income-by-date",        "Income Summary"),
+    ("expenses-by-date",      "Expenses by Date"),
+    ("vendor-expenses",       "Vendor Payment History"),
+    ("expenses-vs-budget",    "Budget vs Actual"),
+    ("ar-aging",              "AR Aging"),
+    ("owner-ledger",          "Owner Ledger"),
+    ("homeowner-contact-list","Homeowner Contact List"),
 ]
 
 

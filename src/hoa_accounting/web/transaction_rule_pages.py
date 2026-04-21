@@ -96,15 +96,16 @@ class TransactionRulePages:
         return [dict(r) for r in rows]
 
     def _get_lots(self) -> list[dict]:
-        """Return all active lots with their current owner name."""
+        """Return all active lots with their current owner name(s)."""
         rows = self._conn.execute(
             """
             SELECT l.id, l.lot_number,
-                   COALESCE(o.display_name, '') AS owner_name
+                   COALESCE(GROUP_CONCAT(o.display_name, ', '), '') AS owner_name
             FROM lots l
             LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
             LEFT JOIN owners o ON o.id = lo.owner_id
             WHERE l.active_flag = 1
+            GROUP BY l.id
             ORDER BY l.lot_number
             """
         ).fetchall()
@@ -125,7 +126,11 @@ class TransactionRulePages:
             FROM bank_transaction_rules r
             LEFT JOIN accounts a ON a.id = r.gl_account_id
             LEFT JOIN lots l ON l.id = r.lot_id
-            LEFT JOIN lot_ownership lo ON lo.lot_id = r.lot_id AND lo.end_date IS NULL
+            LEFT JOIN (
+                SELECT lot_id, owner_id FROM lot_ownership
+                WHERE end_date IS NULL
+                GROUP BY lot_id
+            ) lo ON lo.lot_id = r.lot_id
             LEFT JOIN owners o ON o.id = lo.owner_id
             LEFT JOIN bank_accounts ba ON ba.id = r.bank_account_id
             ORDER BY r.rule_name
@@ -196,7 +201,7 @@ class TransactionRulePages:
 
         return suggestions
 
-    def render_list(self, org: dict, theme: str) -> PageResponse:
+    def render_list(self, org: dict, theme: str, return_to: str = "") -> PageResponse:
         rules = self._get_rules()
         accounts = self._get_accounts()
         lots = self._get_lots()
@@ -212,6 +217,7 @@ class TransactionRulePages:
             bank_accounts=bank_accounts,
             gl_suggestions=gl_suggestions,
             action_types=ACTION_TYPES,
+            return_to=return_to,
         )
 
     def handle_save(
@@ -240,20 +246,21 @@ class TransactionRulePages:
             lot_id = None
 
         if not rule_name:
-            return None, self._render(
-                "transaction_rules.html",
-                org=org, theme=theme,
-                page_key="transaction-rules",
-                rules=self._get_rules(),
-                accounts=self._get_accounts(),
-                lots=self._get_lots(),
-                bank_accounts=self._get_bank_accounts(),
-                action_types=ACTION_TYPES,
-                error="Rule name is required.",
-            )
+            return None, self._render_error("Rule name is required.", org, theme)
 
         if action_type not in VALID_ACTION_TYPES:
             action_type = "recurring_bill"
+
+        # Block duplicate names (skip the current rule when editing)
+        existing = self._conn.execute(
+            "SELECT id FROM bank_transaction_rules WHERE rule_name = ? AND id != ?",
+            (rule_name, int(rule_id) if rule_id else -1),
+        ).fetchone()
+        if existing:
+            return None, self._render_error(
+                f'A rule named "{rule_name}" already exists. Please use a different name.',
+                org, theme,
+            )
 
         if rule_id:
             self._conn.execute(
@@ -284,6 +291,21 @@ class TransactionRulePages:
 
         self._conn.commit()
         return "/admin/transaction-rules", None
+
+    def _render_error(self, error: str, org: dict, theme: str) -> PageResponse:
+        bank_accounts = self._get_bank_accounts()
+        return self._render(
+            "transaction_rules.html",
+            org=org, theme=theme,
+            page_key="transaction-rules",
+            rules=self._get_rules(),
+            accounts=self._get_accounts(),
+            lots=self._get_lots(),
+            bank_accounts=bank_accounts,
+            gl_suggestions=self._get_gl_suggestions(bank_accounts),
+            action_types=ACTION_TYPES,
+            error=error,
+        )
 
     def handle_delete(self, rule_id: int) -> str:
         self._conn.execute(

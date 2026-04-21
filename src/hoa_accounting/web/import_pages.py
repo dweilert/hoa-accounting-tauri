@@ -128,7 +128,7 @@ TABLE_DEFS: dict[str, dict] = {
             {"name": "institution_name", "label": "Bank / Institution", "required": True,  "type": "text"},
             {"name": "account_last4",    "label": "Last 4 Digits",      "required": False, "type": "text"},
             {"name": "account_type",     "label": "Account Type",       "required": True,  "type": "enum",    "values": ["CHECKING","SAVINGS","MONEY_MARKET","OTHER"]},
-            {"name": "gl_account_number","label": "GL Account #",       "required": True,  "type": "text",    "note": "Must match an existing account number"},
+            {"name": "gl_account_number","label": "Linked Account #",    "required": True,  "type": "text",    "note": "Must match an existing account number"},
             {"name": "active",           "label": "Active",             "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
         ],
     },
@@ -643,7 +643,7 @@ class ImportPages:
             "SELECT id FROM accounts WHERE account_number=?", (gl_num,)
         ).fetchone()
         if not gl_row:
-            return [f"GL account \"{gl_num}\" not found in Chart of Accounts."]
+            return [f"Account \"{gl_num}\" not found in Chart of Accounts."]
         an = self._v(row, "account_name")
         if self.conn.execute(
             "SELECT 1 FROM bank_accounts WHERE account_name=?", (an,)

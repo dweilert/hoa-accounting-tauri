@@ -66,9 +66,9 @@
     </label>
 
     <label class="field">
-      <span class="field__label">GL Account *</span>
+      <span class="field__label">Linked Account *</span>
       <select name="gl_account_id" required>
-        <option value="">— Select a GL account —</option>
+        <option value="">— Select an account —</option>
         {% for gl in gl_options %}
           <option value="{{ gl.id }}"
             {% if values.gl_account_id|string == gl.id|string %} selected{% endif %}>

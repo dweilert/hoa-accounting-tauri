@@ -93,8 +93,8 @@ def build_accounts_list_context(
         page_key="accounts",
         heading="Chart of Accounts",
         description=(
-            "Every general ledger account the system posts to. Expense "
-            "accounts show their HOA spending group; balance-sheet and "
+            "All accounts used by the system — bank, receivable, equity, and fund balance. "
+            "Expense accounts show their HOA spending group; balance-sheet and "
             "income accounts leave the Group column blank."
         ),
         columns=cols,
@@ -246,7 +246,7 @@ def build_bank_accounts_list_context(
         ListColumnVM(key="institution_name", label="Institution"),
         ListColumnVM(key="account_type", label="Type"),
         ListColumnVM(key="last4", label="Last 4", mono=True),
-        ListColumnVM(key="gl", label="GL Account"),
+        ListColumnVM(key="gl", label="Linked Account"),
         ListColumnVM(key="fund", label="Fund"),
     ]
     vm_rows: list[dict[str, object]] = []

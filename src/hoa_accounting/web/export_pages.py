@@ -44,7 +44,7 @@ EXPORT_GROUPS: list[dict] = [
     {
         "title": "Transactions & Financials",
         "types": [
-            {"key": "general_ledger",        "label": "General Ledger (all journal entry lines)", "filename": "general_ledger"},
+            {"key": "general_ledger",        "label": "Account Ledger (all posted entry lines)",  "filename": "general_ledger"},
             {"key": "assessments",           "label": "Assessments / Charges",                    "filename": "assessments"},
             {"key": "payments",              "label": "Payments Received",                         "filename": "payments"},
             {"key": "payment_applications",  "label": "Payment Applications (charge detail)",      "filename": "payment_applications"},
@@ -100,11 +100,12 @@ QUERIES: dict[str, str] = {
             l.city, l.state, l.postal_code,
             l.legal_description,
             CASE l.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
-            o.display_name AS current_owner
+            GROUP_CONCAT(o.display_name, '; ') AS current_owner
         FROM lots l
         LEFT JOIN lot_ownership lo
                ON lo.lot_id = l.id AND lo.end_date IS NULL
         LEFT JOIN owners o ON o.id = lo.owner_id
+        GROUP BY l.id
         ORDER BY l.lot_number
     """,
     "lot_ownership": """

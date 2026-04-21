@@ -46,6 +46,7 @@ class ParameterFieldVM:
     value: str
     placeholder: str
     field_type: str = "text"  # "text" | "select"
+    required: bool = False
 
 
 @dataclass(frozen=True)
@@ -157,7 +158,7 @@ def build_report_console_context(
         # reading 'REPORTS' above a heading reading 'Reports' just
         # duplicates the word.
         breadcrumb="",
-        selected_report=selected_report,
+        selected_report=report_def.name,
         theme=_resolve_theme(org),
         lookup_options=lookup_options or {},
     )
@@ -203,6 +204,7 @@ def _build_parameter_fields(
                 value=form_values.get(field.name, field.default_value),
                 placeholder=field.placeholder,
                 field_type=field.field_type,
+                required=field.required,
             )
         )
     return fields
@@ -216,11 +218,14 @@ def _build_raw_json(api_payload: dict[str, object] | None) -> str:
 
 def _example_query_for_report(report_name: str) -> str:
     examples = {
-        "trial-balance": "&as_of_date=2026-01-31",
-        "general-ledger": "&account_id=1000&from_date=2026-01-01&to_date=2026-01-31",
-        "owner-ledger": "&owner_id=1&receivable_account_id=1100&from_date=2026-01-01&to_date=2026-01-31",
-        "ar-aging": "&as_of_date=2026-01-31&receivable_account_id=1100",
-        "balance-sheet": "&as_of_date=2026-01-31",
-        "income-statement": "&from_date=2026-01-01&to_date=2026-01-31",
+        "ytd-expense-summary":    "&from_date=2026-01-01&to_date=2026-12-31",
+        "income-by-date":         "&from_date=2026-01-01&to_date=2026-12-31",
+        "expenses-by-date":       "&from_date=2026-01-01&to_date=2026-12-31",
+        "vendor-expenses":        "&from_date=2026-01-01&to_date=2026-12-31",
+        "ar-aging":               "&as_of_date=2026-01-31&receivable_account_id=1100",
+        "owner-ledger":           "&lot_id=1&year=2026",
+        "homeowner-contact-list": "&sort_by=name",
+        "expenses-vs-budget":     "&fiscal_year=2026&fund_code=GENERAL",
+        "general-ledger":         "&account_id=1&from_date=2026-01-01&to_date=2026-01-31",
     }
     return examples.get(report_name, "")

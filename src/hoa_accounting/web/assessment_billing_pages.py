@@ -176,8 +176,7 @@ class AssessmentBillingPages:
             "description": (
                 "Create an assessment bill for every homeowner at the same "
                 "amount, or pick specific lots and amounts. Every "
-                "assessment posts its own balanced journal entry (DR receivable, "
-                "CR income) and shows up immediately in AR Aging and the Owner "
+                "assessment shows up immediately in AR Aging and the Owner "
                 "Ledger. All-or-nothing — if any row fails validation, the "
                 "entire batch rolls back."
             ),

@@ -28,122 +28,8 @@ class ReportDefinition:
 
 REPORT_DEFINITIONS: list[ReportDefinition] = [
     ReportDefinition(
-        name="trial-balance",
-        title="Trial Balance",
-        description="Control report showing net balances for all active accounts as of a specific date.",
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="general-ledger",
-        title="General Ledger",
-        description="Account-level journal detail with a running balance over a date range.",
-        fields=[
-            ReportField(
-                name="account_id",
-                label="Account",
-                placeholder="",
-                required=True,
-                field_type="select",
-                options_key="account_id",
-            ),
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="owner-ledger",
-        title="Owner Ledger",
-        description="Full-year owner receivable activity for a lot — dues, assessments, late fees, and payments — in date order.",
-        fields=[
-            ReportField(
-                name="lot_id",
-                label="Lot",
-                placeholder="",
-                required=True,
-                field_type="select",
-                options_key="lot_id",
-            ),
-            ReportField(
-                name="year",
-                label="Year",
-                placeholder="2026",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="ar-aging",
-        title="AR Aging",
-        description="Open owner receivables bucketed by age as of a specific date.",
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-03-15",
-                required=True,
-            ),
-            ReportField(
-                name="receivable_account_id",
-                label="Receivable Account",
-                placeholder="",
-                required=True,
-                field_type="select",
-                options_key="receivable_account_id",
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="balance-sheet",
-        title="Balance Sheet",
-        description="Balance-sheet accounts and computed cumulative earnings as of a specific date.",
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="income-statement",
-        title="Income Statement",
-        description="Income and expense activity for a specific reporting period.",
-        fields=[
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
         name="ytd-expense-summary",
-        title="YTD Expense Summary",
+        title="Expense Summary",
         description=(
             "Expenses grouped by category and group, with YTD amount and "
             "transaction count per category. Zero-activity categories are "
@@ -165,9 +51,9 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
         ],
     ),
     ReportDefinition(
-        name="expenses-by-date",
-        title="Expenses by Date",
-        description="All expense journal entries in chronological order for a date range.",
+        name="income-by-date",
+        title="Income by Date",
+        description="All income transactions in chronological order for a date range.",
         fields=[
             ReportField(
                 name="from_date",
@@ -184,9 +70,9 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
         ],
     ),
     ReportDefinition(
-        name="income-by-date",
-        title="Income by Date",
-        description="All income journal entries in chronological order for a date range.",
+        name="expenses-by-date",
+        title="Expenses by Date",
+        description="All expense transactions in chronological order for a date range.",
         fields=[
             ReportField(
                 name="from_date",
@@ -230,6 +116,48 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
         ],
     ),
     ReportDefinition(
+        name="ar-aging",
+        title="AR Aging",
+        description="Open owner receivables bucketed by age as of a specific date.",
+        fields=[
+            ReportField(
+                name="as_of_date",
+                label="As Of Date",
+                placeholder="2026-03-15",
+                required=True,
+            ),
+            ReportField(
+                name="receivable_account_id",
+                label="Receivable Account",
+                placeholder="",
+                required=True,
+                field_type="select",
+                options_key="receivable_account_id",
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="owner-ledger",
+        title="Owner Ledger",
+        description="Full-year owner receivable activity for a lot — dues, assessments, late fees, and payments — in date order.",
+        fields=[
+            ReportField(
+                name="lot_id",
+                label="Lot",
+                placeholder="",
+                required=True,
+                field_type="select",
+                options_key="lot_id",
+            ),
+            ReportField(
+                name="year",
+                label="Year",
+                placeholder="2026",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
         name="homeowner-contact-list",
         title="Homeowner Contact List",
         description="Directory of all active homeowners with lot assignment and contact information.",
@@ -266,11 +194,38 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
             ),
         ],
     ),
+    ReportDefinition(
+        name="general-ledger",
+        title="Account Ledger",
+        description="Account-level transaction detail with a running balance over a date range.",
+        fields=[
+            ReportField(
+                name="account_id",
+                label="Account",
+                placeholder="",
+                required=True,
+                field_type="select",
+                options_key="account_id",
+            ),
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-01-31",
+                required=True,
+            ),
+        ],
+    ),
 ]
 
 
 def get_report_definition(report_name: str) -> ReportDefinition:
-    """Return the report definition for a report name."""
+    """Return the report definition for a report name, defaulting to the first report."""
     normalized = report_name.strip().lower()
     for item in REPORT_DEFINITIONS:
         if item.name == normalized:

@@ -98,6 +98,34 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
     return transactions
 
 
+def parse_ofx_by_account(content: bytes | str) -> list[tuple[str, list[ParsedTransaction]]]:
+    """Parse a multi-account OFX file. Returns list of (acctid, transactions) per account section.
+    Falls back to [("", all_transactions)] if no STMTRS sections found."""
+    text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+
+    # Try XML-style STMTRS blocks first (OFX 2.x)
+    stmtrs_blocks = re.findall(r"<STMTRS>(.*?)</STMTRS>", text, re.DOTALL | re.IGNORECASE)
+
+    if not stmtrs_blocks:
+        # OFX 1.x: no closing tags — split on <STMTRS> and take until next block/end
+        parts = re.split(r"<STMTRS\b", text, flags=re.IGNORECASE)
+        for part in parts[1:]:
+            end = re.search(r"</BANKMSGSRSV1>|</OFX>|<STMTRS\b", part, re.IGNORECASE)
+            stmtrs_blocks.append(part[: end.start()] if end else part)
+
+    if not stmtrs_blocks:
+        return [("", parse_ofx(text))]
+
+    results: list[tuple[str, list[ParsedTransaction]]] = []
+    for block in stmtrs_blocks:
+        m = re.search(r"<ACCTID>\s*([^\r\n<]+)", block, re.IGNORECASE)
+        acctid = m.group(1).strip() if m else ""
+        transactions = parse_ofx(block)
+        results.append((acctid, transactions))
+
+    return results
+
+
 # ── CSV parser ────────────────────────────────────────────────────────────────
 
 _DATE_COLS   = {"date", "transaction date", "trans date", "posted date",

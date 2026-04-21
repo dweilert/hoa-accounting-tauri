@@ -1,0 +1,596 @@
+{% extends "base.html" %}
+
+{% block title %}Import Preview · {{ bank_account.account_name }} · {{ org.name }}{% endblock %}
+{% block heading %}Import Preview{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/bank-accounts/{{ bank_account_id }}/import-statement/upload"
+     class="btn btn--ghost btn--sm">← Upload</a>
+  <a href="/bank-accounts/{{ bank_account_id }}/import-statement" class="btn btn--ghost btn--sm">All Imports</a>
+{% endblock %}
+
+{% block content %}
+
+{% if error %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{# ── Summary bar ──────────────────────────────────────────────────────── #}
+<div class="panel" style="margin-bottom:1rem;">
+  <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:center;font-size:13px;padding:.1rem 0;">
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Account</div>
+      <div style="font-weight:600;">{{ bank_account.account_name }}</div>
+      <div style="font-size:11px;color:var(--text-muted);">
+        {% if bank_account.institution_name %}{{ bank_account.institution_name }}{% endif %}
+        {% if bank_account.account_last4 %} ···{{ bank_account.account_last4 }}{% endif %}
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">File</div>
+      <div style="font-weight:600;">{{ batch.source_filename }}</div>
+      <div style="font-size:11px;color:var(--text-muted);">{{ batch.file_format }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Total</div>
+      <div style="font-size:1.3rem;font-weight:800;">{{ annotated | length }}</div>
+    </div>
+    {% if counts.rule > 0 %}
+    <div>
+      <div style="font-size:11px;color:#7c3aed;font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Rules</div>
+      <div style="font-size:1.3rem;font-weight:800;color:#7c3aed;">{{ counts.rule }}</div>
+    </div>
+    {% endif %}
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em;">Unmatched</div>
+      <div style="font-size:1.3rem;font-weight:800;
+           color:{% if counts.unmatched > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+        {{ counts.unmatched }}
+      </div>
+    </div>
+    {% if batch.status == 'APPLIED' %}
+      <div>
+        <span class="pill pill--ok" style="font-size:.8rem;">Applied</span>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── CSV column mapping ────────────────────────────────────────────────── #}
+{% if batch.file_format == 'CSV' and headers and batch.status == 'PENDING' %}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Column Mapping</div>
+      <div class="panel__description">
+        {% if map_is_usable %}
+          Columns detected automatically. Change them if anything looks wrong, then Re-parse.
+        {% else %}
+          Could not detect columns. Please map your CSV columns below and click Re-parse.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <form method="post"
+        action="{{ base_url }}/remap"
+        style="padding:.75rem 1rem 1rem;">
+
+    <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;">
+      <div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;font-weight:600;">Date <span style="color:var(--danger);">*</span></div>
+        <select name="col_date" style="font-size:13px;">
+          <option value="">— select —</option>
+          {% for h in headers %}
+            <option value="{{ h }}" {% if h == col_map.get('date') %}selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;font-weight:600;">Amount</div>
+        <select name="col_amount" id="col-amount" style="font-size:13px;" onchange="toggleDC()">
+          <option value="">— use Debit / Credit —</option>
+          {% for h in headers %}
+            <option value="{{ h }}" {% if h == col_map.get('amount') %}selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="dc-group" style="display:flex;gap:.75rem;align-items:flex-end;">
+        <div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;font-weight:600;">Debit (out)</div>
+          <select name="col_debit" style="font-size:13px;">
+            <option value="">— none —</option>
+            {% for h in headers %}
+              <option value="{{ h }}" {% if h == col_map.get('debit') %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;font-weight:600;">Credit (in)</div>
+          <select name="col_credit" style="font-size:13px;">
+            <option value="">— none —</option>
+            {% for h in headers %}
+              <option value="{{ h }}" {% if h == col_map.get('credit') %}selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem;font-weight:600;">Description</div>
+        <select name="col_description" style="font-size:13px;">
+          <option value="">— none —</option>
+          {% for h in headers %}
+            <option value="{{ h }}" {% if h == col_map.get('description') %}selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn--ghost btn--sm">Re-parse →</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+{# ── Transactions table ────────────────────────────────────────────────── #}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div class="panel__title">Transactions</div>
+  </div>
+
+  {% if annotated %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th style="text-align:right;">Amount</th>
+          <th>Match</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in annotated %}
+        {% set amt = item.amount | float %}
+        {% set row_id = "row-" ~ loop.index %}
+
+        {# Main data row — data-* carries OFX values for JS #}
+        <tr style="{% if item.match_type == 'RULE' %}cursor:pointer;background:#f5f0ff;{% endif %}"
+            {% if item.match_type == 'RULE' %}onclick="toggleDetail('{{ row_id }}')" title="Click for details"{% endif %}
+            data-row-id="{{ row_id }}"
+            data-desc="{{ item.description | e }}"
+            data-txn-type="{{ item.transaction_type or '' | e }}"
+            data-memo="{{ item.memo or '' | e }}"
+            data-amount="{{ '%.2f' | format(amt | abs) }}"
+            data-date="{{ item.transaction_date }}"
+            data-bank-account-id="{{ bank_account_id }}"
+            data-batch-id="{{ batch.id }}">
+          <td style="white-space:nowrap;font-size:13px;" class="mono">{{ item.transaction_date }}</td>
+          <td style="font-size:13px;max-width:280px;">
+            {{ item.description }}
+            {% if item.memo and item.memo != item.description %}
+              <div style="font-size:11px;color:var(--text-muted);">{{ item.memo }}</div>
+            {% endif %}
+          </td>
+          <td style="text-align:right;font-family:var(--font-mono);font-size:13px;white-space:nowrap;
+                     font-weight:600;color:{% if amt > 0 %}#2d7a2d{% else %}var(--danger){% endif %};">
+            {% if amt > 0 %}+{% endif %}{{ "%.2f" | format(amt) }}
+          </td>
+          <td style="min-width:220px;">
+            {% if item.match_type == 'RULE' %}
+              {# ── Matched: show rule info; click row to expand OFX/Find #}
+              <span class="pill" style="font-size:.7rem;background:#ede9fe;color:#5b21b6;border:none;">Rule</span>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:.2rem;line-height:1.3;">
+                {{ item.rule_name }}
+                {% if item.rule_acct_num %}→ {{ item.rule_acct_num }} {{ item.rule_acct_name }}{% endif %}
+                {% if not item.has_period %}<span style="color:var(--danger);"> ⚠ no accounting period</span>{% endif %}
+              </div>
+            {% else %}
+              {# ── Unmatched: inline action buttons replace the "No match" pill #}
+              <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;">
+                <a href="/admin/transaction-rules"
+                   class="btn btn--sm btn--primary"
+                   target="_blank"
+                   onclick="event.stopPropagation(); this.href=createRuleUrl('{{ row_id }}');">
+                  + Create Rule
+                </a>
+                <button class="btn btn--sm btn--ghost"
+                        onclick="event.stopPropagation();showOFX('{{ row_id }}')">
+                  OFX Data
+                </button>
+                <button class="btn btn--sm btn--ghost"
+                        onclick="event.stopPropagation();runFind('{{ row_id }}')">
+                  Find
+                </button>
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+
+        {# ── Expandable detail row: OFX data + Find results ──────────── #}
+        <tr id="{{ row_id }}" style="display:none;background:#f8f9ff;">
+          <td colspan="4" style="padding:.5rem 1rem .75rem 1.5rem;border-top:none;">
+
+            {% if item.match_type == 'RULE' %}
+            {# RULE rows: show action buttons here (row click opens this) #}
+            <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;">
+              <a href="/admin/transaction-rules"
+                 class="btn btn--sm btn--primary"
+                 target="_blank"
+                 onclick="event.stopPropagation(); this.href=createRuleUrl('{{ row_id }}');">
+                + Create Rule
+              </a>
+              <button class="btn btn--sm btn--ghost"
+                      onclick="event.stopPropagation();toggleOFX('{{ row_id }}')">
+                View OFX Data
+              </button>
+              <button class="btn btn--sm btn--ghost"
+                      onclick="event.stopPropagation();runFind('{{ row_id }}')">
+                Find
+              </button>
+            </div>
+            {% endif %}
+
+            {# OFX field values #}
+            <div id="{{ row_id }}-ofx" style="display:none;
+                 padding:.5rem .75rem;background:var(--surface-muted);border-radius:var(--radius-sm);">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-muted);
+                          text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;">OFX Field Values</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.4rem .75rem;font-size:12px;">
+                <div>
+                  <span style="color:var(--text-muted);font-weight:600;font-size:11px;">Description contains</span><br>
+                  <code style="font-size:12px;background:var(--surface);padding:.1rem .35rem;border-radius:3px;">{{ item.description or '—' }}</code>
+                </div>
+                <div>
+                  <span style="color:var(--text-muted);font-weight:600;font-size:11px;">Transaction type contains</span><br>
+                  <code style="font-size:12px;background:var(--surface);padding:.1rem .35rem;border-radius:3px;">{{ item.transaction_type or '—' }}</code>
+                </div>
+                <div>
+                  <span style="color:var(--text-muted);font-weight:600;font-size:11px;">Memo contains</span><br>
+                  <code style="font-size:12px;background:var(--surface);padding:.1rem .35rem;border-radius:3px;">{{ item.memo or '—' }}</code>
+                </div>
+                <div>
+                  <span style="color:var(--text-muted);font-weight:600;font-size:11px;">Amount equals</span><br>
+                  <code style="font-size:12px;background:var(--surface);padding:.1rem .35rem;border-radius:3px;">{{ "%.2f" | format(amt | abs) }}</code>
+                </div>
+                <div>
+                  <span style="color:var(--text-muted);font-weight:600;font-size:11px;">FITID (duplicate guard)</span><br>
+                  <code style="font-size:11px;background:var(--surface);padding:.1rem .35rem;border-radius:3px;">{{ item.external_reference or '—' }}</code>
+                </div>
+              </div>
+            </div>
+
+            {# Find results (populated by JS fetch) #}
+            <div id="{{ row_id }}-find" style="display:none;margin-top:.5rem;"></div>
+
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      {% if not map_is_usable %}
+        No transactions could be read — please map the CSV columns above and click Re-parse.
+      {% else %}
+        No transactions found in the file.
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{# ── Action bar ────────────────────────────────────────────────────────── #}
+{% if batch.status == 'PENDING' %}
+  {% set match_total = counts.rule %}
+  <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+    {% if match_total > 0 %}
+      <form method="post"
+            action="{{ base_url }}/apply"
+            data-confirm="Apply {{ match_total }} rule match{% if match_total != 1 %}es{% endif %}? This will record matched transactions."
+            data-confirm-title="Apply Import"
+            data-confirm-label="Apply">
+        <button type="submit" class="btn btn--primary">
+          Apply {{ match_total }} Rule Match{% if match_total != 1 %}es{% endif %}
+        </button>
+      </form>
+    {% endif %}
+    <form method="post" action="{{ base_url }}/reapply-rules">
+      <button type="submit" class="btn btn--ghost btn--sm">↺ Re-run Rules</button>
+    </form>
+    <a href="/admin/transaction-rules?return_to={{ base_url }}" class="btn btn--primary btn--sm">⚙ Manage Rules</a>
+    <form method="post"
+          action="{{ base_url }}/delete"
+          data-confirm="Discard this import? The file data will be removed."
+          data-confirm-title="Discard Import"
+          data-confirm-label="Discard">
+      <button type="submit" class="btn btn--danger btn--sm">Discard</button>
+    </form>
+    <a href="/bank-accounts/{{ bank_account_id }}/import-statement" class="btn btn--ghost btn--sm">← All Imports</a>
+    {% if match_total > 0 %}
+      <span style="font-size:.8rem;color:var(--text-muted);">
+        Records rule-matched transactions.
+      </span>
+    {% else %}
+      <span style="font-size:.8rem;color:var(--text-muted);">
+        No rule matches found. Add transaction rules or discard this import.
+      </span>
+    {% endif %}
+  </div>
+{% else %}
+  <div style="display:flex;gap:.75rem;align-items:center;">
+    <a href="/bank-accounts/{{ bank_account_id }}/import-statement" class="btn btn--primary">← All Imports</a>
+    <span style="font-size:.8rem;color:var(--text-muted);">This import has been applied.</span>
+  </div>
+{% endif %}
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────
+function mainRow(rowId) {
+  return document.querySelector('tr[data-row-id="' + rowId + '"]');
+}
+function createRuleUrl(rowId) {
+  var tr = mainRow(rowId);
+  if (!tr) return '/admin/transaction-rules';
+  var p = new URLSearchParams({
+    prefill_desc:   tr.getAttribute('data-desc')     || '',
+    prefill_type:   tr.getAttribute('data-txn-type') || '',
+    prefill_memo:   tr.getAttribute('data-memo')      || '',
+    prefill_amount: tr.getAttribute('data-amount')   || '',
+    return_to: window.location.pathname
+  });
+  return '/admin/transaction-rules?' + p.toString();
+}
+
+// ── RULE row: click to expand / collapse detail panel ───────────────────
+function toggleDetail(id) {
+  var detail = document.getElementById(id);
+  if (!detail) return;
+  var opening = detail.style.display === 'none';
+  // Close any other open panel
+  document.querySelectorAll('tbody tr[id^="row-"]').forEach(function (r) {
+    if (r.id !== id) r.style.display = 'none';
+  });
+  detail.style.display = opening ? 'table-row' : 'none';
+}
+
+// ── OFX toggle (works for both matched and unmatched rows) ───────────────
+function toggleOFX(id) {
+  var detail = document.getElementById(id);
+  var el = document.getElementById(id + '-ofx');
+  if (!el) return;
+  var showing = el.style.display !== 'none';
+  if (showing) {
+    el.style.display = 'none';
+    var findEl = document.getElementById(id + '-find');
+    if (!findEl || findEl.style.display === 'none') {
+      if (detail) detail.style.display = 'none';
+    }
+  } else {
+    el.style.display = 'block';
+    if (detail) detail.style.display = 'table-row';
+  }
+}
+// Alias for unmatched rows
+var showOFX = toggleOFX;
+
+// ── Find ─────────────────────────────────────────────────────────────────
+function runFind(id) {
+  var tr = mainRow(id);
+  if (!tr) return;
+  var txnType = tr.getAttribute('data-txn-type') || '';
+  var amount  = tr.getAttribute('data-amount')   || '0';
+  var date    = tr.getAttribute('data-date')     || '';
+  var desc    = tr.getAttribute('data-desc')     || '';
+  var memo    = tr.getAttribute('data-memo')     || '';
+  var baId    = tr.getAttribute('data-bank-account-id');
+  var batchId = tr.getAttribute('data-batch-id');
+
+  var detail = document.getElementById(id);
+  if (detail) detail.style.display = 'table-row';
+
+  var resultEl = document.getElementById(id + '-find');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:.25rem 0;">Searching…</div>';
+
+  var url = '/bank-accounts/' + baId + '/import-statement/' + batchId + '/find'
+    + '?txn_type=' + encodeURIComponent(txnType)
+    + '&amount='   + encodeURIComponent(amount)
+    + '&date='     + encodeURIComponent(date)
+    + '&desc='     + encodeURIComponent(desc)
+    + '&memo='     + encodeURIComponent(memo);
+
+  fetch(url)
+    .then(function (r) { return r.json(); })
+    .then(function (data) { renderFindResults(resultEl, data); })
+    .catch(function () {
+      resultEl.innerHTML = '<div style="color:var(--danger);font-size:13px;">Search failed.</div>';
+    });
+}
+
+function renderFindResults(el, data) {
+  if (data.error) {
+    el.innerHTML = '<div style="color:var(--danger);font-size:13px;">' + esc(data.error) + '</div>';
+    return;
+  }
+
+  var uid = 'fp' + Date.now();
+  var html = '<div style="border-top:1px solid var(--border);padding-top:.5rem;">';
+
+  if (data.type === 'bills') {
+    html += sectionLabel('Matching Open Vendor Bills');
+    html += data.bills.length
+      ? billTable(data.bills)
+      : '<div style="font-size:13px;color:var(--text-muted);">No open vendor bills match this amount.</div>';
+
+  } else if (data.type === 'payments') {
+    html += sectionLabel('Homeowner Payments ±3 Days &mdash; target: <strong>$' + data.target.toFixed(2) + '</strong>');
+
+    if (!data.candidates.length) {
+      html += '<div style="font-size:13px;color:var(--text-muted);">No homeowner payments found within 3 days of this date.</div>';
+    } else {
+
+      // ── Combination chips (click to pre-select) ────────────────────────
+      if (data.combinations.length) {
+        html += '<div style="margin-bottom:.5rem;">';
+        html += '<div style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Combinations totalling $' + data.target.toFixed(2) + ' — click to pre-select</div>';
+        data.combinations.forEach(function (combo, i) {
+          html += '<div class="fp-combo" style="display:inline-flex;gap:.3rem;flex-wrap:wrap;align-items:center;'
+            + 'padding:.25rem .5rem;margin:.1rem .1rem;border-radius:4px;cursor:pointer;'
+            + 'background:#eff6ff;border:1px solid #bfdbfe;font-size:12px;color:#1e40af;"'
+            + ' data-uid="' + uid + '" data-ids="' + esc(JSON.stringify(combo.ids)) + '">'
+            + '<strong>Combo ' + (i+1) + ':</strong> ' + esc(combo.owner_names.join(' · '))
+            + '</div>';
+        });
+        html += '</div>';
+      }
+
+      // ── Candidate checklist grouped by date ───────────────────────────
+      html += '<div style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Select payments that make up this deposit:</div>';
+
+      // Group by date
+      var groups = {};
+      data.candidates.forEach(function (c) {
+        var d = c.payment_date || '—';
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(c);
+      });
+      var sortedDates = Object.keys(groups).sort(function (a, b) {
+        var am = (a === data.date) ? 0 : 1, bm = (b === data.date) ? 0 : 1;
+        return am !== bm ? am - bm : (a < b ? -1 : 1);
+      });
+
+      sortedDates.forEach(function (d) {
+        var isMatch = (d === data.date);
+        html += '<div style="font-size:.7rem;font-weight:700;padding:.15rem .4rem;margin:.4rem 0 .1rem;'
+          + 'border-radius:3px;letter-spacing:.03em;'
+          + (isMatch ? 'background:#dcfce7;color:#166534;' : 'color:var(--text-muted);') + '">'
+          + esc(d) + (isMatch ? ' ★ same date as deposit — most likely' : ' (within ±3 days)') + '</div>';
+
+        groups[d].forEach(function (c) {
+          var handled = c.rule_handled;
+          var inDesc  = c.in_description;
+          var exact   = c.exact_match;
+          var cid     = uid + '-c' + c.id;
+
+          html += '<label for="' + cid + '" style="display:flex;gap:.5rem;align-items:center;'
+            + 'padding:.2rem .5rem;border-radius:3px;font-size:12px;user-select:none;'
+            + (handled ? 'opacity:.4;cursor:not-allowed;' : 'cursor:pointer;')
+            + (isMatch && !handled ? 'background:#f0fdf4;' : '')
+            + (exact   && !handled ? 'outline:1px solid #86efac;' : '') + '">'
+            + '<input type="checkbox" id="' + cid + '" class="fp-chk"'
+            + ' data-uid="' + uid + '" data-pid="' + c.id + '" data-amount="' + c.amount + '"'
+            + (handled ? ' disabled' : '') + '>'
+            + '<span style="flex:1;' + (handled ? 'text-decoration:line-through;' : 'font-weight:500;') + '">'
+            + esc(c.owner_name || '—') + '</span>'
+            + (c.lot_number ? '<span style="color:var(--text-muted);font-size:11px;min-width:36px;">' + esc(c.lot_number) + '</span>' : '<span style="min-width:36px;"></span>')
+            + '<span style="color:var(--text-muted);font-size:11px;font-family:monospace;min-width:78px;">' + esc(c.payment_date || '') + '</span>'
+            + (exact && !handled  ? '<span style="font-size:10px;color:#166534;white-space:nowrap;">✓ exact</span>' : '')
+            + (handled            ? '<span style="font-size:10px;color:#dc2626;white-space:nowrap;">✗ rule handled</span>' : '')
+            + (inDesc && !handled ? '<span style="font-size:10px;color:#92400e;white-space:nowrap;">⚠ name in OFX</span>' : '')
+            + '<span style="font-family:monospace;font-weight:600;min-width:65px;text-align:right;">'
+            + '$' + c.amount.toFixed(2) + '</span>'
+            + '</label>';
+        });
+      });
+
+      // ── Running total ──────────────────────────────────────────────────
+      html += '<div id="' + uid + '-bar" style="margin-top:.6rem;padding:.4rem .75rem;'
+        + 'background:var(--surface-muted);border-radius:var(--radius-sm);'
+        + 'display:flex;align-items:center;gap:1rem;font-size:13px;">'
+        + '<span>Selected: <strong id="' + uid + '-sel">$0.00</strong>'
+        + ' of <strong>$' + data.target.toFixed(2) + '</strong></span>'
+        + '<span id="' + uid + '-status" style="font-size:12px;color:var(--text-muted);margin-left:auto;"></span>'
+        + '</div>';
+    }
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+
+  // Wire checkboxes
+  el.querySelectorAll('.fp-chk').forEach(function (chk) {
+    chk.addEventListener('change', function () { updateFindTotal(uid, data.target); });
+  });
+
+  // Wire combination chips
+  el.querySelectorAll('.fp-combo').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var ids = JSON.parse(this.getAttribute('data-ids'));
+      // Uncheck all then check the combo
+      el.querySelectorAll('.fp-chk[data-uid="' + uid + '"]').forEach(function (c) { c.checked = false; });
+      ids.forEach(function (pid) {
+        var chk = el.querySelector('.fp-chk[data-uid="' + uid + '"][data-pid="' + pid + '"]');
+        if (chk && !chk.disabled) chk.checked = true;
+      });
+      updateFindTotal(uid, data.target);
+    });
+  });
+}
+
+function updateFindTotal(uid, target) {
+  var total = 0;
+  document.querySelectorAll('.fp-chk[data-uid="' + uid + '"]:checked').forEach(function (c) {
+    total += parseFloat(c.getAttribute('data-amount')) || 0;
+  });
+  total = Math.round(total * 100) / 100;
+  var selEl    = document.getElementById(uid + '-sel');
+  var statusEl = document.getElementById(uid + '-status');
+  if (selEl) selEl.textContent = '$' + total.toFixed(2);
+  if (statusEl) {
+    var diff = Math.round((total - target) * 100) / 100;
+    if (Math.abs(diff) < 0.01) {
+      statusEl.textContent = '✓ Matches target!';
+      statusEl.style.cssText = 'font-size:12px;color:#166534;font-weight:700;';
+    } else if (diff < 0) {
+      statusEl.textContent = '$' + Math.abs(diff).toFixed(2) + ' short';
+      statusEl.style.cssText = 'font-size:12px;color:var(--text-muted);';
+    } else {
+      statusEl.textContent = '$' + diff.toFixed(2) + ' over';
+      statusEl.style.cssText = 'font-size:12px;color:var(--danger);';
+    }
+  }
+}
+
+function sectionLabel(html) {
+  return '<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;">' + html + '</div>';
+}
+function billTable(rows) {
+  var h = '<table style="font-size:12px;border-collapse:collapse;width:100%;margin-bottom:.35rem;">'
+    + '<thead><tr style="background:var(--surface-muted);">'
+    + '<th style="text-align:left;padding:.2rem .4rem;">Vendor</th>'
+    + '<th style="text-align:left;padding:.2rem .4rem;">Invoice #</th>'
+    + '<th style="text-align:left;padding:.2rem .4rem;">Invoice Date</th>'
+    + '<th style="text-align:left;padding:.2rem .4rem;">Due Date</th>'
+    + '<th style="text-align:right;padding:.2rem .4rem;">Amount</th>'
+    + '<th style="padding:.2rem .4rem;">Status</th>'
+    + '</tr></thead><tbody>';
+  rows.forEach(function (b) {
+    h += '<tr>'
+      + '<td style="padding:.2rem .4rem;font-weight:600;">' + esc(b.vendor_name) + '</td>'
+      + '<td style="padding:.2rem .4rem;">' + esc(b.invoice_number || '—') + '</td>'
+      + '<td style="padding:.2rem .4rem;">' + esc(b.invoice_date  || '—') + '</td>'
+      + '<td style="padding:.2rem .4rem;">' + esc(b.due_date      || '—') + '</td>'
+      + '<td style="padding:.2rem .4rem;text-align:right;font-family:monospace;">$' + b.amount.toFixed(2) + '</td>'
+      + '<td style="padding:.2rem .4rem;"><span class="pill pill--warn" style="font-size:.65rem;">' + esc(b.status) + '</span></td>'
+      + '</tr>';
+  });
+  return h + '</tbody></table>';
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── CSV column mapping toggle ────────────────────────────────────────────
+function toggleDC() {
+  var amt = document.getElementById("col-amount");
+  var grp = document.getElementById("dc-group");
+  if (grp) grp.style.display = amt && amt.value ? "none" : "flex";
+}
+if (document.getElementById("col-amount")) toggleDC();
+</script>
+{% endblock %}
