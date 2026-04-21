@@ -12,7 +12,8 @@ import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal
 
-from hoa_accounting.web.transaction_rule_pages import action_pattern
+from hoa_accounting.services.factory import ServiceFactory
+from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.bank_statement_import import (
     ParsedTransaction,
     ParseError,
@@ -127,74 +128,126 @@ class BankStatementPages:
         seq = int(row["receipt_number"].rsplit("-", 1)[1]) + 1 if row else 1
         return f"{prefix}{seq:04d}"
 
-    def _record_ar_payment(
-        self,
-        lot_id: int,
-        je_id: int,
-        bank_account_id: int,
-        amount: Decimal,
-        txn_date: str,
-        description: str,
-    ) -> None:
-        """Insert a payment record + apply to open assessments for the lot."""
-        owner_row = self._conn.execute(
-            """SELECT lo.owner_id FROM lot_ownership lo
-               WHERE lo.lot_id = ? AND lo.end_date IS NULL
-               ORDER BY lo.start_date DESC LIMIT 1""",
-            (lot_id,),
-        ).fetchone()
-        if not owner_row:
-            return
-
-        owner_id = owner_row["owner_id"]
-        receipt_number = self._next_receipt_number(txn_date)
-
-        cur = self._conn.execute(
+    def _open_assessments_for_lot(self, lot_id: int) -> list[int]:
+        """Return IDs of open/partial assessments for a lot, oldest due_date first."""
+        rows = self._conn.execute(
             """
-            INSERT INTO payments
-                (receipt_number, owner_id, payment_date, amount,
-                 payment_method, bank_account_id, journal_entry_id, notes)
-            VALUES (?, ?, ?, ?, 'ACH', ?, ?, ?)
-            """,
-            (receipt_number, owner_id, txn_date, str(amount),
-             bank_account_id, je_id, description),
-        )
-        payment_id = int(cur.lastrowid)  # type: ignore[arg-type]
-
-        # Apply to oldest open assessments first
-        asmt_rows = self._conn.execute(
-            """
-            SELECT a.id, a.amount,
-                   COALESCE(SUM(pa.applied_amount), 0) AS already_applied
+            SELECT a.id
             FROM assessments a
             LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
             WHERE a.lot_id = ? AND a.status IN ('OPEN', 'PARTIAL')
-            GROUP BY a.id
-            HAVING a.amount - already_applied > 0
+            GROUP BY a.id, a.amount, a.due_date
+            HAVING a.amount - COALESCE(SUM(pa.applied_amount), 0) > 0
             ORDER BY a.due_date ASC
             """,
             (lot_id,),
         ).fetchall()
+        return [int(r["id"]) for r in rows]
 
-        remaining = amount
-        for asmt in asmt_rows:
-            if remaining <= 0:
-                break
-            outstanding = Decimal(str(asmt["amount"])) - Decimal(str(asmt["already_applied"]))
-            apply_amt = min(remaining, outstanding)
-            self._conn.execute(
-                """INSERT OR IGNORE INTO payment_applications
-                       (payment_id, assessment_id, applied_amount)
-                   VALUES (?, ?, ?)""",
-                (payment_id, asmt["id"], str(apply_amt)),
+    def _apply_rule(
+        self,
+        txn_row: dict,
+        rule: dict,
+        bank_account_id: int,
+    ) -> tuple[str, int] | None:
+        """Post a single-entry record representing this bank transaction.
+
+        Returns ``(source_type, source_id)`` identifying the row that was
+        created (for linking back from the bank transaction and the
+        reconciliation), or ``None`` if the rule can't be applied — missing
+        vendor, missing category, missing lot owner, or the transaction sign
+        doesn't fit the action type. Callers decide what to do on None
+        (typically leave the bank transaction unmatched and surface a hint).
+        """
+        factory = ServiceFactory(self._conn)
+        action = str(rule.get("action_type") or "")
+        amount = Decimal(str(txn_row["amount"]))
+        txn_date = txn_row["transaction_date"]
+        description = (rule.get("default_memo") or txn_row.get("description") or "").strip()
+        category_id = rule.get("category_id")
+        category_id_int = int(category_id) if category_id else None
+
+        # Incoming owner payment ─ applies to open assessments oldest first.
+        if action == "dues_payment":
+            if amount <= 0:
+                return None
+            lot_id = rule.get("lot_id")
+            if not lot_id:
+                return None
+            owner_row = self._conn.execute(
+                """SELECT owner_id FROM lot_ownership
+                   WHERE lot_id = ? AND end_date IS NULL
+                   ORDER BY start_date DESC LIMIT 1""",
+                (int(lot_id),),
+            ).fetchone()
+            if not owner_row:
+                return None
+            receipt_number = self._next_receipt_number(txn_date)
+            result = factory.payment_service().post_payment(
+                entry_date=txn_date,
+                owner_id=int(owner_row["owner_id"]),
+                amount=str(amount),
+                description=description,
+                bank_account_id=bank_account_id,
+                payment_method="ACH",
+                receipt_number=receipt_number,
+                apply_to_assessment_ids=self._open_assessments_for_lot(int(lot_id)),
             )
-            new_applied = Decimal(str(asmt["already_applied"])) + apply_amt
-            status = "PAID" if new_applied >= Decimal(str(asmt["amount"])) else "PARTIAL"
-            self._conn.execute(
-                "UPDATE assessments SET status = ? WHERE id = ?",
-                (status, asmt["id"]),
+            if category_id_int is not None:
+                self._conn.execute(
+                    "UPDATE payments SET category_id = ? WHERE id = ?",
+                    (category_id_int, result.payment_id),
+                )
+            return ("PAYMENT", result.payment_id)
+
+        # Incoming non-owner income (fees, interest, misc).
+        if action in ("fee_income", "direct_income"):
+            if amount <= 0 or category_id_int is None:
+                return None
+            result = factory.non_dues_income_service().post_batch(
+                posting_date=txn_date,
+                bank_account_id=bank_account_id,
+                income_description=description or "Bank import",
+                rows=[IncomeRow(amount=str(amount), other_source="BANK")],
+                category_id=category_id_int,
             )
-            remaining -= apply_amt
+            return ("INCOME_BATCH", result.income_batch_id)
+
+        # Outgoing expense — needs both a vendor and a category.
+        if action in ("recurring_bill", "direct_expense", "bank_charge"):
+            if amount >= 0:
+                return None
+            vendor_id = rule.get("vendor_id")
+            if not vendor_id or category_id_int is None:
+                return None
+            amt = abs(amount)
+            invoice_number = f"BR-{txn_date.replace('-', '')}-{int(txn_row['id']):06d}"
+            bill = factory.vendor_bill_service().post_vendor_bill(
+                entry_date=txn_date,
+                vendor_id=int(vendor_id),
+                amount=str(amt),
+                description=description,
+                invoice_number=invoice_number,
+                invoice_date=txn_date,
+                category_id=category_id_int,
+            )
+            payment = factory.vendor_payment_service().post_vendor_payment(
+                entry_date=txn_date,
+                vendor_bill_id=bill.vendor_bill_id,
+                amount=str(amt),
+                description=description,
+                bank_account_id=bank_account_id,
+            )
+            if category_id_int is not None:
+                self._conn.execute(
+                    "UPDATE bill_payments SET category_id = ? WHERE id = ?",
+                    (category_id_int, payment.bill_payment_id),
+                )
+            return ("BILL_PAYMENT", payment.bill_payment_id)
+
+        # homeowner_batch and vendor_bill_match don't post records — they
+        # match transactions to existing single-entry rows via other paths.
+        return None
 
     def _period_for_date(self, date_str: str) -> int | None:
         row = self._conn.execute(
@@ -202,15 +255,6 @@ class BankStatementPages:
             (date_str,),
         ).fetchone()
         return int(row["id"]) if row else None
-
-    def _next_entry_number(self, entry_date: str) -> str:
-        prefix = "JE-" + entry_date.replace("-", "")
-        row = self._conn.execute(
-            "SELECT entry_number FROM journal_entries WHERE entry_number LIKE ? ORDER BY entry_number DESC LIMIT 1",
-            (prefix + "%",),
-        ).fetchone()
-        seq = int(row["entry_number"][-4:]) + 1 if row else 1
-        return f"{prefix}-{seq:04d}"
 
     def _compute_matches(
         self,
@@ -329,64 +373,6 @@ class BankStatementPages:
         )
         self._conn.commit()
         return batch_id
-
-    def _create_rule_je(
-        self,
-        txn_row: dict,
-        rule: dict,
-        bank_gl_account_id: int,
-        period_id: int,
-    ) -> tuple[int, int]:
-        """Create a journal entry for a rule-matched transaction.
-
-        direct_expense: DR gl_account / CR bank
-        direct_income:  DR bank / CR gl_account
-
-        Returns (je_id, bank_line_id).
-        """
-        entry_date = txn_row["transaction_date"]
-        entry_num = self._next_entry_number(entry_date)
-        memo = rule.get("default_memo") or txn_row.get("description") or ""
-        gl_account_id = int(rule["gl_account_id"])
-        amount = str(abs(Decimal(str(txn_row["amount"]))))
-
-        cur = self._conn.execute(
-            """
-            INSERT INTO journal_entries (entry_number, entry_date, memo, status, accounting_period_id)
-            VALUES (?, ?, ?, 'POSTED', ?)
-            """,
-            (entry_num, entry_date, memo, period_id),
-        )
-        je_id = int(cur.lastrowid)  # type: ignore[arg-type]
-
-        pattern = action_pattern(rule.get("action_type", "recurring_bill"))
-        if pattern == "expense":
-            lines = [
-                (1, gl_account_id,       amount, "0"),    # DR expense/charge acct
-                (2, bank_gl_account_id,  "0",    amount), # CR bank
-            ]
-            bank_line_num = 2
-        else:
-            lines = [
-                (1, bank_gl_account_id,  amount, "0"),    # DR bank
-                (2, gl_account_id,       "0",    amount), # CR income acct
-            ]
-            bank_line_num = 1
-
-        bank_line_id = 0
-        for lnum, acct_id, dr, cr in lines:
-            c2 = self._conn.execute(
-                """
-                INSERT INTO journal_entry_lines
-                    (journal_entry_id, line_number, account_id, debit_amount, credit_amount)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (je_id, lnum, acct_id, dr, cr),
-            )
-            if lnum == bank_line_num:
-                bank_line_id = int(c2.lastrowid)  # type: ignore[arg-type]
-
-        return je_id, bank_line_id
 
     # ── Upload form ───────────────────────────────────────────────────────────
 
@@ -841,8 +827,8 @@ class BankStatementPages:
         txn_rows = self._conn.execute(
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
-                   bt.matched_line_id, bt.match_type, bt.batch_match_ids, bt.rule_id,
-                   r.action_type, r.gl_account_id, r.category_id, r.lot_id, r.default_memo
+                   bt.match_type, bt.rule_id,
+                   r.action_type, r.category_id, r.lot_id, r.vendor_id, r.default_memo
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
             WHERE bt.import_batch_id = ?
@@ -850,65 +836,38 @@ class BankStatementPages:
             (batch_id,),
         ).fetchall()
 
-        bank_gl_account_id = int(recon["gl_account_id"])
+        bank_account_id = int(recon["bank_account_id"])
         matched_count = 0
 
         for txn in txn_rows:
-            mt = txn["match_type"]
+            if txn["match_type"] != "RULE" or not txn["rule_id"]:
+                # Non-rule matches (GL / BATCH against legacy JEs) are no-ops
+                # now that the single-entry uncleared-items query is the source
+                # of truth. Users match these via the reconciliation UI.
+                continue
 
-            if mt == "RULE" and txn["rule_id"]:
-                if txn["gl_account_id"]:
-                    # GL-based rule: create journal entry and clear in reconciliation
-                    period_id = self._period_for_date(txn["transaction_date"])
-                    if not period_id:
-                        continue
-                    je_id, bank_line_id = self._create_rule_je(
-                        dict(txn), dict(txn), bank_gl_account_id, period_id
-                    )
-                    self._conn.execute(
-                        "INSERT OR IGNORE INTO reconciliation_clears (reconciliation_id, journal_entry_line_id) VALUES (?, ?)",
-                        (reconciliation_id, bank_line_id),
-                    )
-                    self._conn.execute(
-                        "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
-                        (je_id, txn["id"]),
-                    )
-                    # Record AR payment if this is a dues rule with a specific lot
-                    if txn["action_type"] == "dues_payment" and txn["lot_id"]:
-                        amount = abs(Decimal(str(txn["amount"])))
-                        self._record_ar_payment(
-                            lot_id=int(txn["lot_id"]),
-                            je_id=je_id,
-                            bank_account_id=int(recon["bank_account_id"]),
-                            amount=amount,
-                            txn_date=txn["transaction_date"],
-                            description=txn["default_memo"] or txn["description"] or "",
-                        )
-                elif txn["category_id"]:
-                    # Category-based rule: tag the bank transaction, no GL JE needed.
-                    # Item will remain uncleared in reconciliation (user clears manually).
-                    self._conn.execute(
-                        "UPDATE bank_transactions SET category_id = ? WHERE id = ?",
-                        (txn["category_id"], txn["id"]),
-                    )
-                matched_count += 1
+            result = self._apply_rule(
+                dict(txn),
+                dict(txn),
+                bank_account_id=bank_account_id,
+            )
+            if result is None:
+                continue
 
-            elif mt == "GL" and txn["matched_line_id"]:
-                self._conn.execute(
-                    "INSERT OR IGNORE INTO reconciliation_clears (reconciliation_id, journal_entry_line_id) VALUES (?, ?)",
-                    (reconciliation_id, txn["matched_line_id"]),
-                )
-                matched_count += 1
-
-            elif mt == "BATCH":
-                ids = json.loads(txn["batch_match_ids"] or "[]")
-                for line_id in ids:
-                    self._conn.execute(
-                        "INSERT OR IGNORE INTO reconciliation_clears (reconciliation_id, journal_entry_line_id) VALUES (?, ?)",
-                        (reconciliation_id, line_id),
-                    )
-                if ids:
-                    matched_count += 1
+            source_type, source_id = result
+            self._conn.execute(
+                """UPDATE bank_transactions
+                   SET matched_source_type = ?, matched_source_id = ?
+                   WHERE id = ?""",
+                (source_type, source_id, txn["id"]),
+            )
+            self._conn.execute(
+                """INSERT OR IGNORE INTO reconciliation_clears
+                       (reconciliation_id, source_type, source_id)
+                   VALUES (?, ?, ?)""",
+                (reconciliation_id, source_type, source_id),
+            )
+            matched_count += 1
 
         self._conn.execute(
             "UPDATE bank_import_batches SET status = 'APPLIED' WHERE id = ?",
@@ -917,7 +876,7 @@ class BankStatementPages:
         self._conn.commit()
 
         total = len(txn_rows)
-        msg = f"{matched_count}+of+{total}+bank+transactions+matched+and+pre-checked."
+        msg = f"{matched_count}+of+{total}+bank+transactions+posted+and+cleared."
         return f"/reconciliations/{reconciliation_id}?msg={msg}", None
 
     # ── Delete pending batch ──────────────────────────────────────────────────
@@ -1524,13 +1483,11 @@ class BankStatementPages:
         if not batch:
             return f"/bank-accounts/{bank_account_id}/import-statement", None
 
-        bank_gl_account_id = int(ba["gl_account_id"])
-
         txn_rows = self._conn.execute(
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
-                   bt.matched_line_id, bt.match_type, bt.batch_match_ids, bt.rule_id,
-                   r.action_type, r.gl_account_id, r.category_id, r.lot_id, r.default_memo
+                   bt.match_type, bt.rule_id,
+                   r.action_type, r.category_id, r.lot_id, r.vendor_id, r.default_memo
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
             WHERE bt.import_batch_id = ?
@@ -1539,38 +1496,22 @@ class BankStatementPages:
         ).fetchall()
 
         for txn in txn_rows:
-            mt = txn["match_type"]
-
-            if mt == "RULE" and txn["rule_id"]:
-                if txn["gl_account_id"]:
-                    # GL-based rule: create journal entry
-                    period_id = self._period_for_date(txn["transaction_date"])
-                    if not period_id:
-                        continue
-                    je_id, _bank_line_id = self._create_rule_je(
-                        dict(txn), dict(txn), bank_gl_account_id, period_id
-                    )
-                    self._conn.execute(
-                        "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
-                        (je_id, txn["id"]),
-                    )
-                    # Record AR payment if this is a dues rule with a specific lot
-                    if txn["action_type"] == "dues_payment" and txn["lot_id"]:
-                        amount = abs(Decimal(str(txn["amount"])))
-                        self._record_ar_payment(
-                            lot_id=int(txn["lot_id"]),
-                            je_id=je_id,
-                            bank_account_id=bank_account_id,
-                            amount=amount,
-                            txn_date=txn["transaction_date"],
-                            description=txn["default_memo"] or txn["description"] or "",
-                        )
-                elif txn["category_id"]:
-                    # Category-based rule: tag the bank transaction with its category
-                    self._conn.execute(
-                        "UPDATE bank_transactions SET category_id = ? WHERE id = ?",
-                        (txn["category_id"], txn["id"]),
-                    )
+            if txn["match_type"] != "RULE" or not txn["rule_id"]:
+                continue
+            result = self._apply_rule(
+                dict(txn),
+                dict(txn),
+                bank_account_id=bank_account_id,
+            )
+            if result is None:
+                continue
+            source_type, source_id = result
+            self._conn.execute(
+                """UPDATE bank_transactions
+                   SET matched_source_type = ?, matched_source_id = ?
+                   WHERE id = ?""",
+                (source_type, source_id, txn["id"]),
+            )
 
         self._conn.execute(
             "UPDATE bank_import_batches SET status = 'APPLIED' WHERE id = ?",
