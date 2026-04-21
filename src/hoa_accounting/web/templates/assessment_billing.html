@@ -50,17 +50,16 @@
                  required />
         </label>
         <label class="field">
-          <span class="field__label">Income Account *</span>
-          <select name="income_account_id" required>
+          <span class="field__label">Income Category</span>
+          <select name="category_id">
             <option value="">— Select —</option>
-            {% for a in income_accounts %}
-              <option value="{{ a.id }}"
-                {% if values.income_account_id|string == a.id|string %}selected{% endif %}>
-                {{ a.label }}
+            {% for c in income_categories %}
+              <option value="{{ c.id }}"
+                {% if values.category_id|string == c.id|string %}selected{% endif %}>
+                {{ c.label }}
               </option>
             {% endfor %}
           </select>
-          <span class="field__hint">Filtered to match the AR account's fund.</span>
         </label>
         <label class="field">
           <span class="field__label">Posting Date *</span>

@@ -44,7 +44,7 @@ EXPORT_GROUPS: list[dict] = [
     {
         "title": "Transactions & Financials",
         "types": [
-            {"key": "general_ledger",        "label": "General Ledger (all journal entry lines)", "filename": "general_ledger"},
+            {"key": "general_ledger",        "label": "Account Ledger (all posted entry lines)",  "filename": "general_ledger"},
             {"key": "assessments",           "label": "Assessments / Charges",                    "filename": "assessments"},
             {"key": "payments",              "label": "Payments Received",                         "filename": "payments"},
             {"key": "payment_applications",  "label": "Payment Applications (charge detail)",      "filename": "payment_applications"},

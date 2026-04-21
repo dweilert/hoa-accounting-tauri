@@ -18,16 +18,10 @@ class PaymentsRepository(BaseRepository):
         payment_method: str,
         reference_number: str | None,
         bank_account_id: int,
-        journal_entry_id: int,
         notes: str,
         deposit_batch_id: int | None = None,
     ) -> int:
-        """Insert a payment and return its id.
-
-        ``deposit_batch_id`` is optional: standalone payments (legacy
-        single-payment entry, future imports) leave it NULL; payments
-        entered via the batch deposit form point at their batch.
-        """
+        """Insert a payment and return its id."""
         cur = self.conn.execute(
             """
             INSERT INTO payments (
@@ -38,10 +32,9 @@ class PaymentsRepository(BaseRepository):
                 payment_method,
                 reference_number,
                 bank_account_id,
-                journal_entry_id,
                 notes,
                 deposit_batch_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 receipt_number,
@@ -51,7 +44,6 @@ class PaymentsRepository(BaseRepository):
                 payment_method,
                 reference_number,
                 bank_account_id,
-                journal_entry_id,
                 notes,
                 deposit_batch_id,
             ),

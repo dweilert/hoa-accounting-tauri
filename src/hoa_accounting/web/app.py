@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from flask import Flask, Response, g, request
+from flask import Flask, Response, g, redirect, request
 
 from hoa_accounting.api.report_api import ReportAPIService
 from hoa_accounting.application.report_runner import ReportRunner
@@ -190,6 +190,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from hoa_accounting.bootstrap.backup_service import BackupService
         boot_conn = connect_sqlite(str(db_path))
         try:
+            # Recreate audit triggers before migrations so any stale trigger
+            # definitions (referencing removed columns) can't block executescript.
+            install_audit_triggers(boot_conn)
             Migrator().apply_all(boot_conn)
             install_audit_triggers(boot_conn)
             backup_cfg = org_context.get("backup_config") or {}
@@ -894,6 +897,61 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
+
+    # ── Categories pages ──────────────────────────────────────────────
+
+    from hoa_accounting.web.categories_pages import CategoriesPages
+
+    def _open_categories_pages() -> CategoriesPages:
+        return CategoriesPages(_open_db())
+
+    @app.get("/categories", strict_slashes=False)
+    def list_categories() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("flash") or "").replace("+", " ")
+        resp = _open_categories_pages().render_list(org=org_context, theme=theme, flash_message=flash)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/categories/add")
+    def new_category_form() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().render_add_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/categories/add")
+    def submit_new_category() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().handle_add(
+            dict(request.form), org=org_context, theme=theme
+        )
+        if resp.status_code in (301, 302, 303):
+            return redirect("/categories?flash=Category+added.", code=303)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/categories/<int:category_id>/edit")
+    def edit_category_form(category_id: int) -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().render_edit_form(category_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/categories/<int:category_id>/edit")
+    def submit_edit_category(category_id: int) -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().handle_edit(
+            category_id, dict(request.form), org=org_context, theme=theme
+        )
+        if resp.status_code in (301, 302, 303):
+            return redirect("/categories?flash=Category+saved.", code=303)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/categories/<int:category_id>/ledger")
+    def view_category_ledger(category_id: int) -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().render_ledger(category_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
 
     # ── Accounting period pages ───────────────────────────────────────
 
@@ -2084,16 +2142,10 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/ledger/by-account")
     def ledger_by_account() -> Response:
-        pages = _open_all_ledger_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_by_account(
-            org=org_context, theme=theme,
-            start_date=(request.args.get("start") or "").strip(),
-            end_date=(request.args.get("end") or "").strip(),
-            sort=(request.args.get("sort") or "asc").strip(),
-        )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        # Old route — redirect to the unified transactions view
+        qs = request.query_string.decode()
+        target = "/ledger/transactions" + (f"?{qs}" if qs else "")
+        return redirect(target, 301)
 
     # ── Transaction pages: Manual Journal Entries ───────────────────
 

@@ -60,7 +60,7 @@
     <div class="panel">
       <div class="panel__header" style="margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem;">
         <div>
-          <div class="panel__title">Monthly Budget by Account</div>
+          <div class="panel__title">Monthly Budget by Category</div>
           <div class="panel__description">
             Enter monthly amounts directly, or type an annual total in the
             <strong>Annual ÷</strong> column and choose a spread method.
@@ -78,7 +78,7 @@
         {% endif %}
       </div>
 
-      {% if account_rows %}
+      {% if category_rows %}
         {#
           The outer div is the horizontal scroll container.
           Sticky cells are sticky relative to this container's left edge,
@@ -98,7 +98,7 @@
                 <th style="width:160px;text-align:left;padding:.4rem .5rem;font-size:12px;
                            position:sticky;left:0;z-index:3;background:var(--surface);
                            border-bottom:2px solid var(--border,#ccc);">
-                  Account
+                  Category
                 </th>
                 <th style="width:80px;text-align:right;padding:.4rem .5rem;font-size:11px;font-weight:700;
                            position:sticky;left:160px;z-index:3;background:var(--surface);
@@ -123,11 +123,11 @@
             </thead>
             <tbody id="budget-body">
               {% set ns = namespace(current_group=None, row_idx=0) %}
-              {% for row in account_rows %}
+              {% for row in category_rows %}
 
                 {# ── Group header row ────────────────────────────────── #}
-                {% if row.group_code != ns.current_group %}
-                  {% set ns.current_group = row.group_code %}
+                {% if row.group_name != ns.current_group %}
+                  {% set ns.current_group = row.group_name %}
                   {% set ns.row_idx = 0 %}
                   <tr class="budget-group-header">
                     {# Sticky label cell #}
@@ -160,15 +160,14 @@
                 {% endif %}
                 {% set ns.row_idx = ns.row_idx + 1 %}
 
-                <tr class="budget-row" data-account="{{ row.account_id }}"
+                <tr class="budget-row" data-account="{{ row.category_id }}"
                     style="background:{{ row_bg }};">
 
-                  {# Account name — sticky #}
+                  {# Category name — sticky #}
                   <td style="position:sticky;left:0;z-index:1;background:{{ row_bg }};
                               padding:.25rem .5rem;vertical-align:middle;
                               border-bottom:1px solid var(--border,#ececec);">
-                    <span class="mono" style="font-size:10px;color:var(--text-muted);">{{ row.account_number }}</span>
-                    <span style="font-size:12px;margin-left:.3rem;">{{ row.account_name }}</span>
+                    <span style="font-size:12px;">{{ row.category_name }}</span>
                   </td>
 
                   {# Row total #}
@@ -191,7 +190,7 @@
                       <div style="display:flex;gap:2px;align-items:center;">
                         <input type="text"
                                class="annual-input"
-                               data-row="{{ row.account_id }}"
+                               data-row="{{ row.category_id }}"
                                placeholder="Annual"
                                inputmode="decimal"
                                style="width:66px;font-size:11px;text-align:right;
@@ -199,7 +198,7 @@
                                       border:1px solid var(--border,#ccc);border-radius:3px;
                                       background:var(--input,#fff);">
                         <select class="spread-select"
-                                data-row="{{ row.account_id }}"
+                                data-row="{{ row.category_id }}"
                                 style="font-size:10px;padding:.2rem .2rem;
                                        border:1px solid var(--border,#ccc);border-radius:3px;
                                        background:var(--input,#fff);max-width:94px;">
@@ -223,7 +222,7 @@
                                value="{{ cell.value }}"
                                inputmode="decimal"
                                class="budget-cell"
-                               data-row="{{ row.account_id }}"
+                               data-row="{{ row.category_id }}"
                                data-col="{{ cell.period }}"
                                style="width:64px;text-align:right;font-size:11px;
                                       font-family:var(--font-mono);padding:.2rem .25rem;
@@ -271,7 +270,7 @@
           </table>
         </div>
       {% else %}
-        <div class="empty">No active expense accounts found.</div>
+        <div class="empty">No active expense categories found.</div>
       {% endif %}
     </div>
 

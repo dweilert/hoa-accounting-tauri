@@ -1,13 +1,12 @@
-"""All-accounts ledger views.
+"""All-transactions ledger view.
 
-Routes handled:
-  GET  /ledger/transactions     — every posted JE line, date-ordered
-  GET  /ledger/by-account       — same lines grouped per account
+Route handled:
+  GET  /ledger/transactions  — every posted transaction across all source tables
 
-Both accept:
+Accepts:
   ?start=YYYY-MM-DD   — filter from date (inclusive)
   ?end=YYYY-MM-DD     — filter to date (inclusive)
-  ?sort=asc|desc      — date order within each group (default: asc)
+  ?sort=asc|desc      — date order (default: asc)
 """
 
 from __future__ import annotations
@@ -19,25 +18,6 @@ from http import HTTPStatus
 
 from hoa_accounting.web.template_engine import render_template
 
-_SOURCE_LABELS: dict[str, str] = {
-    "ASSESSMENT":   "Assessment",
-    "PAYMENT":      "Payment",
-    "VENDOR_BILL":  "Vendor Bill",
-    "BILL_PAYMENT": "Bill Payment",
-    "TRANSFER":     "Transfer",
-    "ADJUSTMENT":   "Adjustment",
-    "REVERSAL":     "Reversal",
-    "MANUAL":       "Manual JE",
-}
-
-_NORMAL_BALANCE: dict[str, str] = {
-    "ASSET":     "DEBIT",
-    "LIABILITY": "CREDIT",
-    "EQUITY":    "CREDIT",
-    "INCOME":    "CREDIT",
-    "EXPENSE":   "DEBIT",
-}
-
 
 @dataclass(frozen=True)
 class LedgerResponse:
@@ -45,90 +25,139 @@ class LedgerResponse:
     body_html: str
 
 
-def _balance_label(amount: Decimal) -> str:
-    if amount == Decimal("0.00"):
-        return "0.00"
-    if amount > 0:
-        return f"{amount} Dr"
-    return f"{abs(amount)} Cr"
-
-
-def _fetch_lines(
+def _fetch_transactions(
     conn: sqlite3.Connection,
     *,
     start_date: str,
     end_date: str,
-    order: str,          # "ASC" or "DESC"
-    group_by_account: bool,
+    order: str,   # "ASC" or "DESC"
 ) -> list[sqlite3.Row]:
-    """Shared query for both views."""
-    conditions = ["je.status = 'POSTED'"]
+    """UNION across all source transaction tables."""
+    outer_conditions = []
     params: list[object] = []
-
     if start_date:
-        conditions.append("je.entry_date >= ?")
+        outer_conditions.append("txn_date >= ?")
         params.append(start_date)
     if end_date:
-        conditions.append("je.entry_date <= ?")
+        outer_conditions.append("txn_date <= ?")
         params.append(end_date)
-
-    where = " AND ".join(conditions)
-
-    if group_by_account:
-        order_sql = (
-            f"a.account_number ASC, "
-            f"je.entry_date {order}, je.entry_number {order}, jel.line_number ASC"
-        )
-    else:
-        order_sql = (
-            f"je.entry_date {order}, je.entry_number {order}, jel.line_number ASC"
-        )
+    outer_where = ("WHERE " + " AND ".join(outer_conditions)) if outer_conditions else ""
 
     return conn.execute(
         f"""
-        SELECT
-            je.id               AS journal_entry_id,
-            je.entry_date,
-            je.entry_number,
-            je.source_type,
-            COALESCE(je.memo, '')         AS memo,
-            COALESCE(jel.description, '') AS line_description,
-            CAST(COALESCE(jel.debit_amount,  0) AS TEXT) AS debit_amount,
-            CAST(COALESCE(jel.credit_amount, 0) AS TEXT) AS credit_amount,
-            a.id                AS account_id,
-            a.account_number,
-            a.account_name,
-            a.fund_code,
-            at.code             AS account_type_code
-        FROM journal_entry_lines jel
-        JOIN journal_entries je ON je.id = jel.journal_entry_id
-        JOIN accounts a         ON a.id  = jel.account_id
-        JOIN account_types at   ON at.id = a.account_type_id
-        WHERE {where}
-        ORDER BY {order_sql}
+        SELECT txn_date, txn_type, party, category_name, amount, memo, fund_code
+        FROM (
+
+            -- Vendor bills (expenses)
+            SELECT
+                vb.invoice_date              AS txn_date,
+                'Vendor Bill'                AS txn_type,
+                COALESCE(v.vendor_name, '')  AS party,
+                COALESCE(c.name, '')         AS category_name,
+                vb.amount                    AS amount,
+                COALESCE(vb.description, vb.invoice_number, '') AS memo,
+                COALESCE(vb.fund_code, c.fund_code, 'OPERATING') AS fund_code
+            FROM vendor_bills vb
+            LEFT JOIN vendors v    ON v.id = vb.vendor_id
+            LEFT JOIN categories c ON c.id = vb.category_id
+            WHERE vb.status != 'VOID'
+
+            UNION ALL
+
+            -- Income batches (non-dues income)
+            SELECT
+                ib.posting_date              AS txn_date,
+                'Income'                     AS txn_type,
+                ''                           AS party,
+                COALESCE(c.name, ib.income_description) AS category_name,
+                ib.total_amount              AS amount,
+                ib.income_description        AS memo,
+                COALESCE(c.fund_code, 'OPERATING')      AS fund_code
+            FROM income_batches ib
+            LEFT JOIN categories c ON c.id = ib.category_id
+
+            UNION ALL
+
+            -- Assessments (dues billed to owners)
+            SELECT
+                a.assessment_date            AS txn_date,
+                'Assessment'                 AS txn_type,
+                COALESCE(o.display_name, '') AS party,
+                COALESCE(c.name, a.description) AS category_name,
+                a.amount                     AS amount,
+                a.description                AS memo,
+                COALESCE(c.fund_code, 'OPERATING') AS fund_code
+            FROM assessments a
+            JOIN owners o ON o.id = a.owner_id
+            LEFT JOIN categories c ON c.id = a.category_id
+            WHERE a.status != 'VOID'
+
+            UNION ALL
+
+            -- Payments received from owners
+            SELECT
+                p.payment_date               AS txn_date,
+                'Payment'                    AS txn_type,
+                COALESCE(o.display_name, '') AS party,
+                ''                           AS category_name,
+                p.amount                     AS amount,
+                COALESCE(p.notes, p.reference_number, '') AS memo,
+                'OPERATING'                  AS fund_code
+            FROM payments p
+            JOIN owners o ON o.id = p.owner_id
+
+            UNION ALL
+
+            -- Reserve transfers
+            SELECT
+                rt.transfer_date             AS txn_date,
+                CASE rt.transfer_type
+                    WHEN 'FUND'     THEN 'Reserve Funding'
+                    WHEN 'WITHDRAW' THEN 'Reserve Withdrawal'
+                    ELSE 'Reserve Transfer'
+                END                          AS txn_type,
+                ''                           AS party,
+                COALESCE(c.name, '')         AS category_name,
+                rt.amount                    AS amount,
+                COALESCE(rt.purpose, rt.notes, '') AS memo,
+                'RESERVE'                    AS fund_code
+            FROM reserve_transfers rt
+            LEFT JOIN categories c ON c.id = rt.category_id
+
+        ) combined
+        {outer_where}
+        ORDER BY txn_date {order}, txn_type, party
         """,
         params,
     ).fetchall()
 
 
-class AllLedgerPages:
-    """Flat and grouped ledger views across all accounts."""
+_TYPE_PILL_CLASS = {
+    "Vendor Bill":        "pill--warn",
+    "Income":             "pill--ok",
+    "Assessment":         "pill--info",
+    "Payment":            "pill--ok",
+    "Reserve Funding":    "pill--info",
+    "Reserve Withdrawal": "pill--warn",
+    "Reserve Transfer":   "pill--muted",
+}
 
-    FLAT_TEMPLATE    = "all_transactions.html"
-    GROUPED_TEMPLATE = "ledger_by_account.html"
+_MONEY_OUT = {"Vendor Bill", "Reserve Funding"}
+
+
+class AllLedgerPages:
+    """Flat transactions view across all source tables."""
+
+    FLAT_TEMPLATE = "all_transactions.html"
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
-
-    # ── helpers ───────────────────────────────────────────────────────
 
     def _parse_params(
         self, start_date: str, end_date: str, sort: str
     ) -> tuple[str, str, str]:
         sort_dir = "DESC" if sort.lower() == "desc" else "ASC"
         return start_date.strip(), end_date.strip(), sort_dir
-
-    # ── flat list ─────────────────────────────────────────────────────
 
     def render_all_transactions(
         self,
@@ -140,147 +169,59 @@ class AllLedgerPages:
         sort: str = "asc",
     ) -> LedgerResponse:
         start, end, order = self._parse_params(start_date, end_date, sort)
-        raw = _fetch_lines(
+        raw = _fetch_transactions(
             self.conn,
-            start_date=start, end_date=end,
-            order=order, group_by_account=False,
+            start_date=start,
+            end_date=end,
+            order=order,
         )
 
         rows: list[dict] = []
-        total_debits = Decimal("0.00")
-        total_credits = Decimal("0.00")
+        total_in  = Decimal("0.00")
+        total_out = Decimal("0.00")
 
         for r in raw:
-            dr = Decimal(str(r["debit_amount"]))
-            cr = Decimal(str(r["credit_amount"]))
-            total_debits  += dr
-            total_credits += cr
+            txn_type = str(r["txn_type"])
+            amount   = Decimal(str(r["amount"]))
+            money_out = txn_type in _MONEY_OUT
+
+            if money_out:
+                total_out += amount
+            else:
+                total_in += amount
+
             rows.append({
-                "entry_date":       r["entry_date"],
-                "entry_number":     r["entry_number"],
-                "source_type":      r["source_type"],
-                "source_label":     _SOURCE_LABELS.get(r["source_type"], r["source_type"]),
-                "is_manual":        r["source_type"] == "MANUAL",
-                "journal_entry_id": r["journal_entry_id"],
-                "memo":             r["memo"],
-                "line_description": r["line_description"],
-                "account_number":   r["account_number"],
-                "account_name":     r["account_name"],
-                "fund_code":        r["fund_code"],
-                "debit_amount":     str(dr) if dr else "",
-                "credit_amount":    str(cr) if cr else "",
+                "txn_date":      r["txn_date"],
+                "txn_type":      txn_type,
+                "pill_class":    _TYPE_PILL_CLASS.get(txn_type, "pill--muted"),
+                "party":         str(r["party"] or ""),
+                "category_name": str(r["category_name"] or ""),
+                "amount":        str(amount),
+                "money_out":     money_out,
+                "memo":          str(r["memo"] or ""),
+                "fund_code":     str(r["fund_code"] or ""),
             })
 
         ctx = {
-            "active_nav": "transactions",
-            "page_key": "all-transactions",
-            "breadcrumb": "Transactions",
-            "heading": "All Transactions",
-            "org": org or {},
-            "theme": theme,
-            "rows": rows,
-            "row_count": len(rows),
-            "total_debits":  str(total_debits),
-            "total_credits": str(total_credits),
-            "start_date": start,
-            "end_date":   end,
-            "sort":       sort.lower(),
+            "active_nav":  "transactions",
+            "page_key":    "all-transactions",
+            "breadcrumb":  "Transactions",
+            "heading":     "All Transactions",
+            "org":         org or {},
+            "theme":       theme,
+            "rows":        rows,
+            "row_count":   len(rows),
+            "total_in":    str(total_in),
+            "total_out":   str(total_out),
+            "start_date":  start,
+            "end_date":    end,
+            "sort":        sort.lower(),
         }
         return LedgerResponse(
             status_code=HTTPStatus.OK,
             body_html=render_template(self.FLAT_TEMPLATE, ctx),
         )
 
-    # ── grouped by account ────────────────────────────────────────────
-
-    def render_by_account(
-        self,
-        *,
-        org: dict | None,
-        theme: str,
-        start_date: str = "",
-        end_date: str = "",
-        sort: str = "asc",
-    ) -> LedgerResponse:
-        start, end, order = self._parse_params(start_date, end_date, sort)
-        raw = _fetch_lines(
-            self.conn,
-            start_date=start, end_date=end,
-            order=order, group_by_account=True,
-        )
-
-        # Group into account buckets, preserving order
-        from collections import OrderedDict
-        accounts: OrderedDict[int, dict] = OrderedDict()
-
-        for r in raw:
-            aid = r["account_id"]
-            if aid not in accounts:
-                nb = _NORMAL_BALANCE.get(r["account_type_code"], "DEBIT")
-                accounts[aid] = {
-                    "account_id":       aid,
-                    "account_number":   r["account_number"],
-                    "account_name":     r["account_name"],
-                    "fund_code":        r["fund_code"],
-                    "account_type_code": r["account_type_code"],
-                    "normal_balance":   nb,
-                    "rows":             [],
-                    "total_debits":     Decimal("0.00"),
-                    "total_credits":    Decimal("0.00"),
-                    "running_balance":  Decimal("0.00"),
-                }
-
-            acct = accounts[aid]
-            dr = Decimal(str(r["debit_amount"]))
-            cr = Decimal(str(r["credit_amount"]))
-            acct["total_debits"]  += dr
-            acct["total_credits"] += cr
-            acct["running_balance"] += dr - cr
-
-            acct["rows"].append({
-                "entry_date":       r["entry_date"],
-                "entry_number":     r["entry_number"],
-                "source_type":      r["source_type"],
-                "source_label":     _SOURCE_LABELS.get(r["source_type"], r["source_type"]),
-                "is_manual":        r["source_type"] == "MANUAL",
-                "journal_entry_id": r["journal_entry_id"],
-                "memo":             r["memo"],
-                "line_description": r["line_description"],
-                "debit_amount":     str(dr) if dr else "",
-                "credit_amount":    str(cr) if cr else "",
-                "running_balance":  _balance_label(acct["running_balance"]),
-            })
-
-        # Stringify totals for template
-        grand_dr = Decimal("0.00")
-        grand_cr = Decimal("0.00")
-        account_list = []
-        for acct in accounts.values():
-            grand_dr += acct["total_debits"]
-            grand_cr += acct["total_credits"]
-            account_list.append({
-                **{k: v for k, v in acct.items() if k not in ("total_debits", "total_credits", "running_balance")},
-                "total_debits":  str(acct["total_debits"]),
-                "total_credits": str(acct["total_credits"]),
-                "ending_balance": _balance_label(acct["running_balance"]),
-            })
-
-        ctx = {
-            "active_nav": "transactions",
-            "page_key": "ledger-by-account",
-            "breadcrumb": "Transactions",
-            "heading": "Ledger by Account",
-            "org": org or {},
-            "theme": theme,
-            "accounts": account_list,
-            "account_count": len(account_list),
-            "grand_debits":  str(grand_dr),
-            "grand_credits": str(grand_cr),
-            "start_date": start,
-            "end_date":   end,
-            "sort":       sort.lower(),
-        }
-        return LedgerResponse(
-            status_code=HTTPStatus.OK,
-            body_html=render_template(self.GROUPED_TEMPLATE, ctx),
-        )
+    # kept for any route that still calls render_by_account
+    def render_by_account(self, **kwargs) -> LedgerResponse:
+        return self.render_all_transactions(**kwargs)

@@ -25,7 +25,7 @@
     <div class="panel__header">
       <div>
         <div class="panel__title">Bank Account Details</div>
-        <div class="panel__description">Account name, institution, type, and linked GL account.</div>
+        <div class="panel__description">Account name, institution, type, and linked account record.</div>
       </div>
     </div>
 
@@ -66,9 +66,9 @@
     </label>
 
     <label class="field">
-      <span class="field__label">GL Account *</span>
+      <span class="field__label">Linked Account *</span>
       <select name="gl_account_id" required>
-        <option value="">— Select a GL account —</option>
+        <option value="">— Select an account —</option>
         {% for gl in gl_options %}
           <option value="{{ gl.id }}"
             {% if values.gl_account_id|string == gl.id|string %} selected{% endif %}>
@@ -77,7 +77,7 @@
         {% endfor %}
       </select>
       <span class="field__hint">
-        Must be a bank-type GL account not already assigned to another bank account.
+        Must be a bank-type account not already linked to another bank account.
         To set the opening cash balance for this account, use
         <a href="/opening-balances">Opening Balances</a>.
       </span>

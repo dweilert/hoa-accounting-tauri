@@ -124,13 +124,13 @@ class YearEndCloseService:
         draft_count = self.close_repo.get_draft_entries(fiscal_year)
         if draft_count:
             cl.items.append(ChecklistItem(
-                label="No draft journal entries",
+                label="No draft corrections",
                 passed=False,
-                detail=f"{draft_count} draft entry/entries must be posted or deleted.",
+                detail=f"{draft_count} draft correction(s) must be posted or deleted.",
             ))
         else:
             cl.items.append(ChecklistItem(
-                label="No draft journal entries",
+                label="No draft corrections",
                 passed=True,
             ))
 

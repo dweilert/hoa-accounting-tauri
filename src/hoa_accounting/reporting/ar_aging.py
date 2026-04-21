@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from hoa_accounting.exceptions import NotFoundError
 from hoa_accounting.reporting.dto import (
     ARAgingDetailRow,
     ARAgingOwnerSummary,
@@ -54,26 +53,10 @@ class ARAgingReportService:
         self,
         *,
         as_of_date: str,
-        receivable_account_id: int,
+        receivable_account_id: int | None = None,
     ) -> ARAgingReport:
-        """Generate AR aging as of a date for one receivable account."""
-        account = self.conn.execute(
-            """
-            SELECT id, account_number, account_name
-            FROM accounts
-            WHERE id = ?
-            """,
-            (receivable_account_id,),
-        ).fetchone()
-        if account is None:
-            raise NotFoundError(
-                f"Receivable account {receivable_account_id} was not found."
-            )
-
-        detail_rows = self._load_open_items(
-            as_of_date=as_of_date,
-            receivable_account_id=receivable_account_id,
-        )
+        """Generate AR aging as of a date from open assessments."""
+        detail_rows = self._load_open_items(as_of_date=as_of_date)
         owner_accumulators: dict[int, _OwnerAgingAccumulator] = {}
 
         for row in detail_rows:
@@ -96,27 +79,6 @@ class ARAgingReportService:
                 acc.amount_61_90 += row.remaining_amount
             else:
                 acc.amount_90_plus += row.remaining_amount
-
-        for balance_row in self._load_owner_ledger_balances(
-            as_of_date=as_of_date,
-            receivable_account_id=receivable_account_id,
-        ):
-            owner_id = int(balance_row["owner_id"])
-            owner_name = str(balance_row["owner_name"])
-            debit_total = q2(balance_row["debit_total"])
-            credit_total = q2(balance_row["credit_total"])
-            ledger_balance = q2(debit_total - credit_total)
-
-            acc = owner_accumulators.setdefault(
-                owner_id,
-                _OwnerAgingAccumulator(
-                    owner_id=owner_id,
-                    owner_name=owner_name,
-                ),
-            )
-            acc.ledger_balance = ledger_balance
-            if ledger_balance < Decimal("0.00"):
-                acc.credit_balance = q2(-ledger_balance)
 
         owner_summaries = [
             acc.to_summary()
@@ -147,9 +109,9 @@ class ARAgingReportService:
 
         return ARAgingReport(
             as_of_date=as_of_date,
-            receivable_account_id=int(account["id"]),
-            receivable_account_number=str(account["account_number"]),
-            receivable_account_name=str(account["account_name"]),
+            receivable_account_id=0,
+            receivable_account_number="AR",
+            receivable_account_name="Owner Receivables",
             detail_rows=detail_rows,
             owner_summaries=owner_summaries,
             total_current_amount=q2(total_current_amount),
@@ -166,7 +128,6 @@ class ARAgingReportService:
         self,
         *,
         as_of_date: str,
-        receivable_account_id: int,
     ) -> list[ARAgingDetailRow]:
         rows = self.conn.execute(
             """
@@ -190,39 +151,18 @@ class ARAgingReportService:
                     0
                 ) AS applied_amount
             FROM assessments a
-            JOIN owners o
-              ON o.id = a.owner_id
-            LEFT JOIN lots l
-              ON l.id = a.lot_id
-            LEFT JOIN payment_applications pa
-              ON pa.assessment_id = a.id
-            LEFT JOIN payments p
-              ON p.id = pa.payment_id
+            JOIN owners o ON o.id = a.owner_id
+            LEFT JOIN lots l ON l.id = a.lot_id
+            LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
+            LEFT JOIN payments p ON p.id = pa.payment_id
             WHERE a.assessment_date <= ?
-              AND EXISTS (
-                  SELECT 1
-                  FROM journal_entry_lines jel
-                  WHERE jel.journal_entry_id = a.journal_entry_id
-                    AND jel.account_id = ?
-                    AND COALESCE(jel.debit_amount, 0) > 0
-              )
+              AND a.status NOT IN ('VOID', 'WRITTEN_OFF')
             GROUP BY
-                a.id,
-                a.owner_id,
-                o.display_name,
-                a.lot_id,
-                l.lot_number,
-                a.assessment_date,
-                a.due_date,
-                a.description,
-                a.amount
-            ORDER BY
-                o.display_name,
-                a.due_date,
-                a.assessment_date,
-                a.id
+                a.id, a.owner_id, o.display_name, a.lot_id, l.lot_number,
+                a.assessment_date, a.due_date, a.description, a.amount
+            ORDER BY o.display_name, a.due_date, a.assessment_date, a.id
             """,
-            (as_of_date, as_of_date, receivable_account_id),
+            (as_of_date, as_of_date),
         ).fetchall()
 
         as_of = date.fromisoformat(as_of_date)
@@ -263,34 +203,6 @@ class ARAgingReportService:
             )
 
         return detail_rows
-
-    def _load_owner_ledger_balances(
-        self,
-        *,
-        as_of_date: str,
-        receivable_account_id: int,
-    ):
-        return self.conn.execute(
-            """
-            SELECT
-                o.id AS owner_id,
-                o.display_name AS owner_name,
-                COALESCE(SUM(jel.debit_amount), 0) AS debit_total,
-                COALESCE(SUM(jel.credit_amount), 0) AS credit_total
-            FROM journal_entry_lines jel
-            JOIN journal_entries je
-              ON je.id = jel.journal_entry_id
-            JOIN owners o
-              ON o.id = jel.owner_id
-            WHERE jel.account_id = ?
-              AND jel.owner_id IS NOT NULL
-              AND je.status = 'POSTED'
-              AND je.entry_date <= ?
-            GROUP BY o.id, o.display_name
-            ORDER BY o.display_name, o.id
-            """,
-            (receivable_account_id, as_of_date),
-        ).fetchall()
 
     def _classify_due_date(self, *, due_date: str, as_of: date) -> tuple[int, str]:
         due = date.fromisoformat(due_date)

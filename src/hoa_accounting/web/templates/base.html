@@ -85,9 +85,9 @@
         </button>
         <ul class="sidebar__nav" id="sidebar-getting-started">
           <li>
-            <a href="/accounts/wizard"
-               class="sidebar__link{% if page_key == 'account-wizard' %} sidebar__link--active{% endif %}">
-              Account Setup Wizard
+            <a href="/categories"
+               class="sidebar__link{% if page_key == 'categories' %} sidebar__link--active{% endif %}">
+              Category Setup
             </a>
           </li>
           <li>
@@ -201,23 +201,7 @@
         </ul>
       </div>
 
-      {# ── Corrections ──────────────────────────────────────────────────── #}
-      <div class="sidebar__section" data-section="corrections">
-        <button type="button" class="sidebar__section-header"
-                data-toggle-section="corrections"
-                aria-expanded="true" aria-controls="sidebar-corrections">
-          <span class="sidebar__chevron" aria-hidden="true">▸</span>
-          <span>Corrections</span>
-        </button>
-        <ul class="sidebar__nav" id="sidebar-corrections">
-          <li>
-            <a href="/journal-entries/new"
-               class="sidebar__link{% if page_key == 'journal-entries' %} sidebar__link--active{% endif %}">
-              Make a Correction
-            </a>
-          </li>
-        </ul>
-      </div>
+      {# Corrections removed — single-entry model uses void/re-enter instead of manual journal entries #}
 
       {# ── Reserve Fund ─────────────────────────────────────────────────── #}
       <div class="sidebar__section" data-section="reserve-fund">
@@ -288,7 +272,7 @@
             <ul class="sidebar__subnav">
               <li><a href="/bank-accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">Bank Accounts</a></li>
               <li><a href="/bank-import/upload" class="sidebar__link{% if page_key == 'bank-import' %} sidebar__link--active{% endif %}">Import Bank Data</a></li>
-              <li><a href="/accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'accounts' %} sidebar__link--active{% endif %}">Account Setup</a></li>
+              <li><a href="/categories" class="sidebar__link{% if page_key == 'categories' %} sidebar__link--active{% endif %}">Income &amp; Expense Categories</a></li>
               <li><a href="/admin/transaction-rules" class="sidebar__link{% if page_key == 'transaction-rules' %} sidebar__link--active{% endif %}">Transaction Rules</a></li>
               <li><a href="/budgets" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'budgets' %} sidebar__link--active{% endif %}">Budget</a></li>
               <li><a href="/bill-templates" class="sidebar__link{% if page_key == 'bill-templates' %} sidebar__link--active{% endif %}">Bill Templates</a></li>
@@ -321,7 +305,7 @@
             </button>
             <ul class="sidebar__subnav">
               <li><a href="/admin/export" class="sidebar__link{% if page_key == 'export' %} sidebar__link--active{% endif %}">Export / Backup</a></li>
-              <li><a href="/admin/gl-import" class="sidebar__link{% if page_key == 'gl-import' %} sidebar__link--active{% endif %}">Import GL Data</a></li>
+              <li><a href="/admin/gl-import" class="sidebar__link{% if page_key == 'gl-import' %} sidebar__link--active{% endif %}">Import Transaction Data</a></li>
             </ul>
           </li>
           <li class="sidebar__subsection" data-subsection="admin-custom">
@@ -426,7 +410,7 @@
               </svg>
               <input id="global-search" class="search-box__input" type="search" name="q"
                      value="{{ search_q|default('') }}"
-                     placeholder="Search owners, lots, vendors, journal entries…"
+                     placeholder="Search owners, lots, vendors, bills…"
                      autocomplete="off" spellcheck="false" />
               <kbd class="search-box__kbd" aria-label="Press / to focus search">/</kbd>
             </div>

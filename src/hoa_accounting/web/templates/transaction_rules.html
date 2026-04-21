@@ -38,8 +38,8 @@
         <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">What rules do</div>
         <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
           When you import a bank statement, each transaction's description is compared
-          against your saved rules. A match automatically creates a posted journal entry
-          so you don't have to post it by hand.
+          against your saved rules. A match automatically records and posts the transaction
+          so you don't have to categorize it by hand.
         </p>
 
         <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">How matching works</div>
@@ -52,7 +52,7 @@
           <em>anywhere</em> in the field.
         </p>
         <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
-          Match priority: <strong>Rules</strong> win over existing GL matches, which win
+          Match priority: <strong>Rules</strong> win over existing matches, which win
           over batch grouping. A transaction can only be claimed by one rule.
         </p>
 
@@ -73,7 +73,7 @@
             <div style="font-size:.8rem;font-weight:700;color:#991b1b;">↑ Recurring Bill / Auto-Pay</div>
             <div style="font-size:.76rem;color:#7f1d1d;margin-top:.15rem;">
               Money leaving the account for a known vendor: utilities, insurance,
-              landscaping, management fees. Posts <em>DR Expense / CR Bank</em>.
+              landscaping, management fees.
             </div>
           </div>
 
@@ -81,7 +81,6 @@
             <div style="font-size:.8rem;font-weight:700;color:#991b1b;">↑ Bank Fee or Charge</div>
             <div style="font-size:.76rem;color:#7f1d1d;margin-top:.15rem;">
               Service fees, wire charges, and NSF fees charged by the bank itself.
-              Posts <em>DR Bank Expense / CR Bank</em>.
             </div>
           </div>
 
@@ -89,9 +88,8 @@
             <div style="font-size:.8rem;font-weight:700;color:#166534;">↓ Dues or Assessment Payment</div>
             <div style="font-size:.76rem;color:#14532d;margin-top:.15rem;">
               Deposits from homeowners for monthly dues or special assessments.
-              Posts <em>DR Bank / CR Dues Income</em>. Optionally assigns a specific
-              Lot so the deposit is also recorded as an AR payment and applied to
-              any open assessments for that homeowner.
+              Optionally assigns a specific Lot so the deposit is recorded as an
+              AR payment and applied to any open assessments for that homeowner.
             </div>
           </div>
 
@@ -99,7 +97,6 @@
             <div style="font-size:.8rem;font-weight:700;color:#166534;">↓ Fee or Other Income</div>
             <div style="font-size:.76rem;color:#14532d;margin-top:.15rem;">
               Late fees, resale certificate fees, refunds, and interest earned.
-              Posts <em>DR Bank / CR Income Account</em>.
             </div>
           </div>
 
@@ -107,10 +104,10 @@
 
         <div style="font-weight:700;font-size:.85rem;margin:.9rem 0 .35rem;">Lot assignment (dues rules only)</div>
         <p style="font-size:.82rem;color:var(--text-muted);margin:0;">
-          When you pick a Lot / Homeowner, the import engine creates a second record in
-          the AR system — a payment receipt — and automatically applies it to that
-          lot's oldest open assessments, marking them Partial or Paid. If no open
-          assessments exist the receipt is still recorded and can be applied later.
+          When you pick a Lot / Homeowner, the import engine creates a payment receipt
+          and automatically applies it to that lot's oldest open assessments, marking
+          them Partial or Paid. If no open assessments exist the receipt is still
+          recorded and can be applied later.
           Leave the lot blank if the deposit covers multiple owners.
         </p>
       </div>
@@ -137,7 +134,7 @@
       <div class="panel__title">Saved Rules</div>
       <div class="panel__description">
         When a bank statement is imported, transactions whose description matches
-        a rule are automatically posted as journal entries.
+        a rule are automatically posted.
       </div>
     </div>
   </div>
@@ -150,7 +147,7 @@
           <th>Rule Name</th>
           <th>Match Criteria (all must match)</th>
           <th>Transaction Type</th>
-          <th>Account</th>
+          <th>Category</th>
           <th>Lot / Owner</th>
           <th>Memo</th>
           <th style="text-align:center;">Active</th>
@@ -203,8 +200,8 @@
             {% endif %}
           </td>
           <td style="font-size:13px;">
-            {% if rule.account_number %}
-              {{ rule.account_number }} {{ rule.account_name }}
+            {% if rule.category_name %}
+              {{ rule.category_name }}
             {% else %}
               <span style="color:var(--text-muted);">—</span>
             {% endif %}
@@ -406,7 +403,7 @@
         for this lot and automatically apply it to any open assessments.
       </div>
       <select name="lot_id" id="lot_id" style="width:100%;">
-        <option value="">— no specific lot (GL entry only) —</option>
+        <option value="">— no specific lot —</option>
         {% for lot in lots %}
           <option value="{{ lot.id }}">
             Lot {{ lot.lot_number }}{% if lot.owner_name %} · {{ lot.owner_name }}{% endif %}
@@ -415,27 +412,27 @@
       </select>
     </div>
 
-    {# ── GL account ──────────────────────────────────────────────────── #}
-    <div id="gl-section" style="margin-bottom:1.25rem;">
-      <div style="display:flex;align-items:baseline;gap:.75rem;margin-bottom:.35rem;">
-        <label style="font-size:.8rem;font-weight:600;">GL Account</label>
-        <label style="font-size:.75rem;color:var(--text-muted);cursor:pointer;
-                      display:flex;align-items:center;gap:.3rem;">
-          <input type="checkbox" id="show-all-accts" onchange="filterAccounts(false)">
-          Show all accounts
-        </label>
-      </div>
-      <select name="gl_account_id" id="gl_account_id" style="width:100%;">
-        <option value="">— select account —</option>
-        {% for acct in accounts %}
-          <option value="{{ acct.id }}"
-                  data-acct-type="{{ acct.account_type }}">
-            {{ acct.account_number }} · {{ acct.account_name }}
+    {# ── Category ────────────────────────────────────────────────────── #}
+    <div id="category-section" style="margin-bottom:1.25rem;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.35rem;">Category</label>
+      <select name="category_id" id="category_id" style="width:100%;">
+        <option value="">— select category —</option>
+        {% set ns = namespace(cur_type='') %}
+        {% for cat in categories %}
+          {% if cat.category_type != ns.cur_type %}
+            {% if ns.cur_type %}
+              {# optgroup already opened; close it via JS-friendly separator label #}
+            {% endif %}
+            {% set ns.cur_type = cat.category_type %}
+          {% endif %}
+          <option value="{{ cat.id }}"
+                  data-cat-type="{{ cat.category_type }}">
+            {{ cat.name }}{% if cat.group_name %} ({{ cat.group_name }}){% endif %}
           </option>
         {% endfor %}
       </select>
-      <div id="acct-hint"
-           style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;min-height:1rem;">
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;">
+        Optional for Homeowner Batch and Vendor Bill Payment types.
       </div>
     </div>
 
@@ -498,11 +495,9 @@
 </style>
 
 <script>
-var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
-
 (function () {
 
-  var ACCT_PREF = {
+  var CAT_PREF = {
     recurring_bill:    "EXPENSE",
     bank_charge:       "EXPENSE",
     dues_payment:      "INCOME",
@@ -513,95 +508,28 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
     vendor_bill_match: "",
   };
 
-  var ACCT_PATTERN = {
-    recurring_bill: "expense",
-    bank_charge:    "expense",
-    dues_payment:   "income",
-    fee_income:     "income",
-    direct_expense: "expense",
-    direct_income:  "income",
-  };
-
-  var ACCT_HINTS = {
-    recurring_bill:    "Showing expense accounts — utilities, insurance, maintenance, etc.",
-    bank_charge:       "Showing expense accounts — bank fees and service charges.",
-    dues_payment:      "Showing income accounts — dues revenue and assessments.",
-    fee_income:        "Showing income accounts — fees, interest, and other income.",
-    homeowner_batch:   "",
-    vendor_bill_match: "",
-  };
-
-  var NO_GL_TYPES = { homeowner_batch: true, vendor_bill_match: true };
+  var NO_CAT_TYPES = { homeowner_batch: true, vendor_bill_match: true };
 
   function selectedAction() {
     var r = document.querySelector('input[name="action_type"]:checked');
     return r ? r.value : "";
   }
 
-  window.filterAccounts = function (autoSelect) {
+  function filterCategories() {
     var action    = selectedAction();
-    var showAll   = document.getElementById("show-all-accts").checked;
-    var preferred = ACCT_PREF[action] || "";
-    var pattern   = ACCT_PATTERN[action] || "";
-    var bankAcct  = document.getElementById("rule_bank_account_id").value;
-    var sel       = document.getElementById("gl_account_id");
-    var hint      = document.getElementById("acct-hint");
+    var preferred = CAT_PREF[action] || "";
+    var sel       = document.getElementById("category_id");
     var current   = sel.value;
 
-    // Get suggested account IDs from journal history
-    var baKey  = bankAcct || "any";
-    var baData = GL_SUGGESTIONS[baKey] || GL_SUGGESTIONS["any"] || {};
-    var suggested = (pattern && baData[pattern]) ? baData[pattern] : [];
-
-    // Hide/show options by type
     Array.from(sel.options).forEach(function (opt) {
       if (!opt.value) return;
-      opt.hidden = !showAll && !!preferred && opt.getAttribute("data-acct-type") !== preferred;
+      opt.hidden = !!preferred && opt.getAttribute("data-cat-type") !== preferred;
     });
 
     // If currently-selected option is now hidden, clear it
     var cur = sel.querySelector('option[value="' + current + '"]');
-    if (cur && cur.hidden) { sel.value = ""; current = ""; }
-
-    // Reorder: move suggested accounts to the top (after the blank option)
-    if (suggested.length && !showAll) {
-      var sugMap = {};
-      suggested.forEach(function (id, i) { sugMap[String(id)] = i; });
-
-      // Split all non-blank options into: visible-suggested, visible-rest, hidden
-      var topOpts    = [];
-      var restOpts   = [];
-      var hiddenOpts = [];
-      Array.from(sel.options).forEach(function (o) {
-        if (!o.value) return;
-        if (o.hidden) { hiddenOpts.push(o); return; }
-        if (String(o.value) in sugMap) topOpts.push(o);
-        else restOpts.push(o);
-      });
-      topOpts.sort(function (a, b) { return sugMap[a.value] - sugMap[b.value]; });
-
-      // Rebuild: blank → visible-suggested → visible-rest → hidden
-      while (sel.options.length > 1) sel.remove(1);
-      topOpts.concat(restOpts).concat(hiddenOpts).forEach(function (o) { sel.appendChild(o); });
-
-      // Auto-select if exactly one visible suggestion and nothing already chosen
-      var visibleSuggested = topOpts.filter(function (o) { return !o.hidden; });
-      if (autoSelect && visibleSuggested.length === 1 && !current) {
-        sel.value = String(visibleSuggested[0].value);
-      }
-    }
-
-    // Build hint text
-    var hintParts = [];
-    if (!showAll && ACCT_HINTS[action]) hintParts.push(ACCT_HINTS[action]);
-    if (suggested.length === 1 && autoSelect) {
-      hintParts = ["Account auto-selected based on history for this bank account."];
-    } else if (suggested.length > 1) {
-      hintParts.push("Frequently used accounts shown first.");
-    }
-    if (showAll) hintParts = ["Showing all accounts."];
-    hint.textContent = hintParts.join(" ");
-  };
+    if (cur && cur.hidden) { sel.value = ""; }
+  }
 
   window.onActionChange = function () {
     var action = selectedAction();
@@ -613,7 +541,6 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
       if (card) card.classList.add("action-card--selected");
     }
 
-    // Show lot selector only for dues_payment
     var lotSection = document.getElementById("lot-section");
     if (lotSection) {
       lotSection.style.display = (action === "dues_payment") ? "" : "none";
@@ -622,38 +549,21 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
       }
     }
 
-    // Hide GL account section for rule types that don't use a fixed GL account
-    var glSection = document.getElementById("gl-section");
-    if (glSection) {
-      glSection.style.display = NO_GL_TYPES[action] ? "none" : "";
-    }
-
-    window.filterAccounts(true);
+    filterCategories();
   };
 
-  // Re-filter and auto-select when bank account changes
-  var bankAcctSel = document.getElementById("rule_bank_account_id");
-  if (bankAcctSel) {
-    bankAcctSel.addEventListener("change", function () {
-      window.filterAccounts(true);
-    });
-  }
-
-  // Initialise: select first card (no auto-select on page load)
+  // Initialise: select first card
   var first = document.querySelector('input[name="action_type"]');
   if (first && !selectedAction()) {
     first.checked = true;
   }
-  window.filterAccounts(false);
-  // highlight selected card without auto-selecting GL
   (function () {
     var action = selectedAction();
     document.querySelectorAll(".action-card").forEach(function (c) { c.classList.remove("action-card--selected"); });
     if (action) { var c = document.getElementById("card-" + action); if (c) c.classList.add("action-card--selected"); }
     var ls = document.getElementById("lot-section");
     if (ls) ls.style.display = (action === "dues_payment") ? "" : "none";
-    var gs = document.getElementById("gl-section");
-    if (gs) gs.style.display = NO_GL_TYPES[action] ? "none" : "";
+    filterCategories();
   }());
 
   // ── Edit existing rule ──────────────────────────────────────────────
@@ -669,10 +579,8 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
     document.getElementById("rule_bank_account_id").value = rule.bank_account_id || "";
     document.getElementById("default_memo").value         = rule.default_memo || "";
     document.getElementById("active_flag").checked        = !!rule.active_flag;
-    document.getElementById("show-all-accts").checked     = false;
     document.getElementById("save-btn").textContent       = "Update Rule";
 
-    // Pick the matching radio (fall back to recurring_bill for legacy types)
     var target = rule.action_type;
     var radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
     if (!radio) {
@@ -684,8 +592,7 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
     });
     window.onActionChange();
 
-    // Restore account and lot selections after filtering
-    document.getElementById("gl_account_id").value = rule.gl_account_id || "";
+    document.getElementById("category_id").value = rule.category_id || "";
     if (rule.action_type === "dues_payment") {
       document.getElementById("lot_id").value = rule.lot_id || "";
     }
@@ -707,8 +614,7 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
     document.getElementById("rule_bank_account_id").value = "";
     document.getElementById("default_memo").value         = "";
     document.getElementById("active_flag").checked        = true;
-    document.getElementById("show-all-accts").checked     = false;
-    document.getElementById("gl_account_id").value        = "";
+    document.getElementById("category_id").value          = "";
     document.getElementById("lot_id").value               = "";
     document.getElementById("save-btn").textContent       = "Save Rule";
 
@@ -719,7 +625,7 @@ var GL_SUGGESTIONS = {{ gl_suggestions | tojson }};
 
 })();
 
-// ── Pre-fill form from URL params (called from Import Preview "Create Rule") ──
+// ── Pre-fill form from URL params ──────────────────────────────────────
 (function () {
   var p = new URLSearchParams(window.location.search);
   var desc  = p.get("prefill_desc");

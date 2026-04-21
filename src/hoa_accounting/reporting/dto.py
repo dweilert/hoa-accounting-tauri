@@ -389,9 +389,8 @@ class HomeownerContactListReport:
 
 @dataclass(frozen=True)
 class ExpenseVsBudgetRow:
-    """One account row comparing budget to actual."""
-    account_number: str
-    account_name: str
+    """One category row comparing budget to actual."""
+    category_name: str
     group_code: str
     budget_amount: Decimal
     actual_amount: Decimal

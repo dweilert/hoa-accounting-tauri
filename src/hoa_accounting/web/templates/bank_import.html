@@ -71,7 +71,7 @@
                 <form method="post"
                       action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/apply"
                       style="display:inline;"
-                      data-confirm="Apply {{ b.matched_count }} rule match{% if b.matched_count != 1 %}es{% endif %} for {{ b.account_name }}? This will create journal entries."
+                      data-confirm="Apply {{ b.matched_count }} rule match{% if b.matched_count != 1 %}es{% endif %} for {{ b.account_name }}? This will record matched transactions."
                       data-confirm-title="Apply Import"
                       data-confirm-label="Apply">
                   <button type="submit" class="btn btn--sm btn--primary">Apply</button>

@@ -18,8 +18,8 @@ class AssessmentsRepository(BaseRepository):
         due_date: str,
         amount: str,
         description: str,
-        journal_entry_id: int,
         charge_type: str = "DUES",
+        category_id: int | None = None,
     ) -> int:
         """Insert an assessment and return its id."""
         cur = self.conn.execute(
@@ -33,8 +33,8 @@ class AssessmentsRepository(BaseRepository):
                 amount,
                 description,
                 status,
-                journal_entry_id,
-                charge_type
+                charge_type,
+                category_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)
             """,
             (
@@ -45,8 +45,8 @@ class AssessmentsRepository(BaseRepository):
                 due_date,
                 amount,
                 description,
-                journal_entry_id,
                 charge_type,
+                category_id,
             ),
         )
         return int(cur.lastrowid)

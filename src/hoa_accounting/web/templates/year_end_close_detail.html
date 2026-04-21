@@ -63,7 +63,7 @@
       <div class="panel__description">
         Closed {{ close_rec.closed_at[:10] }}.
         {% if close_rec.closing_je_operating_id or close_rec.closing_je_reserve_id %}
-          Closing journal entries have been posted to the ledger.
+          Year-end closing entries have been posted.
         {% else %}
           No income or expense activity was found — no closing entries were needed.
         {% endif %}
@@ -71,7 +71,7 @@
     </div>
     <div style="padding:0 .85rem .85rem;">
       <form method="post" action="/year-end-close/{{ fiscal_year }}/reopen"
-            data-confirm="Re-opening will reverse all closing journal entries for {{ fiscal_year }}. Individual periods will remain closed — you will need to reopen them manually. Are you sure?"
+            data-confirm="Re-opening will reverse all closing entries for {{ fiscal_year }}. Individual periods will remain closed — you will need to reopen them manually. Are you sure?"
             data-confirm-title="Re-open Fiscal Year {{ fiscal_year }}"
             data-confirm-label="Re-open Year"
             data-confirm-danger="true">
@@ -153,7 +153,7 @@
     <div class="panel__header">
       <div class="panel__title">Close Fiscal Year {{ fiscal_year }}</div>
       <div class="panel__description">
-        This will post closing journal entries to zero out income and expense accounts
+        This will post closing entries to zero out income and expense accounts
         into Fund Balance, then lock the fiscal year against further postings.
       </div>
     </div>

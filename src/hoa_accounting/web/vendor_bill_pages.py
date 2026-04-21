@@ -1,19 +1,4 @@
-"""Vendor-bill list page + new-bill form page.
-
-Two routes' worth of logic:
-
-- ``render_list`` shows every posted vendor bill in reverse chronological
-  order.
-- ``render_form`` shows a blank or partially-filled posting form (when
-  re-rendering after a validation error).
-- ``handle_post`` parses the submitted form, calls
-  ``VendorBillService.post_vendor_bill`` inside its own connection, and
-  returns either a redirect URL on success or a re-rendered form
-  response with the user's input preserved and an error surfaced.
-
-Kept in its own module so the Flask app stays thin (routes only) and so
-adding more transaction-type forms later follows the same pattern.
-"""
+"""Vendor-bill list page + new-bill form page."""
 
 from __future__ import annotations
 
@@ -25,7 +10,7 @@ from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
 from hoa_accounting.models.enums import FundCode
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
+from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
@@ -40,7 +25,6 @@ class VendorBillFormResponse:
 
 
 _FUND_CODES = [fc.value for fc in FundCode]
-_CLASSIFICATIONS = ["OPERATING", "IMPROVEMENT"]
 
 
 def _today() -> str:
@@ -109,9 +93,8 @@ class VendorBillPages:
         ctx = {
             "heading": "Vendor Bills",
             "description": (
-                "Bills posted from vendors. Each bill creates a journal "
-                "entry debiting the chosen expense account and crediting "
-                "Accounts Payable."
+                "Bills posted from vendors. Each bill tracks what is owed "
+                "to the vendor until it is paid."
             ),
             "bills": bills,
             "org": org or {},
@@ -141,27 +124,14 @@ class VendorBillPages:
             {"id": r["id"], "name": r["vendor_name"]}
             for r in VendorsRepository(self.conn).list_vendors()
         ]
-        expense_accounts = [
+        expense_categories = [
             {
                 "id": r["id"],
-                "label": (
-                    f"{r['account_number']} · {r['account_name']}"
-                    + (f"  [{r['group_code']}]" if r["group_code"] else "")
-                ),
+                "label": r["name"],
                 "fund_code": r["fund_code"],
-                "group_code": r["group_code"] or "",
             }
-            for r in AccountsRepository(self.conn).list_accounts_by_type(
-                account_type_code="EXPENSE"
-            )
-        ]
-        payable_accounts = [
-            {
-                "id": r["id"],
-                "label": f"{r['account_number']} · {r['account_name']}",
-            }
-            for r in AccountsRepository(self.conn).list_accounts_by_type(
-                account_type_code="LIABILITY"
+            for r in CategoriesRepository(self.conn).list_categories(
+                category_type="EXPENSE"
             )
         ]
 
@@ -173,10 +143,8 @@ class VendorBillPages:
             "page_key": "vendor-bills",
             "breadcrumb": "Transactions · Vendor Bills",
             "vendors": vendors,
-            "expense_accounts": expense_accounts,
-            "payable_accounts": payable_accounts,
+            "expense_categories": expense_categories,
             "fund_codes": _FUND_CODES,
-            "classifications": _CLASSIFICATIONS,
             "values": {
                 "vendor_id": values.get("vendor_id", ""),
                 "invoice_number": values.get("invoice_number", ""),
@@ -184,9 +152,7 @@ class VendorBillPages:
                 "due_date": values.get("due_date", ""),
                 "entry_date": values.get("entry_date", _today()),
                 "amount": values.get("amount", ""),
-                "expense_account_id": values.get("expense_account_id", ""),
-                "expense_classification": values.get("expense_classification", "OPERATING"),
-                "payable_account_id": values.get("payable_account_id", ""),
+                "category_id": values.get("category_id", ""),
                 "fund_code": values.get("fund_code", "OPERATING"),
                 "description": values.get("description", ""),
             },
@@ -224,30 +190,14 @@ class VendorBillPages:
         org: dict[str, object] | None,
         theme: str,
     ) -> tuple[str | None, VendorBillFormResponse | None]:
-        """Process a submitted form.
-
-        Returns ``(redirect_url, None)`` on success — the Flask layer
-        redirects the browser to the list page with a success-banner
-        query param. Returns ``(None, form_response)`` on failure — the
-        form re-renders with the user's input preserved and an error
-        line at the top.
-        """
         try:
             invoice_number = _require(form_data.get("invoice_number", ""), "Invoice number")
             invoice_date = _require(form_data.get("invoice_date", ""), "Invoice date")
             entry_date = _require(form_data.get("entry_date", ""), "Entry date")
             amount = _parse_positive_decimal(form_data.get("amount", ""), "Amount")
             vendor_id = _parse_int(form_data.get("vendor_id", ""), "Vendor")
-            expense_account_id = _parse_int(
-                form_data.get("expense_account_id", ""), "Expense account"
-            )
-            payable_account_id = _parse_int(
-                form_data.get("payable_account_id", ""), "Payable account"
-            )
+            category_id = _parse_int(form_data.get("category_id", ""), "Expense category")
             fund_code = _require(form_data.get("fund_code", ""), "Fund")
-            classification = _require(
-                form_data.get("expense_classification", ""), "Expense classification"
-            )
             description = (form_data.get("description", "") or "").strip()
             due_date_raw = (form_data.get("due_date", "") or "").strip()
             due_date = due_date_raw or None
@@ -257,13 +207,11 @@ class VendorBillPages:
                 vendor_id=vendor_id,
                 amount=amount,
                 description=description,
-                expense_account_id=expense_account_id,
-                payable_account_id=payable_account_id,
                 invoice_number=invoice_number,
                 invoice_date=invoice_date,
                 due_date=due_date,
                 fund_code=fund_code,
-                expense_classification=classification,
+                category_id=category_id,
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_form(
@@ -274,7 +222,6 @@ class VendorBillPages:
             )
             return (None, resp)
         except sqlite3.IntegrityError as exc:
-            # Most common case: (vendor_id, invoice_number) UNIQUE clash.
             message = "This invoice number already exists for this vendor."
             if "invoice" not in str(exc).lower():
                 message = f"Database error: {exc}"
@@ -286,4 +233,4 @@ class VendorBillPages:
             )
             return (None, resp)
 
-        return (f"/vendor-bills?created={result.entry_number}", None)
+        return (f"/vendor-bills?created={result.vendor_bill_id}", None)

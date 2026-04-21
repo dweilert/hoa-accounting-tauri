@@ -4,7 +4,7 @@
 {% block heading %}All Transactions{% endblock %}
 
 {% block topbar_meta %}
-  <span class="pill pill--muted">{{ row_count }} line{% if row_count != 1 %}s{% endif %}</span>
+  <span class="pill pill--muted">{{ row_count }} record{% if row_count != 1 %}s{% endif %}</span>
 {% endblock %}
 
 {% block content %}
@@ -51,14 +51,15 @@
             {% if end_date %}to {{ end_date }}{% endif %}
           </div>
         {% else %}
-          <div class="panel__description">Every posted journal entry line across all accounts.</div>
+          <div class="panel__description">Every posted transaction across vendor bills, income, assessments, payments, and reserve transfers.</div>
         {% endif %}
       </div>
       {% if rows %}
-        <div style="display:flex;gap:.4rem;align-items:center;">
-          <span style="font-size:12px;color:var(--text-muted);">Totals:</span>
-          <span class="pill pill--muted" style="font-size:.75rem;">Dr {{ total_debits }}</span>
-          <span class="pill pill--muted" style="font-size:.75rem;">Cr {{ total_credits }}</span>
+        <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--text-muted);">Money in:</span>
+          <span class="pill pill--ok" style="font-size:.75rem;">{{ total_in }}</span>
+          <span style="font-size:12px;color:var(--text-muted);margin-left:.25rem;">Money out:</span>
+          <span class="pill pill--warn" style="font-size:.75rem;">{{ total_out }}</span>
         </div>
       {% endif %}
     </div>
@@ -69,56 +70,35 @@
           <thead>
             <tr>
               <th>Date</th>
-              <th>Source</th>
-              <th>Account</th>
-              <th>Description</th>
-              <th style="text-align:right;">Debit</th>
-              <th style="text-align:right;">Credit</th>
+              <th>Type</th>
+              <th>Party</th>
+              <th>Category</th>
+              <th style="text-align:right;">Amount</th>
+              <th>Memo</th>
             </tr>
           </thead>
           <tbody>
             {% for row in rows %}
               <tr>
-                <td style="white-space:nowrap;">{{ row.entry_date }}</td>
-                <td>
-                  {% if row.is_manual %}
-                    <a href="/journal-entries/{{ row.journal_entry_id }}"
-                       class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">{{ row.source_label }}</a>
-                  {% else %}
-                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source_label }}</span>
-                  {% endif %}
-                </td>
+                <td style="white-space:nowrap;font-size:13px;">{{ row.txn_date }}</td>
                 <td style="white-space:nowrap;">
-                  <span class="mono" style="font-size:12px;">{{ row.account_number }}</span>
-                  <span style="font-size:12px;color:var(--text-muted);"> {{ row.account_name }}</span>
+                  <span class="pill {{ row.pill_class }}" style="font-size:.7rem;">{{ row.txn_type }}</span>
                 </td>
-                <td style="max-width:220px;">
-                  <div style="font-size:12px;">{{ row.memo }}</div>
-                  {% if row.line_description and row.line_description != row.memo %}
-                    <div style="font-size:11px;color:var(--text-muted);">{{ row.line_description }}</div>
-                  {% endif %}
+                <td style="font-size:12px;max-width:160px;">{{ row.party or '—' }}</td>
+                <td style="font-size:12px;color:var(--text-muted);max-width:160px;">{{ row.category_name or '—' }}</td>
+                <td style="text-align:right;font-family:var(--font-mono);font-size:13px;white-space:nowrap;
+                           {% if row.money_out %}color:var(--danger);{% endif %}">
+                  {% if row.money_out %}({{ row.amount }}){% else %}{{ row.amount }}{% endif %}
                 </td>
-                <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;">
-                  {{ row.debit_amount }}
-                </td>
-                <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;">
-                  {{ row.credit_amount }}
-                </td>
+                <td style="font-size:12px;color:var(--text-muted);max-width:200px;">{{ row.memo or '' }}</td>
               </tr>
             {% endfor %}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" style="text-align:right;font-weight:600;padding:.4rem .75rem;">Totals</td>
-              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_debits }}</td>
-              <td style="text-align:right;font-weight:600;padding:.4rem .75rem;font-variant-numeric:tabular-nums;">{{ total_credits }}</td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     {% else %}
       <div class="empty">
-        No posted transactions found{% if start_date or end_date %} in the selected date range{% endif %}.
+        No transactions found{% if start_date or end_date %} in the selected date range{% endif %}.
       </div>
     {% endif %}
   </div>

@@ -300,8 +300,8 @@
             {{ stat_row('Lots',            last_backup.lot_count) }}
             {{ stat_row('Owners',          last_backup.owner_count) }}
             {{ stat_row('Renters',         last_backup.renter_count) }}
-            {{ stat_row('Journal entries', last_backup.journal_entry_count) }}
-            {{ stat_row('Last GL entry',   last_backup.last_gl_entry_date) }}
+            {{ stat_row('Transactions',    last_backup.journal_entry_count) }}
+            {{ stat_row('Last transaction',last_backup.last_gl_entry_date) }}
           {% endif %}
         </div>
       </div>
@@ -517,8 +517,8 @@
         row("Lots",            data.lot_count) +
         row("Owners",          data.owner_count) +
         row("Renters",         data.renter_count) +
-        row("Journal entries", data.journal_entry_count) +
-        row("Last GL entry",   data.last_gl_entry_date || "—");
+        row("Transactions",    data.journal_entry_count) +
+        row("Last transaction",data.last_gl_entry_date || "—");
     }
 
     function renderBackupStats(data) {
@@ -629,7 +629,7 @@
         message:
           "You are about to replace the entire database with the backup file:\n\n" +
           "  " + chosenFile.name + "\n\n" +
-          "Every owner, lot, transaction, journal entry, and balance " +
+          "Every owner, lot, transaction, and balance " +
           "currently in the system will be PERMANENTLY DELETED and replaced " +
           "with the contents of the backup.\n\n" +
           "This action cannot be undone.",

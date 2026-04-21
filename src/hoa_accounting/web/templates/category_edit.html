@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/categories" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <form method="post"
+        action="{% if is_edit %}/categories/{{ category_id }}/edit{% else %}/categories/add{% endif %}"
+        class="form">
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Category Details</div>
+          <div class="panel__description">
+            {% if is_edit %}
+              Update the name, group, description, and other settings for this category.
+              The <strong>code</strong> is system-assigned and cannot be changed.
+            {% else %}
+              Define a new income or expense category. The code must be unique and will
+              be used internally to identify this category.
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="form" style="grid-template-columns: repeat(3, minmax(180px, 1fr));">
+
+        {# Code — editable only on add #}
+        <label class="field">
+          <span class="field__label">Code{% if not is_edit %} *{% endif %}</span>
+          {% if is_edit %}
+            <div class="mono" style="padding:7px 10px;background:var(--surface-muted);
+                 border:1px solid var(--border);border-radius:var(--radius-sm);
+                 color:var(--text-muted);font-size:13px;">
+              {{ values.code }}
+            </div>
+            <span class="field__hint">Code cannot be changed after creation.</span>
+          {% else %}
+            <input type="text" name="code"
+                   value="{{ values.code }}"
+                   placeholder="e.g. FRONT_ENTRANCE"
+                   required
+                   style="text-transform:uppercase;" />
+            <span class="field__hint">Unique identifier — UPPER_CASE, no spaces.</span>
+          {% endif %}
+        </label>
+
+        {# Name #}
+        <label class="field">
+          <span class="field__label">Name *</span>
+          <input type="text" name="name"
+                 value="{{ values.name }}"
+                 placeholder="e.g. Front Entrance Grounds"
+                 required />
+        </label>
+
+        {# Category Type — editable only on add #}
+        <label class="field">
+          <span class="field__label">Type{% if not is_edit %} *{% endif %}</span>
+          {% if is_edit %}
+            <div style="padding:7px 10px;background:var(--surface-muted);
+                 border:1px solid var(--border);border-radius:var(--radius-sm);
+                 color:var(--text-muted);font-size:13px;">
+              {{ values.category_type }}
+            </div>
+          {% else %}
+            <select name="category_type" required>
+              {% for t in category_types %}
+                <option value="{{ t }}" {% if values.category_type == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          {% endif %}
+        </label>
+
+        {# Fund #}
+        <label class="field">
+          <span class="field__label">Fund *</span>
+          <select name="fund_code" required>
+            {% for f in fund_codes %}
+              <option value="{{ f }}" {% if values.fund_code == f %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        {# Group name — for expense reporting clusters #}
+        <label class="field">
+          <span class="field__label">Group</span>
+          <input type="text" name="group_name"
+                 value="{{ values.group_name }}"
+                 placeholder="e.g. Landscaping" />
+          <span class="field__hint">Optional — clusters related categories in reports.</span>
+        </label>
+
+        {# Sort order #}
+        <label class="field">
+          <span class="field__label">Sort Order</span>
+          <input type="number" name="sort_order"
+                 value="{{ values.sort_order }}"
+                 min="0" step="10"
+                 style="max-width:8rem;" />
+          <span class="field__hint">Lower numbers appear first.</span>
+        </label>
+
+        {# Description — full width #}
+        <label class="field form__row--full">
+          <span class="field__label">Description</span>
+          <input type="text" name="description"
+                 value="{{ values.description }}"
+                 placeholder="Plain-English note about what this category covers" />
+        </label>
+
+        {# Active flag — edit only #}
+        {% if is_edit %}
+          <div class="field">
+            <span class="field__label">Status</span>
+            <div style="display:flex;gap:1rem;margin-top:.35rem;">
+              <label style="display:flex;align-items:center;gap:.4rem;font-size:13px;cursor:pointer;">
+                <input type="radio" name="active_flag" value="1"
+                       {% if values.active_flag == '1' or values.active_flag == 1 %}checked{% endif %} />
+                Active
+              </label>
+              <label style="display:flex;align-items:center;gap:.4rem;font-size:13px;cursor:pointer;">
+                <input type="radio" name="active_flag" value="0"
+                       {% if values.active_flag == '0' or values.active_flag == 0 %}checked{% endif %} />
+                Inactive
+              </label>
+            </div>
+            <span class="field__hint">Inactive categories won't appear in transaction dropdowns.</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+      <button type="submit" class="btn btn--primary">
+        {% if is_edit %}Save Changes{% else %}Add Category{% endif %}
+      </button>
+      <a href="/categories" class="btn btn--ghost">Cancel</a>
+      {% if is_edit %}
+        <a href="/categories/{{ category_id }}/ledger"
+           class="btn btn--ghost" style="margin-left:auto;">
+          View Ledger →
+        </a>
+      {% endif %}
+    </div>
+  </form>
+{% endblock %}

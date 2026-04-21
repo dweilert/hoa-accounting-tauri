@@ -148,7 +148,6 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     _j_lo_new = (
         "json_object('id',NEW.id,'lot_id',NEW.lot_id,'owner_id',NEW.owner_id,"
         "'start_date',NEW.start_date,'end_date',NEW.end_date,"
-        "'ownership_percent',NEW.ownership_percent,"
         "'is_primary_contact',NEW.is_primary_contact)"
     )
     _j_lo_old = _j_lo_new.replace("NEW.", "OLD.")

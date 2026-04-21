@@ -14,11 +14,6 @@ from hoa_accounting.reporting.dto import (
 )
 from hoa_accounting.validators.common import q2
 
-_GROUP_ORDER = [
-    "LANDSCAPE", "SEWER", "ROAD", "WALL", "ENTRANCE",
-    "UTILITIES", "INSURANCE", "MISC", "FIREWISE",
-]
-
 
 class ExpenseVsBudgetReportService:
     """Compare actual expenses against an approved budget."""
@@ -27,7 +22,6 @@ class ExpenseVsBudgetReportService:
         self.conn = conn
 
     def generate(self, *, fiscal_year: int, fund_code: str) -> ExpenseVsBudgetReport:
-        # Verify an approved budget exists
         budget = self.conn.execute(
             """
             SELECT id FROM budgets
@@ -43,52 +37,49 @@ class ExpenseVsBudgetReportService:
 
         budget_id = int(budget["id"])
         from_date = f"{fiscal_year}-01-01"
-        to_date = f"{fiscal_year}-12-31"
+        to_date   = f"{fiscal_year}-12-31"
 
         rows = self.conn.execute(
             """
             SELECT
-                a.account_number,
-                a.account_name,
-                COALESCE(a.group_code, 'MISC') AS group_code,
-                COALESCE(SUM(bl.budget_amount), 0) AS budget_amount,
-                COALESCE(actual.net_amount, 0) AS actual_amount
+                c.name                        AS category_name,
+                COALESCE(c.group_name, '')    AS group_code,
+                COALESCE(c.sort_order, 0)     AS sort_order,
+                SUM(bl.budget_amount)         AS budget_amount,
+                COALESCE(actual.actual_amount, 0) AS actual_amount
             FROM budget_lines bl
-            JOIN accounts a ON a.id = bl.account_id
+            JOIN categories c ON c.id = bl.category_id
             LEFT JOIN (
-                SELECT jel.account_id,
-                       SUM(COALESCE(jel.debit_amount, 0))
-                         - SUM(COALESCE(jel.credit_amount, 0)) AS net_amount
-                FROM journal_entry_lines jel
-                JOIN journal_entries je ON je.id = jel.journal_entry_id
-                WHERE je.status IN ('POSTED', 'REVERSED')
-                  AND je.entry_date >= ?
-                  AND je.entry_date <= ?
-                GROUP BY jel.account_id
-            ) actual ON actual.account_id = a.id
+                SELECT category_id, SUM(amount) AS actual_amount
+                FROM vendor_bills
+                WHERE invoice_date >= ?
+                  AND invoice_date <= ?
+                  AND status != 'VOID'
+                GROUP BY category_id
+            ) actual ON actual.category_id = c.id
             WHERE bl.budget_id = ?
-            GROUP BY a.id, a.account_number, a.account_name, a.group_code
-            ORDER BY a.group_code, a.account_number
+              AND bl.category_id IS NOT NULL
+            GROUP BY c.id, c.name, c.group_name, c.sort_order
+            ORDER BY c.group_name, c.sort_order, c.name
             """,
             (from_date, to_date, budget_id),
         ).fetchall()
 
         rows_by_group: dict[str, list[ExpenseVsBudgetRow]] = defaultdict(list)
-        group_budget: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
-        group_actual: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+        group_budget:  dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+        group_actual:  dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
         total_budget = Decimal("0.00")
         total_actual = Decimal("0.00")
 
         for row in rows:
             budget_amount = q2(row["budget_amount"])
             actual_amount = q2(row["actual_amount"])
-            variance = q2(budget_amount - actual_amount)
-            group_code = str(row["group_code"])
+            variance      = q2(budget_amount - actual_amount)
+            group_code    = str(row["group_code"])
 
             rows_by_group[group_code].append(
                 ExpenseVsBudgetRow(
-                    account_number=str(row["account_number"]),
-                    account_name=str(row["account_name"]),
+                    category_name=str(row["category_name"]),
                     group_code=group_code,
                     budget_amount=budget_amount,
                     actual_amount=actual_amount,
@@ -100,12 +91,18 @@ class ExpenseVsBudgetReportService:
             total_budget += budget_amount
             total_actual += actual_amount
 
-        # Order groups using the canonical order, then any unknown groups last
-        ordered_keys = [g for g in _GROUP_ORDER if g in rows_by_group]
-        ordered_keys += sorted(g for g in rows_by_group if g not in _GROUP_ORDER)
+        # Order groups by first appearance (categories are already sorted by
+        # group_name / sort_order / name from the SQL ORDER BY)
+        seen_groups: list[str] = []
+        seen_set: set[str] = set()
+        for row in rows:
+            gc = str(row["group_code"])
+            if gc not in seen_set:
+                seen_groups.append(gc)
+                seen_set.add(gc)
 
         groups: list[ExpenseVsBudgetGroup] = []
-        for group_code in ordered_keys:
+        for group_code in seen_groups:
             gb = q2(group_budget[group_code])
             ga = q2(group_actual[group_code])
             groups.append(

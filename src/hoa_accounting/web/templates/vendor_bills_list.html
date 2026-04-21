@@ -11,7 +11,7 @@
   {% if created_entry_number %}
     <div class="alert alert--info" style="background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border);">
       <div class="alert__content">
-        Posted journal entry <span class="mono">{{ created_entry_number }}</span>.
+        Vendor bill posted successfully (bill #{{ created_entry_number }}).
       </div>
       <button type="button" class="alert__close" aria-label="Dismiss">×</button>
     </div>
@@ -37,7 +37,6 @@
               <th class="num">Amount</th>
               <th>Fund</th>
               <th>Status</th>
-              <th>Entry #</th>
               <th>Description</th>
             </tr>
           </thead>
@@ -59,7 +58,6 @@
                     {{ b.status }}
                   </span>
                 </td>
-                <td class="mono">{{ b.entry_number }}</td>
                 <td>{{ b.description }}</td>
               </tr>
             {% endfor %}

@@ -26,10 +26,7 @@
         {% for t in templates %}
           <option value="{{ t.id }}"
                   data-vendor="{{ t.vendor_id }}"
-                  data-expense-account="{{ t.expense_account_id }}"
-                  data-payable-account="{{ t.payable_account_id }}"
                   data-fund="{{ t.fund_code }}"
-                  data-classification="{{ t.expense_classification }}"
                   data-amount="{{ t.default_amount or '' }}"
                   data-description="{{ t.description or '' }}">
             {{ t.template_name }}
@@ -46,8 +43,7 @@
       <div>
         <div class="panel__title">Enter a Vendor Bill</div>
         <div class="panel__description">
-          Records the bill and posts a balanced journal entry (debit expense,
-          credit Accounts Payable) in one atomic step.
+          Records the bill in the system. Pay it later from the vendor bill list.
         </div>
       </div>
     </div>
@@ -103,49 +99,19 @@
         <input type="date" name="entry_date"
                value="{{ values.entry_date }}"
                required />
-        <span class="field__hint">The accounting period that receives the JE.</span>
       </label>
 
       <label class="field">
-        <span class="field__label">Expense Account *</span>
-        <select name="expense_account_id" required>
-          <option value="">— Select an expense account —</option>
-          {% for a in expense_accounts %}
-            <option value="{{ a.id }}"
-              {% if values.expense_account_id|string == a.id|string %}selected{% endif %}>
-              {{ a.label }}
+        <span class="field__label">Expense Category *</span>
+        <select name="category_id" required>
+          <option value="">— Select a category —</option>
+          {% for c in expense_categories %}
+            <option value="{{ c.id }}"
+              {% if values.category_id|string == c.id|string %}selected{% endif %}>
+              {{ c.label }}
             </option>
           {% endfor %}
         </select>
-      </label>
-
-      <label class="field">
-        <span class="field__label">Classification *</span>
-        <select name="expense_classification" required>
-          {% for c in classifications %}
-            <option value="{{ c }}"
-              {% if values.expense_classification == c %}selected{% endif %}>
-              {{ c|capitalize }}
-            </option>
-          {% endfor %}
-        </select>
-        <span class="field__hint">
-          OPERATING = routine spending. IMPROVEMENT = upgrade or one-off enhancement.
-        </span>
-      </label>
-
-      <label class="field">
-        <span class="field__label">Payable Account *</span>
-        <select name="payable_account_id" required>
-          <option value="">— Select a liability account —</option>
-          {% for a in payable_accounts %}
-            <option value="{{ a.id }}"
-              {% if values.payable_account_id|string == a.id|string %}selected{% endif %}>
-              {{ a.label }}
-            </option>
-          {% endfor %}
-        </select>
-        <span class="field__hint">Usually "Accounts Payable".</span>
       </label>
 
       <label class="field">
@@ -196,12 +162,9 @@
         if (el && val) el.value = val;
       }
 
-      setSelect('vendor_id',              opt.dataset.vendor);
-      setSelect('expense_account_id',     opt.dataset.expenseAccount);
-      setSelect('payable_account_id',     opt.dataset.payableAccount);
-      setSelect('fund_code',              opt.dataset.fund);
-      setSelect('expense_classification', opt.dataset.classification);
-      if (opt.dataset.amount) setInput('amount', opt.dataset.amount);
+      setSelect('vendor_id', opt.dataset.vendor);
+      setSelect('fund_code', opt.dataset.fund);
+      if (opt.dataset.amount)      setInput('amount',      opt.dataset.amount);
       if (opt.dataset.description) setInput('description', opt.dataset.description);
     });
   })();

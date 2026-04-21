@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Income & Expense Categories · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/categories/add" class="btn btn--primary">+ Add Category</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# Group categories by type for display #}
+  {% set types_order = ['INCOME', 'EXPENSE', 'TRANSFER'] %}
+  {% set type_labels = {'INCOME': 'Income Categories', 'EXPENSE': 'Expense Categories', 'TRANSFER': 'Transfer Categories'} %}
+
+  {% for cat_type in types_order %}
+    {% set type_rows = categories | selectattr('category_type', 'equalto', cat_type) | list %}
+    {% if type_rows %}
+      <div class="panel" style="margin-bottom: var(--sp-4);">
+        <div class="panel__header">
+          <div>
+            <div class="panel__title">{{ type_labels[cat_type] }}</div>
+            <div class="panel__description">
+              {% if cat_type == 'INCOME' %}
+                Categories for non-dues income: bank interest, fees, and other receipts.
+              {% elif cat_type == 'EXPENSE' %}
+                Categories for vendor bills and operating costs. Use groups to cluster related items for reporting.
+              {% else %}
+                Categories for fund transfers between Operating and Reserve accounts.
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Group</th>
+                <th>Fund</th>
+                <th>Sort</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in type_rows %}
+                <tr{% if not c.active_flag %} style="opacity:.5;"{% endif %}>
+                  <td class="mono">{{ c.code }}</td>
+                  <td>{{ c.name }}</td>
+                  <td>{{ c.group_name or '' }}</td>
+                  <td><span class="pill pill--muted">{{ c.fund_code }}</span></td>
+                  <td class="mono">{{ c.sort_order }}</td>
+                  <td style="max-width:24rem;white-space:normal;">{{ c.description or '' }}</td>
+                  <td>
+                    <span class="pill {% if c.active_flag %}pill--ok{% else %}pill--muted{% endif %}">
+                      {{ 'Active' if c.active_flag else 'Inactive' }}
+                    </span>
+                  </td>
+                  <td style="display:flex;gap:.4rem;justify-content:flex-end;">
+                    <a href="/categories/{{ c.id }}/ledger" class="btn btn--sm btn--ghost">Ledger</a>
+                    <a href="/categories/{{ c.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  {% if not categories %}
+    <div class="panel">
+      <div class="empty">No categories found. Click <strong>+ Add Category</strong> to create one.</div>
+    </div>
+  {% endif %}
+{% endblock %}

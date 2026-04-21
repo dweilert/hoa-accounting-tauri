@@ -44,19 +44,6 @@ class ReserveTransferPages:
             "page_key": "reserve-transfers",
         }))
 
-    def _accounts_ctx(self) -> dict:
-        """Build the bank-accounts-by-fund context for the form."""
-        by_fund = self._repo.get_bank_accounts_by_fund()
-        operating = by_fund.get("OPERATING", [])
-        reserve = by_fund.get("RESERVE", [])
-        return {
-            "operating_accounts": operating,
-            "reserve_accounts": reserve,
-            # Default GL account IDs for auto-selection
-            "default_operating_gl_id": operating[0]["gl_account_id"] if operating else None,
-            "default_reserve_gl_id": reserve[0]["gl_account_id"] if reserve else None,
-        }
-
     # ── List ───────────────────────────────────────────────────────────
 
     def render_list(
@@ -108,7 +95,6 @@ class ReserveTransferPages:
             error=error,
             values=values or {},
             type_labels=_TYPE_LABELS,
-            **self._accounts_ctx(),
         )
 
     def handle_new(
@@ -122,8 +108,6 @@ class ReserveTransferPages:
         amount_raw = form_data.get("amount", "").strip()
         purpose = form_data.get("purpose", "").strip()
         notes = form_data.get("notes", "").strip()
-        from_gl_id_raw = form_data.get("from_gl_account_id", "").strip()
-        to_gl_id_raw = form_data.get("to_gl_account_id", "").strip()
 
         def _err(msg: str) -> tuple[str | None, PageResponse | None]:
             return None, self.render_new_form(org, theme, error=msg, values=form_data)
@@ -142,13 +126,7 @@ class ReserveTransferPages:
             return _err("Notes are required.")
         if transfer_type == "WITHDRAW" and not purpose:
             return _err("Purpose is required for reserve withdrawals.")
-        if not from_gl_id_raw or not from_gl_id_raw.isdigit():
-            return _err("Source account is required.")
-        if not to_gl_id_raw or not to_gl_id_raw.isdigit():
-            return _err("Destination account is required.")
 
-        from_gl_id = int(from_gl_id_raw)
-        to_gl_id = int(to_gl_id_raw)
         memo = purpose or notes or (
             "Fund Reserve transfer" if transfer_type == "FUND" else "Reserve withdrawal"
         )
@@ -159,8 +137,6 @@ class ReserveTransferPages:
                 entry_date=transfer_date,
                 amount=amount,
                 description=memo,
-                from_account_id=from_gl_id,
-                to_account_id=to_gl_id,
                 transfer_type=transfer_type,
                 purpose=purpose or None,
                 created_by_user_id=None,
@@ -188,20 +164,20 @@ class ReserveTransferPages:
         if not row:
             return None, self._render_error(404, "Transfer not found.", org, theme)
 
-        # Block delete if any line has been cleared in a reconciliation
-        cleared = self._conn.execute(
-            """
-            SELECT COUNT(*) FROM reconciliation_clears rc
-            JOIN journal_entry_lines jel ON jel.id = rc.journal_entry_line_id
-            WHERE jel.journal_entry_id = ?
-            """,
-            (row["journal_entry_id"],),
-        ).fetchone()
-        if cleared and int(cleared[0]) > 0:
-            return (
-                "/reserve-transfers?error=Cannot+delete+a+transfer+that+has+been+reconciled.",
-                None,
-            )
+        if row["journal_entry_id"] is not None:
+            cleared = self._conn.execute(
+                """
+                SELECT COUNT(*) FROM reconciliation_clears rc
+                JOIN journal_entry_lines jel ON jel.id = rc.journal_entry_line_id
+                WHERE jel.journal_entry_id = ?
+                """,
+                (row["journal_entry_id"],),
+            ).fetchone()
+            if cleared and int(cleared[0]) > 0:
+                return (
+                    "/reserve-transfers?error=Cannot+delete+a+transfer+that+has+been+reconciled.",
+                    None,
+                )
 
         self._repo.delete_transfer(transfer_id)
         return "/reserve-transfers?msg=Transfer+deleted.", None

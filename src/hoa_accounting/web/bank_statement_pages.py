@@ -106,10 +106,12 @@ class BankStatementPages:
             """
             SELECT r.id, r.rule_name, r.description_contains,
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
-                   r.action_type, r.gl_account_id, r.lot_id, r.default_memo, r.active_flag,
-                   a.account_number, a.account_name
+                   r.action_type, r.gl_account_id, r.category_id, r.lot_id, r.default_memo, r.active_flag,
+                   a.account_number, a.account_name,
+                   c.name AS category_name
             FROM bank_transaction_rules r
-            LEFT JOIN accounts a ON a.id = r.gl_account_id
+            LEFT JOIN accounts   a ON a.id = r.gl_account_id
+            LEFT JOIN categories c ON c.id = r.category_id
             WHERE r.active_flag = 1
             ORDER BY r.id
             """
@@ -532,8 +534,7 @@ class BankStatementPages:
                    bt.transaction_type, bt.matched_line_id, bt.match_type,
                    bt.batch_match_ids, bt.rule_id,
                    r.rule_name, r.action_type, r.default_memo,
-                   ra.account_number AS rule_acct_num,
-                   ra.account_name   AS rule_acct_name,
+                   COALESCE(rc.name, ra.account_name) AS rule_category_name,
                    je.entry_date     AS gl_entry_date,
                    je.memo           AS gl_memo,
                    jel.description   AS gl_line_desc,
@@ -541,6 +542,7 @@ class BankStatementPages:
                    CAST(jel.credit_amount AS REAL) AS gl_credit
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r  ON r.id  = bt.rule_id
+            LEFT JOIN categories rc             ON rc.id = r.category_id
             LEFT JOIN accounts ra               ON ra.id = r.gl_account_id
             LEFT JOIN journal_entry_lines jel   ON jel.id = bt.matched_line_id
             LEFT JOIN journal_entries je        ON je.id  = jel.journal_entry_id
@@ -840,7 +842,7 @@ class BankStatementPages:
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
                    bt.matched_line_id, bt.match_type, bt.batch_match_ids, bt.rule_id,
-                   r.action_type, r.gl_account_id, r.lot_id, r.default_memo
+                   r.action_type, r.gl_account_id, r.category_id, r.lot_id, r.default_memo
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
             WHERE bt.import_batch_id = ?
@@ -854,31 +856,40 @@ class BankStatementPages:
         for txn in txn_rows:
             mt = txn["match_type"]
 
-            if mt == "RULE" and txn["rule_id"] and txn["gl_account_id"]:
-                period_id = self._period_for_date(txn["transaction_date"])
-                if not period_id:
-                    continue
-                je_id, bank_line_id = self._create_rule_je(
-                    dict(txn), dict(txn), bank_gl_account_id, period_id
-                )
-                self._conn.execute(
-                    "INSERT OR IGNORE INTO reconciliation_clears (reconciliation_id, journal_entry_line_id) VALUES (?, ?)",
-                    (reconciliation_id, bank_line_id),
-                )
-                self._conn.execute(
-                    "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
-                    (je_id, txn["id"]),
-                )
-                # Record AR payment if this is a dues rule with a specific lot
-                if txn["action_type"] == "dues_payment" and txn["lot_id"]:
-                    amount = abs(Decimal(str(txn["amount"])))
-                    self._record_ar_payment(
-                        lot_id=int(txn["lot_id"]),
-                        je_id=je_id,
-                        bank_account_id=int(recon["bank_account_id"]),
-                        amount=amount,
-                        txn_date=txn["transaction_date"],
-                        description=txn["default_memo"] or txn["description"] or "",
+            if mt == "RULE" and txn["rule_id"]:
+                if txn["gl_account_id"]:
+                    # GL-based rule: create journal entry and clear in reconciliation
+                    period_id = self._period_for_date(txn["transaction_date"])
+                    if not period_id:
+                        continue
+                    je_id, bank_line_id = self._create_rule_je(
+                        dict(txn), dict(txn), bank_gl_account_id, period_id
+                    )
+                    self._conn.execute(
+                        "INSERT OR IGNORE INTO reconciliation_clears (reconciliation_id, journal_entry_line_id) VALUES (?, ?)",
+                        (reconciliation_id, bank_line_id),
+                    )
+                    self._conn.execute(
+                        "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
+                        (je_id, txn["id"]),
+                    )
+                    # Record AR payment if this is a dues rule with a specific lot
+                    if txn["action_type"] == "dues_payment" and txn["lot_id"]:
+                        amount = abs(Decimal(str(txn["amount"])))
+                        self._record_ar_payment(
+                            lot_id=int(txn["lot_id"]),
+                            je_id=je_id,
+                            bank_account_id=int(recon["bank_account_id"]),
+                            amount=amount,
+                            txn_date=txn["transaction_date"],
+                            description=txn["default_memo"] or txn["description"] or "",
+                        )
+                elif txn["category_id"]:
+                    # Category-based rule: tag the bank transaction, no GL JE needed.
+                    # Item will remain uncleared in reconciliation (user clears manually).
+                    self._conn.execute(
+                        "UPDATE bank_transactions SET category_id = ? WHERE id = ?",
+                        (txn["category_id"], txn["id"]),
                     )
                 matched_count += 1
 
@@ -1242,8 +1253,7 @@ class BankStatementPages:
                    bt.transaction_type, bt.matched_line_id, bt.match_type,
                    bt.batch_match_ids, bt.rule_id,
                    r.rule_name, r.action_type, r.default_memo,
-                   ra.account_number AS rule_acct_num,
-                   ra.account_name   AS rule_acct_name,
+                   COALESCE(rc.name, ra.account_name) AS rule_category_name,
                    je.entry_date     AS gl_entry_date,
                    je.memo           AS gl_memo,
                    jel.description   AS gl_line_desc,
@@ -1251,6 +1261,7 @@ class BankStatementPages:
                    CAST(jel.credit_amount AS REAL) AS gl_credit
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r  ON r.id  = bt.rule_id
+            LEFT JOIN categories rc             ON rc.id = r.category_id
             LEFT JOIN accounts ra               ON ra.id = r.gl_account_id
             LEFT JOIN journal_entry_lines jel   ON jel.id = bt.matched_line_id
             LEFT JOIN journal_entries je        ON je.id  = jel.journal_entry_id
@@ -1519,7 +1530,7 @@ class BankStatementPages:
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
                    bt.matched_line_id, bt.match_type, bt.batch_match_ids, bt.rule_id,
-                   r.action_type, r.gl_account_id, r.lot_id, r.default_memo
+                   r.action_type, r.gl_account_id, r.category_id, r.lot_id, r.default_memo
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
             WHERE bt.import_batch_id = ?
@@ -1530,27 +1541,35 @@ class BankStatementPages:
         for txn in txn_rows:
             mt = txn["match_type"]
 
-            if mt == "RULE" and txn["rule_id"] and txn["gl_account_id"]:
-                period_id = self._period_for_date(txn["transaction_date"])
-                if not period_id:
-                    continue
-                je_id, _bank_line_id = self._create_rule_je(
-                    dict(txn), dict(txn), bank_gl_account_id, period_id
-                )
-                self._conn.execute(
-                    "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
-                    (je_id, txn["id"]),
-                )
-                # Record AR payment if this is a dues rule with a specific lot
-                if txn["action_type"] == "dues_payment" and txn["lot_id"]:
-                    amount = abs(Decimal(str(txn["amount"])))
-                    self._record_ar_payment(
-                        lot_id=int(txn["lot_id"]),
-                        je_id=je_id,
-                        bank_account_id=bank_account_id,
-                        amount=amount,
-                        txn_date=txn["transaction_date"],
-                        description=txn["default_memo"] or txn["description"] or "",
+            if mt == "RULE" and txn["rule_id"]:
+                if txn["gl_account_id"]:
+                    # GL-based rule: create journal entry
+                    period_id = self._period_for_date(txn["transaction_date"])
+                    if not period_id:
+                        continue
+                    je_id, _bank_line_id = self._create_rule_je(
+                        dict(txn), dict(txn), bank_gl_account_id, period_id
+                    )
+                    self._conn.execute(
+                        "UPDATE bank_transactions SET created_je_id = ? WHERE id = ?",
+                        (je_id, txn["id"]),
+                    )
+                    # Record AR payment if this is a dues rule with a specific lot
+                    if txn["action_type"] == "dues_payment" and txn["lot_id"]:
+                        amount = abs(Decimal(str(txn["amount"])))
+                        self._record_ar_payment(
+                            lot_id=int(txn["lot_id"]),
+                            je_id=je_id,
+                            bank_account_id=bank_account_id,
+                            amount=amount,
+                            txn_date=txn["transaction_date"],
+                            description=txn["default_memo"] or txn["description"] or "",
+                        )
+                elif txn["category_id"]:
+                    # Category-based rule: tag the bank transaction with its category
+                    self._conn.execute(
+                        "UPDATE bank_transactions SET category_id = ? WHERE id = ?",
+                        (txn["category_id"], txn["id"]),
                     )
 
         self._conn.execute(

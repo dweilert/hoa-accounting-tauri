@@ -15,7 +15,6 @@ class DepositBatchesRepository(BaseRepository):
         *,
         deposit_date: str,
         bank_account_id: int,
-        journal_entry_id: int,
         total_amount: str,
         notes: str | None,
         created_by_user_id: int | None,
@@ -26,16 +25,14 @@ class DepositBatchesRepository(BaseRepository):
             INSERT INTO deposit_batches (
                 deposit_date,
                 bank_account_id,
-                journal_entry_id,
                 total_amount,
                 notes,
                 created_by_user_id
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?)
             """,
             (
                 deposit_date,
                 bank_account_id,
-                journal_entry_id,
                 total_amount,
                 notes,
                 created_by_user_id,

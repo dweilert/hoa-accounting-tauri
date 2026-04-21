@@ -267,7 +267,7 @@ class DepositBatchPages:
             )
             return (None, resp)
 
-        return (f"/deposits?created={result.entry_number}", None)
+        return (f"/deposits?created={result.deposit_batch_id}", None)
 
 
 # ── Helpers ────────────────────────────────────────────────────────
