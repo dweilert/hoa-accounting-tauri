@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field as dc_field
+from datetime import date as _date
 
 from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS, ReportDefinition, get_report_definition
 
@@ -189,6 +190,15 @@ def _build_report_catalog_cards(selected_report: str) -> list[ReportCatalogCardV
     return cards
 
 
+def _date_field_default(field_name: str) -> str:
+    year = _date.today().year
+    defaults = {
+        "from_date": f"{year}-01-01",
+        "to_date":   f"{year}-12-31",
+    }
+    return defaults.get(field_name, "")
+
+
 def _build_parameter_fields(
     *,
     report_def: ReportDefinition,
@@ -197,11 +207,14 @@ def _build_parameter_fields(
     fields: list[ParameterFieldVM] = []
     for field in report_def.fields:
         required_marker = " *" if field.required else ""
+        raw_value = form_values.get(field.name, field.default_value)
+        if not raw_value and field.field_type == "text":
+            raw_value = _date_field_default(field.name)
         fields.append(
             ParameterFieldVM(
                 name=field.name,
                 label=field.label + required_marker,
-                value=form_values.get(field.name, field.default_value),
+                value=raw_value,
                 placeholder=field.placeholder,
                 field_type=field.field_type,
                 required=field.required,
