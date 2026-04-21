@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Manual Journal Entries · {{ org.name }}{% endblock %}
-{% block heading %}Manual Journal Entries{% endblock %}
+{% block title %}Manual Corrections · {{ org.name }}{% endblock %}
+{% block heading %}Manual Corrections{% endblock %}
 
 {% block topbar_meta %}
   <span class="pill pill--muted">{{ entries|length }} entr{% if entries|length != 1 %}ies{% else %}y{% endif %}</span>
@@ -24,9 +24,9 @@
   <div class="panel">
     <div class="panel__header">
       <div>
-        <div class="panel__title">Manual Journal Entries</div>
+        <div class="panel__title">Manual Corrections</div>
         <div class="panel__description">
-          General-purpose journal entries posted directly to the ledger.
+          Manual debit/credit corrections for advanced adjustments not covered by normal transactions.
         </div>
       </div>
       <a href="/journal-entries/new" class="btn btn--primary btn--sm">New Entry</a>
@@ -69,8 +69,8 @@
       </div>
     {% else %}
       <div class="empty">
-        No manual journal entries on record.
-        Use <strong>New Entry</strong> to post a general-purpose journal entry.
+        No manual corrections on record.
+        Use <strong>New Entry</strong> to record a manual correction.
       </div>
     {% endif %}
   </div>

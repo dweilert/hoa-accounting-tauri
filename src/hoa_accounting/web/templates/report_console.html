@@ -47,8 +47,8 @@
         <label class="field">
           <span class="field__label">{{ field.label }}</span>
           {% if field.field_type == 'select' %}
-            <select name="{{ field.name }}">
-              {% if not field.label.endswith(' *') %}
+            <select name="{{ field.name }}"{% if field.required %} required{% endif %}>
+              {% if not field.required %}
                 {# optional select — offer a blank "all" option #}
                 <option value="">— All —</option>
               {% else %}
@@ -67,6 +67,7 @@
               name="{{ field.name }}"
               value="{{ field.value }}"
               placeholder="{{ field.placeholder }}"
+              {% if field.required %}required{% endif %}
             />
           {% endif %}
         </label>

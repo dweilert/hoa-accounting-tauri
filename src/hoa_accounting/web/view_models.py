@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field as dc_field
+from datetime import date as _date
 
 from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS, ReportDefinition, get_report_definition
 
@@ -46,6 +47,7 @@ class ParameterFieldVM:
     value: str
     placeholder: str
     field_type: str = "text"  # "text" | "select"
+    required: bool = False
 
 
 @dataclass(frozen=True)
@@ -157,7 +159,7 @@ def build_report_console_context(
         # reading 'REPORTS' above a heading reading 'Reports' just
         # duplicates the word.
         breadcrumb="",
-        selected_report=selected_report,
+        selected_report=report_def.name,
         theme=_resolve_theme(org),
         lookup_options=lookup_options or {},
     )
@@ -188,6 +190,15 @@ def _build_report_catalog_cards(selected_report: str) -> list[ReportCatalogCardV
     return cards
 
 
+def _date_field_default(field_name: str) -> str:
+    year = _date.today().year
+    defaults = {
+        "from_date": f"{year}-01-01",
+        "to_date":   f"{year}-12-31",
+    }
+    return defaults.get(field_name, "")
+
+
 def _build_parameter_fields(
     *,
     report_def: ReportDefinition,
@@ -196,13 +207,17 @@ def _build_parameter_fields(
     fields: list[ParameterFieldVM] = []
     for field in report_def.fields:
         required_marker = " *" if field.required else ""
+        raw_value = form_values.get(field.name, field.default_value)
+        if not raw_value and field.field_type == "text":
+            raw_value = _date_field_default(field.name)
         fields.append(
             ParameterFieldVM(
                 name=field.name,
                 label=field.label + required_marker,
-                value=form_values.get(field.name, field.default_value),
+                value=raw_value,
                 placeholder=field.placeholder,
                 field_type=field.field_type,
+                required=field.required,
             )
         )
     return fields
@@ -216,11 +231,12 @@ def _build_raw_json(api_payload: dict[str, object] | None) -> str:
 
 def _example_query_for_report(report_name: str) -> str:
     examples = {
-        "trial-balance": "&as_of_date=2026-01-31",
-        "general-ledger": "&account_id=1000&from_date=2026-01-01&to_date=2026-01-31",
-        "owner-ledger": "&owner_id=1&receivable_account_id=1100&from_date=2026-01-01&to_date=2026-01-31",
-        "ar-aging": "&as_of_date=2026-01-31&receivable_account_id=1100",
-        "balance-sheet": "&as_of_date=2026-01-31",
-        "income-statement": "&from_date=2026-01-01&to_date=2026-01-31",
+        "ytd-expense-summary": "&from_date=2026-01-01&to_date=2026-12-31",
+        "income-by-date":      "&from_date=2026-01-01&to_date=2026-12-31",
+        "expenses-by-date":    "&from_date=2026-01-01&to_date=2026-12-31",
+        "vendor-expenses":     "&from_date=2026-01-01&to_date=2026-12-31",
+        "expenses-vs-budget":  "&fiscal_year=2026&fund_code=operating",
+        "owner-ledger":        "&lot_id=1&year=2026",
+        "ar-aging":            "&as_of_date=2026-03-31",
     }
     return examples.get(report_name, "")

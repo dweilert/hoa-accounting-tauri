@@ -28,7 +28,7 @@
 {% if summary.groups %}
   {% for group in summary.groups %}
     <div class="section-heading">
-      {{ group.group_code }}
+      {{ group.group_code or 'Other' }}
       &nbsp;·&nbsp; Budget: {{ group.group_budget }}
       &nbsp;·&nbsp; Actual: {{ group.group_actual }}
       &nbsp;·&nbsp; Variance: {{ group.group_variance }}
@@ -37,7 +37,6 @@
       <table>
         <thead>
           <tr>
-            <th>Account</th>
             <th>Category</th>
             <th class="num">Budget</th>
             <th class="num">Actual</th>
@@ -49,8 +48,7 @@
           {% for row in group.rows %}
             {% set pct = ((row.actual_amount | float) / (row.budget_amount | float) * 100) if (row.budget_amount | float) != 0 else 0 %}
             <tr>
-              <td class="mono">{{ row.account_number }}</td>
-              <td>{{ row.account_name }}</td>
+              <td>{{ row.category_name }}</td>
               <td class="num">{{ row.budget_amount }}</td>
               <td class="num">{{ row.actual_amount }}</td>
               <td class="num {% if (row.variance | float) < 0 %}text-danger{% endif %}">{{ row.variance }}</td>
@@ -60,7 +58,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="2" style="font-weight:600;">{{ group.group_code }} Total</td>
+            <td style="font-weight:600;">{{ group.group_code or 'Other' }} Total</td>
             <td class="num" style="font-weight:600;">{{ group.group_budget }}</td>
             <td class="num" style="font-weight:600;">{{ group.group_actual }}</td>
             <td class="num" style="font-weight:600;">{{ group.group_variance }}</td>

@@ -51,9 +51,9 @@ class ReserveTransfersRepository(BaseRepository):
                     ta.account_name   AS to_account_name,
                     ta.fund_code      AS to_fund_code
                 FROM reserve_transfers rt
-                JOIN journal_entries je ON je.id = rt.journal_entry_id
-                JOIN accounts fa ON fa.id = rt.from_account_id
-                JOIN accounts ta ON ta.id = rt.to_account_id
+                LEFT JOIN journal_entries je ON je.id = rt.journal_entry_id
+                LEFT JOIN accounts fa ON fa.id = rt.from_account_id
+                LEFT JOIN accounts ta ON ta.id = rt.to_account_id
                 {where}
                 ORDER BY rt.transfer_date DESC, rt.id DESC
                 """,
@@ -81,9 +81,9 @@ class ReserveTransfersRepository(BaseRepository):
                 ta.account_name   AS to_account_name,
                 ta.fund_code      AS to_fund_code
             FROM reserve_transfers rt
-            JOIN journal_entries je ON je.id = rt.journal_entry_id
-            JOIN accounts fa ON fa.id = rt.from_account_id
-            JOIN accounts ta ON ta.id = rt.to_account_id
+            LEFT JOIN journal_entries je ON je.id = rt.journal_entry_id
+            LEFT JOIN accounts fa ON fa.id = rt.from_account_id
+            LEFT JOIN accounts ta ON ta.id = rt.to_account_id
             WHERE rt.id = ?
             """,
             (transfer_id,),
@@ -145,16 +145,7 @@ class ReserveTransfersRepository(BaseRepository):
         return "0.00"
 
     def delete_transfer(self, transfer_id: int) -> None:
-        """Delete a reserve transfer and its linked journal entry."""
-        row = self.conn.execute(
-            "SELECT journal_entry_id FROM reserve_transfers WHERE id = ?",
-            (transfer_id,),
-        ).fetchone()
-        if row:
-            self.conn.execute(
-                "DELETE FROM journal_entries WHERE id = ?",
-                (row["journal_entry_id"],),
-            )
+        """Delete a reserve transfer."""
         self.conn.execute(
             "DELETE FROM reserve_transfers WHERE id = ?",
             (transfer_id,),
@@ -167,11 +158,10 @@ class ReserveTransfersRepository(BaseRepository):
         self,
         *,
         transfer_date: str,
-        from_account_id: int,
-        to_account_id: int,
         amount: str,
-        journal_entry_id: int,
         notes: str,
+        from_account_id: int | None = None,
+        to_account_id: int | None = None,
         transfer_type: str | None = None,
         purpose: str | None = None,
     ) -> int:
@@ -183,18 +173,16 @@ class ReserveTransfersRepository(BaseRepository):
                 from_account_id,
                 to_account_id,
                 amount,
-                journal_entry_id,
                 notes,
                 transfer_type,
                 purpose
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 transfer_date,
                 from_account_id,
                 to_account_id,
                 amount,
-                journal_entry_id,
                 notes,
                 transfer_type,
                 purpose,

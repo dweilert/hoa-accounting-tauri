@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="warm">
+<head>
+<meta charset="utf-8">
+<title>Sidebar Mockup</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  body { margin: 0; padding: 0; background: var(--bg, #faf7f2); }
+  .mockup-wrap {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+  .mockup-notes {
+    padding: 2rem 2.5rem;
+    max-width: 720px;
+    font-size: .92rem;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .mockup-notes h1 { font-size: 1.35rem; margin: 0 0 .5rem; }
+  .mockup-notes h2 { font-size: 1rem; margin: 1.5rem 0 .35rem; color: var(--text); }
+  .mockup-notes p  { color: var(--text-muted); margin: .25rem 0 .75rem; }
+  .mockup-notes .pill-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .25rem; }
+  .mockup-notes .swatch {
+    display: inline-block; padding: .15rem .55rem; border-radius: 4px;
+    background: var(--surface-muted); border: 1px solid var(--border);
+    font-size: .78rem; color: var(--text-muted);
+  }
+
+  /* ── Mock sidebar ───────────────────────────────────────────── */
+  .m-sidebar {
+    background: var(--sidebar-bg, #2d2d2d);
+    color: var(--sidebar-text, #e8e3d9);
+    padding: 1rem 0;
+    overflow-y: auto;
+  }
+  .m-brand {
+    padding: 0 1.1rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    margin-bottom: .5rem;
+  }
+  .m-brand__name  { font-size: 1.05rem; font-weight: 700; color: #fff; }
+  .m-brand__legal { font-size: .72rem; color: rgba(255,255,255,.55); margin-top: .15rem; }
+
+  /* Top-level group */
+  .m-group { }
+  .m-group__header {
+    display: flex; align-items: center; gap: .45rem;
+    padding: .55rem 1.1rem .35rem;
+    background: none; border: none; cursor: pointer; text-align: left;
+    width: 100%; color: rgba(255,255,255,.55);
+    font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .m-group__chev { font-size: 9px; transition: transform .15s; display: inline-block; }
+  .m-group--collapsed .m-group__chev { transform: rotate(-90deg); }
+  .m-group--collapsed .m-group__body { display: none; }
+
+  .m-group__body { display: flex; flex-direction: column; }
+
+  /* Sub-group (nested) */
+  .m-subgroup { }
+  .m-subgroup__header {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .35rem 1.1rem .35rem 1.5rem;
+    background: none; border: none; cursor: pointer; text-align: left;
+    width: 100%; color: rgba(255,255,255,.78);
+    font-size: .82rem; font-weight: 600;
+  }
+  .m-subgroup__header:hover { background: rgba(255,255,255,.04); color: #fff; }
+  .m-subgroup__chev { font-size: 8px; opacity: .55; transition: transform .15s; display: inline-block; }
+  .m-subgroup--collapsed .m-subgroup__chev { transform: rotate(-90deg); }
+  .m-subgroup--collapsed .m-subgroup__body { display: none; }
+
+  .m-subgroup__body { display: flex; flex-direction: column; padding-bottom: .3rem; }
+
+  /* Leaf link */
+  .m-link {
+    display: block;
+    padding: .35rem 1.1rem .35rem 2.4rem;
+    color: rgba(255,255,255,.72);
+    text-decoration: none;
+    font-size: .82rem;
+    border-left: 3px solid transparent;
+  }
+  .m-link:hover { background: rgba(255,255,255,.05); color: #fff; }
+  .m-link--active {
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    border-left-color: var(--accent, #d4845a);
+  }
+
+  /* Direct leaf (no sub-group) */
+  .m-link--direct { padding-left: 1.5rem; }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrap">
+
+  <aside class="m-sidebar">
+    <div class="m-brand">
+      <div class="m-brand__name">ABC HOA</div>
+      <div class="m-brand__legal">ABC Homeowners Association</div>
+    </div>
+
+    <!-- HOME -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Home
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct m-link--active" href="#">Dashboard</a>
+        <a class="m-link m-link--direct" href="#">Reports</a>
+      </div>
+    </div>
+
+    <!-- GETTING STARTED (new) -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Getting Started
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct" href="#">Account Setup Wizard</a>
+        <a class="m-link m-link--direct" href="#">Starting Balances</a>
+      </div>
+    </div>
+
+    <!-- MONEY IN -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Money In
+      </button>
+      <div class="m-group__body">
+
+        <div class="m-subgroup">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Billing
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Charge Annual Dues</a>
+            <a class="m-link" href="#">Charge Late Fees</a>
+            <a class="m-link" href="#">Other Charges</a>
+            <a class="m-link" href="#">Resale Certificate Fee</a>
+          </div>
+        </div>
+
+        <div class="m-subgroup m-subgroup--collapsed">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Receiving
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Record Payments</a>
+            <a class="m-link" href="#">Other Income</a>
+          </div>
+        </div>
+
+        <div class="m-subgroup m-subgroup--collapsed">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Collections
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Who Owes Money</a>
+            <a class="m-link" href="#">Past Due Accounts</a>
+            <a class="m-link" href="#">Owner Statements</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MONEY OUT -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Money Out
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct" href="#">Pay a Vendor Bill</a>
+        <a class="m-link m-link--direct" href="#">Reserve Fund Transfer</a>
+      </div>
+    </div>
+
+    <!-- MONTH-END -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Month-End
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct" href="#">Reconcile Bank Account</a>
+        <a class="m-link m-link--direct" href="#">Lock the Month</a>
+        <a class="m-link m-link--direct" href="#">Year-End Close</a>
+      </div>
+    </div>
+
+    <!-- CORRECTIONS (new) -->
+    <div class="m-group m-group--collapsed">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Corrections
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct" href="#">Manual Adjustments</a>
+      </div>
+    </div>
+
+    <!-- RESERVE FUND -->
+    <div class="m-group m-group--collapsed">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Reserve Fund
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct" href="#">Summary</a>
+        <a class="m-link m-link--direct" href="#">Asset Inventory</a>
+        <a class="m-link m-link--direct" href="#">Funding Plan</a>
+        <a class="m-link m-link--direct" href="#">Scenarios</a>
+        <a class="m-link m-link--direct" href="#">Assumptions</a>
+      </div>
+    </div>
+
+    <!-- MANAGE (was: Setup) -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Manage
+      </button>
+      <div class="m-group__body">
+
+        <div class="m-subgroup">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>People
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Homeowners</a>
+            <a class="m-link" href="#">Properties</a>
+            <a class="m-link" href="#">Renters</a>
+            <a class="m-link" href="#">Vendors</a>
+          </div>
+        </div>
+
+        <div class="m-subgroup m-subgroup--collapsed">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Accounts &amp; Banking
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Bank Accounts</a>
+            <a class="m-link" href="#">Account Setup</a>
+            <a class="m-link" href="#">Budget</a>
+            <a class="m-link" href="#">Bill Templates</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- GUIDES -->
+    <div class="m-group m-group--collapsed">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Guides
+      </button>
+      <div class="m-group__body">
+        <a class="m-link m-link--direct" href="#">Workflow Guide</a>
+        <a class="m-link m-link--direct" href="#">Quick Reference</a>
+        <a class="m-link m-link--direct" href="#">🤖 Built with Claude</a>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="m-group">
+      <button class="m-group__header" onclick="toggleGroup(this)">
+        <span class="m-group__chev">▾</span>Admin
+      </button>
+      <div class="m-group__body">
+
+        <div class="m-subgroup">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Configuration
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Preferences</a>
+            <a class="m-link" href="#">Dashboard Layout</a>
+          </div>
+        </div>
+
+        <div class="m-subgroup m-subgroup--collapsed">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Data I/O
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Export / Backup</a>
+            <a class="m-link" href="#">Import Data</a>
+            <a class="m-link" href="#">Import GL Data</a>
+          </div>
+        </div>
+
+        <div class="m-subgroup m-subgroup--collapsed">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>Customization
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Wizard Catalog</a>
+            <a class="m-link" href="#">Workflow Editor</a>
+          </div>
+        </div>
+
+        <div class="m-subgroup m-subgroup--collapsed">
+          <button class="m-subgroup__header" onclick="toggleSub(this)">
+            <span class="m-subgroup__chev">▾</span>System
+          </button>
+          <div class="m-subgroup__body">
+            <a class="m-link" href="#">Users</a>
+            <a class="m-link" href="#">Role Overrides</a>
+            <a class="m-link" href="#">Activity Log</a>
+            <a class="m-link" href="#">Database</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </aside>
+
+  <div class="mockup-notes">
+    <h1>Sidebar mockup — nested groups</h1>
+    <p>Two-level structure. Top-level categories (uppercase) collapse the whole thing; sub-groups (mixed case) collapse just that section. Both states persist in localStorage. Click any header to try it out.</p>
+
+    <h2>What changed</h2>
+    <p><span class="swatch">Rename</span> <strong>Setup → Manage</strong> — Setup sounded one-time; Manage conveys ongoing record-keeping.</p>
+
+    <h2>Money In → 3 sub-groups</h2>
+    <p><strong>Billing</strong> · <strong>Receiving</strong> · <strong>Collections</strong>.</p>
+
+    <h2>Manage → 2 sub-groups</h2>
+    <p><strong>People</strong> (Homeowners, Properties, Renters, Vendors) · <strong>Accounts &amp; Banking</strong> (Bank Accounts, Account Setup, Budget, Bill Templates). Bill Templates lives with the other configuration items.</p>
+
+    <h2>New: Getting Started</h2>
+    <p>Top of the sidebar (right after Home) for onboarding-but-not-one-time tasks: <strong>Account Setup Wizard</strong> and <strong>Starting Balances</strong>. Visible reminder that there's setup work still to do.</p>
+    <p>💡 Pairs with the existing dashboard Alerts — a persistent "You haven't entered Starting Balances yet" nudge with a <em>Stop nagging me</em> acknowledge button (saved to DB, not session). Saved as a future task.</p>
+
+    <h2>New: Corrections</h2>
+    <p>One-item category for <strong>Manual Adjustments</strong> (journal entries) — the "fix what I F#%ked up" bucket. Keeps accounting-heavy tools out of the friendlier Month-End flow. Room to grow: future void/reverse tools would land here too.</p>
+
+    <h2>Admin → 4 sub-groups</h2>
+    <p><strong>Configuration</strong> · <strong>Data I/O</strong> · <strong>Customization</strong> (was Content — Wizard Catalog + Workflow Editor) · <strong>System</strong>.</p>
+
+    <h2>Removed: Look It Up</h2>
+    <p>Transaction History and Account Detail move into <strong>Reports</strong> as two more report types. They're accounting-heavy and most users won't touch them — better one click deeper inside Reports than their own sidebar category.</p>
+
+    <h2>Small, flat groups stay flat</h2>
+    <p><em>Getting Started</em>, <em>Money Out</em>, <em>Month-End</em>, <em>Reserve Fund</em>, <em>Corrections</em>, and <em>Guides</em> don't need a second level — their items already belong together.</p>
+
+    <h2>Default state</h2>
+    <p>Top-level groups default to expanded; sub-groups default to <strong>collapsed</strong> so the sidebar starts quiet. User expand/collapse is remembered per-browser.</p>
+  </div>
+
+</div>
+
+<script>
+  function toggleGroup(btn) {
+    btn.parentElement.classList.toggle('m-group--collapsed');
+  }
+  function toggleSub(btn) {
+    btn.parentElement.classList.toggle('m-subgroup--collapsed');
+  }
+</script>
+
+</body>
+</html>

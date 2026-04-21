@@ -41,7 +41,7 @@
               <th>Institution</th>
               <th>Type</th>
               <th>Last 4</th>
-              <th>GL Account</th>
+              <th>Linked Account</th>
               <th>Fund</th>
               <th>Status</th>
               <th></th>
@@ -57,7 +57,8 @@
                 <td>{{ ba.gl_account_number }} · {{ ba.gl_account_name }}</td>
                 <td>{{ ba.gl_fund_code }}</td>
                 <td>{% if ba.active_flag %}Active{% else %}Inactive{% endif %}</td>
-                <td>
+                <td style="white-space:nowrap;">
+                  <a href="/bank-accounts/{{ ba.id }}/import-statement/upload" class="btn btn--sm btn--ghost">Import Statement</a>
                   <a href="/bank-accounts/{{ ba.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
                 </td>
               </tr>

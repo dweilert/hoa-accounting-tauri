@@ -23,6 +23,7 @@ from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
 from hoa_accounting.repositories.accounts_repo import AccountsRepository
+from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.assessment_billing_service import IndividualAssessmentRow
 from hoa_accounting.services.factory import ServiceFactory
@@ -121,30 +122,23 @@ class AssessmentBillingPages:
         values = form_values or {}
         submitted = {"rows": submitted_individual_rows} if submitted_individual_rows else {}
 
-        # AR account is fixed from config; shown read-only on the page.
         resolved_error = error_message
         ar_account_label = ""
-        ar_fund = ""
         try:
             ar_row = _resolve_ar_account(self.conn, org)
             ar_account_label = f"{ar_row['account_number']} · {ar_row['account_name']}"
-            ar_fund = str(ar_row["fund_code"])
-        except ValidationError as exc:
-            resolved_error = resolved_error or str(exc)
+        except ValidationError:
+            ar_account_label = "(not configured)"
 
-        # Income dropdown filtered to accounts in the same fund as AR so
-        # the fund-balance invariant doesn't reject the post.
-        income_accounts_all = AccountsRepository(self.conn).list_accounts_by_type(
-            account_type_code="INCOME"
-        )
-        income_accounts = [
+        income_categories = [
             {
                 "id": r["id"],
-                "label": f"{r['account_number']} · {r['account_name']}",
+                "label": r["name"],
                 "fund_code": r["fund_code"],
             }
-            for r in income_accounts_all
-            if (not ar_fund) or str(r["fund_code"]) == ar_fund
+            for r in CategoriesRepository(self.conn).list_categories(
+                category_type="INCOME"
+            )
         ]
 
         # Lot dropdown options for the per-row picker: label each by
@@ -176,8 +170,7 @@ class AssessmentBillingPages:
             "description": (
                 "Create an assessment bill for every homeowner at the same "
                 "amount, or pick specific lots and amounts. Every "
-                "assessment posts its own balanced journal entry (DR receivable, "
-                "CR income) and shows up immediately in AR Aging and the Owner "
+                "assessment is recorded and shows up immediately in AR Aging and the Owner "
                 "Ledger. All-or-nothing — if any row fails validation, the "
                 "entire batch rolls back."
             ),
@@ -189,14 +182,14 @@ class AssessmentBillingPages:
             # already says 'Bill Assessments'.
             "breadcrumb": "Transactions",
             "ar_account_label": ar_account_label,
-            "income_accounts": income_accounts,
+            "income_categories": income_categories,
             "lot_options": lot_options,
             "individual_rows": individual_rows,
             "values": {
                 "description": values.get("description", ""),
                 "entry_date": values.get("entry_date", _today()),
                 "due_date": values.get("due_date", ""),
-                "income_account_id": values.get("income_account_id", ""),
+                "category_id": values.get("category_id", ""),
                 "bulk_amount": values.get("bulk_amount") or str((org or {}).get("default_assessment_amount", "") or ""),
             },
             "error_message": resolved_error,
@@ -221,20 +214,17 @@ class AssessmentBillingPages:
             description = _require(form_data.get("description", ""), "Description")
             entry_date = _require(form_data.get("entry_date", ""), "Posting date")
             due_date = (form_data.get("due_date", "") or "").strip() or None
-            income_account_id = _parse_int(
-                form_data.get("income_account_id", ""), "Income account"
-            )
+            category_id_raw = (form_data.get("category_id", "") or "").strip()
+            category_id = int(category_id_raw) if category_id_raw else None
             amount = _parse_positive_decimal(
                 form_data.get("bulk_amount", ""), "Amount"
             )
-            ar_row = _resolve_ar_account(self.conn, org)
 
             result = self.factory.assessment_billing_service().bill_all_at_same_amount(
                 entry_date=entry_date,
                 amount=amount,
                 description=description,
-                receivable_account_id=int(ar_row["id"]),
-                income_account_id=income_account_id,
+                category_id=category_id,
                 due_date=due_date,
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
@@ -261,9 +251,8 @@ class AssessmentBillingPages:
             description = _require(form_data.get("description", ""), "Description")
             entry_date = _require(form_data.get("entry_date", ""), "Posting date")
             due_date = (form_data.get("due_date", "") or "").strip() or None
-            income_account_id = _parse_int(
-                form_data.get("income_account_id", ""), "Income account"
-            )
+            category_id_raw = (form_data.get("category_id", "") or "").strip()
+            category_id = int(category_id_raw) if category_id_raw else None
 
             # Parse per-row amounts. Only rows with a non-empty amount post.
             amounts_by_lot: dict[int, str] = {}
@@ -301,13 +290,11 @@ class AssessmentBillingPages:
                     "Enter at least one individual amount before billing."
                 )
 
-            ar_row = _resolve_ar_account(self.conn, org)
             result = self.factory.assessment_billing_service().bill_individual_amounts(
                 entry_date=entry_date,
                 description=description,
                 rows=rows,
-                receivable_account_id=int(ar_row["id"]),
-                income_account_id=income_account_id,
+                category_id=category_id,
                 due_date=due_date,
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:

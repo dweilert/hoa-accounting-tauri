@@ -1,4 +1,4 @@
-"""Expenses by date report — all expense journal lines ordered by date."""
+"""Expenses by date report — vendor bills in chronological order."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from hoa_accounting.validators.common import q2
 
 
 class ExpensesByDateReportService:
-    """Produce a chronological list of expense journal entries."""
+    """Produce a chronological list of vendor bill expenses."""
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
@@ -19,23 +19,20 @@ class ExpensesByDateReportService:
         rows = self.conn.execute(
             """
             SELECT
-                je.entry_date,
-                je.entry_number,
-                a.account_number,
-                a.account_name,
-                COALESCE(a.group_code, '') AS group_code,
-                a.fund_code,
-                COALESCE(je.memo, COALESCE(jel.description, '')) AS memo,
-                COALESCE(jel.debit_amount, 0) - COALESCE(jel.credit_amount, 0) AS net_amount
-            FROM journal_entry_lines jel
-            JOIN journal_entries je ON je.id = jel.journal_entry_id
-            JOIN accounts a ON a.id = jel.account_id
-            JOIN account_types at ON at.id = a.account_type_id
-            WHERE je.status IN ('POSTED', 'REVERSED')
-              AND at.code = 'EXPENSE'
-              AND je.entry_date >= ?
-              AND je.entry_date <= ?
-            ORDER BY je.entry_date, je.entry_number, jel.line_number
+                vb.invoice_date AS entry_date,
+                vb.invoice_number AS entry_number,
+                COALESCE(c.code, '') AS account_number,
+                COALESCE(c.name, COALESCE(vb.description, '')) AS account_name,
+                COALESCE(c.group_name, '') AS group_code,
+                vb.fund_code,
+                COALESCE(vb.description, '') AS memo,
+                vb.amount AS net_amount
+            FROM vendor_bills vb
+            LEFT JOIN categories c ON c.id = vb.category_id
+            WHERE vb.status != 'VOID'
+              AND vb.invoice_date >= ?
+              AND vb.invoice_date <= ?
+            ORDER BY vb.invoice_date, vb.invoice_number
             """,
             (from_date, to_date),
         ).fetchall()

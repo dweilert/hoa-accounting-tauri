@@ -1,9 +1,4 @@
-"""Non-dues income list page + batch entry form.
-
-Mirrors the deposit batch pages in shape but drives the
-``NonDuesIncomeService`` instead: one income account per batch, lots or
-a single OTHER row, no AR involvement, cash-basis recognition.
-"""
+"""Non-dues income list page + batch entry form."""
 
 from __future__ import annotations
 
@@ -15,8 +10,8 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
+from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
@@ -30,8 +25,6 @@ class IncomePageResponse:
     body_html: str
 
 
-# Owner-row inputs: row_{idx}_{field}. The OTHER row lives at its own
-# stable prefix so the user always has exactly one of them.
 _ROW_KEY_RE = re.compile(r"^row_(\d+)_(lot_id|amount|memo)$")
 
 
@@ -49,7 +42,7 @@ class NonDuesIncomePages:
         self.conn = conn
         self.factory = ServiceFactory(conn)
 
-    # ── List page ───────────────────────────────────────────────────
+    # ── List page ───────────────────────────────────────────────
 
     def render_list(
         self,
@@ -66,7 +59,14 @@ class NonDuesIncomePages:
                 "description": r["income_description"],
                 "total_amount": f"{Decimal(str(r['total_amount'])):.2f}",
                 "bank_account": r["bank_account_name"],
-                "income_account": f"{r['income_account_number']} · {r['income_account_name']}",
+                "income_account": (
+                    r["category_name"]
+                    or (
+                        f"{r['income_account_number']} · {r['income_account_name']}"
+                        if r["income_account_number"]
+                        else ""
+                    )
+                ),
                 "entry_number": r["entry_number"] or "",
                 "notes": r["notes"] or "",
             }
@@ -77,7 +77,7 @@ class NonDuesIncomePages:
             "description": (
                 "Batched postings for income that doesn't come through "
                 "owner dues — bank interest, one-off fees, gate-remote "
-                "sales. Each batch credits one income account."
+                "sales. Each batch credits one income category."
             ),
             "batches": batches,
             "org": org or {},
@@ -92,7 +92,7 @@ class NonDuesIncomePages:
             body_html=render_template(self.LIST_TEMPLATE, ctx),
         )
 
-    # ── Form page ───────────────────────────────────────────────────
+    # ── Form page ───────────────────────────────────────────────
 
     def render_form(
         self,
@@ -114,14 +114,14 @@ class NonDuesIncomePages:
             }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
         ]
-        income_accounts = [
+        income_categories = [
             {
                 "id": r["id"],
-                "label": f"{r['account_number']} · {r['account_name']}",
+                "label": r["name"],
                 "fund_code": r["fund_code"],
             }
-            for r in AccountsRepository(self.conn).list_accounts_by_type(
-                account_type_code="INCOME"
+            for r in CategoriesRepository(self.conn).list_categories(
+                category_type="INCOME"
             )
         ]
         lots = [
@@ -129,8 +129,6 @@ class NonDuesIncomePages:
             for r in LotsRepository(self.conn).list_lots()
         ]
 
-        # Start with a handful of blank owner rows; preserve submitted
-        # values on validation-error re-render.
         owner_rows = submitted_owner_rows or [
             {"lot_id": "", "amount": "", "memo": ""} for _ in range(4)
         ]
@@ -143,13 +141,13 @@ class NonDuesIncomePages:
             "page_key": "income",
             "breadcrumb": "Transactions · Non-Dues Income",
             "banks": banks,
-            "income_accounts": income_accounts,
+            "income_categories": income_categories,
             "lots": lots,
             "owner_rows": owner_rows,
             "values": {
                 "posting_date": values.get("posting_date", _today()),
                 "bank_account_id": values.get("bank_account_id", ""),
-                "income_account_id": values.get("income_account_id", ""),
+                "category_id": values.get("category_id", ""),
                 "income_description": values.get("income_description", ""),
                 "notes": values.get("notes", ""),
                 "other_source": values.get("other_source", ""),
@@ -164,7 +162,7 @@ class NonDuesIncomePages:
             body_html=render_template(self.FORM_TEMPLATE, ctx),
         )
 
-    # ── Form POST ───────────────────────────────────────────────────
+    # ── Form POST ───────────────────────────────────────────────
 
     def handle_post(
         self,
@@ -173,7 +171,6 @@ class NonDuesIncomePages:
         org: dict[str, object] | None,
         theme: str,
     ) -> tuple[str | None, IncomePageResponse | None]:
-        # Extract per-row owner fields.
         by_index: dict[int, dict[str, str]] = {}
         for key, value in form_data.items():
             m = _ROW_KEY_RE.match(key)
@@ -182,7 +179,6 @@ class NonDuesIncomePages:
             idx = int(m.group(1))
             by_index.setdefault(idx, {})[m.group(2)] = value
         submitted_owner_rows = [by_index[i] for i in sorted(by_index)]
-        # Active owner rows = those with lot OR amount populated.
         active_owner = [
             r for r in submitted_owner_rows
             if (r.get("amount") or "").strip() or (r.get("lot_id") or "").strip()
@@ -200,8 +196,8 @@ class NonDuesIncomePages:
             bank_account_id = _parse_int(
                 form_data.get("bank_account_id", ""), "Bank account"
             )
-            income_account_id = _parse_int(
-                form_data.get("income_account_id", ""), "Income account"
+            category_id = _parse_int(
+                form_data.get("category_id", ""), "Income category"
             )
             income_description = _require(
                 form_data.get("income_description", ""), "Income description"
@@ -252,10 +248,10 @@ class NonDuesIncomePages:
             result = self.factory.non_dues_income_service().post_batch(
                 posting_date=posting_date,
                 bank_account_id=bank_account_id,
-                income_account_id=income_account_id,
                 income_description=income_description,
                 rows=rows,
                 notes=notes,
+                category_id=category_id,
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_form(
@@ -267,7 +263,7 @@ class NonDuesIncomePages:
             )
             return (None, resp)
 
-        return (f"/income?created={result.entry_number}", None)
+        return (f"/income?created={result.income_batch_id}", None)
 
 
 # ── Helpers ────────────────────────────────────────────────────────

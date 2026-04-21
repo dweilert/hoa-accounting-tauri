@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Ledger: {{ category.name }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/categories/{{ category_id }}/edit" class="btn btn--ghost">Edit Category</a>
+  <a href="/categories" class="btn btn--ghost">All Categories</a>
+{% endblock %}
+
+{% block content %}
+  <div class="panel" style="margin-bottom:var(--sp-3);">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">
+          <span class="mono">{{ category.code }}</span> · {{ category.name }}
+        </div>
+        <div class="panel__description">
+          {{ category.category_type }} ·
+          <span class="pill pill--muted">{{ category.fund_code }}</span>
+          {% if category.group_name %}
+            · Group: {{ category.group_name }}
+          {% endif %}
+          {% if category.description %}
+            — {{ category.description }}
+          {% endif %}
+        </div>
+      </div>
+      <div class="summary-totals" style="margin:0;padding:10px var(--sp-3);min-width:180px;">
+        <div class="summary-totals__item">
+          <span class="summary-totals__label">Total</span>
+          <span class="summary-totals__value summary-totals__value--accent mono">{{ total }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Transactions</div>
+        <div class="panel__description">All records tagged with this category.</div>
+      </div>
+    </div>
+
+    {% if transactions %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Reference</th>
+              <th>Party / Account</th>
+              <th class="num">Amount</th>
+              <th>Memo</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in transactions %}
+              <tr>
+                <td><span class="pill pill--muted">{{ t.txn_type }}</span></td>
+                <td>{{ t.txn_date or '' }}</td>
+                <td class="mono">{{ t.ref or '' }}</td>
+                <td>{{ t.party or '' }}</td>
+                <td class="num mono">{{ "%.2f"|format(t.amount|float) }}</td>
+                <td>{{ t.memo or '' }}</td>
+                <td>
+                  {% if t.status %}
+                    <span class="pill
+                      {%- if t.status in ('PAID', 'FUND') %} pill--ok
+                      {%- elif t.status in ('VOID', 'WITHDRAW') %} pill--muted
+                      {%- elif t.status == 'PARTIAL' %} pill--warn
+                      {%- else %} pill--info{% endif %}">
+                      {{ t.status }}
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No transactions have been posted to this category yet.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

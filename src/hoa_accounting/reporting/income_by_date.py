@@ -1,4 +1,7 @@
-"""Income by date report — all income journal lines ordered by date."""
+"""Income by date report — all income in chronological order.
+
+Sources: income_batches (non-dues income) and assessments (dues/charges).
+"""
 
 from __future__ import annotations
 
@@ -10,7 +13,7 @@ from hoa_accounting.validators.common import q2
 
 
 class IncomeByDateReportService:
-    """Produce a chronological list of income journal entries."""
+    """Produce a chronological list of income transactions."""
 
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
@@ -19,24 +22,37 @@ class IncomeByDateReportService:
         rows = self.conn.execute(
             """
             SELECT
-                je.entry_date,
-                je.entry_number,
-                a.account_number,
-                a.account_name,
-                a.fund_code,
-                COALESCE(je.memo, COALESCE(jel.description, '')) AS memo,
-                COALESCE(jel.credit_amount, 0) - COALESCE(jel.debit_amount, 0) AS net_amount
-            FROM journal_entry_lines jel
-            JOIN journal_entries je ON je.id = jel.journal_entry_id
-            JOIN accounts a ON a.id = jel.account_id
-            JOIN account_types at ON at.id = a.account_type_id
-            WHERE je.status IN ('POSTED', 'REVERSED')
-              AND at.code = 'INCOME'
-              AND je.entry_date >= ?
-              AND je.entry_date <= ?
-            ORDER BY je.entry_date, je.entry_number, jel.line_number
+                ib.posting_date AS entry_date,
+                NULL AS entry_number,
+                COALESCE(c.code, '') AS account_number,
+                COALESCE(c.name, ib.income_description) AS account_name,
+                c.fund_code,
+                ib.income_description AS memo,
+                ib.total_amount AS net_amount
+            FROM income_batches ib
+            LEFT JOIN categories c ON c.id = ib.category_id
+            WHERE ib.posting_date >= ?
+              AND ib.posting_date <= ?
+
+            UNION ALL
+
+            SELECT
+                a.assessment_date AS entry_date,
+                NULL AS entry_number,
+                COALESCE(c.code, 'DUES') AS account_number,
+                COALESCE(c.name, a.description) AS account_name,
+                COALESCE(c.fund_code, 'OPERATING') AS fund_code,
+                a.description AS memo,
+                a.amount AS net_amount
+            FROM assessments a
+            LEFT JOIN categories c ON c.id = a.category_id
+            WHERE a.status != 'VOID'
+              AND a.assessment_date >= ?
+              AND a.assessment_date <= ?
+
+            ORDER BY entry_date, account_number
             """,
-            (from_date, to_date),
+            (from_date, to_date, from_date, to_date),
         ).fetchall()
 
         report_rows: list[IncomeByDateRow] = []
@@ -48,10 +64,10 @@ class IncomeByDateReportService:
             report_rows.append(
                 IncomeByDateRow(
                     entry_date=str(row["entry_date"]),
-                    entry_number=str(row["entry_number"]),
+                    entry_number=str(row["entry_number"] or ""),
                     account_number=str(row["account_number"]),
                     account_name=str(row["account_name"]),
-                    fund_code=str(row["fund_code"]),
+                    fund_code=str(row["fund_code"] or "OPERATING"),
                     memo=str(row["memo"]),
                     amount=amount,
                 )

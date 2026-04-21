@@ -151,11 +151,9 @@ class VendorsRepository(BaseRepository):
         invoice_date: str,
         due_date: str,
         amount: str,
-        expense_account_id: int,
-        payable_account_id: int,
         fund_code: str,
-        journal_entry_id: int,
         description: str,
+        category_id: int | None = None,
     ) -> int:
         """Insert a vendor bill and return its id."""
         cur = self.conn.execute(
@@ -166,13 +164,11 @@ class VendorsRepository(BaseRepository):
                 invoice_date,
                 due_date,
                 amount,
-                expense_account_id,
-                payable_account_id,
                 fund_code,
                 status,
-                journal_entry_id,
-                description
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)
+                description,
+                category_id
+            ) VALUES (?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)
             """,
             (
                 vendor_id,
@@ -180,11 +176,9 @@ class VendorsRepository(BaseRepository):
                 invoice_date,
                 due_date,
                 amount,
-                expense_account_id,
-                payable_account_id,
                 fund_code,
-                journal_entry_id,
                 description,
+                category_id,
             ),
         )
         return int(cur.lastrowid)
@@ -197,7 +191,6 @@ class VendorsRepository(BaseRepository):
         amount: str,
         bank_account_id: int,
         check_number: str | None,
-        journal_entry_id: int,
         notes: str,
     ) -> int:
         """Insert a vendor bill payment and return its id."""
@@ -209,9 +202,8 @@ class VendorsRepository(BaseRepository):
                 amount,
                 bank_account_id,
                 check_number,
-                journal_entry_id,
                 notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 vendor_bill_id,
@@ -219,7 +211,6 @@ class VendorsRepository(BaseRepository):
                 amount,
                 bank_account_id,
                 check_number,
-                journal_entry_id,
                 notes,
             ),
         )

@@ -746,7 +746,7 @@ class ManualJournalPages:
         entries = [dict(r) for r in rows]
         ctx = {
             **_BASE_CTX,
-            "heading": "Manual Journal Entries",
+            "heading": "Manual Corrections",
             "org": org or {},
             "theme": theme,
             "entries": entries,
@@ -781,8 +781,8 @@ class ManualJournalPages:
 
         ctx = {
             **_BASE_CTX,
-            "heading": "New Manual Journal Entry",
-            "breadcrumb": "Transactions · Manual Journal Entries",
+            "heading": "New Manual Correction",
+            "breadcrumb": "Transactions · Manual Corrections",
             "org": org or {},
             "theme": theme,
             "values": values,
@@ -869,10 +869,10 @@ class ManualJournalPages:
         if header is None:
             ctx = {
                 **_BASE_CTX,
-                "heading": "Journal Entry Not Found",
+                "heading": "Correction Not Found",
                 "org": org or {},
                 "theme": theme,
-                "error_message": f"Journal entry #{journal_entry_id} not found.",
+                "error_message": f"Correction #{journal_entry_id} not found.",
                 "entries": [],
                 "flash_message": "",
             }
@@ -890,8 +890,8 @@ class ManualJournalPages:
 
         ctx = {
             **_BASE_CTX,
-            "heading": f"Journal Entry {dict(header)['entry_number']}",
-            "breadcrumb": "Transactions · Manual Journal Entries",
+            "heading": f"Correction {dict(header)['entry_number']}",
+            "breadcrumb": "Transactions · Manual Corrections",
             "org": org or {},
             "theme": theme,
             "entry": dict(header),

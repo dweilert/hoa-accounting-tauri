@@ -1,0 +1,148 @@
+"""Repository for expense/income categories."""
+
+from __future__ import annotations
+
+import sqlite3
+
+from .base import BaseRepository
+
+
+class CategoriesRepository(BaseRepository):
+    """Database access for the categories table."""
+
+    def list_categories(
+        self,
+        *,
+        category_type: str | None = None,
+        active_only: bool = True,
+    ) -> list[sqlite3.Row]:
+        where = "WHERE 1=1"
+        params: list[object] = []
+        if active_only:
+            where += " AND active_flag = 1"
+        if category_type:
+            where += " AND category_type = ?"
+            params.append(category_type)
+        return list(
+            self.conn.execute(
+                f"""
+                SELECT id, code, name, category_type, fund_code, sort_order,
+                       group_name, description, active_flag
+                FROM categories
+                {where}
+                ORDER BY category_type, sort_order, name COLLATE NOCASE
+                """,
+                params,
+            ).fetchall()
+        )
+
+    def get_category(self, category_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            """SELECT id, code, name, category_type, fund_code, sort_order,
+                      group_name, description, active_flag
+               FROM categories WHERE id = ?""",
+            (category_id,),
+        ).fetchone()
+
+    def update_category(
+        self,
+        category_id: int,
+        *,
+        name: str,
+        group_name: str | None,
+        description: str | None,
+        fund_code: str,
+        sort_order: int,
+        active_flag: int,
+    ) -> None:
+        self.conn.execute(
+            """UPDATE categories
+               SET name = ?, group_name = ?, description = ?,
+                   fund_code = ?, sort_order = ?, active_flag = ?
+               WHERE id = ?""",
+            (name, group_name, description, fund_code, sort_order, active_flag, category_id),
+        )
+        self.conn.commit()
+
+    def insert_category(
+        self,
+        *,
+        code: str,
+        name: str,
+        category_type: str,
+        fund_code: str,
+        sort_order: int,
+        group_name: str | None,
+        description: str | None,
+    ) -> int:
+        cur = self.conn.execute(
+            """INSERT INTO categories
+                   (code, name, category_type, fund_code, sort_order, group_name, description)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (code, name, category_type, fund_code, sort_order, group_name, description),
+        )
+        self.conn.commit()
+        return cur.lastrowid  # type: ignore[return-value]
+
+    def ledger_for_category(self, category_id: int) -> list[sqlite3.Row]:
+        """Return all transactions tagged with this category, newest first."""
+        return list(
+            self.conn.execute(
+                """
+                SELECT 'Bill' AS txn_type,
+                       vb.invoice_date AS txn_date,
+                       vb.invoice_number AS ref,
+                       v.vendor_name AS party,
+                       vb.amount,
+                       vb.description AS memo,
+                       vb.status,
+                       NULL AS entry_number
+                FROM vendor_bills vb
+                LEFT JOIN vendors v ON v.id = vb.vendor_id
+                WHERE vb.category_id = ?
+
+                UNION ALL
+
+                SELECT 'Income' AS txn_type,
+                       ib.posting_date,
+                       NULL AS ref,
+                       ba.account_name AS party,
+                       ib.total_amount AS amount,
+                       ib.income_description AS memo,
+                       NULL AS status,
+                       NULL AS entry_number
+                FROM income_batches ib
+                LEFT JOIN bank_accounts ba ON ba.id = ib.bank_account_id
+                WHERE ib.category_id = ?
+
+                UNION ALL
+
+                SELECT 'Assessment' AS txn_type,
+                       a.assessment_date AS txn_date,
+                       NULL AS ref,
+                       (SELECT l.street_address_1 FROM lots l WHERE l.id = a.lot_id) AS party,
+                       a.amount,
+                       a.description AS memo,
+                       a.status,
+                       NULL AS entry_number
+                FROM assessments a
+                WHERE a.category_id = ?
+
+                UNION ALL
+
+                SELECT 'Transfer' AS txn_type,
+                       rt.transfer_date AS txn_date,
+                       NULL AS ref,
+                       NULL AS party,
+                       rt.amount,
+                       rt.notes AS memo,
+                       rt.transfer_type AS status,
+                       NULL AS entry_number
+                FROM reserve_transfers rt
+                WHERE rt.category_id = ?
+
+                ORDER BY txn_date DESC
+                """,
+                (category_id, category_id, category_id, category_id),
+            ).fetchall()
+        )

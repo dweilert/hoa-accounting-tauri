@@ -62,73 +62,6 @@
                style="max-width:12rem;" />
       </label>
 
-      {# ── From account ──────────────────────────────────────────── #}
-      <label class="field">
-        <span class="field__label">From Account *</span>
-        <select name="from_gl_account_id" id="from_gl_account_id" required>
-          <option value="">— Select source account —</option>
-          <optgroup label="Operating">
-            {% for acct in operating_accounts %}
-              <option value="{{ acct.gl_account_id }}"
-                      data-fund="OPERATING"
-                      {% if values.from_gl_account_id|string == acct.gl_account_id|string
-                         or (not values.from_gl_account_id and acct.gl_account_id == default_operating_gl_id) %}
-                        selected
-                      {% endif %}>
-                {{ acct.account_name }}
-                {% if acct.account_last4 %} ···{{ acct.account_last4 }}{% endif %}
-                — {{ acct.gl_account_number }}
-              </option>
-            {% endfor %}
-          </optgroup>
-          <optgroup label="Reserve">
-            {% for acct in reserve_accounts %}
-              <option value="{{ acct.gl_account_id }}"
-                      data-fund="RESERVE"
-                      {% if values.from_gl_account_id|string == acct.gl_account_id|string %}selected{% endif %}>
-                {{ acct.account_name }}
-                {% if acct.account_last4 %} ···{{ acct.account_last4 }}{% endif %}
-                — {{ acct.gl_account_number }}
-              </option>
-            {% endfor %}
-          </optgroup>
-        </select>
-      </label>
-
-      {# ── To account ────────────────────────────────────────────── #}
-      <label class="field">
-        <span class="field__label">To Account *</span>
-        <select name="to_gl_account_id" id="to_gl_account_id" required>
-          <option value="">— Select destination account —</option>
-          <optgroup label="Operating">
-            {% for acct in operating_accounts %}
-              <option value="{{ acct.gl_account_id }}"
-                      data-fund="OPERATING"
-                      {% if values.to_gl_account_id|string == acct.gl_account_id|string %}selected{% endif %}>
-                {{ acct.account_name }}
-                {% if acct.account_last4 %} ···{{ acct.account_last4 }}{% endif %}
-                — {{ acct.gl_account_number }}
-              </option>
-            {% endfor %}
-          </optgroup>
-          <optgroup label="Reserve">
-            {% for acct in reserve_accounts %}
-              <option value="{{ acct.gl_account_id }}"
-                      data-fund="RESERVE"
-                      {% if values.to_gl_account_id|string == acct.gl_account_id|string
-                         or (not values.to_gl_account_id and acct.gl_account_id == default_reserve_gl_id) %}
-                        selected
-                      {% endif %}>
-                {{ acct.account_name }}
-                {% if acct.account_last4 %} ···{{ acct.account_last4 }}{% endif %}
-                — {{ acct.gl_account_number }}
-              </option>
-            {% endfor %}
-          </optgroup>
-        </select>
-        <span class="field__hint" id="acct_hint" style="color:var(--text-muted);"></span>
-      </label>
-
       {# ── Purpose (required for WITHDRAW) ───────────────────────── #}
       <label class="field" id="purpose_field">
         <span class="field__label" id="purpose_label">Purpose *</span>
@@ -160,14 +93,8 @@
 
   <script>
   (function () {
-    var defaultOperatingId = {{ default_operating_gl_id | tojson }};
-    var defaultReserveId   = {{ default_reserve_gl_id   | tojson }};
-
-    var fromSel    = document.getElementById("from_gl_account_id");
-    var toSel      = document.getElementById("to_gl_account_id");
     var purposeRow = document.getElementById("purpose_field");
     var purposeInp = document.getElementById("purpose");
-    var acctHint   = document.getElementById("acct_hint");
 
     function getSelectedType() {
       var radios = document.querySelectorAll('input[name="transfer_type"]');
@@ -177,49 +104,25 @@
       return "FUND";
     }
 
-    function setSelectById(sel, id) {
-      for (var i = 0; i < sel.options.length; i++) {
-        if (sel.options[i].value == id) {
-          sel.selectedIndex = i;
-          return;
-        }
-      }
-    }
-
-    // Only auto-set accounts when the form is fresh (no prior values)
-    var hasPriorFrom = fromSel.value !== "" && fromSel.value !== String(defaultOperatingId);
-    var hasPriorTo   = toSel.value   !== "" && toSel.value   !== String(defaultReserveId);
-
     window.onTypeChange = function () {
       var type = getSelectedType();
       if (type === "FUND") {
-        // Operating → Reserve
-        setSelectById(fromSel, defaultOperatingId);
-        setSelectById(toSel,   defaultReserveId);
-        acctHint.textContent = "Operating → Reserve";
         purposeRow.style.display = "none";
         purposeInp.removeAttribute("required");
       } else {
-        // Reserve → Operating
-        setSelectById(fromSel, defaultReserveId);
-        setSelectById(toSel,   defaultOperatingId);
-        acctHint.textContent = "Reserve → Operating";
         purposeRow.style.display = "";
         purposeInp.setAttribute("required", "required");
       }
     };
 
-    // Initialise visibility without overwriting saved form values on error re-render
     (function init() {
       var type = getSelectedType();
       if (type === "FUND") {
         purposeRow.style.display = "none";
         purposeInp.removeAttribute("required");
-        acctHint.textContent = "Operating → Reserve";
       } else {
         purposeRow.style.display = "";
         purposeInp.setAttribute("required", "required");
-        acctHint.textContent = "Reserve → Operating";
       }
     })();
   })();

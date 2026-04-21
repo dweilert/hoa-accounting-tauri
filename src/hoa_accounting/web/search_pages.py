@@ -258,7 +258,7 @@ class SearchPages:
             )
             for r in rows[:MAX_PER_GROUP]
         ]
-        return SearchGroup(label="Journal Entries", hits=hits, total=count_row[0])
+        return SearchGroup(label="Corrections", hits=hits, total=count_row[0])
 
     def _search_payments(self, term: str) -> SearchGroup:
         rows = self._conn.execute(

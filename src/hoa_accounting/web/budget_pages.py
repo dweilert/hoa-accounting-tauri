@@ -27,22 +27,7 @@ _MONTH_NAMES = [
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ]
 
-_GROUP_ORDER = [
-    "LANDSCAPE", "SEWER", "ROAD", "WALL", "ENTRANCE",
-    "UTILITIES", "INSURANCE", "MISC", "FIREWISE",
-]
-
-_GROUP_LABELS = {
-    "LANDSCAPE": "Landscape",
-    "SEWER":     "Sewer",
-    "ROAD":      "Road",
-    "WALL":      "Wall",
-    "ENTRANCE":  "Entrance",
-    "UTILITIES": "Utilities",
-    "INSURANCE": "Insurance",
-    "MISC":      "Miscellaneous",
-    "FIREWISE":  "Firewise",
-}
+_NO_GROUP_LABEL = "Other"
 
 
 @dataclass(frozen=True)
@@ -189,86 +174,62 @@ class BudgetPages:
                 body_html="<h1>Budget not found</h1>",
             )
 
-        expense_accounts = self._repo.list_expense_accounts()
+        expense_categories = self._repo.list_expense_categories()
         saved_lines = self._repo.get_budget_lines(budget_id)
 
-        # Build a lookup: (account_id, fiscal_period) → amount
+        # Build a lookup: (category_id, fiscal_period) → amount
         saved: dict[tuple[int, int], Decimal] = {}
         for line in saved_lines:
-            key = (int(line["account_id"]), int(line["fiscal_period"]))
+            key = (int(line["category_id"]), int(line["fiscal_period"]))
             saved[key] = Decimal(str(line["budget_amount"]))
 
         # Apply any form overrides (on validation error re-render)
         if overrides:
             for k, v in overrides.items():
-                # k = "amt_{account_id}_{period}"
+                # k = "amt_{category_id}_{period}"
                 parts = k.split("_")
                 if len(parts) == 3:
                     try:
-                        aid = int(parts[1])
+                        cid = int(parts[1])
                         period = int(parts[2])
-                        saved[(aid, period)] = Decimal(v or "0")
+                        saved[(cid, period)] = Decimal(v or "0")
                     except (ValueError, InvalidOperation):
                         pass
 
-        # Group accounts by group_code
+        # Group categories by group_name (preserving sort_order ordering)
+        seen_groups: list[str | None] = []
         groups: dict[str | None, list] = {}
-        for acct in expense_accounts:
-            gc = acct["group_code"]
-            if gc not in groups:
-                groups[gc] = []
-            groups[gc].append(acct)
+        for cat in expense_categories:
+            gn = cat["group_name"]
+            if gn not in groups:
+                groups[gn] = []
+                seen_groups.append(gn)
+            groups[gn].append(cat)
 
         # Build rows for template
-        account_rows = []
-        for gc in _GROUP_ORDER:
-            accts = groups.get(gc, [])
-            for acct in accts:
-                aid = int(acct["id"])
+        category_rows = []
+        for gn in seen_groups:
+            cats = groups[gn]
+            for cat in cats:
+                cid = int(cat["id"])
                 monthly = []
                 row_total = Decimal("0.00")
                 for p in range(1, 13):
-                    amt = saved.get((aid, p), Decimal("0.00"))
+                    amt = saved.get((cid, p), Decimal("0.00"))
                     row_total += amt
                     monthly.append({
                         "period":  p,
-                        "field":   f"amt_{aid}_{p}",
+                        "field":   f"amt_{cid}_{p}",
                         "value":   "" if amt == Decimal("0.00") else str(amt),
                     })
-                account_rows.append({
-                    "account_id":     aid,
-                    "account_number": acct["account_number"],
-                    "account_name":   acct["account_name"],
-                    "group_code":     gc,
-                    "group_label":    _GROUP_LABELS.get(gc or "", gc or "Other"),
+                category_rows.append({
+                    "category_id":    cid,
+                    "category_name":  cat["name"],
+                    "group_name":     gn,
+                    "group_label":    gn or _NO_GROUP_LABEL,
                     "monthly":        monthly,
                     "row_total":      str(row_total) if row_total else "",
                 })
-
-        # Also include ungrouped accounts
-        for gc, accts in groups.items():
-            if gc not in _GROUP_ORDER:
-                for acct in accts:
-                    aid = int(acct["id"])
-                    monthly = []
-                    row_total = Decimal("0.00")
-                    for p in range(1, 13):
-                        amt = saved.get((aid, p), Decimal("0.00"))
-                        row_total += amt
-                        monthly.append({
-                            "period":  p,
-                            "field":   f"amt_{aid}_{p}",
-                            "value":   "" if amt == Decimal("0.00") else str(amt),
-                        })
-                    account_rows.append({
-                        "account_id":     aid,
-                        "account_number": acct["account_number"],
-                        "account_name":   acct["account_name"],
-                        "group_code":     gc,
-                        "group_label":    _GROUP_LABELS.get(gc or "", gc or "Other"),
-                        "monthly":        monthly,
-                        "row_total":      str(row_total) if row_total else "",
-                    })
 
         ctx = {
             "active_nav":     "master-data",
@@ -277,7 +238,7 @@ class BudgetPages:
             "org":            org,
             "theme":          theme,
             "budget":         dict(budget),
-            "account_rows":   account_rows,
+            "category_rows":  category_rows,
             "month_names":    _MONTH_NAMES,
             "flash_message":  flash_message,
             "error":          error,
@@ -304,8 +265,8 @@ class BudgetPages:
         notes = form_data.get("notes", "").strip()
         self._repo.update_budget_notes(budget_id, notes=notes)
 
-        expense_accounts = self._repo.list_expense_accounts()
-        account_ids = {int(a["id"]) for a in expense_accounts}
+        expense_categories = self._repo.list_expense_categories()
+        category_ids = {int(c["id"]) for c in expense_categories}
 
         for key, val in form_data.items():
             if not key.startswith("amt_"):
@@ -314,16 +275,16 @@ class BudgetPages:
             if len(parts) != 3:
                 continue
             try:
-                aid = int(parts[1])
+                cid = int(parts[1])
                 period = int(parts[2])
                 amount = Decimal(val.strip() or "0")
             except (ValueError, InvalidOperation):
                 continue
-            if aid not in account_ids:
+            if cid not in category_ids:
                 continue
             if period < 1 or period > 12:
                 continue
-            self._repo.upsert_budget_line(budget_id, aid, period, amount)
+            self._repo.upsert_budget_line(budget_id, cid, period, amount)
 
         try:
             self._repo.delete_zero_lines(budget_id)

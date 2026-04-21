@@ -98,6 +98,34 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
     return transactions
 
 
+def parse_ofx_by_account(content: bytes | str) -> list[tuple[str, list[ParsedTransaction]]]:
+    """Parse a multi-account OFX file. Returns list of (acctid, transactions) per account section.
+    Falls back to [("", all_transactions)] if no STMTRS sections found."""
+    text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+
+    # Try XML-style STMTRS blocks first (OFX 2.x)
+    stmtrs_blocks = re.findall(r"<STMTRS>(.*?)</STMTRS>", text, re.DOTALL | re.IGNORECASE)
+
+    if not stmtrs_blocks:
+        # OFX 1.x: no closing tags — split on <STMTRS> and take until next block/end
+        parts = re.split(r"<STMTRS\b", text, flags=re.IGNORECASE)
+        for part in parts[1:]:
+            end = re.search(r"</BANKMSGSRSV1>|</OFX>|<STMTRS\b", part, re.IGNORECASE)
+            stmtrs_blocks.append(part[: end.start()] if end else part)
+
+    if not stmtrs_blocks:
+        return [("", parse_ofx(text))]
+
+    results: list[tuple[str, list[ParsedTransaction]]] = []
+    for block in stmtrs_blocks:
+        m = re.search(r"<ACCTID>\s*([^\r\n<]+)", block, re.IGNORECASE)
+        acctid = m.group(1).strip() if m else ""
+        transactions = parse_ofx(block)
+        results.append((acctid, transactions))
+
+    return results
+
+
 # ── CSV parser ────────────────────────────────────────────────────────────────
 
 _DATE_COLS   = {"date", "transaction date", "trans date", "posted date",
@@ -219,20 +247,40 @@ def apply_rules(
     transactions: list[ParsedTransaction],
     rules: list[dict],
     skip_indices: set[int] | None = None,
+    bank_account_id: int | None = None,
 ) -> dict[int, dict]:
-    """Return {txn_idx: rule_dict} for the first matching rule per transaction."""
+    """Return {txn_idx: rule_dict} for the first rule where ALL set criteria match."""
     matches: dict[int, dict] = {}
     for i, txn in enumerate(transactions):
         if skip_indices and i in skip_indices:
             continue
-        desc = (txn.description + " " + txn.memo).lower()
         for rule in rules:
             if not rule.get("active_flag", 1):
                 continue
-            pattern = str(rule.get("description_contains", "")).lower().strip()
-            if pattern and pattern in desc:
-                matches[i] = rule
-                break
+            # Bank account restriction: skip rule if it targets a different account
+            rule_ba = rule.get("bank_account_id")
+            if rule_ba and bank_account_id and int(rule_ba) != int(bank_account_id):
+                continue
+            # Each non-empty text/amount criterion must match (AND logic)
+            desc_pat = str(rule.get("description_contains", "")).lower().strip()
+            if desc_pat and desc_pat not in txn.description.lower():
+                continue
+            memo_pat = str(rule.get("match_memo", "")).lower().strip()
+            if memo_pat and memo_pat not in txn.memo.lower():
+                continue
+            type_pat = str(rule.get("match_type", "")).lower().strip()
+            if type_pat and type_pat not in txn.transaction_type.lower():
+                continue
+            amount_str = str(rule.get("match_amount", "")).strip()
+            if amount_str:
+                try:
+                    target = abs(Decimal(amount_str.lstrip("$").replace(",", "")))
+                    if abs(abs(txn.amount) - target) > Decimal("0.01"):
+                        continue
+                except Exception:
+                    pass
+            matches[i] = rule
+            break
     return matches
 
 

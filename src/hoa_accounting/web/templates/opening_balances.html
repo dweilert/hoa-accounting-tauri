@@ -73,7 +73,7 @@
   {% endif %}
 
   <form method="post" action="/opening-balances/save" class="form"
-        data-confirm="This will post a journal entry to the general ledger. If balances have been posted before, the previous entry will be replaced.\n\nDouble-check that all amounts are correct before proceeding."
+        data-confirm="This will save your opening balances. If balances have been saved before, the previous values will be replaced.\n\nDouble-check that all amounts are correct before proceeding."
         data-confirm-title="Save Opening Balances"
         data-confirm-label="Save Balances"
         data-confirm-danger="false">
@@ -98,8 +98,8 @@
            background:var(--surface-raised,var(--surface));">
         <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">
           Enter the balances that existed <strong>before</strong> you started using this system.
-          Saving posts a single journal entry that brings the general ledger into balance.
-          If you re-save later, the previous entry is replaced automatically.
+          Saving records the starting balances for your bank accounts and owner receivables.
+          If you re-save later, the previous values are replaced automatically.
         </div>
       </div>
       <div class="panel">

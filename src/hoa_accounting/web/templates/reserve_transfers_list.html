@@ -77,8 +77,7 @@
             <tr>
               <th>Date</th>
               <th>Type</th>
-              <th>From</th>
-              <th>To</th>
+              <th>Direction</th>
               <th style="text-align:right;">Amount</th>
               <th>Purpose / Notes</th>
               <th></th>
@@ -97,19 +96,14 @@
                     <span class="pill pill--muted" style="font-size:.7rem;">Transfer</span>
                   {% endif %}
                 </td>
-                <td style="font-size:12px;">
-                  <div>{{ row.from_account_name }}</div>
-                  <div style="font-size:11px;color:var(--text-muted);">
-                    {{ row.from_account_number }}
-                    <span class="pill pill--muted" style="font-size:.65rem;">{{ row.from_fund_code }}</span>
-                  </div>
-                </td>
-                <td style="font-size:12px;">
-                  <div>{{ row.to_account_name }}</div>
-                  <div style="font-size:11px;color:var(--text-muted);">
-                    {{ row.to_account_number }}
-                    <span class="pill pill--muted" style="font-size:.65rem;">{{ row.to_fund_code }}</span>
-                  </div>
+                <td style="font-size:12px;color:var(--text-muted);">
+                  {% if row.transfer_type == 'FUND' %}
+                    Operating → Reserve
+                  {% elif row.transfer_type == 'WITHDRAW' %}
+                    Reserve → Operating
+                  {% else %}
+                    —
+                  {% endif %}
                 </td>
                 <td style="text-align:right;font-family:var(--font-mono);font-size:13px;white-space:nowrap;">
                   {{ "%.2f"|format(row.amount|float) }}
@@ -124,7 +118,7 @@
                 </td>
                 <td style="text-align:right;">
                   <form method="post" action="/reserve-transfers/{{ row.id }}/delete"
-                        data-confirm="This will permanently delete this reserve transfer and its journal entry."
+                        data-confirm="This will permanently delete this reserve transfer."
                         data-confirm-title="Delete Reserve Transfer"
                         data-confirm-label="Delete"
                         style="display:inline;">

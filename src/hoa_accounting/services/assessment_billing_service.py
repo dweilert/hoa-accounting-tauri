@@ -68,8 +68,9 @@ class AssessmentBillingService:
         entry_date: str,
         amount: Decimal | str | int | float,
         description: str,
-        receivable_account_id: int,
-        income_account_id: int,
+        receivable_account_id: int | None = None,
+        income_account_id: int | None = None,
+        category_id: int | None = None,
         due_date: str | None = None,
         created_by_user_id: int | None = None,
     ) -> AssessmentBatchResult:
@@ -104,8 +105,7 @@ class AssessmentBillingService:
                     owner_id=owner_id,
                     amount=amount_dec,
                     description=description,
-                    receivable_account_id=receivable_account_id,
-                    income_account_id=income_account_id,
+                    category_id=category_id,
                     created_by_user_id=created_by_user_id,
                     due_date=due_date,
                 )
@@ -125,8 +125,9 @@ class AssessmentBillingService:
         entry_date: str,
         description: str,
         rows: Sequence[IndividualAssessmentRow],
-        receivable_account_id: int,
-        income_account_id: int,
+        receivable_account_id: int | None = None,
+        income_account_id: int | None = None,
+        category_id: int | None = None,
         due_date: str | None = None,
         created_by_user_id: int | None = None,
     ) -> AssessmentBatchResult:
@@ -177,8 +178,7 @@ class AssessmentBillingService:
                         owner_id=owner_id,
                         amount=amount,
                         description=description,
-                        receivable_account_id=receivable_account_id,
-                        income_account_id=income_account_id,
+                        category_id=category_id,
                         created_by_user_id=created_by_user_id,
                         due_date=due_date,
                     )

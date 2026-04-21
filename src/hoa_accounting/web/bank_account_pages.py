@@ -170,7 +170,7 @@ class BankAccountPages:
                 raise ValidationError("Account Type is required.")
             gl_account_id_raw = (form_data.get("gl_account_id") or "").strip()
             if not gl_account_id_raw:
-                raise ValidationError("GL Account is required.")
+                raise ValidationError("Linked Account is required.")
             gl_account_id = int(gl_account_id_raw)
 
             self.repo.insert_bank_account(
@@ -212,7 +212,7 @@ class BankAccountPages:
                 raise ValidationError("Account Type is required.")
             gl_account_id_raw = (form_data.get("gl_account_id") or "").strip()
             if not gl_account_id_raw:
-                raise ValidationError("GL Account is required.")
+                raise ValidationError("Linked Account is required.")
             gl_account_id = int(gl_account_id_raw)
 
             # active_flag: presence of hidden sentinel means checkbox was rendered

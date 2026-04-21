@@ -274,7 +274,7 @@ class AccountingPeriodPages:
             return None, self.render_list(
                 org=org, theme=theme,
                 error_message=(
-                    "Cannot delete a period that has journal entries. "
+                    "Cannot delete a period that has posted transactions. "
                     "Close it instead."
                 ),
             )

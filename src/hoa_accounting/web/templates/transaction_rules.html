@@ -3,6 +3,14 @@
 {% block title %}Transaction Rules · {{ org.name }}{% endblock %}
 {% block heading %}Transaction Rules{% endblock %}
 
+{% block topbar_meta %}
+  {% if return_to %}
+    <a href="{{ return_to }}" class="btn btn--primary btn--sm">← Back to Import</a>
+  {% else %}
+    <button type="button" class="btn btn--ghost btn--sm" onclick="history.back()">← Back</button>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
 
 {% if error %}
@@ -12,14 +20,121 @@
   </div>
 {% endif %}
 
+{# ── How this works ────────────────────────────────────────────────────── #}
+<details class="panel" style="margin-bottom:1.5rem;" id="help-panel">
+  <summary style="padding:.75rem 1rem;cursor:pointer;list-style:none;
+                  display:flex;align-items:center;gap:.5rem;
+                  font-weight:600;font-size:.9rem;user-select:none;">
+    <span style="font-size:1.1rem;">ⓘ</span>
+    How Transaction Rules Work
+    <span id="help-chevron" style="margin-left:auto;font-size:.8rem;color:var(--text-muted);">▼ show</span>
+  </summary>
+  <div style="padding:0 1.25rem 1.25rem;border-top:1px solid var(--border);margin-top:0;">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1rem;">
+
+      {# col 1 #}
+      <div>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">What rules do</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
+          When you import a bank statement, each transaction's description is compared
+          against your saved rules. A match automatically records and posts the transaction
+          so you don't have to categorize it by hand.
+        </p>
+
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">How matching works</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .4rem;">
+          Each criteria field you fill in must match — they are combined with AND logic.
+          You can match on any combination of <strong>Description</strong>,
+          <strong>Transaction Type</strong>, <strong>Memo</strong>, and <strong>Amount</strong>.
+          Leave all blank and the rule matches every transaction (useful as a catch-all).
+          All text matches are case-insensitive and check if the value appears
+          <em>anywhere</em> in the field.
+        </p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 .75rem;">
+          Match priority: <strong>Rules</strong> win over existing matches, which win
+          over batch grouping. A transaction can only be claimed by one rule.
+        </p>
+
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.4rem;">Active / inactive</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0;">
+          Toggle a rule Off to suspend it without deleting it — handy for seasonal
+          vendors or accounts that change periodically.
+        </p>
+      </div>
+
+      {# col 2 #}
+      <div>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.6rem;">The four transaction types</div>
+
+        <div style="display:flex;flex-direction:column;gap:.55rem;">
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#fef2f2;border:1px solid #fecaca;">
+            <div style="font-size:.8rem;font-weight:700;color:#991b1b;">↑ Recurring Bill / Auto-Pay</div>
+            <div style="font-size:.76rem;color:#7f1d1d;margin-top:.15rem;">
+              Money leaving the account for a known vendor: utilities, insurance,
+              landscaping, management fees.
+            </div>
+          </div>
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#fef2f2;border:1px solid #fecaca;">
+            <div style="font-size:.8rem;font-weight:700;color:#991b1b;">↑ Bank Fee or Charge</div>
+            <div style="font-size:.76rem;color:#7f1d1d;margin-top:.15rem;">
+              Service fees, wire charges, and NSF fees charged by the bank itself.
+            </div>
+          </div>
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div style="font-size:.8rem;font-weight:700;color:#166534;">↓ Dues or Assessment Payment</div>
+            <div style="font-size:.76rem;color:#14532d;margin-top:.15rem;">
+              Deposits from homeowners for monthly dues or special assessments.
+              Optionally assigns a specific Lot so the deposit is recorded as an
+              AR payment and applied to any open assessments for that homeowner.
+            </div>
+          </div>
+
+          <div style="padding:.5rem .65rem;border-radius:var(--radius);background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div style="font-size:.8rem;font-weight:700;color:#166534;">↓ Fee or Other Income</div>
+            <div style="font-size:.76rem;color:#14532d;margin-top:.15rem;">
+              Late fees, resale certificate fees, refunds, and interest earned.
+            </div>
+          </div>
+
+        </div>
+
+        <div style="font-weight:700;font-size:.85rem;margin:.9rem 0 .35rem;">Lot assignment (dues rules only)</div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0;">
+          When you pick a Lot / Homeowner, the import engine creates a payment receipt
+          and automatically applies it to that lot's oldest open assessments, marking
+          them Partial or Paid. If no open assessments exist the receipt is still
+          recorded and can be applied later.
+          Leave the lot blank if the deposit covers multiple owners.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</details>
+<script>
+(function () {
+  var det  = document.getElementById('help-panel');
+  var chev = document.getElementById('help-chevron');
+  if (det && chev) {
+    det.addEventListener('toggle', function () {
+      chev.textContent = det.open ? '▲ hide' : '▼ show';
+    });
+  }
+})();
+</script>
+
 {# ── Existing rules ────────────────────────────────────────────────────── #}
 <div class="panel" style="margin-bottom:1.5rem;">
   <div class="panel__header">
     <div>
       <div class="panel__title">Saved Rules</div>
       <div class="panel__description">
-        When a bank statement is imported, transactions matching a rule's
-        description are automatically posted as journal entries.
+        When a bank statement is imported, transactions whose description matches
+        a rule are automatically posted.
       </div>
     </div>
   </div>
@@ -30,9 +145,10 @@
       <thead>
         <tr>
           <th>Rule Name</th>
-          <th>Description Contains</th>
-          <th>Type</th>
-          <th>Account</th>
+          <th>Match Criteria (all must match)</th>
+          <th>Transaction Type</th>
+          <th>Category</th>
+          <th>Lot / Owner</th>
           <th>Memo</th>
           <th style="text-align:center;">Active</th>
           <th></th>
@@ -40,33 +156,67 @@
       </thead>
       <tbody>
         {% for rule in rules %}
+        {% set atype = action_types.get(rule.action_type, {}) %}
         <tr style="{% if not rule.active_flag %}opacity:.5;{% endif %}">
           <td style="font-weight:600;font-size:13px;">{{ rule.rule_name }}</td>
-          <td>
-            {% if rule.description_contains %}
-              <code style="font-size:.8rem;background:var(--surface-muted);
-                           padding:.1rem .3rem;border-radius:3px;">
-                {{ rule.description_contains }}
-              </code>
+          <td style="font-size:12px;">
+            {% set has_criteria = rule.description_contains or rule.match_type or rule.match_memo or rule.match_amount or rule.bank_account_id %}
+            {% if has_criteria %}
+              <div style="display:flex;flex-direction:column;gap:.2rem;">
+                {% if rule.description_contains %}
+                  <span><span style="color:var(--text-muted);">desc:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.description_contains }}</code></span>
+                {% endif %}
+                {% if rule.match_type %}
+                  <span><span style="color:var(--text-muted);">type:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.match_type }}</code></span>
+                {% endif %}
+                {% if rule.match_memo %}
+                  <span><span style="color:var(--text-muted);">memo:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.match_memo }}</code></span>
+                {% endif %}
+                {% if rule.match_amount %}
+                  <span><span style="color:var(--text-muted);">amt:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">${{ rule.match_amount }}</code></span>
+                {% endif %}
+                {% if rule.bank_account_id %}
+                  <span><span style="color:var(--text-muted);">acct:</span>
+                  <code style="font-size:.78rem;background:var(--surface-muted);padding:.05rem .3rem;border-radius:3px;">{{ rule.bank_account_name }}{% if rule.account_last4 %} ···{{ rule.account_last4 }}{% endif %}</code></span>
+                {% endif %}
+              </div>
             {% else %}
-              <span style="color:var(--text-muted);font-size:12px;">any</span>
+              <span style="color:var(--text-muted);">any transaction</span>
             {% endif %}
           </td>
-          <td>
-            {% if rule.action_type == 'direct_expense' %}
-              <span class="pill" style="font-size:.7rem;background:#fef2f2;color:#991b1b;border:none;">Expense</span>
+          <td style="white-space:nowrap;">
+            {% if atype.get('pattern') == 'expense' %}
+              <span class="pill" style="font-size:.7rem;background:#fef2f2;color:#991b1b;border:none;">
+                ↑ {{ atype.get('label') or rule.action_type }}
+              </span>
             {% else %}
-              <span class="pill" style="font-size:.7rem;background:#f0fdf4;color:#166534;border:none;">Income</span>
+              <span class="pill" style="font-size:.7rem;background:#f0fdf4;color:#166534;border:none;">
+                ↓ {{ atype.get('label') or rule.action_type }}
+              </span>
             {% endif %}
           </td>
           <td style="font-size:13px;">
-            {% if rule.account_number %}
-              {{ rule.account_number }} {{ rule.account_name }}
+            {% if rule.category_name %}
+              {{ rule.category_name }}
             {% else %}
               <span style="color:var(--text-muted);">—</span>
             {% endif %}
           </td>
-          <td style="font-size:12px;color:var(--text-muted);max-width:200px;">
+          <td style="font-size:13px;">
+            {% if rule.action_type == 'dues_payment' and rule.lot_id %}
+              <span style="font-weight:600;">Lot {{ rule.lot_number }}</span>
+              {% if rule.lot_owner_name %}
+                <br><span style="color:var(--text-muted);font-size:11px;">{{ rule.lot_owner_name }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);max-width:180px;">
             {{ rule.default_memo or '—' }}
           </td>
           <td style="text-align:center;">
@@ -75,7 +225,7 @@
                   style="display:inline;">
               <button type="submit"
                       class="btn btn--ghost btn--sm"
-                      style="padding:.15rem .4rem;font-size:.75rem;">
+                      style="padding:.15rem .5rem;font-size:.75rem;">
                 {% if rule.active_flag %}On{% else %}Off{% endif %}
               </button>
             </form>
@@ -83,7 +233,8 @@
           <td style="text-align:right;white-space:nowrap;">
             <button type="button"
                     class="btn btn--ghost btn--sm"
-                    onclick="editRule({{ rule | tojson }})">Edit</button>
+                    data-rule="{{ rule | tojson | forceescape }}"
+                    onclick="editRule(JSON.parse(this.dataset.rule))">Edit</button>
             <form method="post"
                   action="/admin/transaction-rules/{{ rule.id }}/delete"
                   style="display:inline;"
@@ -104,61 +255,201 @@
 </div>
 
 {# ── Add / edit rule form ──────────────────────────────────────────────── #}
-<div class="panel" style="max-width:640px;">
+<div class="panel" style="max-width:660px;" id="rule-form-panel">
   <div class="panel__header">
-    <div class="panel__title" id="form-title">Add Rule</div>
+    <div>
+      <div class="panel__title" id="form-title">Add Rule</div>
+      <div class="panel__description" id="form-subtitle">
+        Define when a bank transaction should be auto-posted.
+      </div>
+    </div>
   </div>
-  <form method="post" action="/admin/transaction-rules/save" style="padding:1rem;">
+  <form method="post" action="/admin/transaction-rules/save" style="padding:1rem 1rem 1.25rem;">
     <input type="hidden" name="rule_id" id="rule_id" value="">
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+    {# ── Rule name ───────────────────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+        Rule Name <span style="color:var(--danger);">*</span>
+      </label>
+      <input type="text" name="rule_name" id="rule_name" required
+             placeholder="e.g. City Utility Bill"
+             style="width:100%;">
+    </div>
 
-      <div>
-        <label style="font-size:.8rem;font-weight:600;">Rule Name <span style="color:var(--danger);">*</span></label>
-        <input type="text" name="rule_name" id="rule_name" required
-               placeholder="e.g. City Utility Bill"
-               style="width:100%;margin-top:.25rem;">
+    {# ── Match criteria ──────────────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;padding:.75rem 1rem;
+                border:1px solid var(--border);border-radius:var(--radius);
+                background:var(--surface-muted);">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:.1rem;">Match Criteria</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.75rem;">
+        All fields you fill in must match — leave blank to skip that check.
       </div>
-
-      <div>
-        <label style="font-size:.8rem;font-weight:600;">Description Contains</label>
-        <input type="text" name="description_contains" id="description_contains"
-               placeholder="e.g. city of austin"
-               style="width:100%;margin-top:.25rem;">
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem;">
-          Case-insensitive. Leave blank to match all transactions.
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Description contains</label>
+          <input type="text" name="description_contains" id="description_contains"
+                 placeholder="e.g. CITY OF AUSTIN"
+                 style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Transaction type contains</label>
+          <input type="text" name="match_type" id="match_type"
+                 placeholder="e.g. CREDIT or Teller Deposit"
+                 style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Memo contains</label>
+          <input type="text" name="match_memo" id="match_memo"
+                 placeholder="e.g. ACH or 529905"
+                 style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Amount equals</label>
+          <input type="text" name="match_amount" id="match_amount"
+                 placeholder="e.g. 155.02"
+                 style="width:100%;"
+                 onblur="if(this.value.trim()){var n=parseFloat(this.value.replace(/[^0-9.]/g,''));if(!isNaN(n))this.value=n.toFixed(2);}">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="font-size:.78rem;font-weight:600;display:block;margin-bottom:.2rem;">Bank Account</label>
+          <select name="bank_account_id" id="rule_bank_account_id" style="width:100%;">
+            <option value="">— all accounts —</option>
+            {% for ba in bank_accounts %}
+              <option value="{{ ba.id }}">{{ ba.account_name }}{% if ba.account_last4 %} (···{{ ba.account_last4 }}){% endif %}</option>
+            {% endfor %}
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;">
+            Restrict this rule to one account, or leave blank to apply to any.
+          </div>
         </div>
       </div>
+    </div>
 
-      <div>
-        <label style="font-size:.8rem;font-weight:600;">Action Type</label>
-        <select name="action_type" id="action_type" style="width:100%;margin-top:.25rem;">
-          <option value="direct_expense">Direct Expense (DR expense / CR bank)</option>
-          <option value="direct_income">Direct Income (DR bank / CR income)</option>
-        </select>
+    {# ── Transaction type cards ──────────────────────────────────────── #}
+    <div style="margin-bottom:1.25rem;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.5rem;">
+        What kind of transaction is this?
+      </label>
+      <div id="action-cards"
+           style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+
+        <label id="card-recurring_bill" class="action-card">
+          <input type="radio" name="action_type" value="recurring_bill"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#991b1b;">↑ Recurring Bill / Auto-Pay</div>
+            <div class="action-card__hint">Utilities, insurance, landscaping, management fees</div>
+          </div>
+        </label>
+
+        <label id="card-bank_charge" class="action-card">
+          <input type="radio" name="action_type" value="bank_charge"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#991b1b;">↑ Bank Fee or Charge</div>
+            <div class="action-card__hint">Monthly service fees, wire charges, NSF fees</div>
+          </div>
+        </label>
+
+        <label id="card-dues_payment" class="action-card">
+          <input type="radio" name="action_type" value="dues_payment"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#166534;">↓ Dues or Assessment Payment</div>
+            <div class="action-card__hint">Monthly dues deposits or special assessments received</div>
+          </div>
+        </label>
+
+        <label id="card-fee_income" class="action-card">
+          <input type="radio" name="action_type" value="fee_income"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#166534;">↓ Fee or Other Income</div>
+            <div class="action-card__hint">Late fees, resale fees, refunds, interest earned</div>
+          </div>
+        </label>
+
+        <label id="card-homeowner_batch" class="action-card" style="grid-column:span 2;">
+          <input type="radio" name="action_type" value="homeowner_batch"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#1e40af;">↓ Homeowner Batch Deposit</div>
+            <div class="action-card__hint">Teller deposit covering multiple homeowners — Find identifies which posted payments make up the total</div>
+          </div>
+        </label>
+
+        <label id="card-vendor_bill_match" class="action-card" style="grid-column:span 2;">
+          <input type="radio" name="action_type" value="vendor_bill_match"
+                 onchange="onActionChange()">
+          <div>
+            <div class="action-card__title" style="color:#991b1b;">↑ Vendor Bill Payment</div>
+            <div class="action-card__hint">Debit that pays one or more open vendor bills — Find links the bank transaction to the matching bill(s)</div>
+          </div>
+        </label>
+
       </div>
+    </div>
 
-      <div>
-        <label style="font-size:.8rem;font-weight:600;">GL Account</label>
-        <select name="gl_account_id" id="gl_account_id" style="width:100%;margin-top:.25rem;">
-          <option value="">— select account —</option>
-          {% for acct in accounts %}
-            <option value="{{ acct.id }}">
-              {{ acct.account_number }} {{ acct.account_name }}
-            </option>
-          {% endfor %}
-        </select>
+    {# ── Lot / Homeowner (dues_payment only) ─────────────────────────── #}
+    <div id="lot-section" style="display:none;margin-bottom:1.25rem;
+         background:var(--accent-subtle);border:1px solid var(--accent);
+         border-radius:var(--radius);padding:.75rem 1rem;">
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:.4rem;color:var(--accent-dark,var(--accent));">
+        Lot / Homeowner
       </div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem;">
+        Optional. When set, each matched deposit will also record an AR payment
+        for this lot and automatically apply it to any open assessments.
+      </div>
+      <select name="lot_id" id="lot_id" style="width:100%;">
+        <option value="">— no specific lot —</option>
+        {% for lot in lots %}
+          <option value="{{ lot.id }}">
+            Lot {{ lot.lot_number }}{% if lot.owner_name %} · {{ lot.owner_name }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-      <div style="grid-column:span 2;">
-        <label style="font-size:.8rem;font-weight:600;">Default Memo</label>
+    {# ── Category ────────────────────────────────────────────────────── #}
+    <div id="category-section" style="margin-bottom:1.25rem;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.35rem;">Category</label>
+      <select name="category_id" id="category_id" style="width:100%;">
+        <option value="">— select category —</option>
+        {% set ns = namespace(cur_type='') %}
+        {% for cat in categories %}
+          {% if cat.category_type != ns.cur_type %}
+            {% if ns.cur_type %}
+              {# optgroup already opened; close it via JS-friendly separator label #}
+            {% endif %}
+            {% set ns.cur_type = cat.category_type %}
+          {% endif %}
+          <option value="{{ cat.id }}"
+                  data-cat-type="{{ cat.category_type }}">
+            {{ cat.name }}{% if cat.group_name %} ({{ cat.group_name }}){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:.25rem;">
+        Optional for Homeowner Batch and Vendor Bill Payment types.
+      </div>
+    </div>
+
+    {# ── Memo + active ───────────────────────────────────────────────── #}
+    <div style="display:grid;grid-template-columns:1fr auto;gap:1rem;
+                align-items:end;margin-bottom:1.25rem;">
+      <div>
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Default Memo
+        </label>
         <input type="text" name="default_memo" id="default_memo"
-               placeholder="Leave blank to use transaction description"
-               style="width:100%;margin-top:.25rem;">
+               placeholder="Leave blank to use the bank transaction description"
+               style="width:100%;">
       </div>
-
       <div>
-        <label style="display:flex;align-items:center;gap:.5rem;font-size:.9rem;cursor:pointer;">
+        <label style="display:flex;align-items:center;gap:.4rem;
+                      font-size:.9rem;cursor:pointer;padding-bottom:.35rem;">
           <input type="checkbox" name="active_flag" id="active_flag" value="1" checked>
           Active
         </label>
@@ -172,30 +463,184 @@
   </form>
 </div>
 
-<script>
-function editRule(rule) {
-  document.getElementById("form-title").textContent = "Edit Rule";
-  document.getElementById("rule_id").value = rule.id;
-  document.getElementById("rule_name").value = rule.rule_name;
-  document.getElementById("description_contains").value = rule.description_contains || "";
-  document.getElementById("action_type").value = rule.action_type;
-  document.getElementById("gl_account_id").value = rule.gl_account_id || "";
-  document.getElementById("default_memo").value = rule.default_memo || "";
-  document.getElementById("active_flag").checked = !!rule.active_flag;
-  document.getElementById("save-btn").textContent = "Update Rule";
-  document.getElementById("form-title").scrollIntoView({ behavior: "smooth", block: "nearest" });
+<style>
+.action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  padding: .65rem .75rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 120ms, background 120ms;
 }
+.action-card input[type="radio"] {
+  margin-top: .18rem;
+  flex-shrink: 0;
+}
+.action-card__title {
+  font-weight: 700;
+  font-size: .88rem;
+}
+.action-card__hint {
+  font-size: .75rem;
+  color: var(--text-muted);
+  margin-top: .1rem;
+}
+.action-card--selected {
+  border-color: var(--accent) !important;
+  background: var(--accent-subtle) !important;
+}
+</style>
 
-function resetForm() {
-  document.getElementById("form-title").textContent = "Add Rule";
-  document.getElementById("rule_id").value = "";
-  document.getElementById("rule_name").value = "";
-  document.getElementById("description_contains").value = "";
-  document.getElementById("action_type").value = "direct_expense";
-  document.getElementById("gl_account_id").value = "";
-  document.getElementById("default_memo").value = "";
-  document.getElementById("active_flag").checked = true;
-  document.getElementById("save-btn").textContent = "Save Rule";
-}
+<script>
+(function () {
+
+  var CAT_PREF = {
+    recurring_bill:    "EXPENSE",
+    bank_charge:       "EXPENSE",
+    dues_payment:      "INCOME",
+    fee_income:        "INCOME",
+    direct_expense:    "EXPENSE",
+    direct_income:     "INCOME",
+    homeowner_batch:   "",
+    vendor_bill_match: "",
+  };
+
+  var NO_CAT_TYPES = { homeowner_batch: true, vendor_bill_match: true };
+
+  function selectedAction() {
+    var r = document.querySelector('input[name="action_type"]:checked');
+    return r ? r.value : "";
+  }
+
+  function filterCategories() {
+    var action    = selectedAction();
+    var preferred = CAT_PREF[action] || "";
+    var sel       = document.getElementById("category_id");
+    var current   = sel.value;
+
+    Array.from(sel.options).forEach(function (opt) {
+      if (!opt.value) return;
+      opt.hidden = !!preferred && opt.getAttribute("data-cat-type") !== preferred;
+    });
+
+    // If currently-selected option is now hidden, clear it
+    var cur = sel.querySelector('option[value="' + current + '"]');
+    if (cur && cur.hidden) { sel.value = ""; }
+  }
+
+  window.onActionChange = function () {
+    var action = selectedAction();
+    document.querySelectorAll(".action-card").forEach(function (card) {
+      card.classList.remove("action-card--selected");
+    });
+    if (action) {
+      var card = document.getElementById("card-" + action);
+      if (card) card.classList.add("action-card--selected");
+    }
+
+    var lotSection = document.getElementById("lot-section");
+    if (lotSection) {
+      lotSection.style.display = (action === "dues_payment") ? "" : "none";
+      if (action !== "dues_payment") {
+        document.getElementById("lot_id").value = "";
+      }
+    }
+
+    filterCategories();
+  };
+
+  // Initialise: select first card
+  var first = document.querySelector('input[name="action_type"]');
+  if (first && !selectedAction()) {
+    first.checked = true;
+  }
+  (function () {
+    var action = selectedAction();
+    document.querySelectorAll(".action-card").forEach(function (c) { c.classList.remove("action-card--selected"); });
+    if (action) { var c = document.getElementById("card-" + action); if (c) c.classList.add("action-card--selected"); }
+    var ls = document.getElementById("lot-section");
+    if (ls) ls.style.display = (action === "dues_payment") ? "" : "none";
+    filterCategories();
+  }());
+
+  // ── Edit existing rule ──────────────────────────────────────────────
+  window.editRule = function (rule) {
+    document.getElementById("form-title").textContent     = "Edit Rule";
+    document.getElementById("form-subtitle").textContent  = "Update the settings below, then click Update Rule.";
+    document.getElementById("rule_id").value              = rule.id;
+    document.getElementById("rule_name").value            = rule.rule_name;
+    document.getElementById("description_contains").value = rule.description_contains || "";
+    document.getElementById("match_type").value           = rule.match_type || "";
+    document.getElementById("match_memo").value           = rule.match_memo || "";
+    document.getElementById("match_amount").value         = rule.match_amount || "";
+    document.getElementById("rule_bank_account_id").value = rule.bank_account_id || "";
+    document.getElementById("default_memo").value         = rule.default_memo || "";
+    document.getElementById("active_flag").checked        = !!rule.active_flag;
+    document.getElementById("save-btn").textContent       = "Update Rule";
+
+
+    var target = rule.action_type;
+    var radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
+    if (!radio) {
+      target = (target === "direct_income") ? "dues_payment" : "recurring_bill";
+      radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
+    }
+    document.querySelectorAll('input[name="action_type"]').forEach(function (r) {
+      r.checked = (r === radio);
+    });
+    window.onActionChange();
+
+    document.getElementById("category_id").value = rule.category_id || "";
+    if (rule.action_type === "dues_payment") {
+      document.getElementById("lot_id").value = rule.lot_id || "";
+    }
+
+    document.getElementById("rule-form-panel")
+            .scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  // ── Reset / Cancel ──────────────────────────────────────────────────
+  window.resetForm = function () {
+    document.getElementById("form-title").textContent     = "Add Rule";
+    document.getElementById("form-subtitle").textContent  = "Define when a bank transaction should be auto-posted.";
+    document.getElementById("rule_id").value              = "";
+    document.getElementById("rule_name").value            = "";
+    document.getElementById("description_contains").value = "";
+    document.getElementById("match_type").value           = "";
+    document.getElementById("match_memo").value           = "";
+    document.getElementById("match_amount").value         = "";
+    document.getElementById("rule_bank_account_id").value = "";
+    document.getElementById("default_memo").value         = "";
+    document.getElementById("active_flag").checked        = true;
+    document.getElementById("category_id").value          = "";
+    document.getElementById("lot_id").value               = "";
+    document.getElementById("save-btn").textContent       = "Save Rule";
+
+    var radios = document.querySelectorAll('input[name="action_type"]');
+    radios.forEach(function (r, i) { r.checked = (i === 0); });
+    window.onActionChange();
+  };
+
+})();
+
+// ── Pre-fill form from URL params ──────────────────────────────────────
+(function () {
+  var p = new URLSearchParams(window.location.search);
+  var desc  = p.get("prefill_desc");
+  var type  = p.get("prefill_type");
+  var memo  = p.get("prefill_memo");
+  var amt   = p.get("prefill_amount");
+  if (desc || type || memo || amt) {
+    document.getElementById("description_contains").value = desc || "";
+    document.getElementById("match_type").value           = type || "";
+    document.getElementById("match_memo").value           = memo || "";
+    document.getElementById("match_amount").value         = amt  || "";
+    var panel = document.getElementById("rule-form-panel");
+    if (panel) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+})();
 </script>
 {% endblock %}

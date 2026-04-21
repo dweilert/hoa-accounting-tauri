@@ -13,8 +13,8 @@ class ReportField:
     placeholder: str
     required: bool
     field_type: str = "text"    # "text" | "select"
-    options_key: str | None = None  # key into lookup_options for select fields
-    default_value: str = ""    # pre-selected value when no form data present
+    options_key: str | None = None
+    default_value: str = ""
 
 
 @dataclass(frozen=True)
@@ -28,31 +28,14 @@ class ReportDefinition:
 
 REPORT_DEFINITIONS: list[ReportDefinition] = [
     ReportDefinition(
-        name="trial-balance",
-        title="Trial Balance",
-        description="Control report showing net balances for all active accounts as of a specific date.",
+        name="ytd-expense-summary",
+        title="Expense Summary",
+        description=(
+            "Expenses grouped by category and group, with total amount and "
+            "bill count per category. Zero-activity categories are included "
+            "so the full picture is always visible."
+        ),
         fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="general-ledger",
-        title="General Ledger",
-        description="Account-level journal detail with a running balance over a date range.",
-        fields=[
-            ReportField(
-                name="account_id",
-                label="Account",
-                placeholder="",
-                required=True,
-                field_type="select",
-                options_key="account_id",
-            ),
             ReportField(
                 name="from_date",
                 label="From Date",
@@ -62,7 +45,85 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
             ReportField(
                 name="to_date",
                 label="To Date",
-                placeholder="2026-01-31",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="income-by-date",
+        title="Income Summary",
+        description="All income (dues, assessments, non-dues) in chronological order for a date range.",
+        fields=[
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="expenses-by-date",
+        title="Expenses by Date",
+        description="All vendor bills in chronological order for a date range.",
+        fields=[
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="vendor-expenses",
+        title="Vendor Expenses",
+        description="Bills grouped by vendor for a date range. Leave vendor blank to see all vendors.",
+        fields=[
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+            ReportField(
+                name="vendor_id",
+                label="Vendor (optional — leave blank for all)",
+                placeholder="",
+                required=False,
+                field_type="select",
+                options_key="vendor_id",
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="ar-aging",
+        title="AR Aging",
+        description="Open owner receivables bucketed by age as of a specific date.",
+        fields=[
+            ReportField(
+                name="as_of_date",
+                label="As Of Date",
+                placeholder="2026-03-15",
                 required=True,
             ),
         ],
@@ -85,147 +146,6 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
                 label="Year",
                 placeholder="2026",
                 required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="ar-aging",
-        title="AR Aging",
-        description="Open owner receivables bucketed by age as of a specific date.",
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-03-15",
-                required=True,
-            ),
-            ReportField(
-                name="receivable_account_id",
-                label="Receivable Account",
-                placeholder="",
-                required=True,
-                field_type="select",
-                options_key="receivable_account_id",
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="balance-sheet",
-        title="Balance Sheet",
-        description="Balance-sheet accounts and computed cumulative earnings as of a specific date.",
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="income-statement",
-        title="Income Statement",
-        description="Income and expense activity for a specific reporting period.",
-        fields=[
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-01-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="ytd-expense-summary",
-        title="YTD Expense Summary",
-        description=(
-            "Expenses grouped by category and group, with YTD amount and "
-            "transaction count per category. Zero-activity categories are "
-            "included so the whole chart is visible at a glance."
-        ),
-        fields=[
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-12-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="expenses-by-date",
-        title="Expenses by Date",
-        description="All expense journal entries in chronological order for a date range.",
-        fields=[
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-12-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="income-by-date",
-        title="Income by Date",
-        description="All income journal entries in chronological order for a date range.",
-        fields=[
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-12-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="vendor-expenses",
-        title="Vendor Expenses",
-        description="Expense entries grouped by vendor for a date range. Leave vendor blank to see all vendors.",
-        fields=[
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-12-31",
-                required=True,
-            ),
-            ReportField(
-                name="vendor_id",
-                label="Vendor (optional — leave blank for all)",
-                placeholder="",
-                required=False,
-                field_type="select",
-                options_key="vendor_id",
             ),
         ],
     ),
@@ -266,11 +186,38 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
             ),
         ],
     ),
+    ReportDefinition(
+        name="general-ledger",
+        title="Account Ledger",
+        description="Account-level transaction detail with a running balance over a date range.",
+        fields=[
+            ReportField(
+                name="account_id",
+                label="Account",
+                placeholder="",
+                required=True,
+                field_type="select",
+                options_key="account_id",
+            ),
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-01-31",
+                required=True,
+            ),
+        ],
+    ),
 ]
 
 
 def get_report_definition(report_name: str) -> ReportDefinition:
-    """Return the report definition for a report name."""
+    """Return the report definition for a report name, defaulting to the first report."""
     normalized = report_name.strip().lower()
     for item in REPORT_DEFINITIONS:
         if item.name == normalized:

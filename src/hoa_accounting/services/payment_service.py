@@ -8,15 +8,11 @@ from typing import Sequence
 
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.exceptions import NotFoundError, ValidationError
-from hoa_accounting.models.dto import JournalLineInput, PaymentResult
-from hoa_accounting.models.enums import PaymentMethod, SourceType
+from hoa_accounting.models.dto import PaymentResult
+from hoa_accounting.models.enums import PaymentMethod
 from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
 from hoa_accounting.repositories.audit_repo import AuditRepository
-from hoa_accounting.repositories.journal_repo import JournalRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
-from hoa_accounting.services.journal_service import JournalService
-from hoa_accounting.validators.account_role_validator import AccountRoleValidator
-from hoa_accounting.validators.account_validator import AccountValidator
 from hoa_accounting.validators.common import q2, require_positive_amount
 from hoa_accounting.validators.entity_validator import EntityValidator
 
@@ -31,21 +27,13 @@ class PaymentService:
         payment_repo: PaymentsRepository,
         assessment_repo: AssessmentsRepository,
         audit_repo: AuditRepository,
-        journal_repo: JournalRepository,
-        journal_service: JournalService,
         entity_validator: EntityValidator,
-        account_validator: AccountValidator,
-        account_role_validator: AccountRoleValidator,
     ) -> None:
         self.conn = conn
         self.payment_repo = payment_repo
         self.assessment_repo = assessment_repo
         self.audit_repo = audit_repo
-        self.journal_repo = journal_repo
-        self.journal_service = journal_service
         self.entity_validator = entity_validator
-        self.account_validator = account_validator
-        self.account_role_validator = account_role_validator
 
     def post_payment(
         self,
@@ -54,50 +42,26 @@ class PaymentService:
         owner_id: int,
         amount: Decimal | str | int | float,
         description: str,
-        cash_account_id: int,
-        receivable_account_id: int,
         bank_account_id: int,
         payment_method: str,
         receipt_number: str,
         reference_number: str | None = None,
         created_by_user_id: int | None = None,
         apply_to_assessment_ids: Sequence[int] | None = None,
+        # Kept for call-site compatibility during transition; unused.
+        cash_account_id: int | None = None,
+        receivable_account_id: int | None = None,
     ) -> PaymentResult:
         """Post an owner payment atomically."""
         with transaction(self.conn):
             amount_dec = require_positive_amount(amount, "Payment amount")
             self.entity_validator.require_exists("owners", owner_id)
             self.entity_validator.require_exists("bank_accounts", bank_account_id)
-            self.account_validator.require_active_account(cash_account_id)
-            self.account_validator.require_active_account(receivable_account_id)
-            self.account_role_validator.require_asset_account(cash_account_id, "cash receipt")
-            self.account_role_validator.require_asset_account(receivable_account_id, "owner receivable")
 
             try:
                 parsed_method = PaymentMethod(payment_method.upper())
             except ValueError as exc:
                 raise ValidationError(f"Invalid payment method: {payment_method}") from exc
-
-            journal = self.journal_service.post_journal_entry(
-                entry_date=entry_date,
-                source_type=SourceType.PAYMENT.value,
-                memo=description,
-                created_by_user_id=created_by_user_id,
-                lines=[
-                    JournalLineInput(
-                        account_id=cash_account_id,
-                        description=description,
-                        debit_amount=amount_dec,
-                        owner_id=owner_id,
-                    ),
-                    JournalLineInput(
-                        account_id=receivable_account_id,
-                        description=description,
-                        credit_amount=amount_dec,
-                        owner_id=owner_id,
-                    ),
-                ],
-            )
 
             payment_id = self.payment_repo.insert_payment(
                 receipt_number=receipt_number,
@@ -107,12 +71,7 @@ class PaymentService:
                 payment_method=parsed_method.value,
                 reference_number=reference_number,
                 bank_account_id=bank_account_id,
-                journal_entry_id=journal.journal_entry_id,
                 notes=description,
-            )
-            self.journal_repo.set_source_id(
-                journal_entry_id=journal.journal_entry_id,
-                source_id=payment_id,
             )
 
             if apply_to_assessment_ids:
@@ -132,14 +91,9 @@ class PaymentService:
                     "owner_id": owner_id,
                     "amount": str(amount_dec),
                     "receipt_number": receipt_number,
-                    "journal_entry_id": journal.journal_entry_id,
                 },
             )
-            return PaymentResult(
-                payment_id=payment_id,
-                journal_entry_id=journal.journal_entry_id,
-                entry_number=journal.entry_number,
-            )
+            return PaymentResult(payment_id=payment_id)
 
     def _apply_payment_to_assessments(
         self,

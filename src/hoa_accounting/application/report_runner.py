@@ -98,14 +98,7 @@ class ReportRunner:
 
         if report_name == "ar-aging":
             as_of_date = self._require_param(params, "as_of_date")
-            receivable_account_id = self._require_int_param(
-                params,
-                "receivable_account_id",
-            )
-            return ARAgingReportService(conn).generate(
-                as_of_date=as_of_date,
-                receivable_account_id=receivable_account_id,
-            )
+            return ARAgingReportService(conn).generate(as_of_date=as_of_date)
 
         if report_name == "balance-sheet":
             as_of_date = self._require_param(params, "as_of_date")

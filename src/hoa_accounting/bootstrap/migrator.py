@@ -88,14 +88,22 @@ class Migrator:
         applied_now: list[str] = []
         for migration_path in self.pending(conn):
             sql = migration_path.read_text(encoding="utf-8")
-            conn.executescript(sql)
-            conn.execute(
-                "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
-                (
-                    migration_path.name,
-                    datetime.now(UTC).isoformat(timespec="seconds"),
-                ),
-            )
-            conn.commit()
+            # Disable FK enforcement around every migration so table-swap
+            # patterns (rename → create → insert-select → drop) don't trip
+            # constraint checks mid-step. PRAGMA is connection-level and
+            # persists across the executescript boundary.
+            conn.execute("PRAGMA foreign_keys = OFF")
+            try:
+                conn.executescript(sql)
+                conn.execute(
+                    "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+                    (
+                        migration_path.name,
+                        datetime.now(UTC).isoformat(timespec="seconds"),
+                    ),
+                )
+                conn.commit()
+            finally:
+                conn.execute("PRAGMA foreign_keys = ON")
             applied_now.append(migration_path.name)
         return applied_now

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from flask import Flask, Response, g, request
+from flask import Flask, Response, g, redirect, request
 
 from hoa_accounting.api.report_api import ReportAPIService
 from hoa_accounting.application.report_runner import ReportRunner
@@ -64,6 +64,7 @@ from hoa_accounting.web.audit_log_pages import AuditLogPages
 from hoa_accounting.web.search_pages import SearchPages
 from hoa_accounting.web.setup_pages import SetupPages, needs_setup
 from hoa_accounting.web.transaction_rule_pages import TransactionRulePages
+from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -190,6 +191,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from hoa_accounting.bootstrap.backup_service import BackupService
         boot_conn = connect_sqlite(str(db_path))
         try:
+            # Recreate audit triggers before migrations so any stale trigger
+            # definitions (referencing removed columns) can't block executescript.
+            install_audit_triggers(boot_conn)
             Migrator().apply_all(boot_conn)
             install_audit_triggers(boot_conn)
             backup_cfg = org_context.get("backup_config") or {}
@@ -743,9 +747,10 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/reports")
     def reports_console() -> Response:
-        selected = request.args.get("report_name", "trial-balance").strip()
+        _default_report = REPORT_DEFINITIONS[0].name
+        selected = request.args.get("report_name", _default_report).strip()
         if not selected:
-            selected = "trial-balance"
+            selected = _default_report
         return _ui_response_to_flask(
             report_page_service.render_page(
                 selected_report=selected,
@@ -894,6 +899,61 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
+
+    # ── Categories pages ──────────────────────────────────────────────
+
+    from hoa_accounting.web.categories_pages import CategoriesPages
+
+    def _open_categories_pages() -> CategoriesPages:
+        return CategoriesPages(_open_db())
+
+    @app.get("/categories", strict_slashes=False)
+    def list_categories() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("flash") or "").replace("+", " ")
+        resp = _open_categories_pages().render_list(org=org_context, theme=theme, flash_message=flash)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/categories/add")
+    def new_category_form() -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().render_add_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/categories/add")
+    def submit_new_category() -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().handle_add(
+            dict(request.form), org=org_context, theme=theme
+        )
+        if resp.status_code in (301, 302, 303):
+            return redirect("/categories?flash=Category+added.", code=303)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/categories/<int:category_id>/edit")
+    def edit_category_form(category_id: int) -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().render_edit_form(category_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/categories/<int:category_id>/edit")
+    def submit_edit_category(category_id: int) -> Response:
+        from flask import redirect
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().handle_edit(
+            category_id, dict(request.form), org=org_context, theme=theme
+        )
+        if resp.status_code in (301, 302, 303):
+            return redirect("/categories?flash=Category+saved.", code=303)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.get("/categories/<int:category_id>/ledger")
+    def view_category_ledger(category_id: int) -> Response:
+        theme = str(org_context.get("theme", "warm"))
+        resp = _open_categories_pages().render_ledger(category_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
 
     # ── Accounting period pages ───────────────────────────────────────
 
@@ -1301,6 +1361,200 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         redirect_url = pages.handle_delete(reconciliation_id, batch_id)
         return redirect(redirect_url, code=303)
 
+    @app.post("/reconciliations/<int:reconciliation_id>/import-statement/<int:batch_id>/reapply-rules")
+    def reconciliation_import_statement_reapply(
+        reconciliation_id: int, batch_id: int
+    ) -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, page_resp = pages.handle_reapply_rules(
+            reconciliation_id, batch_id, org=org_context, theme=theme
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
+
+    # ── Account-agnostic bank import ─────────────────────────────────────────
+
+    @app.get("/bank-import/upload")
+    def bank_import_agnostic_form() -> Response:
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        success = request.args.get("msg") if request.args.get("ok") else None
+        resp = pages.render_agnostic_upload_form(org=org_context, theme=theme, success=success)
+        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-import/upload")
+    def bank_import_agnostic_upload() -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        file = request.files.get("statement_file")
+        if not file or not file.filename:
+            resp = pages.render_agnostic_upload_form(org=org_context, theme=theme,
+                                                     error="Please select a file.")
+            return Response(resp.body_html, status=200, mimetype="text/html; charset=utf-8")
+        ba_id_raw = request.form.get("csv_bank_account_id", "").strip()
+        csv_ba_id = int(ba_id_raw) if ba_id_raw else None
+        redirect_url, page_resp = pages.handle_agnostic_upload(
+            file_bytes=file.read(), filename=file.filename,
+            csv_bank_account_id=csv_ba_id, org=org_context, theme=theme,
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html; charset=utf-8")
+
+    # ── Standalone bank statement import ─────────────────────────────────────
+
+    @app.get("/bank-accounts/<int:bank_account_id>/import-statement")
+    def bank_import_list(bank_account_id: int) -> Response:
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_standalone_batch_list(bank_account_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-accounts/<int:bank_account_id>/import-statement/upload")
+    def bank_import_upload_form(bank_account_id: int) -> Response:
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_standalone_upload_form(bank_account_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/upload")
+    def bank_import_upload(bank_account_id: int) -> Response:
+        from flask import redirect, request
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        file = request.files.get("statement_file")
+        if not file or not file.filename:
+            resp = pages.render_standalone_upload_form(
+                bank_account_id, org=org_context, theme=theme,
+                error="Please select a file to upload.",
+            )
+            return Response(resp.body_html, status=resp.status_code,
+                            mimetype="text/html; charset=utf-8")
+        file_bytes = file.read()
+        redirect_url, form_resp = pages.handle_standalone_upload(
+            bank_account_id,
+            file_bytes=file_bytes,
+            filename=file.filename,
+            org=org_context,
+            theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>")
+    def bank_import_preview(bank_account_id: int, batch_id: int) -> Response:
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_standalone_batch_preview(
+            bank_account_id, batch_id, org=org_context, theme=theme
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/remap")
+    def bank_import_remap(bank_account_id: int, batch_id: int) -> Response:
+        from flask import redirect, request
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_standalone_remap(
+            bank_account_id, batch_id,
+            form_data=request.form.to_dict(),
+            org=org_context,
+            theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/reapply-rules")
+    def bank_import_reapply(bank_account_id: int, batch_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, page_resp = pages.handle_standalone_reapply(
+            bank_account_id, batch_id, org=org_context, theme=theme
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert page_resp is not None
+        return Response(page_resp.body_html, status=page_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/apply")
+    def bank_import_apply(bank_account_id: int, batch_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, page_resp = pages.handle_standalone_apply(
+            bank_account_id, batch_id, org=org_context, theme=theme
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert page_resp is not None
+        return Response(page_resp.body_html, status=page_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/delete")
+    def bank_import_delete(bank_account_id: int, batch_id: int) -> Response:
+        from flask import redirect
+        pages = _open_bank_stmt_pages()
+        redirect_url = pages.handle_standalone_delete(bank_account_id, batch_id)
+        return redirect(redirect_url, code=303)
+
+    @app.get("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/find")
+    def bank_import_find(bank_account_id: int, batch_id: int) -> Response:
+        from flask import jsonify
+        pages = _open_bank_stmt_pages()
+        result = pages.handle_standalone_find(
+            bank_account_id=bank_account_id,
+            batch_id=batch_id,
+            txn_type=request.args.get("txn_type", ""),
+            amount_str=request.args.get("amount", "0"),
+            date_str=request.args.get("date", ""),
+            ofx_desc=request.args.get("desc", ""),
+            ofx_memo=request.args.get("memo", ""),
+        )
+        return jsonify(result)
+
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/transactions/<int:txn_id>/apply-find")
+    def bank_import_apply_find(bank_account_id: int, batch_id: int, txn_id: int) -> Response:
+        from flask import jsonify
+        body = request.get_json(silent=True) or {}
+        pages = _open_bank_stmt_pages()
+        result = pages.handle_apply_find_match(
+            bank_account_id=bank_account_id,
+            batch_id=batch_id,
+            txn_id=txn_id,
+            payment_ids=body.get("payment_ids", []),
+        )
+        return jsonify(result)
+
+    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/transactions/<int:txn_id>/apply-bill")
+    def bank_import_apply_bill(bank_account_id: int, batch_id: int, txn_id: int) -> Response:
+        from flask import jsonify
+        body = request.get_json(silent=True) or {}
+        pages = _open_bank_stmt_pages()
+        result = pages.handle_apply_bill_match(
+            bank_account_id=bank_account_id,
+            batch_id=batch_id,
+            txn_id=txn_id,
+            bill_ids=body.get("bill_ids", []),
+        )
+        return jsonify(result)
+
+
     # ── Transaction rules ─────────────────────────────────────────────
 
     def _open_txn_rule_pages() -> TransactionRulePages:
@@ -1311,7 +1565,8 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def transaction_rules_list() -> Response:
         pages = _open_txn_rule_pages()
         theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_list(org=org_context, theme=theme)
+        return_to = request.args.get("return_to", "")
+        resp = pages.render_list(org=org_context, theme=theme, return_to=return_to)
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
@@ -1891,16 +2146,10 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/ledger/by-account")
     def ledger_by_account() -> Response:
-        pages = _open_all_ledger_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_by_account(
-            org=org_context, theme=theme,
-            start_date=(request.args.get("start") or "").strip(),
-            end_date=(request.args.get("end") or "").strip(),
-            sort=(request.args.get("sort") or "asc").strip(),
-        )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        # Old route — redirect to the unified transactions view
+        qs = request.query_string.decode()
+        target = "/ledger/transactions" + (f"?{qs}" if qs else "")
+        return redirect(target, 301)
 
     # ── Transaction pages: Manual Journal Entries ───────────────────
 
