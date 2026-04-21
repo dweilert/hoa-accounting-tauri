@@ -219,6 +219,7 @@ class YtdExpenseCategoryRow:
     fund_code: str
     ytd_amount: Decimal
     record_count: int
+    comment: str = ""
 
 
 @dataclass(frozen=True)
@@ -322,11 +323,12 @@ class ExpensesByDateReport:
 class IncomeByDateRow:
     """One row in the income-by-date report."""
     entry_date: str
-    entry_number: str
-    account_number: str
-    account_name: str
-    fund_code: str
+    source: str         # homeowner name, or blank for non-owner income
+    lot_number: str     # lot identifier, or blank when not applicable
+    account_code: str   # short code e.g. DUES, RESALE_FEE, 4010
+    account_name: str   # full name for tooltip
     memo: str
+    comment: str        # notes/additional annotation, may be blank
     amount: Decimal
 
 
@@ -418,3 +420,32 @@ class ExpenseVsBudgetReport:
     total_budget: Decimal
     total_actual: Decimal
     total_variance: Decimal
+
+
+# ── Budget Summary ─────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class BudgetSummaryRow:
+    """One category row in the budget summary, with amounts for 1–3 years."""
+    category_name: str
+    group_code: str
+    year_amounts: list[Decimal]   # one entry per year in display order
+    pct_changes: list[str]        # one fewer than year_amounts; empty for single year
+
+
+@dataclass(frozen=True)
+class BudgetSummaryGroup:
+    """One group bucket with its category rows and subtotals."""
+    group_code: str
+    rows: list[BudgetSummaryRow]
+    subtotal_amounts: list[Decimal]
+    subtotal_pct_changes: list[str]
+
+
+@dataclass(frozen=True)
+class BudgetSummaryReport:
+    """Budget amounts across 1, 2, or 3 fiscal years."""
+    years: list[int]
+    groups: list[BudgetSummaryGroup]
+    total_amounts: list[Decimal]
+    total_pct_changes: list[str]

@@ -9,42 +9,153 @@
     <span class="summary-totals__label">Grand Total</span>
     <span class="summary-totals__value summary-totals__value--accent">{{ summary.grand_total }}</span>
   </div>
-  <div class="summary-totals__item">
-    <span class="summary-totals__label">Transactions</span>
-    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.total_record_count }}</span>
-  </div>
 </div>
 
-{% if summary.groups %}
-  {% for group in summary.groups %}
-    <div class="section-heading">
-      {{ group.group_code }} — {{ group.group_total }} ({{ group.group_record_count }} entries)
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Account</th>
-            <th>Category</th>
-            <th>Fund</th>
-            <th class="num">Amount</th>
-            <th class="num">Records</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in group.rows %}
-            <tr>
-              <td class="mono">{{ row.account_number }}</td>
-              <td>{{ row.account_name }}</td>
-              <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
-              <td class="num">{{ row.ytd_amount }}</td>
-              <td class="num">{{ row.record_count }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endfor %}
+{% if summary.rows %}
+  <div class="no-print" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-bottom:var(--sp-2);">
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;font-weight:500;">
+      Group by:
+      <select id="exp-group-by" onchange="expRender()" style="font-size:.875rem;">
+        <option value="">— None —</option>
+        <option value="category" selected>Category</option>
+        <option value="account">Account</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;">
+      <input type="checkbox" id="exp-subtotals" onchange="expRender()" checked>
+      Show subtotals
+    </label>
+  </div>
+
+  <p class="no-print" style="font-size:.8rem;color:var(--color-text-muted,#888);margin-bottom:var(--sp-1);">
+    Click a column header to sort — click again to reverse. Sorting applies within each group.
+  </p>
+
+  <div class="table-wrap">
+    <table id="exp-table">
+      <thead>
+        <tr>
+          <th data-col="account"  class="sortable" onclick="expSort('account')">Account <span class="esi">↕</span></th>
+          <th data-col="category" class="sortable" onclick="expSort('category')">Category <span class="esi">↕</span></th>
+          <th data-col="comment"  class="sortable" onclick="expSort('comment')">Comment <span class="esi">↕</span></th>
+          <th data-col="amount"   class="sortable num" onclick="expSort('amount')">Amount <span class="esi">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="exp-tbody"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="text-align:right;font-weight:600;">Total</td>
+          <td class="num" style="font-weight:600;">{{ summary.grand_total }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <script id="exp-data" type="application/json">
+  [{% for row in summary.rows %}{"account":"{{ row.account_number | replace('"','&quot;') }}","category":"{{ row.account_name | replace('"','&quot;') }}","group":"{{ row.group_code | replace('"','&quot;') }}","comment":"{{ row.comment | replace('"','&quot;') }}","amount":{{ row.ytd_amount if row.ytd_amount else '0' }}}{% if not loop.last %},{% endif %}{% endfor %}]
+  </script>
+
+  <style>
+    .sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+    .sortable:hover { background:var(--color-surface-raised,#f0f0f0); }
+    .esi { opacity:.35; font-size:.8em; margin-left:.2em; }
+    .esi.asc, .esi.desc { opacity:1; }
+    tr.exp-group-hdr td {
+      background:var(--color-surface-raised,#eef0f3);
+      font-weight:700; font-size:.9rem; padding:.35rem .6rem;
+      border-top:2px solid var(--color-border,#ccc);
+    }
+    tr.exp-subtotal td {
+      font-weight:600; font-style:italic;
+      border-top:1px solid var(--color-border,#ccc);
+      background:var(--color-surface,#fafafa);
+    }
+  </style>
+
+  <script>
+  (function () {
+    var _rows = JSON.parse(document.getElementById('exp-data').textContent);
+    var _sortKey = 'account', _sortDir = 1;
+
+    function fmt(n) {
+      return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+
+    function groupKey(r, by) {
+      if (by === 'category') return r.group;
+      if (by === 'account')  return r.account;
+      return null;
+    }
+
+    function sorted() {
+      var k = _sortKey, d = _sortDir;
+      return _rows.slice().sort(function(a, b) {
+        if (k === 'amount') return d * (Number(a.amount) - Number(b.amount));
+        var av = k === 'account' ? a.account : (k === 'category' ? a.category : (k === 'comment' ? a.comment : a[k] || ''));
+        var bv = k === 'account' ? b.account : (k === 'category' ? b.category : (k === 'comment' ? b.comment : b[k] || ''));
+        return d * av.localeCompare(bv);
+      });
+    }
+
+    function makeDataRow(r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="mono">' + r.account + '</td>' +
+        '<td>' + r.category + '</td>' +
+        '<td>' + r.comment + '</td>' +
+        '<td class="num">' + fmt(r.amount) + '</td>';
+      return tr;
+    }
+    function makeGroupHdr(label) {
+      var tr = document.createElement('tr'); tr.className = 'exp-group-hdr';
+      tr.innerHTML = '<td colspan="4">' + label + '</td>'; return tr;
+    }
+    function makeSubtotal(label, total) {
+      var tr = document.createElement('tr'); tr.className = 'exp-subtotal';
+      tr.innerHTML = '<td colspan="3" style="text-align:right">' + label + ' subtotal</td><td class="num">' + fmt(total) + '</td>';
+      return tr;
+    }
+
+    function expRender() {
+      var tbody  = document.getElementById('exp-tbody');
+      var by     = document.getElementById('exp-group-by').value;
+      var doSub  = document.getElementById('exp-subtotals').checked;
+      tbody.innerHTML = '';
+      var rows = sorted();
+
+      if (!by) { rows.forEach(function(r) { tbody.appendChild(makeDataRow(r)); }); return; }
+
+      var groups = [], groupMap = {};
+      rows.forEach(function(r) {
+        var k = groupKey(r, by);
+        if (!groupMap[k]) { groupMap[k] = []; groups.push(k); }
+        groupMap[k].push(r);
+      });
+      groups.sort(function(a, b) { return a.localeCompare(b); });
+
+      groups.forEach(function(k) {
+        var gRows   = groupMap[k];
+        var subtotal = gRows.reduce(function(s, r) { return s + Number(r.amount); }, 0);
+        tbody.appendChild(makeGroupHdr(k));
+        gRows.forEach(function(r) { tbody.appendChild(makeDataRow(r)); });
+        if (doSub) tbody.appendChild(makeSubtotal(k, subtotal));
+      });
+    }
+    window.expRender = expRender;
+
+    window.expSort = function(key) {
+      if (_sortKey === key) { _sortDir *= -1; } else { _sortKey = key; _sortDir = 1; }
+      document.querySelectorAll('#exp-table .esi').forEach(function(s) { s.className = 'esi'; s.textContent = '↕'; });
+      var th = document.querySelector('[data-col="' + key + '"] .esi');
+      if (th) { th.className = 'esi ' + (_sortDir === 1 ? 'asc' : 'desc'); th.textContent = _sortDir === 1 ? '▲' : '▼'; }
+      expRender();
+    };
+
+    expRender();
+    document.querySelector('[data-col="account"] .esi').className = 'esi asc';
+    document.querySelector('[data-col="account"] .esi').textContent = '▲';
+  })();
+  </script>
 {% else %}
   <div class="empty">No expense activity in this period.</div>
 {% endif %}

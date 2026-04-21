@@ -16,32 +16,40 @@
 </div>
 
 {% if summary.rows %}
+  <div class="no-print" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-bottom:var(--sp-2);">
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;font-weight:500;">
+      Group by:
+      <select id="ibd-group-by" onchange="ibdRender()" style="font-size:.875rem;">
+        <option value="">— None —</option>
+        <option value="month">Month</option>
+        <option value="source">Source</option>
+        <option value="account">Account</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;">
+      <input type="checkbox" id="ibd-subtotals" onchange="ibdRender()" checked>
+      Show subtotals
+    </label>
+  </div>
+
+  <p class="no-print" style="font-size:.8rem;color:var(--color-text-muted,#888);margin-bottom:var(--sp-1);">
+    Click a column header to sort — click again to reverse. Sorting applies within each group.
+  </p>
+
   <div class="table-wrap">
-    <table>
+    <table id="ibd-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Entry #</th>
-          <th>Account</th>
-          <th>Category</th>
-          <th>Fund</th>
-          <th>Description</th>
-          <th class="num">Amount</th>
+          <th data-col="date"    class="sortable" onclick="ibdSort('date')">Date <span class="si">↕</span></th>
+          <th data-col="source"  class="sortable" onclick="ibdSort('source')">Source <span class="si">↕</span></th>
+          <th data-col="lot"     class="sortable" onclick="ibdSort('lot')">Lot <span class="si">↕</span></th>
+          <th data-col="account" class="sortable" onclick="ibdSort('account')">Account <span class="si">↕</span></th>
+          <th data-col="memo"    class="sortable" onclick="ibdSort('memo')">Description <span class="si">↕</span></th>
+          <th data-col="comment" class="sortable" onclick="ibdSort('comment')">Comment <span class="si">↕</span></th>
+          <th data-col="amount"  class="sortable num" onclick="ibdSort('amount')">Amount <span class="si">↕</span></th>
         </tr>
       </thead>
-      <tbody>
-        {% for row in summary.rows %}
-          <tr>
-            <td>{{ row.entry_date }}</td>
-            <td class="mono">{{ row.entry_number }}</td>
-            <td class="mono">{{ row.account_number }}</td>
-            <td>{{ row.account_name }}</td>
-            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
-            <td>{{ row.memo }}</td>
-            <td class="num">{{ row.amount }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
+      <tbody id="ibd-tbody"></tbody>
       <tfoot>
         <tr>
           <td colspan="6" style="text-align:right;font-weight:600;">Total</td>
@@ -50,6 +58,137 @@
       </tfoot>
     </table>
   </div>
+
+  <script id="ibd-data" type="application/json">
+  [{% for row in summary.rows %}{"date":"{{ row.entry_date }}","source":"{{ row.source | replace('"','&quot;') }}","lot":"{{ row.lot_number | replace('"','&quot;') }}","account_code":"{{ row.account_code | replace('"','&quot;') }}","account_name":"{{ row.account_name | replace('"','&quot;') }}","memo":"{{ row.memo | replace('"','&quot;') }}","comment":"{{ row.comment | replace('"','&quot;') }}","amount":{{ row.amount }}}{% if not loop.last %},{% endif %}{% endfor %}]
+  </script>
+
+  <style>
+    .sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+    .sortable:hover { background:var(--color-surface-raised,#f0f0f0); }
+    .si { opacity:.35; font-size:.8em; margin-left:.2em; }
+    .si.asc, .si.desc { opacity:1; }
+    tr.ibd-group-hdr td {
+      background:var(--color-surface-raised,#eef0f3);
+      font-weight:700; font-size:.9rem; padding:.35rem .6rem;
+      border-top:2px solid var(--color-border,#ccc);
+    }
+    tr.ibd-subtotal td {
+      font-weight:600; font-style:italic;
+      border-top:1px solid var(--color-border,#ccc);
+      background:var(--color-surface,#fafafa);
+    }
+  </style>
+
+  <script>
+  (function () {
+    var _rows = JSON.parse(document.getElementById('ibd-data').textContent);
+    var _sortKey = 'date', _sortDir = 1;
+
+    function fmt(n) {
+      return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function monthLabel(d) {
+      return new Date(d+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long'});
+    }
+    function lastFirst(name) {
+      var p = name.trim().split(' ');
+      return p.length > 1 ? p[p.length-1]+' '+p.slice(0,-1).join(' ') : name;
+    }
+
+    function groupKey(r, by) {
+      if (by==='month')   return r.date.slice(0,7);
+      if (by==='source')  return r.source || '(no source)';
+      if (by==='account') return r.account_code;
+      return null;
+    }
+    function groupLabel(k, by) {
+      if (by==='month') return monthLabel(k+'-01');
+      return k;
+    }
+
+    function sorted() {
+      var k=_sortKey, d=_sortDir;
+      return _rows.slice().sort(function(a,b){
+        var av, bv;
+        if (k==='amount') { av=Number(a.amount); bv=Number(b.amount); return d*(av-bv); }
+        if (k==='account') { av=a.account_code; bv=b.account_code; }
+        else if (k==='lot') { av=a.lot; bv=b.lot; }
+        else if (k==='comment') { av=a.comment||''; bv=b.comment||''; }
+        else { av=a[k]||''; bv=b[k]||''; }
+        return d*av.localeCompare(bv);
+      });
+    }
+
+    function makeDataRow(r) {
+      var tr=document.createElement('tr');
+      tr.innerHTML=
+        '<td>'+r.date+'</td>'+
+        '<td>'+r.source+'</td>'+
+        '<td>'+r.lot+'</td>'+
+        '<td title="'+r.account_name+'">'+r.account_code+'</td>'+
+        '<td>'+r.memo+'</td>'+
+        '<td>'+r.comment+'</td>'+
+        '<td class="num">'+fmt(r.amount)+'</td>';
+      return tr;
+    }
+    function makeGroupHdr(label) {
+      var tr=document.createElement('tr'); tr.className='ibd-group-hdr';
+      tr.innerHTML='<td colspan="7">'+label+'</td>'; return tr;
+    }
+    function makeSubtotal(label, total) {
+      var tr=document.createElement('tr'); tr.className='ibd-subtotal';
+      tr.innerHTML='<td colspan="6" style="text-align:right">'+label+' subtotal</td><td class="num">'+fmt(total)+'</td>';
+      return tr;
+    }
+
+    function ibdRender() {
+      var tbody=document.getElementById('ibd-tbody');
+      var by=document.getElementById('ibd-group-by').value;
+      var doSub=document.getElementById('ibd-subtotals').checked;
+      tbody.innerHTML='';
+      var rows=sorted();
+
+      if (!by) { rows.forEach(function(r){tbody.appendChild(makeDataRow(r));}); return; }
+
+      var groups=[], groupMap={};
+      rows.forEach(function(r){
+        var k=groupKey(r,by);
+        if(!groupMap[k]){groupMap[k]=[];groups.push(k);}
+        groupMap[k].push(r);
+      });
+
+      if (by==='month') {
+        groups.sort();
+      } else if (by==='source') {
+        groups.sort(function(a,b){ return lastFirst(a).localeCompare(lastFirst(b)); });
+      } else if (by==='account') {
+        groups.sort(function(a,b){ return a.localeCompare(b); });
+      }
+
+      groups.forEach(function(k){
+        var gRows=groupMap[k];
+        var subtotal=gRows.reduce(function(s,r){return s+Number(r.amount);},0);
+        tbody.appendChild(makeGroupHdr(groupLabel(k,by)));
+        gRows.forEach(function(r){tbody.appendChild(makeDataRow(r));});
+        if(doSub) tbody.appendChild(makeSubtotal(groupLabel(k,by),subtotal));
+      });
+    }
+    window.ibdRender=ibdRender;
+
+    window.ibdSort=function(key){
+      if(_sortKey===key){_sortDir*=-1;}else{_sortKey=key;_sortDir=1;}
+      document.querySelectorAll('#ibd-table .si').forEach(function(s){s.className='si';s.textContent='↕';});
+      var th=document.querySelector('[data-col="'+key+'"] .si');
+      if(th){th.className='si '+(_sortDir===1?'asc':'desc');th.textContent=_sortDir===1?'▲':'▼';}
+      ibdRender();
+    };
+
+    ibdRender();
+    document.querySelector('[data-col="date"] .si').className='si asc';
+    document.querySelector('[data-col="date"] .si').textContent='▲';
+  })();
+  </script>
 {% else %}
   <div class="empty">No income activity in this period.</div>
 {% endif %}

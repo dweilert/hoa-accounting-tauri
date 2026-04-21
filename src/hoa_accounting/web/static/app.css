@@ -1102,7 +1102,7 @@ pre.raw-json {
 /* ── Print ──────────────────────────────────────────────────────── */
 
 @media print {
-  .sidebar, .topbar { display: none; }
+  .sidebar, .topbar, .no-print { display: none !important; }
   .app { display: block; }
   .content { max-width: none; padding: 0; }
   .panel { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }

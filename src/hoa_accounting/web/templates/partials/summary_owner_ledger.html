@@ -102,8 +102,6 @@
           <th>Date</th>
           <th>Type</th>
           <th>Description</th>
-          <th>Due Date</th>
-          <th>Status</th>
           <th>Receipt</th>
           <th class="num">Charge</th>
           <th class="num">Payment</th>
@@ -128,12 +126,6 @@
               {% endif %}
             </td>
             <td>{{ row.description }}</td>
-            <td>{{ row.due_date }}</td>
-            <td>
-              {% if row.status %}
-                <span class="pill pill--muted" style="font-size:11px;">{{ row.status }}</span>
-              {% endif %}
-            </td>
             <td class="mono">{{ row.receipt_number }}</td>
             <td class="num">{% if row.debit_amount != '0.00' %}{{ row.debit_amount }}{% endif %}</td>
             <td class="num">{% if row.credit_amount != '0.00' %}{{ row.credit_amount }}{% endif %}</td>
@@ -143,7 +135,7 @@
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="8" style="text-align:right;font-weight:600;">Closing Balance</td>
+          <td colspan="6" style="text-align:right;font-weight:600;">Closing Balance</td>
           <td class="num" style="font-weight:600;">{{ summary.closing_balance }}</td>
         </tr>
       </tfoot>

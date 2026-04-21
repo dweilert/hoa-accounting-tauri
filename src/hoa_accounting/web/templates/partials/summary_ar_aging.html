@@ -59,7 +59,7 @@
         <tr>
           <th>Owner</th>
           <th>Lot</th>
-          <th>Assessment</th>
+          <th>Description</th>
           <th>Due Date</th>
           <th>Bucket</th>
           <th class="num">Original</th>
@@ -72,7 +72,7 @@
           <tr>
             <td>{{ row.owner_name }}</td>
             <td class="mono">{{ row.lot_number }}</td>
-            <td class="mono">#{{ row.assessment_id }}</td>
+            <td>{{ row.description }}</td>
             <td>{{ row.due_date }}</td>
             <td><span class="pill pill--warn">{{ row.aging_bucket }}</span></td>
             <td class="num">{{ row.original_amount }}</td>

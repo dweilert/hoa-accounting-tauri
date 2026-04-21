@@ -42,22 +42,24 @@ class BudgetsRepository(BaseRepository):
         ).fetchone()
 
     def get_budget_lines(self, budget_id: int) -> list[sqlite3.Row]:
-        """Return all lines for a budget joined to category info."""
+        """Return all lines for a budget, supporting both category_id and legacy account_id."""
         return self.conn.execute(
             """
             SELECT
                 bl.id,
                 bl.category_id,
+                bl.account_id,
                 bl.fiscal_period,
                 bl.budget_amount,
-                c.code AS category_code,
-                c.name AS category_name,
-                c.group_name
+                c.code  AS category_code,
+                c.name  AS category_name,
+                c.group_name,
+                a.account_name AS legacy_account_name
             FROM budget_lines bl
-            JOIN categories c ON c.id = bl.category_id
+            LEFT JOIN categories c ON c.id = bl.category_id
+            LEFT JOIN accounts  a ON a.id = bl.account_id AND bl.category_id IS NULL
             WHERE bl.budget_id = ?
-              AND bl.category_id IS NOT NULL
-            ORDER BY c.sort_order, c.name, bl.fiscal_period
+            ORDER BY COALESCE(c.sort_order, 999), COALESCE(c.name, a.account_name), bl.fiscal_period
             """,
             (budget_id,),
         ).fetchall()
@@ -121,17 +123,24 @@ class BudgetsRepository(BaseRepository):
         fiscal_period: int,
         amount: Decimal,
     ) -> None:
-        """Insert or replace a single budget line."""
-        self.conn.execute(
+        """Insert or update a single budget line."""
+        updated = self.conn.execute(
             """
-            INSERT INTO budget_lines
-                (budget_id, category_id, fiscal_period, budget_amount)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT (budget_id, category_id, fiscal_period)
-            DO UPDATE SET budget_amount = excluded.budget_amount
+            UPDATE budget_lines
+               SET budget_amount = ?
+             WHERE budget_id = ? AND category_id = ? AND fiscal_period = ?
             """,
-            (budget_id, category_id, fiscal_period, str(amount)),
-        )
+            (str(amount), budget_id, category_id, fiscal_period),
+        ).rowcount
+        if updated == 0:
+            self.conn.execute(
+                """
+                INSERT INTO budget_lines
+                    (budget_id, category_id, fiscal_period, budget_amount, account_id)
+                VALUES (?, ?, ?, ?, 0)
+                """,
+                (budget_id, category_id, fiscal_period, str(amount)),
+            )
 
     def delete_zero_lines(self, budget_id: int) -> None:
         """Remove lines where budget_amount is exactly 0."""

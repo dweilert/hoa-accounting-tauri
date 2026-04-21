@@ -16,47 +16,172 @@
 </div>
 
 {% if summary.rows %}
-  {# Group rows by vendor for display when showing all vendors #}
-  {% set ns = namespace(current_vendor='', vendor_total='0.00') %}
+  <div class="no-print" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-bottom:var(--sp-2);">
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;font-weight:500;">
+      Group by:
+      <select id="ve-group-by" onchange="veRender()" style="font-size:.875rem;">
+        <option value="">— None —</option>
+        <option value="vendor">Vendor</option>
+        <option value="date">Date</option>
+        <option value="category">Category</option>
+        <option value="catgroup">Category &amp; Group</option>
+        <option value="group">Group</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;">
+      <input type="checkbox" id="ve-subtotals" onchange="veRender()" checked>
+      Show subtotals
+    </label>
+  </div>
+
+  <p class="no-print" style="font-size:.8rem;color:var(--color-text-muted,#888);margin-bottom:var(--sp-1);">
+    Click a column name to sort — click again to reverse. Sorting applies within each group.
+  </p>
+
   <div class="table-wrap">
-    <table>
+    <table id="ve-table">
       <thead>
         <tr>
-          <th>Vendor</th>
-          <th>Date</th>
-          <th>Entry #</th>
-          <th>Account</th>
-          <th>Category</th>
-          <th>Group</th>
-          <th>Description</th>
-          <th class="num">Amount</th>
+          <th data-col="vendor"   class="sortable" onclick="veSort('vendor')">Vendor <span class="vei">↕</span></th>
+          <th data-col="date"     class="sortable" onclick="veSort('date')">Date <span class="vei">↕</span></th>
+          <th data-col="category" class="sortable" onclick="veSort('category')">Category <span class="vei">↕</span></th>
+          <th data-col="group"    class="sortable" onclick="veSort('group')">Group <span class="vei">↕</span></th>
+          <th data-col="memo"     class="sortable" onclick="veSort('memo')">Description <span class="vei">↕</span></th>
+          <th data-col="amount"   class="sortable num" onclick="veSort('amount')">Amount <span class="vei">↕</span></th>
         </tr>
       </thead>
-      <tbody>
-        {% for row in summary.rows %}
-          <tr>
-            <td>{% if row.vendor_name != ns.current_vendor %}
-              <strong>{{ row.vendor_name }}</strong>
-              {% set ns.current_vendor = row.vendor_name %}
-            {% endif %}</td>
-            <td>{{ row.entry_date }}</td>
-            <td class="mono">{{ row.entry_number }}</td>
-            <td class="mono">{{ row.account_number }}</td>
-            <td>{{ row.account_name }}</td>
-            <td><span class="pill pill--muted">{{ row.group_code }}</span></td>
-            <td>{{ row.memo }}</td>
-            <td class="num">{{ row.amount }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
+      <tbody id="ve-tbody"></tbody>
       <tfoot>
         <tr>
-          <td colspan="7" style="text-align:right;font-weight:600;">Total</td>
+          <td colspan="5" style="text-align:right;font-weight:600;">Total</td>
           <td class="num" style="font-weight:600;">{{ summary.grand_total }}</td>
         </tr>
       </tfoot>
     </table>
   </div>
+
+  <script id="ve-data" type="application/json">
+  [{% for row in summary.rows %}{"vendor":"{{ row.vendor_name | replace('"','&quot;') }}","date":"{{ row.entry_date }}","category":"{{ row.account_name | replace('"','&quot;') }}","group":"{{ row.group_code | replace('"','&quot;') }}","memo":"{{ row.memo | replace('"','&quot;') }}","amount":{{ row.amount }}}{% if not loop.last %},{% endif %}{% endfor %}]
+  </script>
+
+  <style>
+    .sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+    .sortable:hover { background:var(--color-surface-raised,#f0f0f0); }
+    .vei { opacity:.35; font-size:.8em; margin-left:.2em; }
+    .vei.asc, .vei.desc { opacity:1; }
+    tr.ve-group-hdr td {
+      background:var(--color-surface-raised,#eef0f3);
+      font-weight:700; font-size:.9rem; padding:.35rem .6rem;
+      border-top:2px solid var(--color-border,#ccc);
+    }
+    tr.ve-subtotal td {
+      font-weight:600; font-style:italic;
+      border-top:1px solid var(--color-border,#ccc);
+      background:var(--color-surface,#fafafa);
+    }
+  </style>
+
+  <script>
+  (function () {
+    var _rows = JSON.parse(document.getElementById('ve-data').textContent);
+    var _sortKey = 'date', _sortDir = 1;
+
+    function fmt(n) {
+      return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function monthLabel(d) {
+      return new Date(d+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long'});
+    }
+
+    function groupKey(r, by) {
+      if (by === 'vendor')   return r.vendor   || '(no vendor)';
+      if (by === 'date')     return r.date.slice(0,7);
+      if (by === 'category') return r.category || '(no category)';
+      if (by === 'catgroup') return (r.group || '(no group)') + ' \u2014 ' + (r.category || '(no category)');
+      if (by === 'group')    return r.group    || '(no group)';
+      return null;
+    }
+    function groupLabel(k, by) {
+      if (by === 'date') return monthLabel(k + '-01');
+      return k;
+    }
+
+    function sorted() {
+      var k = _sortKey, d = _sortDir;
+      return _rows.slice().sort(function(a, b) {
+        if (k === 'amount') return d * (Number(a.amount) - Number(b.amount));
+        var av = k === 'vendor' ? a.vendor : (k === 'date' ? a.date : (k === 'category' ? a.category : (k === 'group' ? a.group : (k === 'memo' ? a.memo : ''))));
+        var bv = k === 'vendor' ? b.vendor : (k === 'date' ? b.date : (k === 'category' ? b.category : (k === 'group' ? b.group : (k === 'memo' ? b.memo : ''))));
+        return d * (av || '').localeCompare(bv || '');
+      });
+    }
+
+    function makeDataRow(r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + r.vendor   + '</td>' +
+        '<td>' + r.date     + '</td>' +
+        '<td>' + r.category + '</td>' +
+        '<td>' + r.group    + '</td>' +
+        '<td>' + r.memo     + '</td>' +
+        '<td class="num">' + fmt(r.amount) + '</td>';
+      return tr;
+    }
+    function makeGroupHdr(label) {
+      var tr = document.createElement('tr'); tr.className = 've-group-hdr';
+      tr.innerHTML = '<td colspan="6">' + label + '</td>'; return tr;
+    }
+    function makeSubtotal(label, total) {
+      var tr = document.createElement('tr'); tr.className = 've-subtotal';
+      tr.innerHTML = '<td colspan="5" style="text-align:right">' + label + ' subtotal</td><td class="num">' + fmt(total) + '</td>';
+      return tr;
+    }
+
+    function veRender() {
+      var tbody = document.getElementById('ve-tbody');
+      var by    = document.getElementById('ve-group-by').value;
+      var doSub = document.getElementById('ve-subtotals').checked;
+      tbody.innerHTML = '';
+      var rows = sorted();
+
+      if (!by) { rows.forEach(function(r) { tbody.appendChild(makeDataRow(r)); }); return; }
+
+      var groups = [], groupMap = {};
+      rows.forEach(function(r) {
+        var k = groupKey(r, by);
+        if (!groupMap[k]) { groupMap[k] = []; groups.push(k); }
+        groupMap[k].push(r);
+      });
+
+      if (by === 'date') {
+        groups.sort();
+      } else {
+        groups.sort(function(a, b) { return a.localeCompare(b); });
+      }
+
+      groups.forEach(function(k) {
+        var gRows    = groupMap[k];
+        var subtotal = gRows.reduce(function(s, r) { return s + Number(r.amount); }, 0);
+        tbody.appendChild(makeGroupHdr(groupLabel(k, by)));
+        gRows.forEach(function(r) { tbody.appendChild(makeDataRow(r)); });
+        if (doSub) tbody.appendChild(makeSubtotal(groupLabel(k, by), subtotal));
+      });
+    }
+    window.veRender = veRender;
+
+    window.veSort = function(key) {
+      if (_sortKey === key) { _sortDir *= -1; } else { _sortKey = key; _sortDir = 1; }
+      document.querySelectorAll('#ve-table .vei').forEach(function(s) { s.className = 'vei'; s.textContent = '↕'; });
+      var th = document.querySelector('[data-col="' + key + '"] .vei');
+      if (th) { th.className = 'vei ' + (_sortDir === 1 ? 'asc' : 'desc'); th.textContent = _sortDir === 1 ? '▲' : '▼'; }
+      veRender();
+    };
+
+    veRender();
+    document.querySelector('[data-col="date"] .vei').className = 'vei asc';
+    document.querySelector('[data-col="date"] .vei').textContent = '▲';
+  })();
+  </script>
 {% else %}
   <div class="empty">No vendor expense activity in this period.</div>
 {% endif %}

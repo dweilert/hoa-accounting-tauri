@@ -178,8 +178,17 @@ class BudgetPages:
         saved_lines = self._repo.get_budget_lines(budget_id)
 
         # Build a lookup: (category_id, fiscal_period) → amount
+        # Also collect legacy lines that use account_id instead of category_id.
         saved: dict[tuple[int, int], Decimal] = {}
+        legacy_totals: dict[str, Decimal] = {}
         for line in saved_lines:
+            if line["category_id"] is None:
+                acct_name = str(line["legacy_account_name"] or line["account_id"] or "Unknown")
+                legacy_totals[acct_name] = (
+                    legacy_totals.get(acct_name, Decimal("0.00"))
+                    + Decimal(str(line["budget_amount"]))
+                )
+                continue
             key = (int(line["category_id"]), int(line["fiscal_period"]))
             saved[key] = Decimal(str(line["budget_amount"]))
 
@@ -231,6 +240,11 @@ class BudgetPages:
                     "row_total":      str(row_total) if row_total else "",
                 })
 
+        legacy_lines = [
+            {"account_name": name, "total": str(total)}
+            for name, total in sorted(legacy_totals.items())
+        ]
+
         ctx = {
             "active_nav":     "master-data",
             "page_key":       "budgets",
@@ -244,6 +258,7 @@ class BudgetPages:
             "error":          error,
             "is_approved":    budget["status"] == "APPROVED",
             "is_draft":       budget["status"] == "DRAFT",
+            "legacy_lines":   legacy_lines,
         }
         return PageResponse(
             status_code=HTTPStatus.OK,
@@ -316,6 +331,26 @@ class BudgetPages:
             self.conn.rollback()
             raise
         return f"/budgets/{budget_id}/edit?msg=Budget+approved.", None
+
+    def handle_revert_to_draft(
+        self,
+        budget_id: int,
+        *,
+        org: dict,
+        theme: str,
+    ) -> tuple[str | None, PageResponse | None]:
+        budget = self._repo.get_budget(budget_id)
+        if budget is None:
+            return "/budgets?msg=Budget+not+found.", None
+        if budget["status"] != "APPROVED":
+            return f"/budgets/{budget_id}/edit?msg=Budget+is+not+approved.", None
+        try:
+            self._repo.set_status(budget_id, "DRAFT")
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        return f"/budgets/{budget_id}/edit?msg=Budget+reverted+to+draft.", None
 
     def handle_archive(
         self,

@@ -23,11 +23,12 @@ class IncomeByDateReportService:
             """
             SELECT
                 ib.posting_date AS entry_date,
-                NULL AS entry_number,
-                COALESCE(c.code, '') AS account_number,
+                '' AS source,
+                '' AS lot_number,
+                COALESCE(c.code, 'OTHER') AS account_code,
                 COALESCE(c.name, ib.income_description) AS account_name,
-                c.fund_code,
                 ib.income_description AS memo,
+                COALESCE(ib.notes, '') AS comment,
                 ib.total_amount AS net_amount
             FROM income_batches ib
             LEFT JOIN categories c ON c.id = ib.category_id
@@ -38,19 +39,22 @@ class IncomeByDateReportService:
 
             SELECT
                 a.assessment_date AS entry_date,
-                NULL AS entry_number,
-                COALESCE(c.code, 'DUES') AS account_number,
-                COALESCE(c.name, a.description) AS account_name,
-                COALESCE(c.fund_code, 'OPERATING') AS fund_code,
+                TRIM(COALESCE(o.first_name, '') || ' ' || COALESCE(o.last_name, '')) AS source,
+                COALESCE(l.lot_number, '') AS lot_number,
+                COALESCE(c.code, a.charge_type) AS account_code,
+                COALESCE(c.name, a.charge_type) AS account_name,
                 a.description AS memo,
+                '' AS comment,
                 a.amount AS net_amount
             FROM assessments a
+            LEFT JOIN owners o ON o.id = a.owner_id
+            LEFT JOIN lots l ON l.id = a.lot_id
             LEFT JOIN categories c ON c.id = a.category_id
             WHERE a.status != 'VOID'
               AND a.assessment_date >= ?
               AND a.assessment_date <= ?
 
-            ORDER BY entry_date, account_number
+            ORDER BY entry_date
             """,
             (from_date, to_date, from_date, to_date),
         ).fetchall()
@@ -64,11 +68,12 @@ class IncomeByDateReportService:
             report_rows.append(
                 IncomeByDateRow(
                     entry_date=str(row["entry_date"]),
-                    entry_number=str(row["entry_number"] or ""),
-                    account_number=str(row["account_number"]),
+                    source=str(row["source"] or ""),
+                    lot_number=str(row["lot_number"] or ""),
+                    account_code=str(row["account_code"]),
                     account_name=str(row["account_name"]),
-                    fund_code=str(row["fund_code"] or "OPERATING"),
                     memo=str(row["memo"]),
+                    comment=str(row["comment"] or ""),
                     amount=amount,
                 )
             )

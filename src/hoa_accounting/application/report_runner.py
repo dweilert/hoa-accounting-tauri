@@ -14,6 +14,7 @@ from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.reporting.ar_aging import ARAgingReportService
+from hoa_accounting.reporting.budget_summary import BudgetSummaryReportService
 from hoa_accounting.reporting.balance_sheet import BalanceSheetReportService
 from hoa_accounting.reporting.expenses_by_date import ExpensesByDateReportService
 from hoa_accounting.reporting.expenses_vs_budget import ExpenseVsBudgetReportService
@@ -150,6 +151,17 @@ class ReportRunner:
         if report_name == "homeowner-contact-list":
             sort_by = params.get("sort_by", "name").strip() or "name"
             return HomeownerContactListReportService(conn).generate(sort_by=sort_by)
+
+        if report_name == "budget-summary":
+            current_year = int(
+                (params.get("fiscal_year") or "").strip()
+                or str(datetime.date.today().year)
+            )
+            years_mode = (params.get("years_mode") or "prev_current").strip() or "prev_current"
+            return BudgetSummaryReportService(conn).generate(
+                years_mode=years_mode,
+                current_year=current_year,
+            )
 
         if report_name == "expenses-vs-budget":
             fiscal_year = self._require_int_param(params, "fiscal_year")

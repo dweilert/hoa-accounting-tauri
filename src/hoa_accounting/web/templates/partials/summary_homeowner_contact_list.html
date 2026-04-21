@@ -4,8 +4,8 @@
   #report-output-panel table { font-size: 8.5pt; }
   #report-output-panel thead th { padding: 3px 5px; }
   #report-output-panel tbody td { padding: 2px 5px; }
-  #report-output-panel td:nth-child(4),
-  #report-output-panel td:nth-child(5) { white-space: nowrap; }
+  #report-output-panel td:nth-child(3),
+  #report-output-panel td:nth-child(4) { white-space: nowrap; }
 }
 </style>
 
@@ -15,8 +15,7 @@
       <thead>
         <tr>
           <th style="width:1.5rem;"></th>
-          <th>First Name</th>
-          <th>Last Name</th>
+          <th>Name</th>
           <th>Address</th>
           <th>Phone</th>
           <th>Email</th>
@@ -28,8 +27,7 @@
             <td style="text-align:center;font-size:11px;font-weight:600;color:var(--text-subtle);">
               {% if row.role == 'RENTER' %}(R){% endif %}
             </td>
-            <td>{{ row.first_name }}</td>
-            <td>{{ row.last_name }}</td>
+            <td>{{ row.last_name }}{% if row.first_name %}, {{ row.first_name }}{% endif %}</td>
             <td>{{ row.address }}</td>
             <td>
               {% if row.cell_phone and row.home_phone %}

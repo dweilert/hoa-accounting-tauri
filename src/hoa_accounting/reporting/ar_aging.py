@@ -134,7 +134,7 @@ class ARAgingReportService:
             SELECT
                 a.id AS assessment_id,
                 a.owner_id,
-                o.display_name AS owner_name,
+                TRIM(COALESCE(o.first_name, '') || ' ' || COALESCE(o.last_name, '')) AS owner_name,
                 a.lot_id,
                 l.lot_number,
                 a.assessment_date,
@@ -158,9 +158,9 @@ class ARAgingReportService:
             WHERE a.assessment_date <= ?
               AND a.status NOT IN ('VOID', 'WRITTEN_OFF')
             GROUP BY
-                a.id, a.owner_id, o.display_name, a.lot_id, l.lot_number,
+                a.id, a.owner_id, o.first_name, o.last_name, a.lot_id, l.lot_number,
                 a.assessment_date, a.due_date, a.description, a.amount
-            ORDER BY o.display_name, a.due_date, a.assessment_date, a.id
+            ORDER BY o.last_name, o.first_name, a.due_date, a.assessment_date, a.id
             """,
             (as_of_date, as_of_date),
         ).fetchall()

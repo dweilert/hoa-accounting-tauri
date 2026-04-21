@@ -193,8 +193,10 @@ def _build_report_catalog_cards(selected_report: str) -> list[ReportCatalogCardV
 def _date_field_default(field_name: str) -> str:
     year = _date.today().year
     defaults = {
-        "from_date": f"{year}-01-01",
-        "to_date":   f"{year}-12-31",
+        "from_date":   f"{year}-01-01",
+        "to_date":     f"{year}-12-31",
+        "year":        str(year),
+        "fiscal_year": str(year),
     }
     return defaults.get(field_name, "")
 

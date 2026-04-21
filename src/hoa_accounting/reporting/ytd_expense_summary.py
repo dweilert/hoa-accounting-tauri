@@ -39,6 +39,7 @@ class YtdExpenseSummaryReportService:
                 c.name AS account_name,
                 COALESCE(c.group_name, '') AS group_code,
                 c.fund_code,
+                COALESCE(c.description, '') AS comment,
                 COALESCE(SUM(CASE WHEN vb.status != 'VOID' THEN vb.amount ELSE 0 END), 0) AS debit_total,
                 0 AS credit_total,
                 COALESCE(COUNT(CASE WHEN vb.status != 'VOID' THEN vb.id END), 0) AS record_count
@@ -75,6 +76,7 @@ class YtdExpenseSummaryReportService:
                     fund_code=str(row["fund_code"]),
                     ytd_amount=ytd_amount,
                     record_count=record_count,
+                    comment=str(row["comment"] or ""),
                 )
             )
             group_totals[group_code] += ytd_amount

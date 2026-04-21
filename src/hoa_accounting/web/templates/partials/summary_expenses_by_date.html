@@ -16,42 +16,166 @@
 </div>
 
 {% if summary.rows %}
+  <div class="no-print" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-bottom:var(--sp-2);">
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;font-weight:500;">
+      Group by:
+      <select id="ebd-group-by" onchange="ebdRender()" style="font-size:.875rem;">
+        <option value="">— None —</option>
+        <option value="month">Month</option>
+        <option value="category">Category</option>
+        <option value="group">Category &amp; Group</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.875rem;">
+      <input type="checkbox" id="ebd-subtotals" onchange="ebdRender()" checked>
+      Show subtotals
+    </label>
+  </div>
+
+  <p class="no-print" style="font-size:.8rem;color:var(--color-text-muted,#888);margin-bottom:var(--sp-1);">
+    Click a column name to sort — click again to reverse. Sorting applies within each group.
+  </p>
+
   <div class="table-wrap">
-    <table>
+    <table id="ebd-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Entry #</th>
-          <th>Account</th>
-          <th>Category</th>
-          <th>Group</th>
-          <th>Fund</th>
-          <th>Description</th>
-          <th class="num">Amount</th>
+          <th data-col="date"     class="sortable" onclick="ebdSort('date')">Date <span class="ebdi">↕</span></th>
+          <th data-col="category" class="sortable" onclick="ebdSort('category')">Category <span class="ebdi">↕</span></th>
+          <th data-col="group"    class="sortable" onclick="ebdSort('group')">Group <span class="ebdi">↕</span></th>
+          <th data-col="memo"     class="sortable" onclick="ebdSort('memo')">Description <span class="ebdi">↕</span></th>
+          <th data-col="amount"   class="sortable num" onclick="ebdSort('amount')">Amount <span class="ebdi">↕</span></th>
         </tr>
       </thead>
-      <tbody>
-        {% for row in summary.rows %}
-          <tr>
-            <td>{{ row.entry_date }}</td>
-            <td class="mono">{{ row.entry_number }}</td>
-            <td class="mono">{{ row.account_number }}</td>
-            <td>{{ row.account_name }}</td>
-            <td><span class="pill pill--muted">{{ row.group_code }}</span></td>
-            <td><span class="pill pill--muted">{{ row.fund_code }}</span></td>
-            <td>{{ row.memo }}</td>
-            <td class="num">{{ row.amount }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
+      <tbody id="ebd-tbody"></tbody>
       <tfoot>
         <tr>
-          <td colspan="7" style="text-align:right;font-weight:600;">Total</td>
+          <td colspan="4" style="text-align:right;font-weight:600;">Total</td>
           <td class="num" style="font-weight:600;">{{ summary.grand_total }}</td>
         </tr>
       </tfoot>
     </table>
   </div>
+
+  <script id="ebd-data" type="application/json">
+  [{% for row in summary.rows %}{"date":"{{ row.entry_date }}","category":"{{ row.account_name | replace('"','&quot;') }}","group":"{{ row.group_code | replace('"','&quot;') }}","memo":"{{ row.memo | replace('"','&quot;') }}","amount":{{ row.amount }}}{% if not loop.last %},{% endif %}{% endfor %}]
+  </script>
+
+  <style>
+    .sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+    .sortable:hover { background:var(--color-surface-raised,#f0f0f0); }
+    .ebdi { opacity:.35; font-size:.8em; margin-left:.2em; }
+    .ebdi.asc, .ebdi.desc { opacity:1; }
+    tr.ebd-group-hdr td {
+      background:var(--color-surface-raised,#eef0f3);
+      font-weight:700; font-size:.9rem; padding:.35rem .6rem;
+      border-top:2px solid var(--color-border,#ccc);
+    }
+    tr.ebd-subtotal td {
+      font-weight:600; font-style:italic;
+      border-top:1px solid var(--color-border,#ccc);
+      background:var(--color-surface,#fafafa);
+    }
+  </style>
+
+  <script>
+  (function () {
+    var _rows = JSON.parse(document.getElementById('ebd-data').textContent);
+    var _sortKey = 'date', _sortDir = 1;
+
+    function fmt(n) {
+      return Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function monthLabel(d) {
+      return new Date(d+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long'});
+    }
+
+    function groupKey(r, by) {
+      if (by === 'month')    return r.date.slice(0,7);
+      if (by === 'category') return r.category || '(no category)';
+      if (by === 'group')    return r.group || '(no group)';
+      return null;
+    }
+    function groupLabel(k, by) {
+      if (by === 'month') return monthLabel(k + '-01');
+      return k;
+    }
+
+    function sorted() {
+      var k = _sortKey, d = _sortDir;
+      return _rows.slice().sort(function(a, b) {
+        if (k === 'amount') return d * (Number(a.amount) - Number(b.amount));
+        var av = k === 'date' ? a.date : (k === 'category' ? a.category : (k === 'group' ? a.group : (k === 'memo' ? a.memo : '')));
+        var bv = k === 'date' ? b.date : (k === 'category' ? b.category : (k === 'group' ? b.group : (k === 'memo' ? b.memo : '')));
+        return d * (av || '').localeCompare(bv || '');
+      });
+    }
+
+    function makeDataRow(r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + r.date + '</td>' +
+        '<td>' + r.category + '</td>' +
+        '<td>' + r.group + '</td>' +
+        '<td>' + r.memo + '</td>' +
+        '<td class="num">' + fmt(r.amount) + '</td>';
+      return tr;
+    }
+    function makeGroupHdr(label) {
+      var tr = document.createElement('tr'); tr.className = 'ebd-group-hdr';
+      tr.innerHTML = '<td colspan="5">' + label + '</td>'; return tr;
+    }
+    function makeSubtotal(label, total) {
+      var tr = document.createElement('tr'); tr.className = 'ebd-subtotal';
+      tr.innerHTML = '<td colspan="4" style="text-align:right">' + label + ' subtotal</td><td class="num">' + fmt(total) + '</td>';
+      return tr;
+    }
+
+    function ebdRender() {
+      var tbody = document.getElementById('ebd-tbody');
+      var by    = document.getElementById('ebd-group-by').value;
+      var doSub = document.getElementById('ebd-subtotals').checked;
+      tbody.innerHTML = '';
+      var rows = sorted();
+
+      if (!by) { rows.forEach(function(r) { tbody.appendChild(makeDataRow(r)); }); return; }
+
+      var groups = [], groupMap = {};
+      rows.forEach(function(r) {
+        var k = groupKey(r, by);
+        if (!groupMap[k]) { groupMap[k] = []; groups.push(k); }
+        groupMap[k].push(r);
+      });
+
+      if (by === 'month') {
+        groups.sort();
+      } else {
+        groups.sort(function(a, b) { return a.localeCompare(b); });
+      }
+
+      groups.forEach(function(k) {
+        var gRows    = groupMap[k];
+        var subtotal = gRows.reduce(function(s, r) { return s + Number(r.amount); }, 0);
+        tbody.appendChild(makeGroupHdr(groupLabel(k, by)));
+        gRows.forEach(function(r) { tbody.appendChild(makeDataRow(r)); });
+        if (doSub) tbody.appendChild(makeSubtotal(groupLabel(k, by), subtotal));
+      });
+    }
+    window.ebdRender = ebdRender;
+
+    window.ebdSort = function(key) {
+      if (_sortKey === key) { _sortDir *= -1; } else { _sortKey = key; _sortDir = 1; }
+      document.querySelectorAll('#ebd-table .ebdi').forEach(function(s) { s.className = 'ebdi'; s.textContent = '↕'; });
+      var th = document.querySelector('[data-col="' + key + '"] .ebdi');
+      if (th) { th.className = 'ebdi ' + (_sortDir === 1 ? 'asc' : 'desc'); th.textContent = _sortDir === 1 ? '▲' : '▼'; }
+      ebdRender();
+    };
+
+    ebdRender();
+    document.querySelector('[data-col="date"] .ebdi').className = 'ebdi asc';
+    document.querySelector('[data-col="date"] .ebdi').textContent = '▲';
+  })();
+  </script>
 {% else %}
   <div class="empty">No expense activity in this period.</div>
 {% endif %}

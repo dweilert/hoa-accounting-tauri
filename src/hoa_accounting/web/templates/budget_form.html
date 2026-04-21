@@ -27,6 +27,18 @@
     </div>
   {% endif %}
 
+  {% if legacy_lines %}
+    <div class="alert alert--warn" style="margin-bottom:1rem;">
+      <strong>Legacy budget data detected</strong> — this budget contains amounts saved under old account codes that cannot be shown in the category grid below. Re-enter these totals in the appropriate categories, then save to migrate them.
+      <ul style="margin:.5rem 0 0 1.2rem;font-size:.875rem;">
+        {% for item in legacy_lines %}
+          <li><strong>{{ item.account_name }}</strong>: {{ item.total }}</li>
+        {% endfor %}
+      </ul>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
   {# ── Action bar ──────────────────────────────────────────────────── #}
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
     <a href="/budgets" class="btn btn--ghost btn--sm">← All Budgets</a>
@@ -41,6 +53,9 @@
         <button type="submit" class="btn btn--danger btn--sm">Delete Draft</button>
       </form>
     {% elif is_approved %}
+      <form method="post" action="/budgets/{{ budget.id }}/revert-to-draft" style="display:inline;">
+        <button type="submit" class="btn btn--primary btn--sm">✎ Edit Budget</button>
+      </form>
       <form method="post" action="/budgets/{{ budget.id }}/archive" style="display:inline;">
         <button type="submit" class="btn btn--ghost btn--sm">Archive</button>
       </form>
@@ -60,7 +75,7 @@
     <div class="panel">
       <div class="panel__header" style="margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem;">
         <div>
-          <div class="panel__title">Monthly Budget by Category</div>
+          <div class="panel__title">Budget by Category</div>
           <div class="panel__description">
             Enter monthly amounts directly, or type an annual total in the
             <strong>Annual ÷</strong> column and choose a spread method.
@@ -90,7 +105,7 @@
             <colgroup>
               <col style="width:160px;">
               <col style="width:80px;">
-              <col style="width:168px;">
+              <col style="width:160px;">
               {% for _ in month_names %}<col style="width:72px;">{% endfor %}
             </colgroup>
             <thead>
@@ -107,11 +122,21 @@
                            border-right:1px solid var(--border,#ddd);">
                   Total
                 </th>
-                <th style="width:168px;text-align:center;padding:.4rem .4rem;font-size:11px;
+                <th style="width:160px;text-align:center;padding:.3rem .4rem;font-size:11px;
                            background:#f0f6f0;color:#2d5a2d;
                            border-bottom:2px solid var(--border,#ccc);
                            border-right:2px solid #a0c8a0;">
-                  Annual ÷ Spread
+                  {% if is_draft %}
+                    <div style="font-weight:700;letter-spacing:.05em;text-align:center;">AMOUNT</div>
+                    <div style="text-align:center;margin-top:3px;">
+                      <button type="button" id="apply-spread"
+                              style="font-size:10px;padding:.15rem .5rem;border:1px solid #a0c8a0;
+                                     border-radius:3px;background:#2d5a2d;color:#fff;cursor:pointer;
+                                     white-space:nowrap;">Apply</button>
+                    </div>
+                  {% else %}
+                    Amount
+                  {% endif %}
                 </th>
                 {% for m in month_names %}
                   <th style="width:72px;text-align:right;padding:.4rem .3rem;font-size:11px;
@@ -143,7 +168,7 @@
                                border-right:1px solid #b8d8b8;border-top:1px solid #b8d8b8;"></td>
                     {# Annual-spread cell #}
                     <td style="background:#deeede;border-right:2px solid #a0c8a0;
-                               border-top:1px solid #b8d8b8;"></td>
+                               border-left:1px solid #b8d8b8;border-top:1px solid #b8d8b8;"></td>
                     {# Month cells #}
                     {% for _ in month_names %}
                       <td style="background:#deeede;border-top:1px solid #b8d8b8;"></td>
@@ -182,27 +207,28 @@
                     {{ row.row_total }}
                   </td>
 
-                  {# Annual ÷ spread #}
+                  {# Annual amount + per-row spread #}
                   <td style="background:{{ row_bg }};padding:.2rem .3rem;vertical-align:middle;
-                              border-right:2px solid var(--border,#ccc);
-                              border-bottom:1px solid var(--border,#ececec);">
+                              border-right:2px solid #a0c8a0;
+                              border-bottom:1px solid var(--border,#ececec);
+                              border-left:1px solid var(--border,#ececec);">
                     {% if is_draft %}
                       <div style="display:flex;gap:2px;align-items:center;">
                         <input type="text"
                                class="annual-input"
                                data-row="{{ row.category_id }}"
-                               placeholder="Annual"
+                               placeholder=""
                                inputmode="decimal"
-                               style="width:66px;font-size:11px;text-align:right;
+                               style="width:62px;font-size:11px;text-align:right;
                                       font-family:var(--font-mono);padding:.2rem .3rem;
                                       border:1px solid var(--border,#ccc);border-radius:3px;
                                       background:var(--input,#fff);">
                         <select class="spread-select"
                                 data-row="{{ row.category_id }}"
-                                style="font-size:10px;padding:.2rem .2rem;
+                                style="font-size:10px;padding:.15rem .2rem;
                                        border:1px solid var(--border,#ccc);border-radius:3px;
-                                       background:var(--input,#fff);max-width:94px;">
-                          <option value="">÷ Spread</option>
+                                       background:var(--input,#fff);max-width:90px;">
+                          <option value="annual">Annual</option>
                           <option value="monthly">Monthly</option>
                           <option value="quarterly">Quarterly</option>
                           <option value="bimonthly">Bi-Monthly</option>
@@ -282,16 +308,26 @@
     {% endif %}
   </form>
 
+  <style>
+    #budget-grid td, #budget-grid th {
+      border-right: 1px solid var(--border, #e0e0e0);
+    }
+    #budget-grid .budget-cell { border: 1px solid var(--border, #ccc); }
+  </style>
   <script>
 (function () {
   // ── Helpers ────────────────────────────────────────────────────────
   function parseAmt(val) {
-    var n = parseFloat((val || "").replace(/,/g, ""));
+    var n = parseFloat((val || "").replace(/[$,]/g, ""));
     return isNaN(n) ? 0 : n;
   }
   function fmt(n) {
     if (n === 0) return "";
-    return n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    return "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+  function fmtCell(n) {
+    if (n === 0) return "";
+    return "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
   }
 
   // ── Recalculate row totals and column totals ───────────────────────
@@ -329,6 +365,7 @@
 
     var schedule;
     switch (method) {
+      case "annual":     schedule = [1]; break;
       case "monthly":    schedule = [1,2,3,4,5,6,7,8,9,10,11,12]; break;
       case "quarterly":  schedule = [1,4,7,10]; break;
       case "bimonthly":  schedule = [1,3,5,7,9,11]; break;
@@ -365,6 +402,19 @@
   // ── Wire up monthly cells ──────────────────────────────────────────
   document.querySelectorAll(".budget-cell").forEach(function (inp) {
     inp.addEventListener("input", recalc);
+
+    // Blur: format as $X,XXX.XX
+    inp.addEventListener("blur", function () {
+      var v = parseAmt(inp.value);
+      inp.value = v === 0 ? "" : fmtCell(v);
+    });
+
+    // Focus: strip to raw decimal for editing
+    inp.addEventListener("focus", function () {
+      var v = parseAmt(inp.value);
+      inp.value = v === 0 ? "" : v.toFixed(2);
+    });
+
     // Enter → move down to same column in next row
     inp.addEventListener("keydown", function (e) {
       if (e.key !== "Enter") return;
@@ -378,20 +428,21 @@
     });
   });
 
-  // ── Wire up spread selects ─────────────────────────────────────────
-  document.querySelectorAll(".spread-select").forEach(function (sel) {
-    sel.addEventListener("change", function () {
-      var method = sel.value;
-      if (!method) return;
-      var rowId = sel.getAttribute("data-row");
-      var annualInp = document.querySelector(
-        '.annual-input[data-row="' + rowId + '"]'
-      );
-      spread(rowId, annualInp ? annualInp.value : "", method);
-      sel.value = "";              // reset dropdown
-      if (annualInp) annualInp.value = "";  // clear the annual amount
+  // ── Wire up Apply Spread button ────────────────────────────────────
+  var applyBtn = document.getElementById("apply-spread");
+  if (applyBtn) {
+    applyBtn.addEventListener("click", function () {
+      document.querySelectorAll(".annual-input").forEach(function (inp) {
+        var val = inp.value.trim();
+        if (!val) return;
+        var rowId = inp.getAttribute("data-row");
+        var sel = document.querySelector('.spread-select[data-row="' + rowId + '"]');
+        var method = sel ? sel.value : "annual";
+        spread(rowId, val, method);
+        inp.value = "";
+      });
     });
-  });
+  }
 
   // Reset horizontal scroll to leftmost on load
   var scrollWrap = document.querySelector("#budget-grid")

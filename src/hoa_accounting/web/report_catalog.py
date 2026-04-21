@@ -71,7 +71,7 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
     ),
     ReportDefinition(
         name="expenses-by-date",
-        title="Expenses by Date",
+        title="Expense Detail",
         description="All vendor bills in chronological order for a date range.",
         fields=[
             ReportField(
@@ -145,7 +145,7 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
                 name="year",
                 label="Year",
                 placeholder="2026",
-                required=True,
+                required=False,
             ),
         ],
     ),
@@ -166,6 +166,28 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
         ],
     ),
     ReportDefinition(
+        name="budget-summary",
+        title="Budget Summary",
+        description="Annual budget amounts by category and group across one, two, or three fiscal years with year-over-year percent change.",
+        fields=[
+            ReportField(
+                name="fiscal_year",
+                label="Current Year",
+                placeholder="2026",
+                required=False,
+            ),
+            ReportField(
+                name="years_mode",
+                label="Years to Show",
+                placeholder="",
+                required=False,
+                field_type="select",
+                options_key="years_mode",
+                default_value="prev_current",
+            ),
+        ],
+    ),
+    ReportDefinition(
         name="expenses-vs-budget",
         title="Expenses vs Budget",
         description="Compare actual expenses against an approved budget for a fiscal year.",
@@ -174,42 +196,16 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
                 name="fiscal_year",
                 label="Fiscal Year",
                 placeholder="2026",
-                required=True,
+                required=False,
             ),
             ReportField(
                 name="fund_code",
                 label="Fund",
                 placeholder="",
-                required=True,
+                required=False,
                 field_type="select",
                 options_key="fund_code",
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="general-ledger",
-        title="Account Ledger",
-        description="Account-level transaction detail with a running balance over a date range.",
-        fields=[
-            ReportField(
-                name="account_id",
-                label="Account",
-                placeholder="",
-                required=True,
-                field_type="select",
-                options_key="account_id",
-            ),
-            ReportField(
-                name="from_date",
-                label="From Date",
-                placeholder="2026-01-01",
-                required=True,
-            ),
-            ReportField(
-                name="to_date",
-                label="To Date",
-                placeholder="2026-01-31",
-                required=True,
+                default_value="OPERATING",
             ),
         ],
     ),
