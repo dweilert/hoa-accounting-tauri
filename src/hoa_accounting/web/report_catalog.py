@@ -28,6 +28,39 @@ class ReportDefinition:
 
 REPORT_DEFINITIONS: list[ReportDefinition] = [
     ReportDefinition(
+        name="balance-sheet",
+        title="Balance Sheet",
+        description=(
+            "Cash-basis balance sheet as of a date. Assets are bank account "
+            "balances; equity is opening balance plus year-to-date net income."
+        ),
+        fields=[
+            ReportField(
+                name="as_of_date",
+                label="As Of Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="trial-balance",
+        title="Trial Balance",
+        description=(
+            "Cash-basis trial balance that foots debits to credits. Shows "
+            "bank balances and YTD expenses on the debit side; opening equity "
+            "and YTD income on the credit side."
+        ),
+        fields=[
+            ReportField(
+                name="as_of_date",
+                label="As Of Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
         name="ytd-expense-summary",
         title="Expense Summary",
         description=(

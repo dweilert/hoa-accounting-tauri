@@ -18,7 +18,6 @@ from hoa_accounting.reporting.budget_summary import BudgetSummaryReportService
 from hoa_accounting.reporting.balance_sheet import BalanceSheetReportService
 from hoa_accounting.reporting.expenses_by_date import ExpensesByDateReportService
 from hoa_accounting.reporting.expenses_vs_budget import ExpenseVsBudgetReportService
-from hoa_accounting.reporting.general_ledger import GeneralLedgerReportService
 from hoa_accounting.reporting.homeowner_contact_list import HomeownerContactListReportService
 from hoa_accounting.reporting.income_by_date import IncomeByDateReportService
 from hoa_accounting.reporting.income_statement import IncomeStatementReportService
@@ -77,16 +76,6 @@ class ReportRunner:
         if report_name == "trial-balance":
             as_of_date = self._require_param(params, "as_of_date")
             return TrialBalanceReportService(conn).generate(as_of_date=as_of_date)
-
-        if report_name == "general-ledger":
-            account_id = self._require_int_param(params, "account_id")
-            from_date = self._require_param(params, "from_date")
-            to_date = self._require_param(params, "to_date")
-            return GeneralLedgerReportService(conn).generate(
-                account_id=account_id,
-                from_date=from_date,
-                to_date=to_date,
-            )
 
         if report_name == "owner-ledger":
             lot_id = self._require_int_param(params, "lot_id")

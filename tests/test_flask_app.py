@@ -87,9 +87,9 @@ def test_reports_console_default_report(client: FlaskClient) -> None:
 
 
 def test_reports_console_honors_report_name_query(client: FlaskClient) -> None:
-    resp = client.get("/reports?report_name=general-ledger")
+    resp = client.get("/reports?report_name=balance-sheet")
     assert resp.status_code == 200
-    assert "general-ledger" in resp.get_data(as_text=True)
+    assert "balance-sheet" in resp.get_data(as_text=True)
 
 
 def test_run_report_missing_params_shows_validation_error(client: FlaskClient) -> None:

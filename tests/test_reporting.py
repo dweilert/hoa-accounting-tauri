@@ -9,7 +9,6 @@ from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.reporting.ar_aging import ARAgingReportService
 from hoa_accounting.reporting.balance_sheet import BalanceSheetReportService
-from hoa_accounting.reporting.general_ledger import GeneralLedgerReportService
 from hoa_accounting.reporting.income_statement import IncomeStatementReportService
 from hoa_accounting.reporting.owner_ledger import OwnerLedgerReportService
 from hoa_accounting.reporting.trial_balance import TrialBalanceReportService
@@ -153,45 +152,6 @@ def test_trial_balance_balances_after_assessment_and_payment() -> None:
     report = TrialBalanceReportService(conn).generate(as_of_date="2026-01-31")
     assert report.total_debits == report.total_credits
     assert len(report.rows) >= 2
-
-
-def test_general_ledger_running_balance_for_cash_account() -> None:
-    conn = build_conn()
-    factory = ServiceFactory(conn)
-
-    with transaction(conn):
-        assessment = factory.assessment_service().post_assessment(
-            entry_date="2026-01-10",
-            lot_id=1,
-            owner_id=1,
-            amount="100.00",
-            description="Assessment",
-            receivable_account_id=1100,
-            income_account_id=4000,
-            created_by_user_id=1,
-        )
-        factory.payment_service().post_payment(
-            entry_date="2026-01-11",
-            owner_id=1,
-            amount="100.00",
-            description="Payment",
-            cash_account_id=1000,
-            receivable_account_id=1100,
-            bank_account_id=1,
-            payment_method="CHECK",
-            receipt_number="R1",
-            created_by_user_id=1,
-            apply_to_assessment_ids=[assessment.assessment_id],
-        )
-
-    ledger = GeneralLedgerReportService(conn).generate(
-        account_id=1000,
-        from_date="2026-01-01",
-        to_date="2026-01-31",
-    )
-    assert len(ledger.rows) == 1
-    assert ledger.rows[0].debit_amount == 100
-    assert ledger.rows[0].running_balance == 100
 
 
 def test_owner_ledger_report_shows_running_balance_and_opening_balance() -> None:
@@ -501,7 +461,7 @@ def test_balance_sheet_balances_with_cumulative_earnings() -> None:
     assert report.assets.rows[0].amount == 100
 
     assert len(report.equity.rows) == 1
-    assert report.equity.rows[0].account_name == "Cumulative Earnings"
+    assert report.equity.rows[0].account_name == "Net Income (Cash Basis)"
     assert report.equity.rows[0].amount == 100
     assert report.equity.rows[0].is_system is True
 
@@ -547,9 +507,12 @@ def test_balance_sheet_respects_as_of_date() -> None:
             due_date="2026-02-28",
         )
 
+    # Cash-basis balance sheet: only bank balances are assets. Assessments
+    # that have not been collected are not on the report; a partial payment
+    # counts only the 40 that reached the bank.
     january_report = BalanceSheetReportService(conn).generate(as_of_date="2026-01-31")
-    assert january_report.total_assets == 100
-    assert january_report.total_equity == 100
+    assert january_report.total_assets == 40
+    assert january_report.total_equity == 40
     assert january_report.balancing_difference == 0
 
     january_asset_accounts = {
@@ -557,19 +520,12 @@ def test_balance_sheet_respects_as_of_date() -> None:
         for row in january_report.assets.rows
     }
     assert january_asset_accounts["1000"] == 40
-    assert january_asset_accounts["1100"] == 60
+    assert "1100" not in january_asset_accounts
 
     february_report = BalanceSheetReportService(conn).generate(as_of_date="2026-02-28")
-    assert february_report.total_assets == 220
-    assert february_report.total_equity == 220
+    assert february_report.total_assets == 40
+    assert february_report.total_equity == 40
     assert february_report.balancing_difference == 0
-
-    february_asset_accounts = {
-        row.account_number: row.amount
-        for row in february_report.assets.rows
-    }
-    assert february_asset_accounts["1000"] == 40
-    assert february_asset_accounts["1100"] == 180
 
 
 def test_income_statement_reports_income_for_period() -> None:
