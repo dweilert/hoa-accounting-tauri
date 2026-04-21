@@ -1756,6 +1756,7 @@ class BankStatementPages:
                 "combinations": combos,
             }
 
+
     def handle_apply_find_match(
         self,
         bank_account_id: int,
@@ -1806,6 +1807,7 @@ class BankStatementPages:
         )
         self._conn.commit()
         return {"ok": True}
+
 
     def render_standalone_batch_list(
         self,

@@ -46,6 +46,7 @@ class ParameterFieldVM:
     value: str
     placeholder: str
     field_type: str = "text"  # "text" | "select"
+    required: bool = False
 
 
 @dataclass(frozen=True)
@@ -157,7 +158,7 @@ def build_report_console_context(
         # reading 'REPORTS' above a heading reading 'Reports' just
         # duplicates the word.
         breadcrumb="",
-        selected_report=selected_report,
+        selected_report=report_def.name,
         theme=_resolve_theme(org),
         lookup_options=lookup_options or {},
     )
@@ -203,6 +204,7 @@ def _build_parameter_fields(
                 value=form_values.get(field.name, field.default_value),
                 placeholder=field.placeholder,
                 field_type=field.field_type,
+                required=field.required,
             )
         )
     return fields

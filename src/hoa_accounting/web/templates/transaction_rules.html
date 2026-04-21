@@ -581,6 +581,7 @@
     document.getElementById("active_flag").checked        = !!rule.active_flag;
     document.getElementById("save-btn").textContent       = "Update Rule";
 
+
     var target = rule.action_type;
     var radio  = document.querySelector('input[name="action_type"][value="' + target + '"]');
     if (!radio) {

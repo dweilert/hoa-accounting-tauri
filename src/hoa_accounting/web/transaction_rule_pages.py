@@ -107,15 +107,16 @@ class TransactionRulePages:
         return [dict(r) for r in rows]
 
     def _get_lots(self) -> list[dict]:
-        """Return all active lots with their current owner name."""
+        """Return all active lots with their current owner name(s)."""
         rows = self._conn.execute(
             """
             SELECT l.id, l.lot_number,
-                   COALESCE(o.display_name, '') AS owner_name
+                   COALESCE(GROUP_CONCAT(o.display_name, ', '), '') AS owner_name
             FROM lots l
             LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
             LEFT JOIN owners o ON o.id = lo.owner_id
             WHERE l.active_flag = 1
+            GROUP BY l.id
             ORDER BY l.lot_number
             """
         ).fetchall()

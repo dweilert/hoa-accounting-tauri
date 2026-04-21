@@ -99,7 +99,10 @@ class ResaleFeePages:
                 a.description,
                 a.status,
                 l.lot_number,
-                COALESCE(o.first_name || ' ' || o.last_name, o.display_name, '—') AS owner_name,
+                GROUP_CONCAT(
+                    TRIM(COALESCE(o.first_name || ' ' || o.last_name, o.display_name, '')),
+                    ', '
+                ) AS owner_name,
                 COALESCE(
                     (SELECT SUM(pa.applied_amount)
                      FROM payment_applications pa WHERE pa.assessment_id = a.id), 0
@@ -110,6 +113,7 @@ class ResaleFeePages:
             LEFT JOIN owners o ON o.id = lo.owner_id
             WHERE a.charge_type = ?
               AND a.status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
+            GROUP BY a.id
             ORDER BY a.assessment_date DESC
             """,
             (_CHARGE_TYPE,),

@@ -186,11 +186,38 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
             ),
         ],
     ),
+    ReportDefinition(
+        name="general-ledger",
+        title="Account Ledger",
+        description="Account-level transaction detail with a running balance over a date range.",
+        fields=[
+            ReportField(
+                name="account_id",
+                label="Account",
+                placeholder="",
+                required=True,
+                field_type="select",
+                options_key="account_id",
+            ),
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-01-31",
+                required=True,
+            ),
+        ],
+    ),
 ]
 
 
 def get_report_definition(report_name: str) -> ReportDefinition:
-    """Return the report definition for a report name."""
+    """Return the report definition for a report name, defaulting to the first report."""
     normalized = report_name.strip().lower()
     for item in REPORT_DEFINITIONS:
         if item.name == normalized:

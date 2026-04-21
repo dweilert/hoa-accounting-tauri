@@ -64,6 +64,7 @@ from hoa_accounting.web.audit_log_pages import AuditLogPages
 from hoa_accounting.web.search_pages import SearchPages
 from hoa_accounting.web.setup_pages import SetupPages, needs_setup
 from hoa_accounting.web.transaction_rule_pages import TransactionRulePages
+from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -746,9 +747,10 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     @app.get("/reports")
     def reports_console() -> Response:
-        selected = request.args.get("report_name", "trial-balance").strip()
+        _default_report = REPORT_DEFINITIONS[0].name
+        selected = request.args.get("report_name", _default_report).strip()
         if not selected:
-            selected = "trial-balance"
+            selected = _default_report
         return _ui_response_to_flask(
             report_page_service.render_page(
                 selected_report=selected,
@@ -1525,6 +1527,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         )
         return jsonify(result)
 
+
     @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/transactions/<int:txn_id>/apply-find")
     def bank_import_apply_find(bank_account_id: int, batch_id: int, txn_id: int) -> Response:
         from flask import jsonify
@@ -1550,6 +1553,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             bill_ids=body.get("bill_ids", []),
         )
         return jsonify(result)
+
 
     # ── Transaction rules ─────────────────────────────────────────────
 
