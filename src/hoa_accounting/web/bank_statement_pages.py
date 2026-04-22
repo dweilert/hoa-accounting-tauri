@@ -47,141 +47,111 @@ class BankStatementPages:
     def _render(self, template: str, **ctx) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
-    def _get_recon(self, reconciliation_id: int) -> sqlite3.Row | None:
-        return self._conn.execute(
-            """
-            SELECT br.id, br.status, br.statement_ending_date,
-                   br.bank_account_id,
-                   ba.account_name, ba.institution_name, ba.account_last4,
-                   ba.gl_account_id
-            FROM bank_reconciliations br
-            JOIN bank_accounts ba ON ba.id = br.bank_account_id
-            WHERE br.id = ?
-            """,
-            (reconciliation_id,),
-        ).fetchone()
+    def _get_unmatched_items(self, bank_account_id: int) -> list[dict]:
+        """Return single-entry records for this bank account that have no
+        linked bank transaction yet (i.e. no prior OFX import has claimed
+        them via ``matched_source_type`` / ``matched_source_id``).
 
-    def _get_uncleared_items(self, reconciliation_id: int) -> list[dict]:
-        """Return every single-entry record posted against this bank account
-        that has not yet been cleared by any reconciliation for that account.
+        Each item exposes ``source_type``, ``source_id``, ``item_date``,
+        signed ``amount`` (positive = deposit, negative = withdrawal), and
+        a short ``description`` — the matcher's expected shape. Payments
+        that belong to a deposit batch are excluded; they clear as a unit
+        via ``_get_unmatched_batches``.
 
-        Each item carries ``source_type``, ``source_id``, ``item_date``,
-        signed ``amount`` (positive = deposit, negative = withdrawal) and a
-        short ``description`` — the shape the matcher functions expect.
-        Payments that belong to a deposit batch are excluded; those clear as
-        part of the batch via ``_get_uncleared_batches``.
+        Exclusion scope is "any bank_transactions row has already linked
+        this record" — regardless of reconciliation state. That makes OFX
+        import independent from the monthly reconciliation workflow.
         """
         rows = self._conn.execute(
             """
-            WITH ctx AS (
-                SELECT br.bank_account_id, br.statement_ending_date,
-                       ba.gl_account_id
-                FROM bank_reconciliations br
-                JOIN bank_accounts ba ON ba.id = br.bank_account_id
-                WHERE br.id = ?
+            WITH ba AS (
+                SELECT id AS bank_account_id, gl_account_id
+                FROM bank_accounts WHERE id = ?
             ),
-            cleared AS (
-                SELECT rc.source_type, rc.source_id
-                FROM reconciliation_clears rc
-                JOIN bank_reconciliations br2 ON br2.id = rc.reconciliation_id
-                JOIN ctx ON ctx.bank_account_id = br2.bank_account_id
+            matched AS (
+                SELECT bt.matched_source_type AS source_type,
+                       bt.matched_source_id   AS source_id
+                FROM bank_transactions bt
+                WHERE bt.matched_source_type IS NOT NULL
+                  AND bt.matched_source_id   IS NOT NULL
             )
             SELECT 'PAYMENT' AS source_type, p.id AS source_id,
                    p.payment_date AS item_date,
                    CAST(p.amount AS REAL) AS amount,
                    COALESCE(p.notes, '') AS description
-            FROM payments p, ctx
-            WHERE p.bank_account_id = ctx.bank_account_id
-              AND p.payment_date <= ctx.statement_ending_date
+            FROM payments p, ba
+            WHERE p.bank_account_id = ba.bank_account_id
               AND p.deposit_batch_id IS NULL
               AND NOT EXISTS (
-                  SELECT 1 FROM cleared c
-                  WHERE c.source_type = 'PAYMENT' AND c.source_id = p.id
+                  SELECT 1 FROM matched m
+                  WHERE m.source_type = 'PAYMENT' AND m.source_id = p.id
               )
             UNION ALL
             SELECT 'INCOME_BATCH', ib.id,
                    ib.posting_date,
                    CAST(ib.total_amount AS REAL),
                    COALESCE(ib.income_description, '')
-            FROM income_batches ib, ctx
-            WHERE ib.bank_account_id = ctx.bank_account_id
-              AND ib.posting_date <= ctx.statement_ending_date
+            FROM income_batches ib, ba
+            WHERE ib.bank_account_id = ba.bank_account_id
               AND NOT EXISTS (
-                  SELECT 1 FROM cleared c
-                  WHERE c.source_type = 'INCOME_BATCH' AND c.source_id = ib.id
+                  SELECT 1 FROM matched m
+                  WHERE m.source_type = 'INCOME_BATCH' AND m.source_id = ib.id
               )
             UNION ALL
             SELECT 'BILL_PAYMENT', bp.id,
                    bp.payment_date,
                    -CAST(bp.amount AS REAL),
                    COALESCE(bp.notes, '')
-            FROM bill_payments bp, ctx
-            WHERE bp.bank_account_id = ctx.bank_account_id
-              AND bp.payment_date <= ctx.statement_ending_date
+            FROM bill_payments bp, ba
+            WHERE bp.bank_account_id = ba.bank_account_id
               AND NOT EXISTS (
-                  SELECT 1 FROM cleared c
-                  WHERE c.source_type = 'BILL_PAYMENT' AND c.source_id = bp.id
+                  SELECT 1 FROM matched m
+                  WHERE m.source_type = 'BILL_PAYMENT' AND m.source_id = bp.id
               )
             UNION ALL
             SELECT 'RESERVE_TRANSFER', rt.id,
                    rt.transfer_date,
-                   CASE WHEN rt.to_account_id = ctx.gl_account_id
+                   CASE WHEN rt.to_account_id = ba.gl_account_id
                         THEN  CAST(rt.amount AS REAL)
                         ELSE -CAST(rt.amount AS REAL) END,
                    COALESCE(rt.notes, '')
-            FROM reserve_transfers rt, ctx
-            WHERE (rt.from_account_id = ctx.gl_account_id
-                   OR rt.to_account_id = ctx.gl_account_id)
-              AND rt.transfer_date <= ctx.statement_ending_date
+            FROM reserve_transfers rt, ba
+            WHERE (rt.from_account_id = ba.gl_account_id
+                   OR rt.to_account_id = ba.gl_account_id)
               AND NOT EXISTS (
-                  SELECT 1 FROM cleared c
-                  WHERE c.source_type = 'RESERVE_TRANSFER' AND c.source_id = rt.id
+                  SELECT 1 FROM matched m
+                  WHERE m.source_type = 'RESERVE_TRANSFER' AND m.source_id = rt.id
               )
             ORDER BY item_date ASC
             """,
-            (reconciliation_id,),
+            (bank_account_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_uncleared_batches(self, reconciliation_id: int) -> list[dict]:
-        """Return deposit batches for this bank that are not yet cleared.
-
-        A batch is cleared iff every one of its member payments appears in
-        ``reconciliation_clears`` (batches clear as a unit). The query keeps
-        the batch in the uncleared pool unless *all* members are cleared, so
-        a mid-state batch remains available for matching.
+    def _get_unmatched_batches(self, bank_account_id: int) -> list[dict]:
+        """Return deposit batches for this bank account that no prior OFX
+        import has already matched. A batch is considered matched only when
+        its deposit_batch_id appears in ``bank_transactions.matched_source_id``
+        with ``matched_source_type = 'DEPOSIT_BATCH'``.
         """
         rows = self._conn.execute(
             """
-            WITH ctx AS (
-                SELECT br.bank_account_id, br.statement_ending_date
-                FROM bank_reconciliations br
-                WHERE br.id = ?
-            ),
-            cleared_payments AS (
-                SELECT rc.source_id AS payment_id
-                FROM reconciliation_clears rc
-                JOIN bank_reconciliations br2 ON br2.id = rc.reconciliation_id
-                JOIN ctx ON ctx.bank_account_id = br2.bank_account_id
-                WHERE rc.source_type = 'PAYMENT'
-            )
             SELECT db.id AS batch_id,
                    db.deposit_date AS batch_date,
                    CAST(db.total_amount AS REAL) AS total_amount,
                    COALESCE(db.notes, '') AS notes,
                    (SELECT COUNT(*) FROM payments p
                     WHERE p.deposit_batch_id = db.id) AS member_count
-            FROM deposit_batches db, ctx
-            WHERE db.bank_account_id = ctx.bank_account_id
-              AND db.deposit_date <= ctx.statement_ending_date
-              AND EXISTS (
-                  SELECT 1 FROM payments p
-                  WHERE p.deposit_batch_id = db.id
-                    AND p.id NOT IN (SELECT payment_id FROM cleared_payments)
+            FROM deposit_batches db
+            WHERE db.bank_account_id = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM bank_transactions bt
+                  WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+                    AND bt.matched_source_id   = db.id
               )
             ORDER BY db.deposit_date ASC
             """,
-            (reconciliation_id,),
+            (bank_account_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -191,18 +161,6 @@ class BankStatementPages:
             (batch_id,),
         ).fetchall()
         return [int(r["id"]) for r in rows]
-
-    def _get_pending_batch(self, reconciliation_id: int) -> sqlite3.Row | None:
-        return self._conn.execute(
-            """
-            SELECT id, source_filename, file_format, transaction_count, matched_count,
-                   csv_col_map, imported_at
-            FROM bank_import_batches
-            WHERE reconciliation_id = ? AND status = 'PENDING'
-            ORDER BY id DESC LIMIT 1
-            """,
-            (reconciliation_id,),
-        ).fetchone()
 
     def _load_rules(self) -> list[dict]:
         rows = self._conn.execute(
@@ -514,504 +472,6 @@ class BankStatementPages:
         self._conn.commit()
         return batch_id
 
-    # ── Upload form ───────────────────────────────────────────────────────────
-
-    def render_upload_form(
-        self,
-        reconciliation_id: int,
-        org: dict,
-        theme: str,
-        error: str | None = None,
-    ) -> PageResponse:
-        recon = self._get_recon(reconciliation_id)
-        if not recon:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Reconciliation not found.",
-                "page_key": "reconciliations",
-            }))
-        if recon["status"] != "OPEN":
-            return PageResponse(400, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Reconciliation Finalized",
-                "message": "Cannot import into a finalized reconciliation.",
-                "page_key": "reconciliations",
-            }))
-        pending = self._get_pending_batch(reconciliation_id)
-        return self._render(
-            "bank_statement_upload.html",
-            org=org, theme=theme,
-            page_key="reconciliations",
-            recon=recon,
-            bank_account=None,
-            pending=pending,
-            error=error,
-            upload_action=None,
-            cancel_url=None,
-        )
-
-    # ── Handle file upload → store PENDING → redirect ─────────────────────────
-
-    def handle_upload(
-        self,
-        reconciliation_id: int,
-        file_bytes: bytes,
-        filename: str,
-        org: dict,
-        theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
-        recon = self._get_recon(reconciliation_id)
-        if not recon or recon["status"] != "OPEN":
-            resp = self.render_upload_form(reconciliation_id, org, theme,
-                                           error="Reconciliation not found or not open.")
-            return None, resp
-
-        # Drop any existing PENDING batch before creating the new one
-        self._conn.execute(
-            "DELETE FROM bank_import_batches WHERE reconciliation_id = ? AND status = 'PENDING'",
-            (reconciliation_id,),
-        )
-        self._conn.commit()
-
-        try:
-            file_format = detect_format(file_bytes)
-        except ParseError as e:
-            return None, self.render_upload_form(reconciliation_id, org, theme, error=str(e))
-
-        if file_format == "OFX":
-            try:
-                transactions = parse_ofx(file_bytes)
-            except Exception as exc:
-                return None, self.render_upload_form(
-                    reconciliation_id, org, theme,
-                    error=f"Could not read OFX file: {exc}",
-                )
-            csv_col_map: dict = {}
-            map_is_usable = True
-        else:
-            try:
-                transactions, _headers, csv_col_map = parse_csv(file_bytes)
-            except Exception as exc:
-                return None, self.render_upload_form(
-                    reconciliation_id, org, theme,
-                    error=f"Could not read CSV file: {exc}",
-                )
-            map_is_usable = csv_map_is_usable(csv_col_map)
-            if not map_is_usable:
-                transactions = []
-
-        items = self._get_uncleared_items(reconciliation_id)
-        batches = self._get_uncleared_batches(reconciliation_id)
-        rules = self._load_rules()
-
-        batch_id = self._store_pending_batch(
-            reconciliation_id=reconciliation_id,
-            bank_account_id=int(recon["bank_account_id"]),
-            filename=filename,
-            file_format=file_format,
-            file_bytes=file_bytes,
-            csv_col_map=csv_col_map,
-            transactions=transactions,
-            items=items, batches=batches,
-            rules=rules,
-        )
-
-        return f"/reconciliations/{reconciliation_id}/import-statement/{batch_id}", None
-
-    # ── Batch preview (reads from DB) ─────────────────────────────────────────
-
-    def render_batch_preview(
-        self,
-        reconciliation_id: int,
-        batch_id: int,
-        org: dict,
-        theme: str,
-        error: str | None = None,
-    ) -> PageResponse:
-        recon = self._get_recon(reconciliation_id)
-        if not recon:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Reconciliation not found.",
-                "page_key": "reconciliations",
-            }))
-
-        batch = self._conn.execute(
-            """
-            SELECT id, source_filename, file_format, transaction_count, matched_count,
-                   csv_col_map, status, imported_at
-            FROM bank_import_batches
-            WHERE id = ? AND reconciliation_id = ?
-            """,
-            (batch_id, reconciliation_id),
-        ).fetchone()
-        if not batch:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Import batch not found.",
-                "page_key": "reconciliations",
-            }))
-
-        txn_rows = self._conn.execute(
-            """
-            SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
-                   bt.transaction_type, bt.matched_line_id, bt.match_type,
-                   bt.batch_match_ids, bt.rule_id,
-                   r.rule_name, r.action_type, r.default_memo,
-                   COALESCE(rc.name, ra.account_name) AS rule_category_name,
-                   je.entry_date     AS gl_entry_date,
-                   je.memo           AS gl_memo,
-                   jel.description   AS gl_line_desc,
-                   CAST(jel.debit_amount  AS REAL) AS gl_debit,
-                   CAST(jel.credit_amount AS REAL) AS gl_credit
-            FROM bank_transactions bt
-            LEFT JOIN bank_transaction_rules r  ON r.id  = bt.rule_id
-            LEFT JOIN categories rc             ON rc.id = r.category_id
-            LEFT JOIN accounts ra               ON ra.id = r.gl_account_id
-            LEFT JOIN journal_entry_lines jel   ON jel.id = bt.matched_line_id
-            LEFT JOIN journal_entries je        ON je.id  = jel.journal_entry_id
-            WHERE bt.import_batch_id = ?
-            ORDER BY bt.transaction_date ASC, bt.id ASC
-            """,
-            (batch_id,),
-        ).fetchall()
-
-        # Pre-load batch-match GL line labels
-        all_batch_ids: set[int] = set()
-        for row in txn_rows:
-            if row["match_type"] == "BATCH":
-                all_batch_ids.update(json.loads(row["batch_match_ids"] or "[]"))
-
-        batch_line_labels: dict[int, str] = {}
-        if all_batch_ids:
-            ph = ",".join("?" * len(all_batch_ids))
-            bl_rows = self._conn.execute(
-                f"""
-                SELECT jel.id,
-                       je.entry_date, je.memo, jel.description,
-                       CAST(jel.debit_amount AS REAL) AS debit_amount
-                FROM journal_entry_lines jel
-                JOIN journal_entries je ON je.id = jel.journal_entry_id
-                WHERE jel.id IN ({ph})
-                """,
-                list(all_batch_ids),
-            ).fetchall()
-            for bl in bl_rows:
-                label = bl["memo"] or bl["description"] or ""
-                batch_line_labels[bl["id"]] = (
-                    f"{bl['entry_date']}  {label}  ${bl['debit_amount']:.2f}"
-                )
-
-        annotated = []
-        for row in txn_rows:
-            d = dict(row)
-            if d["match_type"] == "BATCH":
-                ids = json.loads(d["batch_match_ids"] or "[]")
-                d["batch_line_labels"] = [batch_line_labels.get(i, f"line {i}") for i in ids]
-            if d["match_type"] == "RULE":
-                d["has_period"] = self._period_for_date(d["transaction_date"]) is not None
-            d["rule_action_type"] = d.get("action_type") or ""
-            annotated.append(d)
-
-        col_map = json.loads(batch["csv_col_map"] or "{}")
-
-        # For CSV: recover headers from stored bytes so remap works
-        headers: list[str] = []
-        if batch["file_format"] == "CSV":
-            fb = self._conn.execute(
-                "SELECT file_content FROM bank_import_batches WHERE id = ?", (batch_id,)
-            ).fetchone()
-            if fb and fb["file_content"]:
-                try:
-                    _, headers, _ = parse_csv(fb["file_content"])
-                except Exception:
-                    pass
-
-        counts = {
-            "rule":      sum(1 for a in annotated if a["match_type"] == "RULE"),
-            "gl":        sum(1 for a in annotated if a["match_type"] == "GL"),
-            "batch":     sum(1 for a in annotated if a["match_type"] == "BATCH"),
-            "unmatched": sum(1 for a in annotated if a["match_type"] == "UNMATCHED"),
-        }
-
-        return self._render(
-            "bank_statement_preview.html",
-            org=org, theme=theme,
-            page_key="reconciliations",
-            recon=recon,
-            batch=batch,
-            annotated=annotated,
-            counts=counts,
-            col_map=col_map,
-            headers=headers,
-            map_is_usable=(
-                csv_map_is_usable(col_map) if col_map else batch["file_format"] == "OFX"
-            ),
-            error=error,
-        )
-
-    # ── Re-map CSV columns (re-parse stored bytes) ────────────────────────────
-
-    def handle_remap(
-        self,
-        reconciliation_id: int,
-        batch_id: int,
-        form_data: dict,
-        org: dict,
-        theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
-        recon = self._get_recon(reconciliation_id)
-        if not recon or recon["status"] != "OPEN":
-            return f"/reconciliations/{reconciliation_id}/import-statement", None
-
-        fb = self._conn.execute(
-            """
-            SELECT file_content FROM bank_import_batches
-            WHERE id = ? AND reconciliation_id = ? AND status = 'PENDING'
-            """,
-            (batch_id, reconciliation_id),
-        ).fetchone()
-        if not fb or not fb["file_content"]:
-            resp = self.render_batch_preview(
-                reconciliation_id, batch_id, org, theme,
-                error="File data not found — please re-upload.",
-            )
-            return None, resp
-
-        col_map: dict[str, str] = {}
-        for key in ("date", "amount", "debit", "credit", "description"):
-            val = form_data.get(f"col_{key}", "").strip()
-            if val:
-                col_map[key] = val
-        if "amount" in col_map:
-            col_map.pop("debit", None)
-            col_map.pop("credit", None)
-
-        try:
-            transactions, _headers, resolved = parse_csv(fb["file_content"], col_map)
-        except Exception as exc:
-            resp = self.render_batch_preview(
-                reconciliation_id, batch_id, org, theme,
-                error=f"Could not re-parse CSV: {exc}",
-            )
-            return None, resp
-
-        items = self._get_uncleared_items(reconciliation_id)
-        batches = self._get_uncleared_batches(reconciliation_id)
-        rules = self._load_rules()
-        bank_account_id = int(recon["bank_account_id"])
-        rule_m, source_m, batch_m = self._compute_matches(
-            transactions, items, batches, rules, bank_account_id=bank_account_id
-        )
-        match_count = len(rule_m) + len(source_m) + len(batch_m)
-
-        self._conn.execute(
-            "DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,)
-        )
-
-        for i, txn in enumerate(transactions):
-            self._insert_bank_txn(
-                bank_account_id=bank_account_id,
-                batch_id=batch_id,
-                txn=txn,
-                idx=i,
-                rule_m=rule_m,
-                source_m=source_m,
-                batch_m=batch_m,
-            )
-
-        self._conn.execute(
-            """
-            UPDATE bank_import_batches
-            SET transaction_count = ?, matched_count = ?, csv_col_map = ?
-            WHERE id = ?
-            """,
-            (len(transactions), match_count, json.dumps(resolved), batch_id),
-        )
-        self._conn.commit()
-
-        return f"/reconciliations/{reconciliation_id}/import-statement/{batch_id}", None
-
-    def handle_reapply_rules(
-        self,
-        reconciliation_id: int,
-        batch_id: int,
-        org: dict,
-        theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
-        """Re-run rule/GL matching against stored file content without re-uploading."""
-        recon = self._get_recon(reconciliation_id)
-        if not recon or recon["status"] != "OPEN":
-            return f"/reconciliations/{reconciliation_id}/import-statement", None
-
-        fb = self._conn.execute(
-            "SELECT file_content, file_format, csv_col_map FROM bank_import_batches WHERE id = ? AND reconciliation_id = ?",
-            (batch_id, reconciliation_id),
-        ).fetchone()
-        if not fb or not fb["file_content"]:
-            resp = self.render_batch_preview(reconciliation_id, batch_id, org, theme,
-                                             error="File data not found — please re-upload.")
-            return None, resp
-
-        file_format = fb["file_format"] or detect_format(fb["file_content"])
-        if file_format == "OFX":
-            last4 = recon["account_last4"] or ""
-            sections = parse_ofx_by_account(fb["file_content"])
-            transactions = []
-            for acctid, txns in sections:
-                if not last4 or acctid.endswith(last4):
-                    transactions = txns
-                    break
-            if not transactions and sections:
-                transactions = sections[0][1]
-            resolved_col_map: dict = {}
-        else:
-            col_map = json.loads(fb["csv_col_map"] or "{}")
-            transactions, _headers, resolved_col_map = parse_csv(fb["file_content"], col_map or None)
-
-        bank_account_id = int(recon["bank_account_id"])
-        items = self._get_uncleared_items(reconciliation_id)
-        batches = self._get_uncleared_batches(reconciliation_id)
-        rules = self._load_rules()
-        rule_m, source_m, batch_m = self._compute_matches(
-            transactions, items, batches, rules, bank_account_id=bank_account_id
-        )
-        match_count = len(rule_m) + len(source_m) + len(batch_m)
-
-        self._conn.execute("DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,))
-
-        for i, txn in enumerate(transactions):
-            self._insert_bank_txn(
-                bank_account_id=bank_account_id,
-                batch_id=batch_id,
-                txn=txn,
-                idx=i,
-                rule_m=rule_m,
-                source_m=source_m,
-                batch_m=batch_m,
-            )
-
-        self._conn.execute(
-            "UPDATE bank_import_batches SET transaction_count = ?, matched_count = ? WHERE id = ?",
-            (len(transactions), match_count, batch_id),
-        )
-        self._conn.commit()
-        return f"/reconciliations/{reconciliation_id}/import-statement/{batch_id}", None
-
-    # ── Apply: create JEs, clear reconciliation lines, mark APPLIED ───────────
-
-    def handle_apply(
-        self,
-        reconciliation_id: int,
-        batch_id: int,
-        org: dict,
-        theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
-        recon = self._get_recon(reconciliation_id)
-        if not recon or recon["status"] != "OPEN":
-            return f"/reconciliations/{reconciliation_id}", None
-
-        batch = self._conn.execute(
-            "SELECT id FROM bank_import_batches WHERE id = ? AND reconciliation_id = ? AND status = 'PENDING'",
-            (batch_id, reconciliation_id),
-        ).fetchone()
-        if not batch:
-            return f"/reconciliations/{reconciliation_id}", None
-
-        txn_rows = self._conn.execute(
-            """
-            SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
-                   bt.match_type, bt.rule_id,
-                   bt.matched_source_type, bt.matched_source_id,
-                   r.action_type, r.category_id, r.lot_id, r.vendor_id, r.default_memo
-            FROM bank_transactions bt
-            LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
-            WHERE bt.import_batch_id = ?
-            """,
-            (batch_id,),
-        ).fetchall()
-
-        bank_account_id = int(recon["bank_account_id"])
-        matched_count = 0
-
-        for txn in txn_rows:
-            mt = txn["match_type"]
-
-            if mt == "RULE" and txn["rule_id"]:
-                # Rule fires → post a fresh single-entry record and clear it.
-                result = self._apply_rule(
-                    dict(txn),
-                    dict(txn),
-                    bank_account_id=bank_account_id,
-                )
-                if result is None:
-                    continue
-                source_type, source_id = result
-                self._conn.execute(
-                    """UPDATE bank_transactions
-                       SET matched_source_type = ?, matched_source_id = ?
-                       WHERE id = ?""",
-                    (source_type, source_id, txn["id"]),
-                )
-                self._conn.execute(
-                    """INSERT OR IGNORE INTO reconciliation_clears
-                           (reconciliation_id, source_type, source_id)
-                       VALUES (?, ?, ?)""",
-                    (reconciliation_id, source_type, source_id),
-                )
-                matched_count += 1
-
-            elif mt == "SOURCE" and txn["matched_source_type"] and txn["matched_source_id"]:
-                # Auto-matched 1:1 to an existing single-entry record.
-                self._conn.execute(
-                    """INSERT OR IGNORE INTO reconciliation_clears
-                           (reconciliation_id, source_type, source_id)
-                       VALUES (?, ?, ?)""",
-                    (reconciliation_id,
-                     txn["matched_source_type"], txn["matched_source_id"]),
-                )
-                matched_count += 1
-
-            elif mt == "BATCH" and txn["matched_source_id"]:
-                # Deposit batch matched — clear every member payment as a unit.
-                member_ids = self._batch_member_payment_ids(int(txn["matched_source_id"]))
-                for pid in member_ids:
-                    self._conn.execute(
-                        """INSERT OR IGNORE INTO reconciliation_clears
-                               (reconciliation_id, source_type, source_id)
-                           VALUES (?, 'PAYMENT', ?)""",
-                        (reconciliation_id, pid),
-                    )
-                if member_ids:
-                    matched_count += 1
-
-        self._conn.execute(
-            "UPDATE bank_import_batches SET status = 'APPLIED' WHERE id = ?",
-            (batch_id,),
-        )
-        self._conn.commit()
-
-        total = len(txn_rows)
-        msg = f"{matched_count}+of+{total}+bank+transactions+posted+and+cleared."
-        return f"/reconciliations/{reconciliation_id}?msg={msg}", None
-
-    # ── Delete pending batch ──────────────────────────────────────────────────
-
-    def handle_delete(
-        self,
-        reconciliation_id: int,
-        batch_id: int,
-    ) -> str:
-        self._conn.execute(
-            "DELETE FROM bank_import_batches WHERE id = ? AND reconciliation_id = ? AND status = 'PENDING'",
-            (batch_id, reconciliation_id),
-        )
-        self._conn.commit()
-        return f"/reconciliations/{reconciliation_id}/import-statement"
-
     # ── Standalone import (no reconciliation) ────────────────────────────────
 
     def _get_bank_account(self, bank_account_id: int) -> sqlite3.Row | None:
@@ -1097,14 +557,18 @@ class BankStatementPages:
                     skipped.append(acctid or "(no ACCTID)")
                     continue
 
+                matched_bank_id = int(row["id"])
                 batch_id = self._store_pending_batch(
                     reconciliation_id=None,
-                    bank_account_id=int(row["id"]),
+                    bank_account_id=matched_bank_id,
                     filename=filename, file_format=file_format,
                     file_bytes=file_bytes, csv_col_map={},
-                    transactions=transactions, items=[], batches=[], rules=rules,
+                    transactions=transactions,
+                    items=self._get_unmatched_items(matched_bank_id),
+                    batches=self._get_unmatched_batches(matched_bank_id),
+                    rules=rules,
                 )
-                created.append((batch_id, int(row["id"]), row["account_name"]))
+                created.append((batch_id, matched_bank_id, row["account_name"]))
 
             if not created:
                 return _err(
@@ -1141,7 +605,10 @@ class BankStatementPages:
                 bank_account_id=csv_bank_account_id,
                 filename=filename, file_format=file_format,
                 file_bytes=file_bytes, csv_col_map=csv_col_map,
-                transactions=transactions, items=[], batches=[], rules=rules,
+                transactions=transactions,
+                items=self._get_unmatched_items(csv_bank_account_id),
+                batches=self._get_unmatched_batches(csv_bank_account_id),
+                rules=rules,
             )
             msg = f"Imported {len(transactions)} transactions into {ba['account_name']}."
             return f"/bank-import/upload?ok=1&msg={msg}", None
@@ -1196,8 +663,6 @@ class BankStatementPages:
             return None, self.render_standalone_upload_form(bank_account_id, org, theme, error=str(e))
 
         rules = self._load_rules()
-        items: list[dict] = []
-        batches: list[dict] = []
 
         if file_format == "OFX":
             # ── Multi-account OFX path ──────────────────────────────────────
@@ -1243,7 +708,8 @@ class BankStatementPages:
                     file_bytes=file_bytes,
                     csv_col_map={},
                     transactions=transactions,
-                    items=items, batches=batches,
+                    items=self._get_unmatched_items(matched_id),
+                    batches=self._get_unmatched_batches(matched_id),
                     rules=rules,
                 )
                 created_batches.append((batch_id, matched_id, matched_name))
@@ -1440,8 +906,8 @@ class BankStatementPages:
             return None, resp
 
         rules = self._load_rules()
-        items: list[dict] = []
-        batches: list[dict] = []
+        items = self._get_unmatched_items(bank_account_id)
+        batches = self._get_unmatched_batches(bank_account_id)
         rule_m, source_m, batch_m = self._compute_matches(
             transactions, items, batches, rules, bank_account_id=bank_account_id
         )
@@ -1513,8 +979,8 @@ class BankStatementPages:
             transactions, _headers, resolved_col_map = parse_csv(fb["file_content"], col_map or None)
 
         rules = self._load_rules()
-        items: list[dict] = []
-        batches: list[dict] = []
+        items = self._get_unmatched_items(bank_account_id)
+        batches = self._get_unmatched_batches(bank_account_id)
         rule_m, source_m, batch_m = self._compute_matches(
             transactions, items, batches, rules, bank_account_id=bank_account_id
         )
@@ -1547,7 +1013,12 @@ class BankStatementPages:
         org: dict,
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
-        """Create JEs for rule-matched transactions; skip reconciliation line clearing."""
+        """Post single-entry records for rule-matched transactions and link
+        them to the bank_transactions row. SOURCE and BATCH matches were
+        linked at import time and need no further action here. No writes
+        to reconciliation_clears — that happens only when a reconciliation
+        is finalized.
+        """
         ba = self._get_bank_account(bank_account_id)
         if not ba:
             return f"/bank-accounts/{bank_account_id}/import-statement", None
