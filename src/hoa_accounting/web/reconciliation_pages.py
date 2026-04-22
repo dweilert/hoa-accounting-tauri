@@ -177,21 +177,11 @@ class ReconciliationPages:
         if not recon:
             return self._render_404("Reconciliation not found.", org, theme)
 
-        rows = self._repo.get_working_lines(reconciliation_id)
+        rows = self._repo.get_working_rows(reconciliation_id)
         summary = self._repo.get_balance_summary(reconciliation_id)
 
         is_open = recon["status"] == "OPEN"
-
-        # Check for a pending bank statement import
-        pending_import = self._conn.execute(
-            """
-            SELECT id, source_filename, transaction_count, matched_count
-            FROM bank_import_batches
-            WHERE reconciliation_id = ? AND status = 'PENDING'
-            ORDER BY id DESC LIMIT 1
-            """,
-            (reconciliation_id,),
-        ).fetchone()
+        pending_import = None  # imports are no longer scoped to reconciliations
 
         # Beginning balance mismatch warning
         beginning_balance_warning: str | None = None
@@ -238,16 +228,21 @@ class ReconciliationPages:
         if recon["status"] != "OPEN":
             return 400, json.dumps({"error": "Reconciliation is not open"})
 
-        line_id_raw = form_data.get("line_id", "")
-        if not str(line_id_raw).isdigit():
-            return 400, json.dumps({"error": "Invalid line_id"})
-        line_id = int(line_id_raw)
+        source_type = str(form_data.get("source_type") or "").strip().upper()
+        source_id_raw = form_data.get("source_id", "")
+        if source_type not in {
+            "PAYMENT", "INCOME_BATCH", "BILL_PAYMENT", "RESERVE_TRANSFER"
+        }:
+            return 400, json.dumps({"error": "Invalid source_type"})
+        if not str(source_id_raw).isdigit():
+            return 400, json.dumps({"error": "Invalid source_id"})
+        source_id = int(source_id_raw)
 
         cleared = form_data.get("cleared") in ("1", "true", True)
         if cleared:
-            self._repo.clear_line(reconciliation_id, line_id)
+            self._repo.clear_item(reconciliation_id, source_type, source_id)
         else:
-            self._repo.unclear_line(reconciliation_id, line_id)
+            self._repo.unclear_item(reconciliation_id, source_type, source_id)
 
         summary = self._repo.get_balance_summary(reconciliation_id)
         return 200, json.dumps(summary)

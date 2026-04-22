@@ -1,4 +1,15 @@
-"""Repository for bank reconciliation data access."""
+"""Repository for bank reconciliation data access (single-entry model).
+
+The reconciliation view rows are polymorphic single-entry records
+(payments, income_batches, bill_payments, reserve_transfers) keyed by
+``(source_type, source_id)``. Each row carries whether a bank_transaction
+has linked it (``has_bank_match``) and whether it is cleared in this or
+a prior reconciliation.
+
+Cleared state is tracked in ``reconciliation_clears`` with the same
+polymorphic key. OFX imports no longer auto-insert clears — that is
+reserved for the monthly reconciliation workflow.
+"""
 
 from __future__ import annotations
 
@@ -72,15 +83,15 @@ class ReconciliationRepository(BaseRepository):
     ) -> tuple[Decimal, str]:
         """Return (expected_beginning_balance, source_label).
 
-        Checks the most recent FINALIZED reconciliation's book_balance first,
-        then falls back to the opening_balances table.
+        Uses the most recent FINALIZED reconciliation's stored book_balance
+        when available, then falls back to the bank account's opening
+        balance (stored on bank_accounts or opening_balances).
         """
         prior = self.conn.execute(
             """
             SELECT book_balance
             FROM bank_reconciliations
-            WHERE bank_account_id = ?
-              AND status = 'FINALIZED'
+            WHERE bank_account_id = ? AND status = 'FINALIZED'
             ORDER BY statement_ending_date DESC, id DESC
             LIMIT 1
             """,
@@ -88,6 +99,18 @@ class ReconciliationRepository(BaseRepository):
         ).fetchone()
         if prior and prior["book_balance"] is not None:
             return Decimal(str(prior["book_balance"])), "prior reconciliation"
+
+        row = self.conn.execute(
+            "SELECT opening_balance, opening_balance_date FROM bank_accounts WHERE id = ?",
+            (bank_account_id,),
+        ).fetchone()
+        if row and row["opening_balance"] is not None:
+            label = (
+                f"account opening balance ({row['opening_balance_date']})"
+                if row["opening_balance_date"]
+                else "account opening balance"
+            )
+            return Decimal(str(row["opening_balance"])), label
 
         ob = self.conn.execute(
             "SELECT amount, as_of_date FROM opening_balances "
@@ -105,7 +128,7 @@ class ReconciliationRepository(BaseRepository):
         return Decimal("0"), "account opening balance"
 
     def list_active_bank_accounts(self) -> list[sqlite3.Row]:
-        """Return active bank accounts with opening-balance info for the new-recon form."""
+        """Return active bank accounts for the new-recon form."""
         return list(
             self.conn.execute(
                 """
@@ -114,65 +137,143 @@ class ReconciliationRepository(BaseRepository):
                     ba.account_name,
                     ba.institution_name,
                     ba.account_last4,
-                    COALESCE(ob.amount, 0)   AS opening_balance,
-                    ob.as_of_date            AS opening_balance_date,
+                    COALESCE(ba.opening_balance, 0) AS opening_balance,
+                    ba.opening_balance_date,
                     a.account_number         AS gl_account_number,
                     a.account_name           AS gl_account_name
                 FROM bank_accounts ba
                 JOIN accounts a ON a.id = ba.gl_account_id
-                LEFT JOIN opening_balances ob
-                    ON ob.entity_type = 'BANK_ACCOUNT' AND ob.entity_id = ba.id
                 WHERE ba.active_flag = 1
                 ORDER BY ba.account_name COLLATE NOCASE
                 """
             ).fetchall()
         )
 
-    def get_working_lines(self, reconciliation_id: int) -> list[sqlite3.Row]:
-        """Return all posted JE lines for the bank account, up to the statement date.
+    def get_working_rows(self, reconciliation_id: int) -> list[sqlite3.Row]:
+        """Return every single-entry record posted against this bank account
+        up through the statement date, annotated with bank-match and
+        cleared state.
 
-        Each row includes:
-          cleared_this  — 1 if cleared in *this* reconciliation
-          cleared_prior — 1 if cleared in a prior FINALIZED reconciliation
+        Columns:
+          source_type    PAYMENT | INCOME_BATCH | BILL_PAYMENT | RESERVE_TRANSFER
+          source_id      int
+          item_date      YYYY-MM-DD
+          amount         signed (+deposit, -withdrawal)
+          description    short text
+          has_bank_match 1 if a bank_transaction links to this row, else 0
+          bank_txn_date  date of the matched bank_transaction (or NULL)
+          cleared_this   1 if in this recon's clears, else 0
+          cleared_prior  1 if in any other finalized recon's clears
         """
         return list(
             self.conn.execute(
                 """
+                WITH ctx AS (
+                    SELECT br.id                   AS recon_id,
+                           br.bank_account_id,
+                           br.statement_ending_date,
+                           ba.gl_account_id
+                    FROM bank_reconciliations br
+                    JOIN bank_accounts ba ON ba.id = br.bank_account_id
+                    WHERE br.id = ?
+                ),
+                matched AS (
+                    SELECT bt.matched_source_type AS source_type,
+                           bt.matched_source_id   AS source_id,
+                           MAX(bt.transaction_date) AS last_txn_date
+                    FROM bank_transactions bt
+                    JOIN ctx ON ctx.bank_account_id = bt.bank_account_id
+                    WHERE bt.matched_source_type IS NOT NULL
+                      AND bt.matched_source_id   IS NOT NULL
+                      AND bt.matched_source_type <> 'DEPOSIT_BATCH'
+                    GROUP BY bt.matched_source_type, bt.matched_source_id
+                ),
+                matched_batches AS (
+                    -- Deposit batches matched as a unit → surface each member
+                    -- payment as "has_bank_match"
+                    SELECT 'PAYMENT'  AS source_type,
+                           p.id       AS source_id,
+                           MAX(bt.transaction_date) AS last_txn_date
+                    FROM bank_transactions bt
+                    JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
+                    JOIN ctx ON ctx.bank_account_id = bt.bank_account_id
+                    WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+                    GROUP BY p.id
+                ),
+                cleared_this AS (
+                    SELECT source_type, source_id
+                    FROM reconciliation_clears
+                    WHERE reconciliation_id = (SELECT recon_id FROM ctx)
+                ),
+                cleared_prior AS (
+                    SELECT rc.source_type, rc.source_id
+                    FROM reconciliation_clears rc
+                    JOIN bank_reconciliations br2
+                        ON br2.id = rc.reconciliation_id
+                    JOIN ctx ON ctx.bank_account_id = br2.bank_account_id
+                    WHERE br2.id != (SELECT recon_id FROM ctx)
+                      AND br2.status = 'FINALIZED'
+                ),
+                all_items AS (
+                    SELECT 'PAYMENT' AS source_type, p.id AS source_id,
+                           p.payment_date AS item_date,
+                           CAST(p.amount AS REAL) AS amount,
+                           COALESCE(p.notes, '') AS description
+                    FROM payments p, ctx
+                    WHERE p.bank_account_id = ctx.bank_account_id
+                      AND p.payment_date <= ctx.statement_ending_date
+                    UNION ALL
+                    SELECT 'INCOME_BATCH', ib.id,
+                           ib.posting_date,
+                           CAST(ib.total_amount AS REAL),
+                           COALESCE(ib.income_description, '')
+                    FROM income_batches ib, ctx
+                    WHERE ib.bank_account_id = ctx.bank_account_id
+                      AND ib.posting_date <= ctx.statement_ending_date
+                    UNION ALL
+                    SELECT 'BILL_PAYMENT', bp.id,
+                           bp.payment_date,
+                           -CAST(bp.amount AS REAL),
+                           COALESCE(bp.notes, '')
+                    FROM bill_payments bp, ctx
+                    WHERE bp.bank_account_id = ctx.bank_account_id
+                      AND bp.payment_date <= ctx.statement_ending_date
+                    UNION ALL
+                    SELECT 'RESERVE_TRANSFER', rt.id,
+                           rt.transfer_date,
+                           CASE WHEN rt.to_account_id = ctx.gl_account_id
+                                THEN  CAST(rt.amount AS REAL)
+                                ELSE -CAST(rt.amount AS REAL) END,
+                           COALESCE(rt.notes, '')
+                    FROM reserve_transfers rt, ctx
+                    WHERE (rt.from_account_id = ctx.gl_account_id
+                           OR rt.to_account_id = ctx.gl_account_id)
+                      AND rt.transfer_date <= ctx.statement_ending_date
+                )
                 SELECT
-                    jel.id                          AS line_id,
-                    je.id                           AS journal_entry_id,
-                    je.entry_date,
-                    je.memo,
-                    je.source_type,
-                    jel.description                 AS line_description,
-                    CAST(jel.debit_amount  AS REAL)  AS debit_amount,
-                    CAST(jel.credit_amount AS REAL)  AS credit_amount,
-                    CASE WHEN rc_this.journal_entry_line_id IS NOT NULL
-                         THEN 1 ELSE 0 END           AS cleared_this,
-                    CASE WHEN rc_prior.journal_entry_line_id IS NOT NULL
-                         THEN 1 ELSE 0 END           AS cleared_prior
-                FROM journal_entry_lines jel
-                JOIN journal_entries je ON je.id = jel.journal_entry_id
-                -- Scope to the bank account's GL account
-                JOIN bank_reconciliations br ON br.id = ?
-                JOIN bank_accounts ba ON ba.id = br.bank_account_id
-                    AND ba.gl_account_id = jel.account_id
-                -- Cleared in this reconciliation?
-                LEFT JOIN reconciliation_clears rc_this
-                    ON rc_this.journal_entry_line_id = jel.id
-                    AND rc_this.reconciliation_id = br.id
-                -- Cleared in any prior FINALIZED reconciliation for this account?
-                LEFT JOIN reconciliation_clears rc_prior
-                    ON rc_prior.journal_entry_line_id = jel.id
-                    AND rc_prior.reconciliation_id IN (
-                        SELECT id FROM bank_reconciliations
-                        WHERE bank_account_id = ba.id
-                          AND status = 'FINALIZED'
-                          AND id != br.id
-                    )
-                WHERE je.status = 'POSTED'
-                  AND je.entry_date <= br.statement_ending_date
-                ORDER BY je.entry_date ASC, jel.id ASC
+                    ai.source_type,
+                    ai.source_id,
+                    ai.item_date,
+                    ai.amount,
+                    ai.description,
+                    CASE WHEN m.source_id IS NOT NULL
+                         OR mb.source_id IS NOT NULL
+                         THEN 1 ELSE 0 END AS has_bank_match,
+                    COALESCE(m.last_txn_date, mb.last_txn_date) AS bank_txn_date,
+                    CASE WHEN ct.source_id IS NOT NULL THEN 1 ELSE 0 END
+                        AS cleared_this,
+                    CASE WHEN cp.source_id IS NOT NULL THEN 1 ELSE 0 END
+                        AS cleared_prior
+                FROM all_items ai
+                LEFT JOIN matched m
+                    ON m.source_type = ai.source_type AND m.source_id = ai.source_id
+                LEFT JOIN matched_batches mb
+                    ON mb.source_type = ai.source_type AND mb.source_id = ai.source_id
+                LEFT JOIN cleared_this ct
+                    ON ct.source_type = ai.source_type AND ct.source_id = ai.source_id
+                LEFT JOIN cleared_prior cp
+                    ON cp.source_type = ai.source_type AND cp.source_id = ai.source_id
+                ORDER BY ai.item_date ASC, ai.source_type, ai.source_id
                 """,
                 (reconciliation_id,),
             ).fetchall()
@@ -180,30 +281,35 @@ class ReconciliationRepository(BaseRepository):
 
     def get_balance_summary(
         self, reconciliation_id: int
-    ) -> dict[str, str | bool]:
+    ) -> dict[str, str | bool | int]:
         """Compute book balance, cleared balance, and difference.
 
-        Balance is derived purely from posted JE lines — the opening balance
-        JE (source_type OPENING_BALANCE) appears as a normal transaction line
-        and is cleared by the user in the first reconciliation.
+        - book_balance    = opening + sum of *all* single-entry activity
+                            through the statement date
+        - cleared_balance = opening + sum of activity cleared (this + prior)
+        - difference      = statement_balance - cleared_balance
+        - balanced        = difference is zero
         """
         recon = self.get_reconciliation(reconciliation_id)
         if not recon:
             return {}
 
         statement = Decimal(str(recon["statement_ending_balance"]))
+        opening, _ = self.get_expected_beginning_balance(
+            int(recon["bank_account_id"])
+        )
 
-        rows = self.get_working_lines(reconciliation_id)
-        book_balance = Decimal("0")
-        cleared_balance = Decimal("0")
+        rows = self.get_working_rows(reconciliation_id)
+        book_balance = opening
+        cleared_balance = opening
         cleared_count = 0
         outstanding_count = 0
 
         for row in rows:
-            net = Decimal(str(row["debit_amount"])) - Decimal(str(row["credit_amount"]))
-            book_balance += net
+            amt = Decimal(str(row["amount"]))
+            book_balance += amt
             if row["cleared_this"] or row["cleared_prior"]:
-                cleared_balance += net
+                cleared_balance += amt
                 cleared_count += 1
             else:
                 outstanding_count += 1
@@ -252,27 +358,38 @@ class ReconciliationRepository(BaseRepository):
         self.conn.commit()
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
-    def clear_line(self, reconciliation_id: int, line_id: int) -> None:
-        """Mark a JE line as cleared in this reconciliation."""
+    def clear_item(
+        self,
+        reconciliation_id: int,
+        source_type: str,
+        source_id: int,
+    ) -> None:
+        """Mark a single-entry record as cleared in this reconciliation."""
         self.conn.execute(
             """
             INSERT OR IGNORE INTO reconciliation_clears
-                (reconciliation_id, journal_entry_line_id)
-            VALUES (?, ?)
+                (reconciliation_id, source_type, source_id)
+            VALUES (?, ?, ?)
             """,
-            (reconciliation_id, line_id),
+            (reconciliation_id, source_type, source_id),
         )
         self.conn.commit()
 
-    def unclear_line(self, reconciliation_id: int, line_id: int) -> None:
-        """Remove a JE line's cleared status from this reconciliation."""
+    def unclear_item(
+        self,
+        reconciliation_id: int,
+        source_type: str,
+        source_id: int,
+    ) -> None:
+        """Remove a record's cleared status from this reconciliation."""
         self.conn.execute(
             """
             DELETE FROM reconciliation_clears
              WHERE reconciliation_id = ?
-               AND journal_entry_line_id = ?
+               AND source_type = ?
+               AND source_id   = ?
             """,
-            (reconciliation_id, line_id),
+            (reconciliation_id, source_type, source_id),
         )
         self.conn.commit()
 

@@ -25,33 +25,6 @@
     </div>
   {% endif %}
 
-  {% if pending_import %}
-    <div style="margin-bottom:1rem;background:var(--accent-subtle);
-         border:1px solid var(--accent);border-radius:var(--radius);
-         display:flex;align-items:center;gap:1rem;padding:.75rem 1rem;flex-wrap:wrap;">
-      <div style="flex:1;min-width:0;font-size:.9rem;">
-        <strong>📥 Pending import:</strong>
-        {{ pending_import.source_filename }}
-        <span style="color:var(--text-muted);">
-          ({{ pending_import.transaction_count }} transactions,
-           {{ pending_import.matched_count }} matched)
-        </span>
-      </div>
-      <div style="display:flex;gap:.5rem;flex-shrink:0;">
-        <a href="/reconciliations/{{ recon.id }}/import-statement/{{ pending_import.id }}"
-           class="btn btn--primary btn--sm">Review →</a>
-        <form method="post"
-              action="/reconciliations/{{ recon.id }}/import-statement/{{ pending_import.id }}/delete"
-              style="display:inline;"
-              data-confirm="Discard this pending import?"
-              data-confirm-title="Discard Import"
-              data-confirm-label="Discard">
-          <button type="submit" class="btn btn--ghost btn--sm">Discard</button>
-        </form>
-      </div>
-    </div>
-  {% endif %}
-
   {# ── Action bar ──────────────────────────────────────────────────── #}
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
     <a href="/reconciliations" class="btn btn--ghost btn--sm">← All Reconciliations</a>
@@ -63,8 +36,6 @@
           Complete Reconciliation
         </button>
       </form>
-      <a href="/reconciliations/{{ recon.id }}/import-statement"
-         class="btn btn--ghost btn--sm">🏦 Import Bank Statement</a>
       <form method="post" action="/reconciliations/{{ recon.id }}/delete" style="display:inline;"
             data-confirm="This will permanently delete this reconciliation and all of its cleared items. This cannot be undone."
             data-confirm-title="Delete Reconciliation"
@@ -156,6 +127,12 @@
 
     {% set active_rows = rows | selectattr('cleared_prior', 'equalto', 0) | list %}
     {% set prior_rows  = rows | selectattr('cleared_prior', 'equalto', 1) | list %}
+    {% set source_labels = {
+        'PAYMENT':          'Payment',
+        'INCOME_BATCH':     'Income',
+        'BILL_PAYMENT':     'Bill Payment',
+        'RESERVE_TRANSFER': 'Transfer'
+    } %}
 
     {% if active_rows or prior_rows %}
       <div class="table-wrap">
@@ -166,7 +143,8 @@
               <th>Date</th>
               <th>Source</th>
               <th>Description</th>
-              <th style="text-align:right;">Payment</th>
+              <th>Bank</th>
+              <th style="text-align:right;">Withdrawal</th>
               <th style="text-align:right;">Deposit</th>
             </tr>
           </thead>
@@ -174,41 +152,42 @@
             {# ── Active rows (uncleared + cleared-this-recon) ─────── #}
             {% for row in active_rows %}
               {% set is_cleared = row.cleared_this == 1 %}
+              {% set row_key = row.source_type ~ '-' ~ row.source_id %}
               <tr class="recon-row{% if is_cleared %} recon-row--cleared{% endif %}"
-                  data-line-id="{{ row.line_id }}">
+                  data-row-key="{{ row_key }}">
                 {% if is_open %}
                   <td style="text-align:center;width:2rem;">
                     <input type="checkbox"
                            class="clear-chk"
-                           data-line-id="{{ row.line_id }}"
+                           data-source-type="{{ row.source_type }}"
+                           data-source-id="{{ row.source_id }}"
                            {% if is_cleared %}checked{% endif %}
                            style="cursor:pointer;width:auto;" />
                   </td>
                 {% endif %}
-                <td style="white-space:nowrap;font-size:13px;">{{ row.entry_date }}</td>
+                <td style="white-space:nowrap;font-size:13px;">{{ row.item_date }}</td>
                 <td>
-                  {% if row.source_type == 'MANUAL' %}
-                    <a href="/journal-entries/{{ row.journal_entry_id }}"
-                       class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">
-                      Manual JE
-                    </a>
-                  {% else %}
-                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source }}</span>
-                  {% endif %}
+                  <span class="pill pill--muted" style="font-size:.7rem;">
+                    {{ source_labels.get(row.source_type, row.source_type) }}
+                  </span>
                 </td>
                 <td style="max-width:260px;">
-                  <div style="font-size:12px;">{{ row.memo }}</div>
-                  {% if row.line_description and row.line_description != row.memo %}
-                    <div style="font-size:11px;color:var(--text-muted);">{{ row.line_description }}</div>
+                  <div style="font-size:12px;">{{ row.description }}</div>
+                </td>
+                <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
+                  {% if row.has_bank_match %}
+                    ✓{% if row.bank_txn_date %} {{ row.bank_txn_date }}{% endif %}
+                  {% else %}
+                    <span style="color:#b45309;">outstanding</span>
                   {% endif %}
                 </td>
                 <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
-                           white-space:nowrap;color:{% if row.credit_amount %}var(--danger){% else %}var(--text-muted){% endif %};">
-                  {% if row.credit_amount %}{{ "%.2f"|format(row.credit_amount) }}{% endif %}
+                           white-space:nowrap;color:{% if row.amount < 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                  {% if row.amount < 0 %}{{ "%.2f"|format(-row.amount) }}{% endif %}
                 </td>
                 <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
                            white-space:nowrap;">
-                  {% if row.debit_amount %}{{ "%.2f"|format(row.debit_amount) }}{% endif %}
+                  {% if row.amount > 0 %}{{ "%.2f"|format(row.amount) }}{% endif %}
                 </td>
               </tr>
             {% endfor %}
@@ -216,39 +195,32 @@
             {# ── Prior-cleared rows (locked, toggle-able visibility) ── #}
             {% for row in prior_rows %}
               <tr class="recon-row recon-row--prior"
-                  data-line-id="{{ row.line_id }}"
-                  style="{% if not show_prior %}display:none;{% endif %}
-                         opacity:.5;">
+                  style="{% if not show_prior %}display:none;{% endif %}opacity:.5;">
                 {% if is_open %}
                   <td style="text-align:center;width:2rem;">
                     <input type="checkbox" checked disabled
                            style="width:auto;cursor:not-allowed;" />
                   </td>
                 {% endif %}
-                <td style="white-space:nowrap;font-size:13px;">{{ row.entry_date }}</td>
+                <td style="white-space:nowrap;font-size:13px;">{{ row.item_date }}</td>
                 <td>
-                  {% if row.source_type == 'MANUAL' %}
-                    <a href="/journal-entries/{{ row.journal_entry_id }}"
-                       class="pill pill--muted" style="font-size:.7rem;text-decoration:none;">
-                      Manual JE
-                    </a>
-                  {% else %}
-                    <span class="pill pill--muted" style="font-size:.7rem;">{{ row.source }}</span>
-                  {% endif %}
+                  <span class="pill pill--muted" style="font-size:.7rem;">
+                    {{ source_labels.get(row.source_type, row.source_type) }}
+                  </span>
                 </td>
                 <td style="max-width:260px;">
-                  <div style="font-size:12px;">{{ row.memo }}</div>
-                  {% if row.line_description and row.line_description != row.memo %}
-                    <div style="font-size:11px;color:var(--text-muted);">{{ row.line_description }}</div>
-                  {% endif %}
+                  <div style="font-size:12px;">{{ row.description }}</div>
+                </td>
+                <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
+                  {% if row.has_bank_match %}✓{% endif %}
                 </td>
                 <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
-                           white-space:nowrap;color:{% if row.credit_amount %}var(--danger){% else %}var(--text-muted){% endif %};">
-                  {% if row.credit_amount %}{{ "%.2f"|format(row.credit_amount) }}{% endif %}
+                           white-space:nowrap;color:{% if row.amount < 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                  {% if row.amount < 0 %}{{ "%.2f"|format(-row.amount) }}{% endif %}
                 </td>
                 <td style="text-align:right;font-family:var(--font-mono);font-size:12px;
                            white-space:nowrap;">
-                  {% if row.debit_amount %}{{ "%.2f"|format(row.debit_amount) }}{% endif %}
+                  {% if row.amount > 0 %}{{ "%.2f"|format(row.amount) }}{% endif %}
                 </td>
               </tr>
             {% endfor %}
@@ -305,13 +277,16 @@
     // ── Checkbox toggle ────────────────────────────────────────────
     document.querySelectorAll(".clear-chk").forEach(function (chk) {
       chk.addEventListener("change", function () {
-        var lineId = chk.getAttribute("data-line-id");
+        var sourceType = chk.getAttribute("data-source-type");
+        var sourceId   = chk.getAttribute("data-source-id");
         var cleared = chk.checked ? "1" : "0";
 
         fetch("/reconciliations/" + reconId + "/toggle", {
           method: "POST",
           headers: {"Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": window.csrfToken},
-          body: "line_id=" + lineId + "&cleared=" + cleared,
+          body: "source_type=" + encodeURIComponent(sourceType)
+              + "&source_id=" + encodeURIComponent(sourceId)
+              + "&cleared=" + cleared,
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
