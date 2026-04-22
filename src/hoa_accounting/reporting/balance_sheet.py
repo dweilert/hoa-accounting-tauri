@@ -104,6 +104,12 @@ class BalanceSheetReportService:
         )
 
     def _bank_balances(self, *, as_of_date: str) -> list[sqlite3.Row]:
+        # opening_balances (entity_type='BANK_ACCOUNT') is the system's source
+        # of truth for starting cash — set once at initial data load by the
+        # treasurer and only corrected on a verified error. Activity after
+        # that date accrues from payments / income_batches / bill_payments /
+        # reserve_transfers. The bank_accounts.opening_balance column was a
+        # parallel value that drifted out of sync; we ignore it here.
         return self.conn.execute(
             """
             SELECT
@@ -112,41 +118,54 @@ class BalanceSheetReportService:
                 b.gl_account_id          AS gl_account_id,
                 a.account_number         AS account_number,
                 a.fund_code              AS fund_code,
-                COALESCE(b.opening_balance, 0)
+                COALESCE((
+                    SELECT amount FROM opening_balances
+                    WHERE entity_type = 'BANK_ACCOUNT' AND entity_id = b.id
+                  ), 0)
                 + COALESCE((
                     SELECT SUM(p.amount) FROM payments p
                     WHERE p.bank_account_id = b.id
                       AND p.payment_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR p.payment_date >= b.opening_balance_date)
+                      AND p.payment_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                   ), 0)
                 + COALESCE((
                     SELECT SUM(ib.total_amount) FROM income_batches ib
                     WHERE ib.bank_account_id = b.id
                       AND ib.posting_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR ib.posting_date >= b.opening_balance_date)
+                      AND ib.posting_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                   ), 0)
                 + COALESCE((
                     SELECT SUM(rt.amount) FROM reserve_transfers rt
                     WHERE rt.to_account_id = b.gl_account_id
                       AND rt.transfer_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR rt.transfer_date >= b.opening_balance_date)
+                      AND rt.transfer_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                   ), 0)
                 - COALESCE((
                     SELECT SUM(bp.amount) FROM bill_payments bp
                     WHERE bp.bank_account_id = b.id
                       AND bp.payment_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR bp.payment_date >= b.opening_balance_date)
+                      AND bp.payment_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                   ), 0)
                 - COALESCE((
                     SELECT SUM(rt.amount) FROM reserve_transfers rt
                     WHERE rt.from_account_id = b.gl_account_id
                       AND rt.transfer_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR rt.transfer_date >= b.opening_balance_date)
+                      AND rt.transfer_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                   ), 0)
                 AS balance
             FROM bank_accounts b
@@ -160,19 +179,20 @@ class BalanceSheetReportService:
     def _opening_equity(self) -> Decimal:
         row = self.conn.execute(
             """
-            SELECT COALESCE(SUM(opening_balance), 0) AS total
-            FROM bank_accounts
-            WHERE active_flag = 1
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM opening_balances
+            WHERE entity_type = 'BANK_ACCOUNT'
             """
         ).fetchone()
         return q2(Decimal(str(row["total"] or 0)))
 
     def _net_income(self, *, as_of_date: str) -> Decimal:
-        """Cash-basis net income from the earliest opening date through as_of_date.
+        """Cash-basis net income from each bank's opening date through as_of_date.
 
-        Income = payments received + income_batches posted.
-        Expenses = bill_payments. Reserve transfers are intra-entity cash moves
-        and net to zero at the entity level, so they are excluded.
+        Income = payments received + income_batches posted after the bank's
+        opening_balance date. Expenses = bill_payments after that date.
+        Reserve transfers are intra-entity cash moves and net to zero at the
+        entity level, so they are excluded.
         """
         income_row = self.conn.execute(
             """
@@ -181,22 +201,28 @@ class BalanceSheetReportService:
                     SELECT SUM(p.amount) FROM payments p
                     JOIN bank_accounts b ON b.id = p.bank_account_id
                     WHERE p.payment_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR p.payment_date >= b.opening_balance_date)
+                      AND p.payment_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                 ), 0)
                 + COALESCE((
                     SELECT SUM(ib.total_amount) FROM income_batches ib
                     JOIN bank_accounts b ON b.id = ib.bank_account_id
                     WHERE ib.posting_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR ib.posting_date >= b.opening_balance_date)
+                      AND ib.posting_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                 ), 0) AS income,
                 COALESCE((
                     SELECT SUM(bp.amount) FROM bill_payments bp
                     JOIN bank_accounts b ON b.id = bp.bank_account_id
                     WHERE bp.payment_date <= ?
-                      AND (b.opening_balance_date IS NULL
-                           OR bp.payment_date >= b.opening_balance_date)
+                      AND bp.payment_date > COALESCE(
+                          (SELECT as_of_date FROM opening_balances
+                           WHERE entity_type='BANK_ACCOUNT' AND entity_id=b.id),
+                          '0000-00-00')
                 ), 0) AS expense
             """,
             (as_of_date, as_of_date, as_of_date),

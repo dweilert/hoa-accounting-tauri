@@ -100,18 +100,6 @@ class ReconciliationRepository(BaseRepository):
         if prior and prior["book_balance"] is not None:
             return Decimal(str(prior["book_balance"])), "prior reconciliation"
 
-        row = self.conn.execute(
-            "SELECT opening_balance, opening_balance_date FROM bank_accounts WHERE id = ?",
-            (bank_account_id,),
-        ).fetchone()
-        if row and row["opening_balance"] is not None:
-            label = (
-                f"account opening balance ({row['opening_balance_date']})"
-                if row["opening_balance_date"]
-                else "account opening balance"
-            )
-            return Decimal(str(row["opening_balance"])), label
-
         ob = self.conn.execute(
             "SELECT amount, as_of_date FROM opening_balances "
             "WHERE entity_type = 'BANK_ACCOUNT' AND entity_id = ?",
