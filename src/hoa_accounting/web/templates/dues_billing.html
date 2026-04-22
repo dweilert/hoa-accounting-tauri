@@ -139,22 +139,6 @@
         <span class="field__hint">Auto-fills from the period selection; edit as needed.</span>
       </label>
 
-      <div class="field" style="margin-top:.75rem;">
-        <span class="field__label">Income Account</span>
-        {% if income_account_id %}
-          <input type="hidden" name="income_account_id" value="{{ income_account_id }}" />
-          <div style="font-size:13px;padding:.35rem 0;color:var(--text);">
-            {{ income_account_label }}
-          </div>
-          <span class="field__hint">
-            Set via <em>dues_income_account_number</em> in config (default 4000).
-          </span>
-        {% else %}
-          <div style="color:var(--red,#c0392b);font-size:13px;">
-            Income account not configured — check <em>dues_income_account_number</em> in config.yaml.
-          </div>
-        {% endif %}
-      </div>
     </div>
 
     {# ── Submit ──────────────────────────────────────────────────────── #}
