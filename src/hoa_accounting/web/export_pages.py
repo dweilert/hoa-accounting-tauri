@@ -44,7 +44,6 @@ EXPORT_GROUPS: list[dict] = [
     {
         "title": "Transactions & Financials",
         "types": [
-            {"key": "general_ledger",        "label": "Account Ledger (all posted entry lines)",  "filename": "general_ledger"},
             {"key": "assessments",           "label": "Assessments / Charges",                    "filename": "assessments"},
             {"key": "payments",              "label": "Payments Received",                         "filename": "payments"},
             {"key": "payment_applications",  "label": "Payment Applications (charge detail)",      "filename": "payment_applications"},
@@ -173,32 +172,6 @@ QUERIES: dict[str, str] = {
     """,
 
     # ── Transactions & Financials ─────────────────────────────────────────
-
-    "general_ledger": """
-        SELECT
-            je.entry_number,
-            je.entry_date,
-            je.source_type,
-            je.memo               AS entry_memo,
-            je.status,
-            jel.line_number,
-            a.account_number,
-            a.account_name,
-            jel.debit_amount,
-            jel.credit_amount,
-            jel.description       AS line_description,
-            jel.expense_classification,
-            l.lot_number,
-            o.display_name        AS owner_name,
-            v.vendor_name
-        FROM journal_entry_lines jel
-        JOIN journal_entries je ON je.id = jel.journal_entry_id
-        JOIN accounts         a  ON a.id  = jel.account_id
-        LEFT JOIN lots        l  ON l.id  = jel.lot_id
-        LEFT JOIN owners      o  ON o.id  = jel.owner_id
-        LEFT JOIN vendors     v  ON v.id  = jel.vendor_id
-        ORDER BY je.entry_date, je.entry_number, jel.line_number
-    """,
 
     "assessments": """
         SELECT

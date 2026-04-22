@@ -31,7 +31,6 @@ from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.owner_pages import OwnerPages
 from hoa_accounting.web.account_pages import AccountPages
-from hoa_accounting.web.account_ledger_pages import AccountLedgerPages
 from hoa_accounting.web.all_ledger_pages import AllLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
@@ -54,7 +53,6 @@ from hoa_accounting.web.ui_server import (
     UIResponse,
 )
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
-from hoa_accounting.web.manual_journal_pages import ManualJournalPages
 from hoa_accounting.web.budget_pages import BudgetPages
 from hoa_accounting.web.batch_pdf_pages import BatchPdfPages
 from hoa_accounting.web.resale_fee_pages import ResaleFeePages
@@ -845,25 +843,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/accounts/<int:account_id>/ledger")
-    def view_account_ledger(account_id: int) -> Response:
-        conn = _open_db()
-        try:
-            pages = AccountLedgerPages(conn)
-            theme = str(org_context.get("theme", "warm"))
-            start_date = (request.args.get("start") or "").strip()
-            end_date = (request.args.get("end") or "").strip()
-            resp = pages.render_ledger(
-                account_id=account_id,
-                org=org_context, theme=theme,
-                start_date=start_date,
-                end_date=end_date,
-            )
-        finally:
-            conn.close()
-        return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     @app.get("/accounts/wizard")
@@ -2048,63 +2027,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         qs = request.query_string.decode()
         target = "/ledger/transactions" + (f"?{qs}" if qs else "")
         return redirect(target, 301)
-
-    # ── Transaction pages: Manual Journal Entries ───────────────────
-
-    def _open_manual_journal_pages() -> ManualJournalPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; journal entry pages need it."
-            )
-        conn = _open_db()
-        return ManualJournalPages(conn)
-
-    @app.get("/journal-entries")
-    def list_journal_entries() -> Response:
-        pages = _open_manual_journal_pages()
-        theme = str(org_context.get("theme", "warm"))
-        flash_message = (request.args.get("msg") or "").strip()
-        resp = pages.render_list(org=org_context, theme=theme,
-                                 flash_message=flash_message)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/journal-entries/new")
-    def new_journal_entry_form() -> Response:
-        pages = _open_manual_journal_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_new_form(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/journal-entries/new")
-    def submit_journal_entry() -> Response:
-        from flask import redirect
-        pages = _open_manual_journal_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_new(
-            form_data={k: v for k, v in request.form.items()},
-            org=org_context, theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/journal-entries/<int:journal_entry_id>")
-    def view_journal_entry(journal_entry_id: int) -> Response:
-        pages = _open_manual_journal_pages()
-        theme = str(org_context.get("theme", "warm"))
-        flash_message = (request.args.get("msg") or "").strip()
-        resp = pages.render_view(
-            journal_entry_id=journal_entry_id,
-            org=org_context, theme=theme,
-            flash_message=flash_message,
-        )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
 
     # ── Budget pages ─────────────────────────────────────────────────
 
