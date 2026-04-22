@@ -183,6 +183,71 @@ class VendorsRepository(BaseRepository):
         )
         return int(cur.lastrowid)
 
+    def get_vendor_bill(self, vendor_bill_id: int) -> "sqlite3.Row | None":
+        return self.conn.execute(
+            """
+            SELECT vb.id, vb.vendor_id, vb.invoice_number, vb.invoice_date,
+                   vb.due_date, vb.amount, vb.fund_code, vb.status,
+                   vb.description, vb.category_id,
+                   v.vendor_name
+            FROM vendor_bills vb
+            JOIN vendors v ON v.id = vb.vendor_id
+            WHERE vb.id = ?
+            """,
+            (vendor_bill_id,),
+        ).fetchone()
+
+    def vendor_bill_has_payments(self, vendor_bill_id: int) -> bool:
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM bill_payments WHERE vendor_bill_id = ?",
+            (vendor_bill_id,),
+        ).fetchone()
+        return int(row[0]) > 0
+
+    def update_vendor_bill(
+        self,
+        vendor_bill_id: int,
+        *,
+        invoice_number: str,
+        invoice_date: str,
+        due_date: str | None,
+        amount: str | None,
+        fund_code: str,
+        description: str,
+        category_id: int | None,
+    ) -> None:
+        """Update editable fields on a vendor bill.
+
+        ``amount`` is only applied when non-None — callers must pass None when
+        a payment is already attached so the recorded payment amount stays
+        consistent with the bill.
+        """
+        if amount is None:
+            self.conn.execute(
+                """
+                UPDATE vendor_bills
+                   SET invoice_number = ?, invoice_date = ?, due_date = ?,
+                       fund_code = ?, description = ?, category_id = ?,
+                       updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?
+                """,
+                (invoice_number, invoice_date, due_date, fund_code,
+                 description, category_id, vendor_bill_id),
+            )
+        else:
+            self.conn.execute(
+                """
+                UPDATE vendor_bills
+                   SET invoice_number = ?, invoice_date = ?, due_date = ?,
+                       amount = ?, fund_code = ?, description = ?,
+                       category_id = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?
+                """,
+                (invoice_number, invoice_date, due_date, amount, fund_code,
+                 description, category_id, vendor_bill_id),
+            )
+        self.conn.commit()
+
     def insert_bill_payment(
         self,
         *,

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Vendor Bill · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/vendor-bills" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Edit Bill</div>
+        <div class="panel__description">
+          Fix invoice number, dates, category, or notes.
+          {% if has_payment %}
+            Amount is locked because a payment has already been recorded against this bill.
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <form method="post"
+          action="/vendor-bills/{{ bill.id }}/edit"
+          class="form">
+      <label class="field">
+        <span class="field__label">Vendor</span>
+        <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+             background:var(--surface-muted);border:1px solid var(--border);
+             border-radius:var(--radius-sm);color:var(--text-muted);
+             font-size:13px;box-sizing:border-box;">
+          {{ bill.vendor_name }}
+        </div>
+        <span class="field__hint">Vendor cannot be changed after the bill is posted.</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Invoice Number *</span>
+        <input type="text" name="invoice_number"
+               value="{{ values.invoice_number }}"
+               required />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Invoice Date *</span>
+        <input type="date" name="invoice_date"
+               value="{{ values.invoice_date }}" required />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Due Date</span>
+        <input type="date" name="due_date"
+               value="{{ values.due_date }}" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">Amount {% if not has_payment %}*{% endif %}</span>
+        {% if has_payment %}
+          <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+               background:var(--surface-muted);border:1px solid var(--border);
+               border-radius:var(--radius-sm);color:var(--text-muted);
+               font-size:13px;box-sizing:border-box;">
+            {{ values.amount }}
+          </div>
+        {% else %}
+          <input type="number" name="amount"
+                 value="{{ values.amount }}"
+                 step="0.01" min="0.01" required />
+        {% endif %}
+      </label>
+
+      <label class="field">
+        <span class="field__label">Expense Category *</span>
+        <select name="category_id" required>
+          <option value="">— Select a category —</option>
+          {% for c in expense_categories %}
+            <option value="{{ c.id }}"
+              {% if values.category_id|string == c.id|string %}selected{% endif %}>
+              {{ c.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Fund *</span>
+        <select name="fund_code" required>
+          {% for fc in fund_codes %}
+            <option value="{{ fc }}"
+              {% if values.fund_code == fc %}selected{% endif %}>
+              {{ fc }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field form__row--full">
+        <span class="field__label">Description</span>
+        <input type="text" name="description"
+               value="{{ values.description }}" />
+      </label>
+
+      <div class="form__row--full row">
+        <button type="submit" class="btn btn--primary">Save Changes</button>
+        <a href="/vendor-bills" class="btn btn--ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

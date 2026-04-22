@@ -133,11 +133,73 @@
                placeholder="e.g. April landscaping service" />
       </label>
 
+      {# ── Mark as paid now ───────────────────────────────────────────── #}
+      <div class="form__row--full"
+           style="margin-top:.75rem;padding:.75rem 1rem;
+                  background:var(--accent-subtle);
+                  border:1px solid var(--accent);
+                  border-radius:var(--radius);">
+        <label style="display:flex;align-items:center;gap:.5rem;
+                      font-weight:600;font-size:.9rem;cursor:pointer;">
+          <input type="checkbox" name="mark_paid" id="mark-paid"
+                 value="1"
+                 {% if values.mark_paid %}checked{% endif %}
+                 onchange="togglePaymentFields()" />
+          Mark as paid now
+        </label>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem;">
+          Unchecked = record the bill as Unpaid to pay later.
+        </div>
+
+        <div id="payment-fields" style="display:{% if values.mark_paid %}grid{% else %}none{% endif %};
+             grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));
+             gap:.6rem 1rem;margin-top:.75rem;">
+          <label class="field">
+            <span class="field__label">Bank Account *</span>
+            <select name="bank_account_id" id="bank-account">
+              <option value="">— Select —</option>
+              {% for ba in bank_accounts %}
+                <option value="{{ ba.id }}"
+                  {% if values.bank_account_id|string == ba.id|string %}selected{% endif %}>
+                  {{ ba.label }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="field">
+            <span class="field__label">Payment Date</span>
+            <input type="date" name="payment_date"
+                   value="{{ values.payment_date }}" />
+            <span class="field__hint">Defaults to the Posting Date.</span>
+          </label>
+          <label class="field">
+            <span class="field__label">Check # (optional)</span>
+            <input type="text" name="check_number"
+                   value="{{ values.check_number }}"
+                   placeholder="1234" />
+          </label>
+        </div>
+      </div>
+
       <div class="form__row--full row">
         <button type="submit" class="btn btn--primary">Post bill</button>
         <a href="/vendor-bills" class="btn btn--ghost">Cancel</a>
       </div>
     </form>
+
+    <script>
+      function togglePaymentFields() {
+        var chk = document.getElementById('mark-paid');
+        var box = document.getElementById('payment-fields');
+        if (!chk || !box) return;
+        box.style.display = chk.checked ? 'grid' : 'none';
+        // Bank account is required only when "paid now" is on.
+        var ba = document.getElementById('bank-account');
+        if (ba) ba.required = chk.checked;
+      }
+      // Initialise required state on page load.
+      togglePaymentFields();
+    </script>
   </div>
 
   {% if templates %}

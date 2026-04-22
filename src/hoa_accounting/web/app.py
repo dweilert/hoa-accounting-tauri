@@ -1919,6 +1919,29 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    @app.get("/vendor-bills/<int:vendor_bill_id>/edit")
+    def edit_vendor_bill_form(vendor_bill_id: int) -> Response:
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_edit(vendor_bill_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendor-bills/<int:vendor_bill_id>/edit")
+    def submit_vendor_bill_edit(vendor_bill_id: int) -> Response:
+        from flask import redirect
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        form_data = {k: v for k, v in request.form.items()}
+        redirect_url, form_resp = pages.handle_edit(
+            vendor_bill_id, form_data=form_data, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     # ── Transaction pages: Deposit Batches ──────────────────────────
 
     def _open_deposit_batch_pages() -> DepositBatchPages:
