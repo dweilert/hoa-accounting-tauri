@@ -16,8 +16,7 @@
   {% endif %}
 
   <form method="post"
-        action="{% if is_edit %}/categories/{{ category_id }}/edit{% else %}/categories/add{% endif %}"
-        class="form">
+        action="{% if is_edit %}/categories/{{ category_id }}/edit{% else %}/categories/add{% endif %}">
 
     <div class="panel">
       <div class="panel__header">
@@ -41,9 +40,10 @@
         <label class="field">
           <span class="field__label">Code{% if not is_edit %} *{% endif %}</span>
           {% if is_edit %}
-            <div class="mono" style="padding:7px 10px;background:var(--surface-muted);
+            <div class="mono" style="height:30px;padding:0 10px;display:flex;align-items:center;
+                 background:var(--surface-muted);
                  border:1px solid var(--border);border-radius:var(--radius-sm);
-                 color:var(--text-muted);font-size:13px;">
+                 color:var(--text-muted);font-size:13px;box-sizing:border-box;">
               {{ values.code }}
             </div>
             <span class="field__hint">Code cannot be changed after creation.</span>
@@ -70,9 +70,10 @@
         <label class="field">
           <span class="field__label">Type{% if not is_edit %} *{% endif %}</span>
           {% if is_edit %}
-            <div style="padding:7px 10px;background:var(--surface-muted);
+            <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                 background:var(--surface-muted);
                  border:1px solid var(--border);border-radius:var(--radius-sm);
-                 color:var(--text-muted);font-size:13px;">
+                 color:var(--text-muted);font-size:13px;box-sizing:border-box;">
               {{ values.category_type }}
             </div>
           {% else %}
