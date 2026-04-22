@@ -6,6 +6,7 @@ Routes handled:
   POST /categories/add            — submit new category
   GET  /categories/<id>/edit      — edit form pre-filled
   POST /categories/<id>/edit      — submit edits
+  POST /categories/<id>/delete    — hard-delete; only allowed when unused
   GET  /categories/<id>/ledger    — all transactions for a category
 """
 
@@ -61,10 +62,14 @@ class CategoriesPages:
         flash_message: str = "",
     ) -> CategoriesPageResponse:
         rows = self.repo.list_categories(active_only=False)
-        categories = [dict(r) for r in rows]
+        categories = []
+        for r in rows:
+            d = dict(r)
+            d["usage_count"] = self.repo.usage_count(int(d["id"]))
+            categories.append(d)
         ctx = {
             **_BASE_CTX,
-            "heading": "Income & Expense Categories",
+            "heading": "Maintain Categories",
             "org": org,
             "theme": theme,
             "categories": categories,
@@ -235,6 +240,24 @@ class CategoriesPages:
             status_code=resp.status_code,
             body_html=resp.get_data(as_text=True),
         )
+
+    # ── Delete (POST) ─────────────────────────────────────────────────────
+
+    def handle_delete(self, category_id: int) -> str:
+        """Attempt to delete a category. Returns a redirect URL with a flash
+        message — category not found, in-use rejection, or success.
+        """
+        row = self.repo.get_category(category_id)
+        if row is None:
+            return "/categories?flash=Category+not+found."
+        count = self.repo.usage_count(category_id)
+        if count > 0:
+            return (
+                f"/categories?flash=Cannot+delete+{row['name']}"
+                f"+%E2%80%94+{count}+records+reference+it."
+            )
+        self.repo.delete_category(category_id)
+        return f"/categories?flash=Category+{row['name']}+deleted."
 
     # ── Ledger (GET) ──────────────────────────────────────────────────────
 

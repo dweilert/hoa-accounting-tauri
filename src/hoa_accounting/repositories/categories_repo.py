@@ -84,6 +84,41 @@ class CategoriesRepository(BaseRepository):
         self.conn.commit()
         return cur.lastrowid  # type: ignore[return-value]
 
+    # Every table that carries a category_id column. If any of these have a
+    # row referencing the category, deletion is blocked.
+    _CATEGORY_REFERENCE_TABLES: tuple[str, ...] = (
+        "assessments",
+        "bank_transaction_rules",
+        "bank_transactions",
+        "bill_payments",
+        "budget_lines",
+        "deposit_batches",
+        "income_batches",
+        "owner_adjustments",
+        "payments",
+        "reserve_transfers",
+        "vendor_bills",
+    )
+
+    def usage_count(self, category_id: int) -> int:
+        """Return the number of rows across the system that reference this
+        category. Used to gate the delete action — a category that anything
+        points at cannot be removed without breaking history.
+        """
+        total = 0
+        for table in self._CATEGORY_REFERENCE_TABLES:
+            row = self.conn.execute(
+                f"SELECT COUNT(*) AS n FROM {table} WHERE category_id = ?",
+                (category_id,),
+            ).fetchone()
+            total += int(row["n"])
+        return total
+
+    def delete_category(self, category_id: int) -> None:
+        """Hard-delete a category. Caller must check ``usage_count`` first."""
+        self.conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        self.conn.commit()
+
     def ledger_for_category(self, category_id: int) -> list[sqlite3.Row]:
         """Return all transactions tagged with this category, newest first."""
         return list(

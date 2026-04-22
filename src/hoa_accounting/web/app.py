@@ -933,6 +933,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect("/categories?flash=Category+saved.", code=303)
         return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
 
+    @app.post("/categories/<int:category_id>/delete")
+    def delete_category(category_id: int) -> Response:
+        from flask import redirect
+        target = _open_categories_pages().handle_delete(category_id)
+        return redirect(target, code=303)
+
     @app.get("/categories/<int:category_id>/ledger")
     def view_category_ledger(category_id: int) -> Response:
         theme = str(org_context.get("theme", "warm"))

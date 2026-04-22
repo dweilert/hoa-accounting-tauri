@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Income & Expense Categories · {{ org.name }}{% endblock %}
+{% block title %}Maintain Categories · {{ org.name }}{% endblock %}
 {% block heading %}{{ heading }}{% endblock %}
 
 {% block topbar_meta %}
@@ -48,6 +48,7 @@
                 <th>Sort</th>
                 <th>Description</th>
                 <th>Status</th>
+                <th>In Use</th>
                 <th></th>
               </tr>
             </thead>
@@ -65,9 +66,26 @@
                       {{ 'Active' if c.active_flag else 'Inactive' }}
                     </span>
                   </td>
+                  <td class="mono">{{ c.usage_count }}</td>
                   <td style="display:flex;gap:.4rem;justify-content:flex-end;">
                     <a href="/categories/{{ c.id }}/ledger" class="btn btn--sm btn--ghost">Ledger</a>
                     <a href="/categories/{{ c.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                    {% if c.usage_count == 0 %}
+                      <form method="post"
+                            action="/categories/{{ c.id }}/delete"
+                            style="display:inline;"
+                            data-confirm="Delete category '{{ c.name }}'? This cannot be undone."
+                            data-confirm-title="Delete Category"
+                            data-confirm-label="Delete">
+                        <button type="submit" class="btn btn--sm btn--danger">Delete</button>
+                      </form>
+                    {% else %}
+                      <button type="button" class="btn btn--sm btn--ghost"
+                              disabled
+                              title="{{ c.usage_count }} record(s) reference this category">
+                        Delete
+                      </button>
+                    {% endif %}
                   </td>
                 </tr>
               {% endfor %}

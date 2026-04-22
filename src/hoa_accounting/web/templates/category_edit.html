@@ -35,7 +35,7 @@
         </div>
       </div>
 
-      <div class="form" style="grid-template-columns: repeat(3, minmax(180px, 1fr));">
+      <div class="form" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); align-items: start;">
 
         {# Code — editable only on add #}
         <label class="field">
@@ -141,19 +141,19 @@
           </div>
         {% endif %}
       </div>
-    </div>
 
-    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
-      <button type="submit" class="btn btn--primary">
-        {% if is_edit %}Save Changes{% else %}Add Category{% endif %}
-      </button>
-      <a href="/categories" class="btn btn--ghost">Cancel</a>
-      {% if is_edit %}
-        <a href="/categories/{{ category_id }}/ledger"
-           class="btn btn--ghost" style="margin-left:auto;">
-          View Ledger →
-        </a>
-      {% endif %}
+      <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+        <button type="submit" class="btn btn--primary">
+          {% if is_edit %}Save Changes{% else %}Add Category{% endif %}
+        </button>
+        <a href="/categories" class="btn btn--ghost">Cancel</a>
+        {% if is_edit %}
+          <a href="/categories/{{ category_id }}/ledger"
+             class="btn btn--ghost" style="margin-left:auto;">
+            View Ledger →
+          </a>
+        {% endif %}
+      </div>
     </div>
   </form>
 {% endblock %}
