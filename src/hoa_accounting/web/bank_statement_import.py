@@ -284,130 +284,105 @@ def apply_rules(
     return matches
 
 
-# ── Batch deposit matching (N GL lines → 1 deposit) ──────────────────────────
+# ── 1-to-1 match against single-entry items ───────────────────────────────────
 
-def _subset_sum(
-    items: list[tuple[int, int]],   # (amount_cents, line_id)
-    target: int,
-    tol: int = 1,
-) -> list[int] | None:
-    """Backtracking subset-sum with prefix-sum pruning. Returns list of line_ids or None."""
-    if not items:
-        return None
-    items = sorted(items, reverse=True)[:60]   # cap for performance
+def match_transactions(
+    transactions: list[ParsedTransaction],
+    items: list[dict],
+    skip_indices: set[int] | None = None,
+) -> dict[int, tuple[str, int]]:
+    """Greedy best-match: bank txn index → (source_type, source_id).
 
-    # Prefix sums: prefix[i] = sum of items[i:]
-    prefix = [0] * len(items)
-    prefix[-1] = items[-1][0]
-    for k in range(len(items) - 2, -1, -1):
-        prefix[k] = prefix[k + 1] + items[k][0]
+    Each candidate item is a single-entry record for the reconciliation's
+    bank account. Items must expose ``source_type``, ``source_id``,
+    ``item_date`` (YYYY-MM-DD) and a signed ``amount`` (positive = deposit,
+    negative = withdrawal) — so the same matcher works for inflows and
+    outflows without signed-net gymnastics.
 
-    found: list[int] | None = None
+    Matches on amount (±$0.01) and date (±5 days). Each item can match at
+    most one transaction. Prefers the nearest date among tied candidates.
+    """
+    used: set[tuple[str, int]] = set()
+    matches: dict[int, tuple[str, int]] = {}
 
-    def bt(idx: int, remaining: int, chosen: list[int]) -> bool:
-        nonlocal found
-        if abs(remaining) <= tol:
-            found = chosen[:]
-            return True
-        if idx >= len(items) or remaining < -tol:
-            return False
-        if prefix[idx] < remaining - tol:          # can't reach target
-            return False
-        amt, id_ = items[idx]
-        if amt <= remaining + tol:                  # include
-            chosen.append(id_)
-            if bt(idx + 1, remaining - amt, chosen):
-                return True
-            chosen.pop()
-        return bt(idx + 1, remaining, chosen)       # exclude
+    for i, txn in enumerate(transactions):
+        if skip_indices and i in skip_indices:
+            continue
 
-    bt(0, target, [])
-    return found
+        candidates: list[tuple[int, tuple[str, int]]] = []  # (days_diff, key)
+        for item in items:
+            amount = Decimal(str(item["amount"]))
+            if abs(amount - txn.amount) >= Decimal("0.01"):
+                continue
+            try:
+                item_date = datetime.strptime(item["item_date"], "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            days_diff = abs((item_date - txn.transaction_date).days)
+            if days_diff <= 5:
+                key = (str(item["source_type"]), int(item["source_id"]))
+                candidates.append((days_diff, key))
 
+        candidates.sort()
+        for _, key in candidates:
+            if key not in used:
+                matches[i] = key
+                used.add(key)
+                break
+
+    return matches
+
+
+# ── Batch deposit match (OFX deposit → deposit_batch with exact total) ───────
 
 def find_batch_matches(
     transactions: list[ParsedTransaction],
-    gl_lines: list[dict],
-    already_matched: set[int],
+    batches: list[dict],
     skip_indices: set[int] | None = None,
-) -> dict[int, list[int]]:
-    """For unmatched positive-amount transactions, find groups of GL lines summing to the amount.
+) -> dict[int, int]:
+    """Match positive OFX transactions to a ``deposit_batch`` by total amount.
 
-    Requires at least 2 GL lines per match (true batch, not a 1:1 that slipped through).
-    ±7-day date window, ±$0.01 tolerance.
+    The previous implementation used backtracking subset-sum over individual
+    GL lines to *guess* which items made up a deposit. With first-class
+    ``deposit_batches`` rows carrying their own ``total_amount``, we match
+    directly on the recorded total — unambiguous, and when matched the
+    whole batch clears as a unit.
+
+    ±7-day date window, ±$0.01 tolerance. Each batch matches at most one
+    transaction.
     """
-    used = set(already_matched)
-    results: dict[int, list[int]] = {}
+    used: set[int] = set()
+    results: dict[int, int] = {}
 
     for i, txn in enumerate(transactions):
         if skip_indices and i in skip_indices:
             continue
         if txn.amount <= 0:
-            continue                                # deposits only
+            continue  # deposits only
 
-        target_cents = round(float(txn.amount) * 100)
-        candidates: list[tuple[int, int]] = []
-
-        for line in gl_lines:
-            if line["line_id"] in used:
+        best: tuple[int, int] | None = None  # (days_diff, batch_id)
+        for batch in batches:
+            batch_id = int(batch["batch_id"])
+            if batch_id in used:
                 continue
-            net = line["debit_amount"] - line["credit_amount"]
-            if net < 0.005:
+            total = Decimal(str(batch["total_amount"]))
+            if abs(total - txn.amount) >= Decimal("0.01"):
                 continue
             try:
-                entry_date = datetime.strptime(line["entry_date"], "%Y-%m-%d").date()
+                batch_date = datetime.strptime(batch["batch_date"], "%Y-%m-%d").date()
             except ValueError:
                 continue
-            if abs((entry_date - txn.transaction_date).days) <= 7:
-                candidates.append((round(net * 100), line["line_id"]))
+            days_diff = abs((batch_date - txn.transaction_date).days)
+            if days_diff > 7:
+                continue
+            if best is None or days_diff < best[0]:
+                best = (days_diff, batch_id)
 
-        if len(candidates) < 2:
-            continue
-
-        matched = _subset_sum(candidates, target_cents)
-        if matched and len(matched) >= 2:
-            results[i] = matched
-            used.update(matched)
+        if best is not None:
+            results[i] = best[1]
+            used.add(best[1])
 
     return results
-
-
-# ── 1-to-1 GL match ───────────────────────────────────────────────────────────
-
-def match_transactions(
-    transactions: list[ParsedTransaction],
-    gl_lines: list[dict],
-    skip_indices: set[int] | None = None,
-) -> dict[int, int]:
-    """Greedy best-match: bank txn index → GL line_id.
-
-    Matches on amount (±$0.01) and date (±5 days).
-    Each GL line is used at most once.
-    """
-    used: set[int] = set()
-    matches: dict[int, int] = {}
-
-    for i, txn in enumerate(transactions):
-        if skip_indices and i in skip_indices:
-            continue
-        candidates: list[tuple[int, int]] = []  # (days_diff, line_id)
-        for line in gl_lines:
-            net = Decimal(str(line["debit_amount"])) - Decimal(str(line["credit_amount"]))
-            if abs(net - txn.amount) >= Decimal("0.01"):
-                continue
-            entry_date = datetime.strptime(line["entry_date"], "%Y-%m-%d").date()
-            days_diff = abs((entry_date - txn.transaction_date).days)
-            if days_diff <= 5:
-                candidates.append((days_diff, line["line_id"]))
-
-        candidates.sort()
-        for _, line_id in candidates:
-            if line_id not in used:
-                matches[i] = line_id
-                used.add(line_id)
-                break
-
-    return matches
 
 
 # ── File round-tripping through hidden form fields ────────────────────────────
