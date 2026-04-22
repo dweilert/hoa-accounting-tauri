@@ -35,13 +35,7 @@
           </div>
         </div>
       </div>
-      {#
-        align-items: start so every field's label sits at the top of its
-        cell — without this, .form's default align-items: end pushes the
-        Posting to AR box (a <div>, taller than the siblings' <input>s)
-        down, which misaligns the label text across the row.
-      #}
-      <div class="form" style="grid-template-columns: repeat(4, minmax(180px, 1fr)); align-items: start;">
+      <div class="form" style="grid-template-columns: repeat(4, minmax(180px, 1fr));">
         <label class="field form__row--full">
           <span class="field__label">Assessment Description *</span>
           <input type="text" name="description"
@@ -72,19 +66,6 @@
                  value="{{ values.due_date }}" />
           <span class="field__hint">Optional · defaults to posting date.</span>
         </label>
-        <div class="field">
-          <span class="field__label">Posting to AR</span>
-          <div class="mono" style="
-                padding: 7px 10px;
-                background: var(--surface-muted);
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                color: var(--text-muted);
-                font-size: 13px;">
-            {{ ar_account_label or '— not configured —' }}
-          </div>
-          <span class="field__hint">Same AR account the dues deposit form uses.</span>
-        </div>
       </div>
     </div>
 

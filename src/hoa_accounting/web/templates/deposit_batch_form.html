@@ -54,22 +54,6 @@
           </select>
         </label>
 
-        <div class="field">
-          <span class="field__label">Posting to AR</span>
-          <div class="mono" style="
-                padding: 7px 10px;
-                background: var(--surface-muted);
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                color: var(--text-muted);
-                font-size: 13px;">
-            {{ ar_account_label or '— not configured —' }}
-          </div>
-          <span class="field__hint">
-            Set via <span class="mono">accounting.dues_receivable_account_number</span> in config.
-          </span>
-        </div>
-
         <label class="field form__row--full">
           <span class="field__label">Notes</span>
           <input type="text" name="notes" value="{{ values.notes }}"
