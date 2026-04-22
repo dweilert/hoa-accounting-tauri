@@ -156,19 +156,22 @@ class VendorBillPages:
         ]
         bank_accounts = [
             {"id": r["id"],
+             "name": r["account_name"],
              "label": f"{r['account_name']} (···{r['account_last4'] or '????'})"}
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
             if r["active_flag"]
         ]
 
-        # Treasurers typically enter a bill at the moment they pay it, so
-        # "mark as paid now" is on by default on a fresh form. If the user
-        # submitted and we're re-rendering with an error, keep their choice.
-        mark_paid_raw = values.get("mark_paid")
-        if mark_paid_raw is None:
-            mark_paid_checked = True
-        else:
-            mark_paid_checked = mark_paid_raw in ("1", "on", "true", True)
+        # Prefer the Operating Checking account as the default since that's
+        # where day-to-day bills are paid from. Fall back to the first active
+        # bank if the user hasn't named one "Operating".
+        default_bank_id = ""
+        for ba in bank_accounts:
+            if "operating" in (ba["name"] or "").lower():
+                default_bank_id = str(ba["id"])
+                break
+        if not default_bank_id and bank_accounts:
+            default_bank_id = str(bank_accounts[0]["id"])
 
         ctx = {
             "heading": "New Vendor Bill",
@@ -185,14 +188,13 @@ class VendorBillPages:
                 "vendor_id": values.get("vendor_id", ""),
                 "invoice_number": values.get("invoice_number", ""),
                 "invoice_date": values.get("invoice_date", _today()),
-                "due_date": values.get("due_date", ""),
+                "due_date": values.get("due_date", _today()),
                 "entry_date": values.get("entry_date", _today()),
                 "amount": values.get("amount", ""),
                 "category_id": values.get("category_id", ""),
                 "fund_code": values.get("fund_code", "OPERATING"),
                 "description": values.get("description", ""),
-                "mark_paid": mark_paid_checked,
-                "bank_account_id": values.get("bank_account_id", ""),
+                "bank_account_id": values.get("bank_account_id") or default_bank_id,
                 "check_number": values.get("check_number", ""),
                 "payment_date": values.get("payment_date", ""),
             },
@@ -370,14 +372,15 @@ class VendorBillPages:
             due_date_raw = (form_data.get("due_date", "") or "").strip()
             due_date = due_date_raw or None
 
-            mark_paid = (form_data.get("mark_paid") or "").strip() in ("1", "on", "true")
-            if mark_paid:
-                bank_account_id = _parse_int(
-                    form_data.get("bank_account_id", ""), "Bank account"
-                )
-                payment_date_raw = (form_data.get("payment_date") or "").strip()
-                payment_date = payment_date_raw or entry_date
-                check_number = (form_data.get("check_number") or "").strip() or None
+            # Every new bill is posted AS PAID: the HOA records bills at the
+            # moment payment goes out. The form collects Bank Account and
+            # optional Check # so a bill_payment is written alongside the bill.
+            bank_account_id = _parse_int(
+                form_data.get("bank_account_id", ""), "Bank account"
+            )
+            payment_date_raw = (form_data.get("payment_date") or "").strip()
+            payment_date = payment_date_raw or entry_date
+            check_number = (form_data.get("check_number") or "").strip() or None
 
             result = self.factory.vendor_bill_service().post_vendor_bill(
                 entry_date=entry_date,
@@ -390,16 +393,14 @@ class VendorBillPages:
                 fund_code=fund_code,
                 category_id=category_id,
             )
-
-            if mark_paid:
-                self.factory.vendor_payment_service().post_vendor_payment(
-                    entry_date=payment_date,
-                    vendor_bill_id=result.vendor_bill_id,
-                    amount=amount,
-                    description=description,
-                    bank_account_id=bank_account_id,
-                    check_number=check_number,
-                )
+            self.factory.vendor_payment_service().post_vendor_payment(
+                entry_date=payment_date,
+                vendor_bill_id=result.vendor_bill_id,
+                amount=amount,
+                description=description,
+                bank_account_id=bank_account_id,
+                check_number=check_number,
+            )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_form(
                 org=org,

@@ -49,18 +49,11 @@
               <th data-sort="date"    style="cursor:pointer;" onclick="sortBy(this, 2)">Invoice Date <span class="sort-ind"></span></th>
               <th data-sort="date"    style="cursor:pointer;" onclick="sortBy(this, 3)">Due Date <span class="sort-ind"></span></th>
               <th data-sort="number"  style="cursor:pointer;text-align:right;" onclick="sortBy(this, 4)">Amount <span class="sort-ind"></span></th>
-              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 5)">Payment <span class="sort-ind"></span></th>
-              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 6)">Description <span class="sort-ind"></span></th>
+              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 5)">Description <span class="sort-ind"></span></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {% set payment_label = {
-              'OPEN':    'Unpaid',
-              'PARTIAL': 'Partial',
-              'PAID':    'Paid',
-              'VOID':    'Void'
-            } %}
             {% for b in bills %}
               {% set row_id = 'bill-row-' ~ b.id %}
               <tr class="bill-row" data-row-id="{{ b.id }}">
@@ -69,15 +62,6 @@
                 <td>{{ b.invoice_date }}</td>
                 <td>{{ b.due_date }}</td>
                 <td class="num">{{ b.amount }}</td>
-                <td>
-                  <span class="pill
-                    {%- if b.status == 'PAID' %} pill--ok
-                    {%- elif b.status == 'VOID' %} pill--muted
-                    {%- elif b.status == 'PARTIAL' %} pill--warn
-                    {%- else %} pill--info{% endif %}">
-                    {{ payment_label.get(b.status, b.status) }}
-                  </span>
-                </td>
                 <td>{{ b.description }}</td>
                 <td style="text-align:right;">
                   <button type="button"
@@ -90,7 +74,7 @@
               <tr class="bill-edit-row" id="{{ row_id }}"
                   data-row-id="{{ b.id }}"
                   style="display:none;">
-                <td colspan="8" style="background:var(--surface-muted);padding:1rem;">
+                <td colspan="7" style="background:var(--surface-muted);padding:1rem;">
                   <form method="post"
                         action="/vendor-bills/{{ b.id }}/edit"
                         class="form"
