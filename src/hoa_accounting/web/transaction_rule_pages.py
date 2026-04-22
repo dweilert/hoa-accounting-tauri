@@ -106,6 +106,18 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def _get_vendors(self) -> list[dict]:
+        """Return active vendors for the expense-rule vendor picker."""
+        rows = self._conn.execute(
+            """
+            SELECT id, vendor_name
+            FROM vendors
+            WHERE active_flag = 1
+            ORDER BY vendor_name COLLATE NOCASE
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def _get_lots(self) -> list[dict]:
         """Return all active lots with their current owner name(s)."""
         rows = self._conn.execute(
@@ -127,15 +139,17 @@ class TransactionRulePages:
             """
             SELECT r.id, r.rule_name, r.description_contains,
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
-                   r.action_type, r.category_id, r.default_memo, r.active_flag, r.created_at,
-                   r.lot_id,
+                   r.action_type, r.category_id, r.vendor_id, r.default_memo,
+                   r.active_flag, r.created_at, r.lot_id,
                    c.code AS category_code, c.name AS category_name,
                    l.lot_number,
                    o.display_name AS lot_owner_name,
                    ba.account_name AS bank_account_name,
-                   ba.account_last4
+                   ba.account_last4,
+                   v.vendor_name AS vendor_name
             FROM bank_transaction_rules r
             LEFT JOIN categories c ON c.id = r.category_id
+            LEFT JOIN vendors v ON v.id = r.vendor_id
             LEFT JOIN lots l ON l.id = r.lot_id
             LEFT JOIN (
                 SELECT lot_id, owner_id FROM lot_ownership
@@ -150,18 +164,15 @@ class TransactionRulePages:
         return [dict(r) for r in rows]
 
     def render_list(self, org: dict, theme: str, return_to: str = "") -> PageResponse:
-        rules = self._get_rules()
-        categories = self._get_categories()
-        lots = self._get_lots()
-        bank_accounts = self._get_bank_accounts()
         return self._render(
             "transaction_rules.html",
             org=org, theme=theme,
             page_key="transaction-rules",
-            rules=rules,
-            categories=categories,
-            lots=lots,
-            bank_accounts=bank_accounts,
+            rules=self._get_rules(),
+            categories=self._get_categories(),
+            lots=self._get_lots(),
+            vendors=self._get_vendors(),
+            bank_accounts=self._get_bank_accounts(),
             action_types=ACTION_TYPES,
             return_to=return_to,
         )
@@ -183,6 +194,8 @@ class TransactionRulePages:
         action_type    = form_data.get("action_type", "recurring_bill").strip()
         category_id_raw = form_data.get("category_id", "").strip()
         category_id    = int(category_id_raw) if category_id_raw else None
+        vendor_id_raw  = form_data.get("vendor_id", "").strip()
+        vendor_id      = int(vendor_id_raw) if vendor_id_raw else None
         lot_id_raw     = form_data.get("lot_id", "").strip()
         lot_id         = int(lot_id_raw) if lot_id_raw else None
         default_memo   = form_data.get("default_memo", "").strip()
@@ -190,6 +203,9 @@ class TransactionRulePages:
 
         if action_type != "dues_payment":
             lot_id = None
+        # Vendor only applies to expense-pattern rules.
+        if ACTION_TYPES.get(action_type, {}).get("pattern") != "expense":
+            vendor_id = None
 
         if not rule_name:
             return None, self._render_error("Rule name is required.", org, theme)
@@ -213,12 +229,12 @@ class TransactionRulePages:
                 UPDATE bank_transaction_rules
                 SET rule_name = ?, description_contains = ?,
                     match_type = ?, match_memo = ?, match_amount = ?, bank_account_id = ?,
-                    action_type = ?, category_id = ?, lot_id = ?,
+                    action_type = ?, category_id = ?, vendor_id = ?, lot_id = ?,
                     default_memo = ?, active_flag = ?
                 WHERE id = ?
                 """,
                 (rule_name, desc_contains, match_type, match_memo, match_amount,
-                 rule_bank_acct_id, action_type, category_id, lot_id,
+                 rule_bank_acct_id, action_type, category_id, vendor_id, lot_id,
                  default_memo, active_flag, int(rule_id)),
             )
         else:
@@ -226,11 +242,12 @@ class TransactionRulePages:
                 """
                 INSERT INTO bank_transaction_rules
                     (rule_name, description_contains, match_type, match_memo, match_amount,
-                     bank_account_id, action_type, category_id, lot_id, default_memo, active_flag)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     bank_account_id, action_type, category_id, vendor_id, lot_id,
+                     default_memo, active_flag)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (rule_name, desc_contains, match_type, match_memo, match_amount,
-                 rule_bank_acct_id, action_type, category_id, lot_id,
+                 rule_bank_acct_id, action_type, category_id, vendor_id, lot_id,
                  default_memo, active_flag),
             )
 
@@ -245,6 +262,7 @@ class TransactionRulePages:
             rules=self._get_rules(),
             categories=self._get_categories(),
             lots=self._get_lots(),
+            vendors=self._get_vendors(),
             bank_accounts=self._get_bank_accounts(),
             action_types=ACTION_TYPES,
             error=error,

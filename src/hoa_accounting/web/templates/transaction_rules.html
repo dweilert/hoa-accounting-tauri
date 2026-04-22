@@ -412,6 +412,25 @@
       </select>
     </div>
 
+    {# ── Vendor (expense rules only) ──────────────────────────────────── #}
+    <div id="vendor-section" style="display:none;margin-bottom:1.25rem;
+         background:var(--accent-subtle);border:1px solid var(--accent);
+         border-radius:var(--radius);padding:.75rem 1rem;">
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:.4rem;color:var(--accent-dark,var(--accent));">
+        Vendor
+      </div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.5rem;">
+        Required for expense rules. A vendor bill and bill payment will be
+        posted to this vendor for each matched bank debit.
+      </div>
+      <select name="vendor_id" id="vendor_id" style="width:100%;">
+        <option value="">— select vendor —</option>
+        {% for v in vendors %}
+          <option value="{{ v.id }}">{{ v.vendor_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     {# ── Category ────────────────────────────────────────────────────── #}
     <div id="category-section" style="margin-bottom:1.25rem;">
       <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.35rem;">Category</label>
@@ -510,6 +529,9 @@
 
   var NO_CAT_TYPES = { homeowner_batch: true, vendor_bill_match: true };
 
+  // Action types where the form should surface a Vendor picker.
+  var VENDOR_TYPES = { recurring_bill: true, bank_charge: true, direct_expense: true };
+
   function selectedAction() {
     var r = document.querySelector('input[name="action_type"]:checked');
     return r ? r.value : "";
@@ -549,6 +571,14 @@
       }
     }
 
+    var vendorSection = document.getElementById("vendor-section");
+    if (vendorSection) {
+      vendorSection.style.display = VENDOR_TYPES[action] ? "" : "none";
+      if (!VENDOR_TYPES[action]) {
+        document.getElementById("vendor_id").value = "";
+      }
+    }
+
     filterCategories();
   };
 
@@ -563,6 +593,8 @@
     if (action) { var c = document.getElementById("card-" + action); if (c) c.classList.add("action-card--selected"); }
     var ls = document.getElementById("lot-section");
     if (ls) ls.style.display = (action === "dues_payment") ? "" : "none";
+    var vs = document.getElementById("vendor-section");
+    if (vs) vs.style.display = VENDOR_TYPES[action] ? "" : "none";
     filterCategories();
   }());
 
@@ -597,6 +629,9 @@
     if (rule.action_type === "dues_payment") {
       document.getElementById("lot_id").value = rule.lot_id || "";
     }
+    if (VENDOR_TYPES[rule.action_type]) {
+      document.getElementById("vendor_id").value = rule.vendor_id || "";
+    }
 
     document.getElementById("rule-form-panel")
             .scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -617,6 +652,7 @@
     document.getElementById("active_flag").checked        = true;
     document.getElementById("category_id").value          = "";
     document.getElementById("lot_id").value               = "";
+    document.getElementById("vendor_id").value            = "";
     document.getElementById("save-btn").textContent       = "Save Rule";
 
     var radios = document.querySelectorAll('input[name="action_type"]');
