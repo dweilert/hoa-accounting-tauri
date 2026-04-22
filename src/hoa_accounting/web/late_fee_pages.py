@@ -85,9 +85,25 @@ class LateFeePages:
         return int(row["id"]), f"{row['account_number']} · {row['account_name']}"
 
     def _lot_options(self) -> list[dict]:
-        lots = LotsRepository(self.conn).list_lots(active_only=True)
+        # Join to the current lot_ownership row so each option carries the
+        # owner_id needed to list open assessments. LotsRepository.list_lots
+        # returns a comma-joined owner_names string, which is the wrong
+        # shape for the Late Fee page (needs a single owner_id per lot).
+        rows = self.conn.execute(
+            """
+            SELECT l.id, l.lot_number,
+                   o.id           AS owner_id,
+                   o.display_name AS owner_name
+            FROM lots l
+            LEFT JOIN lot_ownership lo
+                   ON lo.lot_id = l.id AND lo.end_date IS NULL
+            LEFT JOIN owners o ON o.id = lo.owner_id
+            WHERE l.active_flag = 1
+            ORDER BY l.lot_number COLLATE NOCASE, o.display_name
+            """
+        ).fetchall()
         options = []
-        for r in lots:
+        for r in rows:
             owner = r["owner_name"] or "(no owner)"
             label = f"Lot {r['lot_number']} · {owner}"
             options.append({"id": r["id"], "label": label, "owner_id": r["owner_id"]})
