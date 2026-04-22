@@ -22,7 +22,7 @@
   {% endif %}
 
   <div class="panel">
-    <div class="panel__header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+    <div class="panel__header pay-sticky-header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
       <div>
         <div class="panel__title">Homeowner Payments</div>
         <div class="panel__description">
@@ -48,7 +48,7 @@
     </div>
 
     {% if payments %}
-      <div class="table-wrap">
+      <div class="table-wrap pay-scroll">
         <table id="pay-table">
           <thead>
             <tr>
@@ -190,7 +190,48 @@
   #pay-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
   #pay-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
   #pay-table tr.pay-row.filtered { display: none; }
+
+  /* Keep the panel title + filter row and the table headers visible
+     while the user scrolls. Both sit below the app topbar, whose height
+     the script below measures into --app-topbar-offset. */
+  .pay-sticky-header {
+    position: sticky; top: var(--app-topbar-offset, 0);
+    z-index: 5;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  #pay-table thead th {
+    position: sticky; top: var(--sticky-head-offset, 0);
+    background: var(--surface);
+    z-index: 4;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  /* .table-wrap normally has overflow-x: auto, which creates a new scroll
+     context and defeats position:sticky for descendants. Override it on
+     this page so the thead sticks to the viewport instead. */
+  .pay-scroll { overflow: visible; }
 </style>
+<script>
+  // Measure the app topbar + our sticky panel header so the two sticky
+  // layers can stack cleanly without overlapping.
+  (function () {
+    function sync() {
+      var topbar = document.querySelector('header.topbar');
+      var topH = topbar ? topbar.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(
+        '--app-topbar-offset', topH + 'px'
+      );
+      var h = document.querySelector('.pay-sticky-header');
+      var headH = h ? h.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(
+        '--sticky-head-offset', (topH + headH) + 'px'
+      );
+    }
+    window.addEventListener('load', sync);
+    window.addEventListener('resize', sync);
+    setTimeout(sync, 50);
+  })();
+</script>
 
 <script>
 (function () {
