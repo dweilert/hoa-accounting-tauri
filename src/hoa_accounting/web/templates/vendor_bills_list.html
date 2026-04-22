@@ -18,7 +18,7 @@
   {% endif %}
 
   <div class="panel">
-    <div class="panel__header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+    <div class="panel__header bill-sticky-header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
       <div>
         <div class="panel__title">Vendor Bills</div>
         <div class="panel__description">{{ description }}</div>
@@ -40,7 +40,7 @@
     </div>
 
     {% if bills %}
-      <div class="table-wrap">
+      <div class="table-wrap bill-scroll">
         <table id="bills-table">
           <thead>
             <tr>
@@ -194,7 +194,43 @@
   #bills-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
   #bills-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
   #bills-table tr.bill-row.filtered { display: none; }
+
+  /* Sticky panel header + column headers, stacked under the app topbar. */
+  .bill-sticky-header {
+    position: sticky; top: var(--app-topbar-offset, 0);
+    z-index: 5;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  #bills-table thead th {
+    position: sticky; top: var(--bill-head-offset, 0);
+    background: var(--surface);
+    z-index: 4;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  /* .table-wrap's default overflow-x: auto creates a scroll context
+     that traps sticky descendants. Drop it on this page. */
+  .bill-scroll { overflow: visible; }
 </style>
+<script>
+  (function () {
+    function sync() {
+      var topbar = document.querySelector('header.topbar');
+      var topH = topbar ? topbar.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(
+        '--app-topbar-offset', topH + 'px'
+      );
+      var h = document.querySelector('.bill-sticky-header');
+      var headH = h ? h.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(
+        '--bill-head-offset', (topH + headH) + 'px'
+      );
+    }
+    window.addEventListener('load', sync);
+    window.addEventListener('resize', sync);
+    setTimeout(sync, 50);
+  })();
+</script>
 
 <script>
 (function () {
