@@ -85,21 +85,37 @@ class LateFeePages:
         return int(row["id"]), f"{row['account_number']} · {row['account_name']}"
 
     def _lot_options(self) -> list[dict]:
-        # Join to the current lot_ownership row so each option carries the
-        # owner_id needed to list open assessments. LotsRepository.list_lots
-        # returns a comma-joined owner_names string, which is the wrong
-        # shape for the Late Fee page (needs a single owner_id per lot).
+        # One row per lot. When a lot has multiple current owners we show
+        # the one that sorts first by (last_name, first_name) — keeps the
+        # dropdown compact and lets the user scan it alphabetically.
         rows = self.conn.execute(
             """
-            SELECT l.id, l.lot_number,
-                   o.id           AS owner_id,
-                   o.display_name AS owner_name
+            WITH first_owner AS (
+                SELECT
+                    lo.lot_id,
+                    o.id                              AS owner_id,
+                    COALESCE(o.first_name, '')        AS first_name,
+                    COALESCE(o.last_name, '')         AS last_name,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY lo.lot_id
+                        ORDER BY COALESCE(o.last_name, ''),
+                                 COALESCE(o.first_name, ''),
+                                 o.id
+                    ) AS rn
+                FROM lot_ownership lo
+                JOIN owners o ON o.id = lo.owner_id
+                WHERE lo.end_date IS NULL
+            )
+            SELECT
+                l.id,
+                l.lot_number,
+                fo.owner_id,
+                TRIM(fo.first_name || ' ' || fo.last_name) AS owner_name
             FROM lots l
-            LEFT JOIN lot_ownership lo
-                   ON lo.lot_id = l.id AND lo.end_date IS NULL
-            LEFT JOIN owners o ON o.id = lo.owner_id
+            LEFT JOIN first_owner fo
+                   ON fo.lot_id = l.id AND fo.rn = 1
             WHERE l.active_flag = 1
-            ORDER BY l.lot_number COLLATE NOCASE, o.display_name
+            ORDER BY l.lot_number COLLATE NOCASE
             """
         ).fetchall()
         options = []
