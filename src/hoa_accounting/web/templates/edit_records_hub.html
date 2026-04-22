@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Records · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Spreadsheet-style ledgers</div>
+        <div class="panel__description">
+          Pick a ledger to view, filter, sort, and fix records inline.
+          Edits are validated — categories, vendors, and bank accounts
+          come from dropdowns so typos can't sneak in.
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));
+                gap:1rem;padding:1rem 1.25rem 1.25rem;">
+
+      {% set cards = [
+        {"href":"/vendor-bills",
+         "title":"Vendor Bills",
+         "desc":"Bills you've paid to vendors. Fix invoice #, date, category, fund, description.",
+         "ready": true},
+        {"href":"/manage/edit-records/payments",
+         "title":"Homeowner Payments",
+         "desc":"Dues and special-assessment payments received. Fix receipt #, date, method, bank, memo.",
+         "ready": true},
+        {"href":"#",
+         "title":"Bill Payments",
+         "desc":"Individual disbursements recorded against vendor bills. Coming soon.",
+         "ready": false},
+        {"href":"#",
+         "title":"Non-Dues Income",
+         "desc":"Interest, fees, and other receipts not tied to a homeowner. Coming soon.",
+         "ready": false},
+        {"href":"#",
+         "title":"Assessments / Charges",
+         "desc":"Charges billed to lots. Fix date, due date, category, description. Coming soon.",
+         "ready": false}
+      ] %}
+
+      {% for c in cards %}
+        {% if c.ready %}
+          <a href="{{ c.href }}"
+             style="display:block;padding:1rem;border:1px solid var(--border);
+                    border-radius:var(--radius);background:var(--surface);
+                    text-decoration:none;color:inherit;
+                    transition:border-color .15s, box-shadow .15s;"
+             onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 1px var(--accent)';"
+             onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none';">
+            <div style="font-weight:600;margin-bottom:.25rem;">{{ c.title }}</div>
+            <div style="font-size:13px;color:var(--text-muted);">{{ c.desc }}</div>
+          </a>
+        {% else %}
+          <div style="padding:1rem;border:1px dashed var(--border);
+                      border-radius:var(--radius);background:var(--surface-muted);
+                      color:var(--text-muted);">
+            <div style="font-weight:600;margin-bottom:.25rem;">{{ c.title }}</div>
+            <div style="font-size:13px;">{{ c.desc }}</div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

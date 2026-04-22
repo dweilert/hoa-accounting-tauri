@@ -1942,6 +1942,47 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    # ── Edit Records hub + payments ledger ──────────────────────────
+
+    def _open_edit_records_pages():
+        from hoa_accounting.web.edit_records_pages import EditRecordsPages
+        return EditRecordsPages(_open_db())
+
+    @app.get("/manage/edit-records")
+    def edit_records_hub() -> Response:
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_hub(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/manage/edit-records/payments")
+    def edit_records_payments() -> Response:
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = request.args.get("msg", "")
+        resp = pages.render_payments(
+            org=org_context, theme=theme, flash_message=flash,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/manage/edit-records/payments/<int:payment_id>/edit")
+    def edit_records_payments_submit(payment_id: int) -> Response:
+        from flask import redirect
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_payment_edit(
+            payment_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     # ── Transaction pages: Deposit Batches ──────────────────────────
 
     def _open_deposit_batch_pages() -> DepositBatchPages:

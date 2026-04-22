@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from .base import BaseRepository
 
 
@@ -74,6 +76,98 @@ class PaymentsRepository(BaseRepository):
         else:
             nxt = int(str(row["receipt_number"]).split("-")[-1]) + 1
         return f"{prefix}{nxt:04d}"
+
+    def list_payments(self, *, limit: int = 500) -> list[sqlite3.Row]:
+        """Return recent homeowner payments joined to owner name, bank, and
+        first lot (for visual context). Ordered newest-first by payment_date."""
+        return list(
+            self.conn.execute(
+                """
+                SELECT
+                    p.id,
+                    p.receipt_number,
+                    p.owner_id,
+                    p.payment_date,
+                    p.amount,
+                    p.payment_method,
+                    p.reference_number,
+                    p.bank_account_id,
+                    p.notes,
+                    p.deposit_batch_id,
+                    p.category_id,
+                    TRIM(COALESCE(o.first_name, '') || ' ' || COALESCE(o.last_name, ''))
+                        AS owner_name,
+                    ba.account_name AS bank_account_name,
+                    ba.account_last4 AS bank_account_last4
+                FROM payments p
+                JOIN owners       o  ON o.id  = p.owner_id
+                JOIN bank_accounts ba ON ba.id = p.bank_account_id
+                ORDER BY p.payment_date DESC, p.id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        )
+
+    def get_payment(self, payment_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            """
+            SELECT id, receipt_number, owner_id, payment_date, amount,
+                   payment_method, reference_number, bank_account_id,
+                   notes, deposit_batch_id, category_id
+            FROM payments WHERE id = ?
+            """,
+            (payment_id,),
+        ).fetchone()
+
+    def payment_has_applications(self, payment_id: int) -> bool:
+        row = self.conn.execute(
+            "SELECT COUNT(*) FROM payment_applications WHERE payment_id = ?",
+            (payment_id,),
+        ).fetchone()
+        return int(row[0]) > 0
+
+    def update_payment(
+        self,
+        payment_id: int,
+        *,
+        receipt_number: str,
+        payment_date: str,
+        amount: str | None,
+        payment_method: str,
+        reference_number: str | None,
+        bank_account_id: int,
+        notes: str,
+        category_id: int | None,
+    ) -> None:
+        """Update editable fields. Pass amount=None to skip the amount
+        column when applications are attached (the amount must stay in
+        sync with payment_applications.applied_amount)."""
+        if amount is None:
+            self.conn.execute(
+                """
+                UPDATE payments
+                   SET receipt_number = ?, payment_date = ?,
+                       payment_method = ?, reference_number = ?,
+                       bank_account_id = ?, notes = ?, category_id = ?
+                 WHERE id = ?
+                """,
+                (receipt_number, payment_date, payment_method, reference_number,
+                 bank_account_id, notes, category_id, payment_id),
+            )
+        else:
+            self.conn.execute(
+                """
+                UPDATE payments
+                   SET receipt_number = ?, payment_date = ?, amount = ?,
+                       payment_method = ?, reference_number = ?,
+                       bank_account_id = ?, notes = ?, category_id = ?
+                 WHERE id = ?
+                """,
+                (receipt_number, payment_date, amount, payment_method,
+                 reference_number, bank_account_id, notes, category_id, payment_id),
+            )
+        self.conn.commit()
 
     def insert_payment_application(
         self,
