@@ -2773,6 +2773,19 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    @app.get("/resale-fee/payments")
+    def resale_fee_payments_page() -> Response:
+        from flask import request as _req
+        pages = _open_resale_fee_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = _req.args.get("msg", "")
+        resp = pages.render_payments_page(
+            org=org_context, theme=theme,
+            flash_message=flash,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     @app.post("/resale-fee/post-payment")
     def resale_fee_post_payment() -> Response:
         from flask import redirect, request as _req

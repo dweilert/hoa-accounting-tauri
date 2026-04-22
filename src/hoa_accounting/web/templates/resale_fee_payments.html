@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Record Resale Fee Payment · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+
+  {% if flash_message %}
+    <div class="alert alert--ok"
+         style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash_message }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error"
+         style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Resale Fees — Awaiting Payment</div>
+        <div class="panel__description">
+          Record the title company's check against each open resale certificate fee.
+          New fees are created from
+          <a href="/resale-fee">Money In → Billing → Resale Certificate Fee</a>.
+        </div>
+      </div>
+    </div>
+
+    {% if open_fees %}
+      {% for fee in open_fees %}
+      <div style="border:1px solid var(--border);border-radius:6px;
+                  padding:.85rem 1rem;margin-bottom:1rem;
+                  background:var(--surface-raised,var(--surface));">
+
+        <div style="display:flex;justify-content:space-between;
+                    align-items:flex-start;flex-wrap:wrap;gap:.5rem;
+                    margin-bottom:.75rem;">
+          <div>
+            <span style="font-weight:600;">Lot {{ fee.lot_number }}</span>
+            <span style="color:var(--text-muted);margin-left:.5rem;">{{ fee.owner_name }}</span>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:1.1rem;font-weight:700;">${{ "%.2f"|format(fee.amount) }}</div>
+            <div style="font-size:11px;color:var(--text-muted);">
+              posted {{ fee.assessment_date }}
+              {% if fee.applied_amount > 0 %}
+                · ${{ "%.2f"|format(fee.applied_amount) }} applied
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <form method="post" action="/resale-fee/post-payment"
+              style="margin-top:.25rem;display:grid;
+                     grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));
+                     gap:.6rem 1rem;">
+          <input type="hidden" name="assessment_id" value="{{ fee.id }}">
+
+          <label class="field">
+            <span class="field__label">Payment Date *</span>
+            <input class="field__input" type="date" name="payment_date"
+                   value="{{ today }}" required>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Amount *</span>
+            <input class="field__input" type="number" name="amount"
+                   step="0.01" min="0.01"
+                   value="{{ "%.2f"|format(fee.amount - fee.applied_amount) }}"
+                   required>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Bank Account *</span>
+            <select name="bank_account_id" required>
+              {% for ba in bank_account_options %}
+                <option value="{{ ba.id }}">{{ ba.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Receipt # *</span>
+            <input class="field__input" type="text" name="receipt_number"
+                   placeholder="R-2026-001" required>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Check # (optional)</span>
+            <input class="field__input" type="text" name="check_number"
+                   placeholder="1234">
+          </label>
+
+          <div class="field" style="display:flex;align-items:flex-end;">
+            <button type="submit" class="btn btn--primary">Record Payment</button>
+          </div>
+        </form>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty" style="margin:1rem 1.25rem;">No open resale certificate fees awaiting payment.</div>
+    {% endif %}
+  </div>
+{% endblock %}

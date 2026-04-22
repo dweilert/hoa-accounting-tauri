@@ -81,95 +81,45 @@
     </form>
   </div>
 
-  {# ── Open resale fee charges ───────────────────────────────────────────── #}
   {% if open_fees %}
   <div class="panel">
     <div class="panel__header">
-      <div class="panel__title">Open Resale Fees — Awaiting Payment</div>
-      <div class="panel__description">
-        Record the title company's check against the fee when it arrives.
-      </div>
-    </div>
-
-    {% for fee in open_fees %}
-    <div style="border:1px solid var(--border);border-radius:6px;
-                padding:.85rem 1rem;margin-bottom:1rem;
-                background:var(--surface-raised,var(--surface));">
-
-      <div style="display:flex;justify-content:space-between;
-                  align-items:flex-start;flex-wrap:wrap;gap:.5rem;
-                  margin-bottom:.75rem;">
-        <div>
-          <span style="font-weight:600;">Lot {{ fee.lot_number }}</span>
-          <span style="color:var(--text-muted);margin-left:.5rem;">{{ fee.owner_name }}</span>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:1.1rem;font-weight:700;">${{ "%.2f"|format(fee.amount) }}</div>
-          <div style="font-size:11px;color:var(--text-muted);">
-            posted {{ fee.assessment_date }}
-            {% if fee.applied_amount > 0 %}
-              · ${{ "%.2f"|format(fee.applied_amount) }} applied
-            {% endif %}
-          </div>
+      <div>
+        <div class="panel__title">Open Resale Fees — Awaiting Payment</div>
+        <div class="panel__description">
+          Record payments from
+          <a href="/resale-fee/payments">Money In → Receiving → Record Resale Fee Payment</a>.
         </div>
       </div>
-
-      <details>
-        <summary style="cursor:pointer;font-size:13px;color:var(--text-muted);
-                        list-style:none;display:inline-flex;align-items:center;gap:.4rem;">
-          <span>▶</span> Record Payment
-        </summary>
-        <form method="post" action="/resale-fee/post-payment"
-              style="margin-top:.75rem;display:grid;
-                     grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));
-                     gap:.6rem 1rem;">
-          <input type="hidden" name="assessment_id" value="{{ fee.id }}">
-
-          <label class="field">
-            <span class="field__label">Payment Date *</span>
-            <input class="field__input" type="date" name="payment_date"
-                   value="{{ today }}" required>
-          </label>
-
-          <label class="field">
-            <span class="field__label">Amount *</span>
-            <input class="field__input" type="number" name="amount"
-                   step="0.01" min="0.01"
-                   value="{{ "%.2f"|format(fee.amount - fee.applied_amount) }}"
-                   required>
-          </label>
-
-          <label class="field">
-            <span class="field__label">Bank Account *</span>
-            <select name="bank_account_id" required>
-              {% for ba in bank_account_options %}
-                <option value="{{ ba.id }}">{{ ba.label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-
-          <label class="field">
-            <span class="field__label">Receipt # *</span>
-            <input class="field__input" type="text" name="receipt_number"
-                   placeholder="R-2026-001" required>
-          </label>
-
-          <label class="field">
-            <span class="field__label">Check # (optional)</span>
-            <input class="field__input" type="text" name="check_number"
-                   placeholder="1234">
-          </label>
-
-          <div class="field" style="display:flex;align-items:flex-end;">
-            <button type="submit" class="btn btn--primary">Record Payment</button>
-          </div>
-        </form>
-      </details>
     </div>
-    {% endfor %}
+    <div style="padding:.5rem 1rem 1rem;">
+      <table style="width:100%;font-size:13px;">
+        <thead>
+          <tr style="text-align:left;color:var(--text-muted);">
+            <th style="padding:.35rem .5rem;">Lot</th>
+            <th style="padding:.35rem .5rem;">Owner</th>
+            <th style="padding:.35rem .5rem;">Posted</th>
+            <th style="padding:.35rem .5rem;text-align:right;">Amount</th>
+            <th style="padding:.35rem .5rem;text-align:right;">Applied</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fee in open_fees %}
+            <tr>
+              <td style="padding:.35rem .5rem;">{{ fee.lot_number }}</td>
+              <td style="padding:.35rem .5rem;">{{ fee.owner_name }}</td>
+              <td style="padding:.35rem .5rem;">{{ fee.assessment_date }}</td>
+              <td style="padding:.35rem .5rem;text-align:right;font-family:var(--font-mono);">${{ "%.2f"|format(fee.amount) }}</td>
+              <td style="padding:.35rem .5rem;text-align:right;font-family:var(--font-mono);color:var(--text-muted);">
+                {% if fee.applied_amount %}${{ "%.2f"|format(fee.applied_amount) }}{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-  {% else %}
-    <div class="empty" style="margin-top:.5rem;">No open resale certificate fees.</div>
   {% endif %}
+
 
 {% endblock %}

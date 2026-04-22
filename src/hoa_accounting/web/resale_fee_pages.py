@@ -161,6 +161,37 @@ class ResaleFeePages:
             body_html=render_template(self.TEMPLATE, ctx),
         )
 
+    # ── render: payments page (Receiving side) ────────────────────────────
+
+    PAYMENTS_TEMPLATE = "resale_fee_payments.html"
+
+    def render_payments_page(
+        self,
+        *,
+        org: dict,
+        theme: str,
+        error_message: str = "",
+        flash_message: str = "",
+    ) -> ResaleFeePageResponse:
+        ctx = {
+            "heading": "Record Resale Fee Payment",
+            "org": org,
+            "theme": theme,
+            "active_nav": "transactions",
+            "page_key": "resale-fee-payments",
+            "breadcrumb": "Money In · Receiving",
+            "bank_account_options": self._bank_account_options(),
+            "open_fees": self._open_resale_fees(),
+            "today": _today(),
+            "error_message": error_message,
+            "flash_message": flash_message,
+        }
+        status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
+        return ResaleFeePageResponse(
+            status_code=status,
+            body_html=render_template(self.PAYMENTS_TEMPLATE, ctx),
+        )
+
     # ── POST: create charge ───────────────────────────────────────────────
 
     def handle_post_charge(
@@ -249,12 +280,11 @@ class ResaleFeePages:
         ar_num = str(org.get("dues_receivable_account_number") or _AR_DEFAULT)
 
         def _err(msg: str) -> tuple[None, ResaleFeePageResponse]:
-            return None, self.render_page(
+            # Re-render the Receiving page (payments) with the error banner
+            # so the user stays where they submitted from.
+            return None, self.render_payments_page(
                 org=org, theme=theme,
-                default_amount=default_amount,
-                income_account_number=income_account_number,
                 error_message=msg,
-                form_values=form_data,
             )
 
         try:
@@ -333,4 +363,4 @@ class ResaleFeePages:
             f"Payment of ${amount:,.2f} recorded for Lot {assessment['lot_number']} "
             f"(receipt {receipt_number})."
         )
-        return f"/resale-fee?msg={quote(msg)}", None
+        return f"/resale-fee/payments?msg={quote(msg)}", None
