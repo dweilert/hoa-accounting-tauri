@@ -124,10 +124,26 @@
         <label class="field">
           <span class="field__label">Posting Date *</span>
           <input type="date" name="entry_date"
+                 id="entry-date"
                  value="{{ values.entry_date }}"
-                 style="max-width:14rem;" />
+                 style="max-width:14rem;"
+                 onchange="onEntryDateChange()" />
         </label>
       </div>
+
+      <label class="field" style="margin-top:.75rem;max-width:20rem;">
+        <span class="field__label">Delinquent Date *</span>
+        <input type="date" name="due_date"
+               id="due-date"
+               value="{{ values.due_date }}"
+               data-auto="1"
+               style="max-width:14rem;"
+               onchange="onDueDateChange()"
+               onblur="validateDueDate()" />
+        <span class="field__hint" id="due-date-hint">
+          Defaults based on the billing cycle; cannot be before today.
+        </span>
+      </label>
 
       <label class="field" style="margin-top:.75rem;">
         <span class="field__label">Description *</span>
@@ -238,15 +254,81 @@
     // Also re-enable auto-description when the cycle type changes.
     document.getElementById("description-field").dataset.auto = "1";
     syncDescription();
+    // Auto-recompute the delinquent date if the user hasn't overridden it.
+    syncDueDate();
   }
 
   function onYearChange() { populatePeriods(1); }
   function onPeriodChange() { syncDescription(); }
 
+  // ── Delinquent date ──────────────────────────────────────────────────
+  // Grace period (days) per cycle — matches the server's _DEFAULT_GRACE_DAYS.
+  var GRACE_DAYS = {"MONTHLY": 15, "QUARTERLY": 30, "SEMIANNUAL": 30, "ANNUAL": 30};
+
+  function addDays(iso, n) {
+    var d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+  function syncDueDate() {
+    var dueInput = document.getElementById("due-date");
+    if (dueInput.dataset.auto !== "1") return;
+    var cycleRadio = document.querySelector('[name="cycle_type"]:checked');
+    var entry = document.getElementById("entry-date").value || todayISO();
+    if (!cycleRadio) return;
+    var grace = GRACE_DAYS[cycleRadio.value] || 15;
+    var due = addDays(entry, grace);
+    if (due < todayISO()) due = todayISO();
+    dueInput.value = due;
+    validateDueDate();
+  }
+
+  function onEntryDateChange() { syncDueDate(); }
+
+  function onDueDateChange() {
+    // User edited: stop auto-syncing going forward.
+    document.getElementById("due-date").dataset.auto = "0";
+    validateDueDate();
+  }
+
+  function validateDueDate() {
+    var dueInput = document.getElementById("due-date");
+    var hint = document.getElementById("due-date-hint");
+    if (!dueInput.value) {
+      hint.textContent = "Delinquent date is required.";
+      hint.style.color = "var(--danger)";
+      return;
+    }
+    if (dueInput.value < todayISO()) {
+      hint.textContent = "Delinquent date cannot be before today.";
+      hint.style.color = "var(--danger)";
+      return;
+    }
+    // Soft warning when the gap from Posting Date is out of the norm.
+    var entry = document.getElementById("entry-date").value || todayISO();
+    var cycleRadio = document.querySelector('[name="cycle_type"]:checked');
+    var grace = cycleRadio ? (GRACE_DAYS[cycleRadio.value] || 15) : 15;
+    var diffDays = Math.round((new Date(dueInput.value) - new Date(entry)) / 86400000);
+    if (diffDays < 5) {
+      hint.textContent = "Unusually short grace period (" + diffDays + " days) — is that enough?";
+      hint.style.color = "#b45309";
+    } else if (diffDays > grace * 2) {
+      hint.textContent = "Unusually long grace period (" + diffDays + " days) for a " +
+                        (cycleRadio ? cycleRadio.value.toLowerCase() : "") + " cycle.";
+      hint.style.color = "#b45309";
+    } else {
+      hint.textContent = "Defaults based on the billing cycle; cannot be before today.";
+      hint.style.color = "";
+    }
+  }
+
   // Initialise on page load using the server-side defaults.
   (function init() {
     var defaultSeq = {{ default_sequence }};
     populatePeriods(defaultSeq);
+    validateDueDate();
   })();
   </script>
 

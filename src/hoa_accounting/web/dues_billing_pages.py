@@ -87,6 +87,31 @@ def _today() -> str:
     return _date.today().isoformat()
 
 
+# How many days past the posting date a bill becomes delinquent by default.
+# Treasurers can override, but the default matches the typical grace period
+# for each cycle length.
+_DEFAULT_GRACE_DAYS: dict[str, int] = {
+    "MONTHLY":    15,
+    "QUARTERLY":  30,
+    "SEMIANNUAL": 30,
+    "ANNUAL":     30,
+}
+
+
+def _default_due_date(cycle_type: str, entry_date_iso: str) -> str:
+    """Return entry_date + grace days (never before today)."""
+    try:
+        base = _date.fromisoformat(entry_date_iso)
+    except ValueError:
+        base = _date.today()
+    grace = _DEFAULT_GRACE_DAYS.get(cycle_type, 15)
+    from datetime import timedelta
+    due = base + timedelta(days=grace)
+    if due < _date.today():
+        due = _date.today()
+    return due.isoformat()
+
+
 @dataclass(frozen=True)
 class DuesBillingPageResponse:
     status_code: int
@@ -173,6 +198,7 @@ class DuesBillingPages:
             or ""
         )
         def_entry_date = values.get("entry_date", _today())
+        def_due_date = values.get("due_date") or _default_due_date(def_cycle, def_entry_date)
 
         ctx = {
             "heading": "Bill Dues",
@@ -192,6 +218,7 @@ class DuesBillingPages:
                 "amount": def_amount,
                 "description": def_description,
                 "entry_date": def_entry_date,
+                "due_date": def_due_date,
             },
             "error_message": error_message,
             "flash_message": flash_message,
@@ -256,6 +283,16 @@ class DuesBillingPages:
             if not entry_date:
                 return _err("Posting date is required.")
 
+            due_date = (form_data.get("due_date") or "").strip()
+            if not due_date:
+                return _err("Delinquent date is required.")
+            try:
+                due_dt = _date.fromisoformat(due_date)
+            except ValueError:
+                return _err("Delinquent date must be a valid date.")
+            if due_dt < _date.today():
+                return _err("Delinquent date cannot be before today.")
+
             # Both accounts are resolved from config — no user selection needed.
             org_ctx = org or {}
             ar_num = str(org_ctx.get("dues_receivable_account_number") or "1100")
@@ -273,6 +310,7 @@ class DuesBillingPages:
                 description=description,
                 receivable_account_id=int(ar_row["id"]),
                 income_account_id=income_account_id,
+                due_date=due_date,
             )
 
             # Record the cycle in history.
