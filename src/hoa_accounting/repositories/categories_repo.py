@@ -30,7 +30,14 @@ class CategoriesRepository(BaseRepository):
                        group_name, description, active_flag
                 FROM categories
                 {where}
-                ORDER BY category_type, sort_order, name COLLATE NOCASE
+                ORDER BY
+                    CASE category_type
+                        WHEN 'INCOME'   THEN 0
+                        WHEN 'EXPENSE'  THEN 1
+                        WHEN 'TRANSFER' THEN 2
+                        ELSE 3
+                    END,
+                    code COLLATE NOCASE
                 """,
                 params,
             ).fetchall()

@@ -45,7 +45,6 @@
                 <th>Name</th>
                 <th>Group</th>
                 <th>Fund</th>
-                <th>Sort</th>
                 <th>Description</th>
                 <th>Status</th>
                 <th>In Use</th>
@@ -59,7 +58,6 @@
                   <td>{{ c.name }}</td>
                   <td>{{ c.group_name or '' }}</td>
                   <td><span class="pill pill--muted">{{ c.fund_code }}</span></td>
-                  <td class="mono">{{ c.sort_order }}</td>
                   <td style="max-width:24rem;white-space:normal;">{{ c.description or '' }}</td>
                   <td>
                     <span class="pill {% if c.active_flag %}pill--ok{% else %}pill--muted{% endif %}">
