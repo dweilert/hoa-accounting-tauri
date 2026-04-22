@@ -18,25 +18,39 @@
   {% endif %}
 
   <div class="panel">
-    <div class="panel__header">
+    <div class="panel__header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
       <div>
         <div class="panel__title">Vendor Bills</div>
         <div class="panel__description">{{ description }}</div>
       </div>
+      {% if bills %}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem;">
+        <input type="search"
+               id="bill-filter"
+               placeholder="Filter by any text…"
+               autocomplete="off"
+               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;"
+               oninput="filterBills()" />
+        <span id="bill-filter-count"
+              style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+          {{ bills|length }} bills
+        </span>
+      </div>
+      {% endif %}
     </div>
 
     {% if bills %}
       <div class="table-wrap">
-        <table>
+        <table id="bills-table">
           <thead>
             <tr>
-              <th>Invoice #</th>
-              <th>Vendor</th>
-              <th>Invoice Date</th>
-              <th>Due Date</th>
-              <th class="num">Amount</th>
-              <th>Payment</th>
-              <th>Description</th>
+              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 0)">Invoice # <span class="sort-ind"></span></th>
+              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 1)">Vendor <span class="sort-ind"></span></th>
+              <th data-sort="date"    style="cursor:pointer;" onclick="sortBy(this, 2)">Invoice Date <span class="sort-ind"></span></th>
+              <th data-sort="date"    style="cursor:pointer;" onclick="sortBy(this, 3)">Due Date <span class="sort-ind"></span></th>
+              <th data-sort="number"  style="cursor:pointer;text-align:right;" onclick="sortBy(this, 4)">Amount <span class="sort-ind"></span></th>
+              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 5)">Payment <span class="sort-ind"></span></th>
+              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 6)">Description <span class="sort-ind"></span></th>
               <th></th>
             </tr>
           </thead>
@@ -48,7 +62,8 @@
               'VOID':    'Void'
             } %}
             {% for b in bills %}
-              <tr>
+              {% set row_id = 'bill-row-' ~ b.id %}
+              <tr class="bill-row" data-row-id="{{ b.id }}">
                 <td class="mono">{{ b.invoice_number }}</td>
                 <td>{{ b.vendor_name }}</td>
                 <td>{{ b.invoice_date }}</td>
@@ -65,7 +80,102 @@
                 </td>
                 <td>{{ b.description }}</td>
                 <td style="text-align:right;">
-                  <a href="/vendor-bills/{{ b.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
+                  <button type="button"
+                          class="btn btn--sm btn--ghost"
+                          onclick="toggleEdit({{ b.id }}, this)">Edit</button>
+                </td>
+              </tr>
+
+              {# ── Inline edit row (hidden by default) ──────────────────── #}
+              <tr class="bill-edit-row" id="{{ row_id }}"
+                  data-row-id="{{ b.id }}"
+                  style="display:none;">
+                <td colspan="8" style="background:var(--surface-muted);padding:1rem;">
+                  <form method="post"
+                        action="/vendor-bills/{{ b.id }}/edit"
+                        class="form"
+                        style="grid-template-columns:repeat(4, minmax(10rem, 1fr));align-items:start;">
+                    <label class="field">
+                      <span class="field__label">Invoice # *</span>
+                      <input type="text" name="invoice_number"
+                             value="{{ b.invoice_number }}" required />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Vendor</span>
+                      <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                  background:var(--surface);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);color:var(--text-muted);
+                                  font-size:13px;box-sizing:border-box;">
+                        {{ b.vendor_name }}
+                      </div>
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Invoice Date *</span>
+                      <input type="date" name="invoice_date"
+                             value="{{ b.invoice_date }}" required />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Due Date</span>
+                      <input type="date" name="due_date"
+                             value="{{ b.due_date }}" />
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">
+                        Amount {% if not b.has_payment %}*{% endif %}
+                      </span>
+                      {% if b.has_payment %}
+                        <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                    background:var(--surface);border:1px solid var(--border);
+                                    border-radius:var(--radius-sm);color:var(--text-muted);
+                                    font-size:13px;box-sizing:border-box;"
+                             title="A payment has been recorded against this bill; amount is locked.">
+                          {{ b.amount }}
+                        </div>
+                      {% else %}
+                        <input type="number" name="amount"
+                               value="{{ b.amount }}"
+                               step="0.01" min="0.01" required />
+                      {% endif %}
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Expense Category *</span>
+                      <select name="category_id" required>
+                        <option value="">— Select —</option>
+                        {% for c in expense_categories %}
+                          <option value="{{ c.id }}"
+                            {% if b.category_id and b.category_id|string == c.id|string %}selected{% endif %}>
+                            {{ c.label }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Fund *</span>
+                      <select name="fund_code" required>
+                        {% for fc in fund_codes %}
+                          <option value="{{ fc }}"
+                            {% if b.fund_code == fc %}selected{% endif %}>
+                            {{ fc }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                    </label>
+
+                    <label class="field" style="grid-column: span 4;">
+                      <span class="field__label">Description</span>
+                      <input type="text" name="description"
+                             value="{{ b.description }}" />
+                    </label>
+
+                    <div style="grid-column:span 4;display:flex;gap:.5rem;">
+                      <button type="submit" class="btn btn--primary btn--sm">Save</button>
+                      <button type="button" class="btn btn--ghost btn--sm"
+                              onclick="toggleEdit({{ b.id }})">Cancel</button>
+                    </div>
+                  </form>
                 </td>
               </tr>
             {% endfor %}
@@ -78,4 +188,87 @@
       </div>
     {% endif %}
   </div>
+
+<style>
+  #bills-table th .sort-ind { font-size:10px; color: var(--text-muted); margin-left:.25rem; }
+  #bills-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
+  #bills-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
+  #bills-table tr.bill-row.filtered { display: none; }
+</style>
+
+<script>
+(function () {
+  var table = document.getElementById('bills-table');
+  if (!table) return;
+
+  // ── Filter ───────────────────────────────────────────────────────
+  window.filterBills = function () {
+    var q = (document.getElementById('bill-filter').value || '').trim().toLowerCase();
+    var rows = table.querySelectorAll('tr.bill-row');
+    var shown = 0;
+    rows.forEach(function (tr) {
+      var text = tr.textContent.toLowerCase();
+      var match = !q || text.indexOf(q) !== -1;
+      tr.classList.toggle('filtered', !match);
+      // Also hide the following edit row when the bill row is hidden.
+      var editRow = document.getElementById('bill-row-' + tr.dataset.rowId);
+      if (editRow) editRow.style.display = match ? editRow.style.display : 'none';
+      if (match) shown++;
+    });
+    var c = document.getElementById('bill-filter-count');
+    if (c) c.textContent = shown + ' bills';
+  };
+
+  // ── Sort ─────────────────────────────────────────────────────────
+  function cellValue(tr, idx, type) {
+    var raw = (tr.children[idx] && tr.children[idx].textContent || '').trim();
+    if (type === 'number') { return parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0; }
+    if (type === 'date')   { return raw || ''; }
+    return raw.toLowerCase();
+  }
+  window.sortBy = function (th, idx) {
+    var type = th.dataset.sort || 'text';
+    var asc = !th.classList.contains('sort-asc');
+    // reset indicator classes on all headers
+    table.querySelectorAll('th').forEach(function (h) {
+      h.classList.remove('sort-asc', 'sort-desc');
+    });
+    th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+
+    var tbody = table.querySelector('tbody');
+    // Pair each bill row with its following edit row, sort by the bill row, then re-append.
+    var pairs = [];
+    var children = Array.from(tbody.children);
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].classList.contains('bill-row')) {
+        var next = children[i + 1];
+        pairs.push([children[i], next && next.classList.contains('bill-edit-row') ? next : null]);
+      }
+    }
+    pairs.sort(function (a, b) {
+      var av = cellValue(a[0], idx, type);
+      var bv = cellValue(b[0], idx, type);
+      if (av < bv) return asc ? -1 : 1;
+      if (av > bv) return asc ?  1 : -1;
+      return 0;
+    });
+    pairs.forEach(function (p) {
+      tbody.appendChild(p[0]);
+      if (p[1]) tbody.appendChild(p[1]);
+    });
+  };
+
+  // ── Inline edit toggle ───────────────────────────────────────────
+  window.toggleEdit = function (rowId, btn) {
+    var editRow = document.getElementById('bill-row-' + rowId);
+    if (!editRow) return;
+    var visible = editRow.style.display === 'table-row' || editRow.style.display === '';
+    // Hide any other open edit rows first (only one at a time keeps scroll focus).
+    document.querySelectorAll('tr.bill-edit-row').forEach(function (er) {
+      if (er !== editRow) er.style.display = 'none';
+    });
+    editRow.style.display = visible ? 'none' : 'table-row';
+  };
+})();
+</script>
 {% endblock %}

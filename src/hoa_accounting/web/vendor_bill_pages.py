@@ -75,7 +75,14 @@ class VendorBillPages:
         theme: str,
         created_entry_number: str | None = None,
     ) -> VendorBillFormResponse:
-        rows = VendorsRepository(self.conn).list_vendor_bills()
+        repo = VendorsRepository(self.conn)
+        rows = repo.list_vendor_bills()
+        paid_ids = {
+            int(r["vendor_bill_id"])
+            for r in self.conn.execute(
+                "SELECT DISTINCT vendor_bill_id FROM bill_payments"
+            ).fetchall()
+        }
         bills = [
             {
                 "id": r["id"],
@@ -86,16 +93,26 @@ class VendorBillPages:
                 "fund_code": r["fund_code"],
                 "status": r["status"],
                 "vendor_name": r["vendor_name"],
+                # Need vendor_id + category_id for the inline edit form defaults.
+                "vendor_id": r["vendor_id"] if "vendor_id" in r.keys() else None,
+                "category_id": r["category_id"] if "category_id" in r.keys() else None,
                 "description": r["description"] or "",
                 "entry_number": r["entry_number"] or "",
+                "has_payment": int(r["id"]) in paid_ids,
             }
             for r in rows
+        ]
+        expense_categories = [
+            {"id": c["id"], "label": c["name"], "fund_code": c["fund_code"]}
+            for c in CategoriesRepository(self.conn).list_categories(
+                category_type="EXPENSE"
+            )
         ]
         ctx = {
             "heading": "Vendor Bills",
             "description": (
-                "Bills posted from vendors. Each bill tracks what is owed "
-                "to the vendor until it is paid."
+                "Click a column header to sort, type in the filter box to "
+                "narrow the list, click Edit to fix any field inline."
             ),
             "bills": bills,
             "org": org or {},
@@ -104,6 +121,8 @@ class VendorBillPages:
             "page_key": "vendor-bills",
             "breadcrumb": "Transactions",
             "created_entry_number": created_entry_number,
+            "expense_categories": expense_categories,
+            "fund_codes": _FUND_CODES,
         }
         return VendorBillFormResponse(
             status_code=HTTPStatus.OK,

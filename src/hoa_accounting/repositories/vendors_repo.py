@@ -23,6 +23,7 @@ class VendorsRepository(BaseRepository):
                 """
                 SELECT
                     vb.id,
+                    vb.vendor_id,
                     vb.invoice_number,
                     vb.invoice_date,
                     vb.due_date,
@@ -30,6 +31,7 @@ class VendorsRepository(BaseRepository):
                     vb.fund_code,
                     vb.status,
                     vb.description,
+                    vb.category_id,
                     vb.journal_entry_id,
                     v.vendor_name,
                     je.entry_number
