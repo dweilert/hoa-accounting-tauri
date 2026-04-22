@@ -165,7 +165,13 @@ class DuesBillingPages:
 
         def_label = _period_label(def_cycle, def_year, def_seq)
         def_description = values.get("description") or _auto_description(def_cycle, def_label)
-        def_amount = values.get("amount", "")
+        # Fall back to the HOA's configured default assessment amount (set on
+        # /setup) so treasurers don't have to re-type it every billing cycle.
+        def_amount = (
+            values.get("amount")
+            or str((org or {}).get("default_assessment_amount") or "").strip()
+            or ""
+        )
         def_entry_date = values.get("entry_date", _today())
 
         ctx = {
