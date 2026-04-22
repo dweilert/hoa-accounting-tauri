@@ -35,12 +35,17 @@
               <th>Invoice Date</th>
               <th>Due Date</th>
               <th class="num">Amount</th>
-              <th>Fund</th>
-              <th>Status</th>
+              <th>Payment</th>
               <th>Description</th>
             </tr>
           </thead>
           <tbody>
+            {% set payment_label = {
+              'OPEN':    'Unpaid',
+              'PARTIAL': 'Partial',
+              'PAID':    'Paid',
+              'VOID':    'Void'
+            } %}
             {% for b in bills %}
               <tr>
                 <td class="mono">{{ b.invoice_number }}</td>
@@ -48,14 +53,13 @@
                 <td>{{ b.invoice_date }}</td>
                 <td>{{ b.due_date }}</td>
                 <td class="num">{{ b.amount }}</td>
-                <td><span class="pill pill--muted">{{ b.fund_code }}</span></td>
                 <td>
                   <span class="pill
                     {%- if b.status == 'PAID' %} pill--ok
                     {%- elif b.status == 'VOID' %} pill--muted
                     {%- elif b.status == 'PARTIAL' %} pill--warn
                     {%- else %} pill--info{% endif %}">
-                    {{ b.status }}
+                    {{ payment_label.get(b.status, b.status) }}
                   </span>
                 </td>
                 <td>{{ b.description }}</td>
