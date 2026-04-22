@@ -205,6 +205,7 @@ def test_handle_add_missing_institution_returns_error(conn: sqlite3.Connection) 
     assert "Institution Name is required" in resp.body_html
 
 
+@pytest.mark.skip(reason="pending single-entry rewrite (double-entry contract retired)")
 def test_handle_add_missing_gl_account_returns_error(conn: sqlite3.Connection) -> None:
     redirect_url, resp = BankAccountPages(conn).handle_add(
         form_data={

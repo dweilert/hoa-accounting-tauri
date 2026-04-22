@@ -7,7 +7,4 @@ BEGIN TRANSACTION;
 ALTER TABLE bank_transactions
     ADD COLUMN category_id INTEGER REFERENCES categories(id);
 
-INSERT INTO schema_version (version, applied_at)
-VALUES ('0053_bank_transactions_category.sql', datetime('now'));
-
 COMMIT;

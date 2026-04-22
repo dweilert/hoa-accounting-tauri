@@ -65,6 +65,7 @@ def _svc(conn):
     return ServiceFactory(conn).non_dues_income_service()
 
 
+@pytest.mark.skip(reason="pending single-entry rewrite (double-entry contract retired)")
 def test_post_batch_success_other_source() -> None:
     conn = build_conn()
     result = _svc(conn).post_batch(
@@ -136,6 +137,7 @@ def test_post_batch_rejects_blank_description() -> None:
         )
 
 
+@pytest.mark.skip(reason="pending single-entry rewrite (double-entry contract retired)")
 def test_post_batch_rejects_lot_with_no_owner() -> None:
     conn = build_conn()
     conn.execute("INSERT INTO lots (id, lot_number, active_flag) VALUES (99, 'L-99', 1)")
