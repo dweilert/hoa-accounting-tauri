@@ -167,12 +167,13 @@ class BankStatementPages:
             """
             SELECT r.id, r.rule_name, r.description_contains,
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
-                   r.action_type, r.gl_account_id, r.category_id, r.lot_id, r.default_memo, r.active_flag,
-                   a.account_number, a.account_name,
-                   c.name AS category_name
+                   r.action_type, r.category_id, r.vendor_id, r.lot_id,
+                   r.default_memo, r.active_flag,
+                   c.name AS category_name,
+                   v.vendor_name AS vendor_name
             FROM bank_transaction_rules r
-            LEFT JOIN accounts   a ON a.id = r.gl_account_id
             LEFT JOIN categories c ON c.id = r.category_id
+            LEFT JOIN vendors    v ON v.id = r.vendor_id
             WHERE r.active_flag = 1
             ORDER BY r.id
             """
