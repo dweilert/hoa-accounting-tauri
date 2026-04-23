@@ -246,14 +246,6 @@
     er.style.display = open ? 'none' : 'table-row';
   };
 
-  var opened = new URLSearchParams(window.location.search).get('opened');
-  if (opened) {
-    var er = document.getElementById('asm-row-' + opened);
-    if (er) {
-      er.style.display = 'table-row';
-      er.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
 })();
 </script>
 {% endblock %}

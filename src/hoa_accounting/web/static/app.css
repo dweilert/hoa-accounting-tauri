@@ -1021,12 +1021,48 @@ th.num {
   background: var(--danger-subtle);
   color: var(--danger);
   border-color: var(--danger-border);
+  border-left-width: 4px;
 }
 
 .alert--info {
   background: var(--info-subtle);
   color: var(--info);
+  border-color: var(--info);
+  border-left-width: 4px;
 }
+
+/* Success / confirmation banner. Uses the theme accent so it reads as
+   "good thing happened" without stealing attention from danger red. */
+.alert--ok {
+  background: #e8f5ea;
+  color: #1e5e2a;
+  border-color: #7bb888;
+  border-left-width: 4px;
+  font-weight: 500;
+}
+.alert--ok .alert__close { color: #1e5e2a; }
+.alert--ok::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #2d7a3b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 4px;
+}
+/* Quick attention-grab pulse on mount. */
+@keyframes alert-pop {
+  0%   { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(45,122,59,0.25); }
+  60%  { transform: scale(1);    box-shadow: 0 0 0 8px rgba(45,122,59,0); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(45,122,59,0); }
+}
+.alert--ok { animation: alert-pop 600ms ease-out 1; }
 
 /* ── Sub-headings inside panels ─────────────────────────────────── */
 

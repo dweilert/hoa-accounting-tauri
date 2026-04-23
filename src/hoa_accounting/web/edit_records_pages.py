@@ -214,10 +214,7 @@ class EditRecordsPages:
             )
             return (None, resp)
 
-        return (
-            f"/manage/edit-records/payments?msg=Saved&opened={payment_id}",
-            None,
-        )
+        return ("/manage/edit-records/payments?msg=Saved", None)
 
     # ── Non-Dues Income ledger ──────────────────────────────────
 
@@ -314,10 +311,7 @@ class EditRecordsPages:
                 org=org, theme=theme, error_message=str(exc),
             )
             return (None, resp)
-        return (
-            f"/manage/edit-records/non-dues-income?msg=Saved&opened={income_batch_id}",
-            None,
-        )
+        return ("/manage/edit-records/non-dues-income?msg=Saved", None)
 
     # ── Assessments / Charges ledger ────────────────────────────
 
@@ -418,7 +412,4 @@ class EditRecordsPages:
                 org=org, theme=theme, error_message=str(exc),
             )
             return (None, resp)
-        return (
-            f"/manage/edit-records/assessments?msg=Saved&opened={assessment_id}",
-            None,
-        )
+        return ("/manage/edit-records/assessments?msg=Saved", None)

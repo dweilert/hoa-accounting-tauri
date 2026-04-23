@@ -297,16 +297,6 @@
     er.style.display = isOpen ? 'none' : 'table-row';
   };
 
-  // After a save, keep the row expanded so the Save button is still where
-  // the user left it and the next tweak is one click away.
-  var opened = new URLSearchParams(window.location.search).get('opened');
-  if (opened) {
-    var er = document.getElementById('pay-row-' + opened);
-    if (er) {
-      er.style.display = 'table-row';
-      er.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
 })();
 </script>
 {% endblock %}
