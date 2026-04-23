@@ -282,8 +282,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return _setup.post_assessment()
 
     # ── CSRF enforcement ──────────────────────────────────────────────────
+    # /api/ofx-ready is the fetcher webhook — the fetcher has no session,
+    # so a CSRF token is impossible. Localhost-only + path validation in
+    # the handler provide the safety margin.
     _CSRF_EXEMPT = {"/login", "/logout", "/auth/callback",
-                    "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment"}
+                    "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment",
+                    "/api/ofx-ready"}
 
     @app.before_request
     def _enforce_csrf() -> Response | None:
@@ -337,6 +341,18 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from flask import send_from_directory
         static_dir = Path(__file__).resolve().parent / "static"
         return send_from_directory(static_dir, "app.css")
+
+    # ── OFX-inbox proxy response summariser ──────────────────────────────
+    def _summarise_fetcher_response(status: int, body, *, mode: str) -> str:
+        """Turn the fetcher's JSON reply into a short user-facing message."""
+        if status == 202 and isinstance(body, dict):
+            job = body.get("job_id") or "?"
+            return f"Fetcher queued {mode} job {job}. This page will refresh when it completes."
+        if status == 503:
+            return "Fetcher daemon not reachable on 127.0.0.1:17866 — is it running?"
+        if isinstance(body, dict):
+            return f"Fetcher returned HTTP {status}: {body}"
+        return f"Fetcher returned HTTP {status}: {body}"
 
     # ── Audited DB connection helper ─────────────────────────────────────
     def _open_db() -> sqlite3.Connection:
@@ -1287,6 +1303,101 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if redirect_url:
             return redirect(redirect_url, code=303)
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html; charset=utf-8")
+
+    # ── OFX Inbox (fetcher daemon integration) ───────────────────────────────
+
+    def _open_ofx_inbox_pages():
+        from hoa_accounting.web.ofx_inbox_pages import OFXInboxPages
+        return OFXInboxPages(_open_db())
+
+    @app.get("/ofx-inbox")
+    def ofx_inbox_page() -> Response:
+        pages = _open_ofx_inbox_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = request.args.get("msg", "") or request.args.get("err", "")
+        resp = pages.render_inbox(
+            org=org_context, theme=theme,
+            flash_message=flash if request.args.get("msg") else "",
+            error_message=flash if request.args.get("err") else "",
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/ofx-inbox/import")
+    def ofx_inbox_import_one() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_ofx_inbox_pages()
+        filename = (request.form.get("filename") or "").strip()
+        redirect_url, flash = pages.handle_import_one(
+            filename=filename, org=org_context,
+        )
+        # Prefer the handler's redirect, augmenting with the flash text
+        # so the user sees what happened.
+        if flash:
+            sep = "&" if "?" in redirect_url else "?"
+            tag = "msg" if "failed" not in flash.lower() else "err"
+            redirect_url = f"{redirect_url}{sep}{tag}={quote(flash)}"
+        return redirect(redirect_url, code=303)
+
+    @app.post("/ofx-inbox/import-all")
+    def ofx_inbox_import_all() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_ofx_inbox_pages()
+        redirect_url, flash = pages.handle_import_all(org=org_context)
+        if flash:
+            sep = "&" if "?" in redirect_url else "?"
+            tag = "msg" if "failed" not in flash.lower() else "err"
+            redirect_url = f"{redirect_url}{sep}{tag}={quote(flash)}"
+        return redirect(redirect_url, code=303)
+
+    @app.post("/ofx-inbox/fetch")
+    def ofx_inbox_fetch() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_ofx_inbox_pages()
+        status, body = pages.proxy_fetch(mode="headless")
+        msg = _summarise_fetcher_response(status, body, mode="headless")
+        tag = "msg" if status < 400 else "err"
+        return redirect(f"/ofx-inbox?{tag}={quote(msg)}", code=303)
+
+    @app.post("/ofx-inbox/fetch-headed")
+    def ofx_inbox_fetch_headed() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_ofx_inbox_pages()
+        status, body = pages.proxy_fetch(mode="headed")
+        msg = _summarise_fetcher_response(status, body, mode="headed")
+        tag = "msg" if status < 400 else "err"
+        return redirect(f"/ofx-inbox?{tag}={quote(msg)}", code=303)
+
+    @app.get("/ofx-inbox/status")
+    def ofx_inbox_status() -> Response:
+        pages = _open_ofx_inbox_pages()
+        status, body = pages.proxy_status()
+        import json as _json
+        if isinstance(body, dict):
+            text = _json.dumps(body)
+        else:
+            text = str(body)
+        return Response(text, status=status, mimetype="application/json")
+
+    @app.post("/api/ofx-ready")
+    def ofx_ready_webhook() -> Response:
+        # Hardening: accept only from localhost; fetcher runs on the same
+        # machine. This is belt-and-suspenders on top of path validation.
+        if request.remote_addr not in ("127.0.0.1", "::1", "localhost"):
+            return Response("", status=403)
+        try:
+            payload = request.get_json(force=True, silent=True) or {}
+        except Exception:  # noqa: BLE001
+            payload = {}
+        pages = _open_ofx_inbox_pages()
+        http_status, body = pages.handle_ofx_ready(
+            payload=payload, org=org_context,
+        )
+        return Response(body, status=http_status, mimetype="text/plain")
 
     # ── Standalone bank statement import ─────────────────────────────────────
 

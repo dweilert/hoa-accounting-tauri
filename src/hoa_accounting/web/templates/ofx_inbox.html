@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Status banner (red → yellow → green → neutral) ─────────── #}
+  {% set level_class = {
+      'danger':  'alert--error',
+      'warning': 'alert--error',
+      'ok':      'alert--ok',
+      'neutral': 'alert--info'
+  } %}
+  <div class="alert {{ level_class.get(banner.level, 'alert--info') }}"
+       style="margin-bottom:1rem;
+              {% if banner.level == 'warning' %}
+                background:#fff8e6;color:#7a5a00;border-color:#e0b83d;
+              {% endif %}">
+    <div class="alert__content">
+      <div style="font-weight:600;">{{ banner.title }}</div>
+      {% if banner.detail %}
+        <div style="font-size:.85rem;margin-top:.15rem;">{{ banner.detail }}</div>
+      {% endif %}
+      {% if banner.debug_bundle %}
+        <div style="font-size:.75rem;margin-top:.25rem;color:var(--text-muted);
+                    font-family:var(--font-mono);">
+          debug: {{ banner.debug_bundle }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Fetch controls ──────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Pull bank data now</div>
+        <div class="panel__description">
+          Kicks off the fetcher daemon to log in to Frost and download the
+          latest OFX file. Use the headed option if you expect an MFA prompt.
+        </div>
+      </div>
+    </div>
+    <div style="padding:.75rem 1rem 1rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+      <form method="post" action="/ofx-inbox/fetch" style="display:inline;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}" />
+        <button id="fetch-btn" type="submit" class="btn btn--primary">
+          Fetch now
+        </button>
+      </form>
+      <form method="post" action="/ofx-inbox/fetch-headed" style="display:inline;">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}" />
+        <button id="fetch-headed-btn" type="submit" class="btn btn--ghost">
+          Fetch now (headed)
+        </button>
+      </form>
+      <span id="fetch-spinner"
+            style="display:none;font-size:.85rem;color:var(--text-muted);">
+        Fetching… may take up to 60 seconds. This page reloads when done.
+      </span>
+    </div>
+  </div>
+
+  {# ── Files awaiting import ───────────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+      <div>
+        <div class="panel__title">Files awaiting import</div>
+        <div class="panel__description">
+          Dropped by the fetcher at <span class="mono">{{ inbox_root }}</span>.
+          Imported files move to <span class="mono">archive/</span>.
+        </div>
+      </div>
+      {% if files %}
+        <form method="post" action="/ofx-inbox/import-all"
+              style="margin-left:auto;display:inline;">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token }}" />
+          <button type="submit" class="btn btn--primary btn--sm">
+            Import all {{ files|length }} file{% if files|length != 1 %}s{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% if files %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Modified</th>
+              <th class="num">Size</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in files %}
+              <tr>
+                <td class="mono">{{ f.filename }}</td>
+                <td>{{ f.mtime }}</td>
+                <td class="num">{{ "%.1f"|format(f.size / 1024) }} KB</td>
+                <td style="text-align:right;">
+                  <form method="post" action="/ofx-inbox/import"
+                        style="display:inline;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}" />
+                    <input type="hidden" name="filename" value="{{ f.filename }}" />
+                    <button type="submit" class="btn btn--sm btn--primary">Import</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        Nothing to import — the fetcher will drop files here on its next run.
+      </div>
+    {% endif %}
+  </div>
+
+<script>
+  (function () {
+    // Show a spinner + reload trigger when either Fetch button is pressed.
+    // The buttons submit normally to the proxy routes; we're only adding UX.
+    var btn1 = document.getElementById('fetch-btn');
+    var btn2 = document.getElementById('fetch-headed-btn');
+    var spin = document.getElementById('fetch-spinner');
+    function armSpinner(btn) {
+      if (!btn) return;
+      btn.closest('form').addEventListener('submit', function () {
+        btn1 && (btn1.disabled = true);
+        btn2 && (btn2.disabled = true);
+        if (spin) spin.style.display = 'inline';
+      });
+    }
+    armSpinner(btn1);
+    armSpinner(btn2);
+  })();
+</script>
+{% endblock %}

@@ -10,8 +10,12 @@ from hoa_accounting.auth.base import ROLE_ADMIN, AuthUser
 from hoa_accounting.web.auth_pages import _get_current_user
 from hoa_accounting.web.template_engine import render_template
 
-# Paths that never require authentication
-_PUBLIC_PREFIXES = ("/login", "/logout", "/auth/", "/static/", "/setup")
+# Paths that never require authentication.
+# /api/ofx-ready is the fetcher webhook — localhost-only, no session
+# available to authenticate with. The route's handler still validates
+# the payload's claimed file path against the inbox directory.
+_PUBLIC_PREFIXES = ("/login", "/logout", "/auth/", "/static/", "/setup",
+                    "/api/ofx-ready")
 
 # Paths that reports-level users can access (GET only)
 _REPORTS_ALLOWED_PREFIXES = (
