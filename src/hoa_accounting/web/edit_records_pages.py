@@ -17,8 +17,10 @@ from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
 from hoa_accounting.models.enums import PaymentMethod
+from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.repositories.categories_repo import CategoriesRepository
+from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.web.template_engine import render_template
 
@@ -212,3 +214,199 @@ class EditRecordsPages:
             return (None, resp)
 
         return ("/manage/edit-records/payments?msg=Saved", None)
+
+    # ── Non-Dues Income ledger ──────────────────────────────────
+
+    INCOME_TEMPLATE = "edit_records_income.html"
+
+    def render_income(
+        self,
+        *,
+        org: dict | None,
+        theme: str,
+        flash_message: str = "",
+        error_message: str = "",
+    ) -> EditRecordsResponse:
+        repo = IncomeBatchesRepository(self.conn)
+        batches = []
+        for r in repo.list_batches(limit=500):
+            batches.append({
+                "id": r["id"],
+                "posting_date": r["posting_date"] or "",
+                "bank_account_id": r["bank_account_id"],
+                "bank_label": (
+                    f"{r['bank_account_name']} (···{r['bank_account_last4'] or '????'})"
+                ),
+                "income_description": r["income_description"] or "",
+                "total_amount": f"{Decimal(str(r['total_amount'])):.2f}",
+                "notes": r["notes"] or "",
+                "category_id": r["category_id"],
+                "category_name": r["category_name"] or "",
+            })
+        bank_accounts = [
+            {"id": r["id"],
+             "label": f"{r['account_name']} (···{r['account_last4'] or '????'})"}
+            for r in BankAccountsRepository(self.conn).list_bank_accounts()
+            if r["active_flag"]
+        ]
+        income_categories = [
+            {"id": c["id"], "label": c["name"]}
+            for c in CategoriesRepository(self.conn).list_categories(
+                category_type="INCOME"
+            )
+        ]
+        ctx = {
+            "heading": "Non-Dues Income · Edit",
+            "org": org or {},
+            "theme": theme,
+            "active_nav": "master-data",
+            "page_key": "edit-records-income",
+            "breadcrumb": "Manage · Edit Records",
+            "batches": batches,
+            "bank_accounts": bank_accounts,
+            "income_categories": income_categories,
+            "flash_message": flash_message,
+            "error_message": error_message,
+        }
+        status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
+        return EditRecordsResponse(
+            status_code=status,
+            body_html=render_template(self.INCOME_TEMPLATE, ctx),
+        )
+
+    def handle_income_edit(
+        self,
+        income_batch_id: int,
+        *,
+        form_data: dict,
+        org: dict | None,
+        theme: str,
+    ) -> tuple[str | None, EditRecordsResponse | None]:
+        repo = IncomeBatchesRepository(self.conn)
+        row = repo.get_income_batch(income_batch_id)
+        if row is None:
+            return ("/manage/edit-records/non-dues-income", None)
+        try:
+            posting_date = _req(form_data.get("posting_date"), "Posting date")
+            bank_account_id = _parse_int(form_data.get("bank_account_id"), "Bank account")
+            income_description = _req(form_data.get("income_description"), "Description")
+            amount = _parse_positive_decimal(form_data.get("total_amount"), "Amount")
+            notes = (form_data.get("notes") or "").strip() or None
+            cat_raw = (form_data.get("category_id") or "").strip()
+            category_id = int(cat_raw) if cat_raw else None
+
+            repo.update_income_batch(
+                income_batch_id,
+                posting_date=posting_date,
+                bank_account_id=bank_account_id,
+                income_description=income_description,
+                total_amount=str(amount),
+                notes=notes,
+                category_id=category_id,
+            )
+        except (ValidationError, NotFoundError, AccountingError) as exc:
+            resp = self.render_income(
+                org=org, theme=theme, error_message=str(exc),
+            )
+            return (None, resp)
+        return ("/manage/edit-records/non-dues-income?msg=Saved", None)
+
+    # ── Assessments / Charges ledger ────────────────────────────
+
+    ASSESS_TEMPLATE = "edit_records_assessments.html"
+
+    def render_assessments(
+        self,
+        *,
+        org: dict | None,
+        theme: str,
+        flash_message: str = "",
+        error_message: str = "",
+    ) -> EditRecordsResponse:
+        repo = AssessmentsRepository(self.conn)
+        ids_with_apps = {
+            int(r["assessment_id"])
+            for r in self.conn.execute(
+                "SELECT DISTINCT assessment_id FROM payment_applications"
+            ).fetchall()
+        }
+        rows = []
+        for r in repo.list_for_edit(limit=500):
+            rows.append({
+                "id": r["id"],
+                "lot_number": r["lot_number"] or "",
+                "owner_name": r["owner_name"] or "",
+                "assessment_date": r["assessment_date"] or "",
+                "due_date": r["due_date"] or "",
+                "amount": f"{Decimal(str(r['amount'])):.2f}",
+                "description": r["description"] or "",
+                "status": r["status"] or "",
+                "charge_type": r["charge_type"] or "",
+                "category_id": r["category_id"],
+                "category_name": r["category_name"] or "",
+                "has_applications": int(r["id"]) in ids_with_apps,
+            })
+        income_categories = [
+            {"id": c["id"], "label": c["name"]}
+            for c in CategoriesRepository(self.conn).list_categories(
+                category_type="INCOME"
+            )
+        ]
+        ctx = {
+            "heading": "Assessments / Charges · Edit",
+            "org": org or {},
+            "theme": theme,
+            "active_nav": "master-data",
+            "page_key": "edit-records-assessments",
+            "breadcrumb": "Manage · Edit Records",
+            "assessments": rows,
+            "income_categories": income_categories,
+            "flash_message": flash_message,
+            "error_message": error_message,
+        }
+        status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
+        return EditRecordsResponse(
+            status_code=status,
+            body_html=render_template(self.ASSESS_TEMPLATE, ctx),
+        )
+
+    def handle_assessment_edit(
+        self,
+        assessment_id: int,
+        *,
+        form_data: dict,
+        org: dict | None,
+        theme: str,
+    ) -> tuple[str | None, EditRecordsResponse | None]:
+        repo = AssessmentsRepository(self.conn)
+        row = repo.get_for_edit(assessment_id)
+        if row is None:
+            return ("/manage/edit-records/assessments", None)
+        has_apps = repo.has_applications(assessment_id)
+        try:
+            assessment_date = _req(form_data.get("assessment_date"), "Assessment date")
+            due_date = _req(form_data.get("due_date"), "Due date")
+            description = _req(form_data.get("description"), "Description")
+            cat_raw = (form_data.get("category_id") or "").strip()
+            category_id = int(cat_raw) if cat_raw else None
+            if has_apps:
+                amount_to_write: str | None = None
+            else:
+                amount_dec = _parse_positive_decimal(
+                    form_data.get("amount"), "Amount"
+                )
+                amount_to_write = str(amount_dec)
+            repo.update_for_edit(
+                assessment_id,
+                assessment_date=assessment_date,
+                due_date=due_date,
+                amount=amount_to_write,
+                description=description,
+                category_id=category_id,
+            )
+        except (ValidationError, NotFoundError, AccountingError) as exc:
+            resp = self.render_assessments(
+                org=org, theme=theme, error_message=str(exc),
+            )
+            return (None, resp)
+        return ("/manage/edit-records/assessments?msg=Saved", None)

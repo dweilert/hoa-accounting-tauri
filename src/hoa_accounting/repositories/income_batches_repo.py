@@ -56,18 +56,18 @@ class IncomeBatchesRepository(BaseRepository):
                 SELECT
                     ib.id,
                     ib.posting_date,
+                    ib.bank_account_id,
                     ib.income_description,
                     ib.total_amount,
                     ib.notes,
+                    ib.category_id,
                     ib.journal_entry_id,
                     b.account_name AS bank_account_name,
-                    a.account_number AS income_account_number,
-                    a.account_name AS income_account_name,
+                    b.account_last4 AS bank_account_last4,
                     c.name AS category_name,
                     je.entry_number
                 FROM income_batches ib
                 JOIN bank_accounts b ON b.id = ib.bank_account_id
-                LEFT JOIN accounts a ON a.id = ib.income_account_id
                 LEFT JOIN categories c ON c.id = ib.category_id
                 LEFT JOIN journal_entries je ON je.id = ib.journal_entry_id
                 ORDER BY ib.posting_date DESC, ib.id DESC
@@ -76,3 +76,37 @@ class IncomeBatchesRepository(BaseRepository):
                 (limit,),
             ).fetchall()
         )
+
+    def get_income_batch(self, income_batch_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            """
+            SELECT id, posting_date, bank_account_id, income_description,
+                   total_amount, notes, category_id
+            FROM income_batches WHERE id = ?
+            """,
+            (income_batch_id,),
+        ).fetchone()
+
+    def update_income_batch(
+        self,
+        income_batch_id: int,
+        *,
+        posting_date: str,
+        bank_account_id: int,
+        income_description: str,
+        total_amount: str,
+        notes: str | None,
+        category_id: int | None,
+    ) -> None:
+        self.conn.execute(
+            """
+            UPDATE income_batches
+               SET posting_date = ?, bank_account_id = ?,
+                   income_description = ?, total_amount = ?,
+                   notes = ?, category_id = ?
+             WHERE id = ?
+            """,
+            (posting_date, bank_account_id, income_description, total_amount,
+             notes, category_id, income_batch_id),
+        )
+        self.conn.commit()

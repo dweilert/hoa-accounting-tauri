@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/manage/edit-records" class="btn btn--ghost">← Edit Records</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header asm-sticky-header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+      <div>
+        <div class="panel__title">Assessments / Charges</div>
+        <div class="panel__description">
+          Dues, late fees, special assessments, and resale fees billed to lots.
+          Amount is locked once a payment has been applied to the assessment.
+        </div>
+      </div>
+      {% if assessments %}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem;">
+        <input type="search" id="asm-filter" placeholder="Filter by any text…"
+               autocomplete="off"
+               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;"
+               oninput="filterAsm()" />
+        <span id="asm-filter-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+          {{ assessments|length }} charges
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if assessments %}
+      <div class="table-wrap asm-scroll">
+        <table id="asm-table">
+          <thead>
+            <tr>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 0)">Lot <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 1)">Owner <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 2)">Type <span class="sort-ind"></span></th>
+              <th data-sort="date"   style="cursor:pointer;" onclick="sortBy(this, 3)">Date <span class="sort-ind"></span></th>
+              <th data-sort="date"   style="cursor:pointer;" onclick="sortBy(this, 4)">Due <span class="sort-ind"></span></th>
+              <th data-sort="number" style="cursor:pointer;text-align:right;" onclick="sortBy(this, 5)">Amount <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 6)">Status <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 7)">Description <span class="sort-ind"></span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assessments %}
+              <tr class="asm-row" data-row-id="{{ a.id }}">
+                <td class="mono">{{ a.lot_number }}</td>
+                <td>{{ a.owner_name }}</td>
+                <td>{{ a.charge_type }}</td>
+                <td>{{ a.assessment_date }}</td>
+                <td>{{ a.due_date }}</td>
+                <td class="num">{{ a.amount }}</td>
+                <td>
+                  <span class="pill
+                    {%- if a.status == 'PAID' %} pill--ok
+                    {%- elif a.status == 'VOID' or a.status == 'WRITTEN_OFF' %} pill--muted
+                    {%- elif a.status == 'PARTIAL' %} pill--warn
+                    {%- else %} pill--info{% endif %}">
+                    {{ a.status }}
+                  </span>
+                </td>
+                <td>{{ a.description }}</td>
+                <td style="text-align:right;">
+                  <button type="button" class="btn btn--sm btn--ghost" onclick="toggleEdit({{ a.id }})">Edit</button>
+                </td>
+              </tr>
+              <tr class="asm-edit-row" id="asm-row-{{ a.id }}" data-row-id="{{ a.id }}" style="display:none;">
+                <td colspan="9" style="background:var(--surface-muted);padding:1rem;">
+                  <form method="post" action="/manage/edit-records/assessments/{{ a.id }}/edit"
+                        style="display:grid;grid-template-columns:repeat(4, minmax(10rem, 1fr));gap:.6rem 1rem;align-items:start;">
+                    <label class="field">
+                      <span class="field__label">Lot</span>
+                      <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                  background:var(--surface);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);color:var(--text-muted);
+                                  font-size:13px;box-sizing:border-box;">{{ a.lot_number }}</div>
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Owner</span>
+                      <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                  background:var(--surface);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);color:var(--text-muted);
+                                  font-size:13px;box-sizing:border-box;">{{ a.owner_name }}</div>
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Charge Type</span>
+                      <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                  background:var(--surface);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);color:var(--text-muted);
+                                  font-size:13px;box-sizing:border-box;">{{ a.charge_type }}</div>
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Status</span>
+                      <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                  background:var(--surface);border:1px solid var(--border);
+                                  border-radius:var(--radius-sm);color:var(--text-muted);
+                                  font-size:13px;box-sizing:border-box;">{{ a.status }}</div>
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Assessment Date *</span>
+                      <input type="date" name="assessment_date" value="{{ a.assessment_date }}" required />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Due Date *</span>
+                      <input type="date" name="due_date" value="{{ a.due_date }}" required />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">
+                        Amount {% if not a.has_applications %}*{% endif %}
+                      </span>
+                      {% if a.has_applications %}
+                        <div style="height:30px;padding:0 10px;display:flex;align-items:center;
+                                    background:var(--surface);border:1px solid var(--border);
+                                    border-radius:var(--radius-sm);color:var(--text-muted);
+                                    font-size:13px;box-sizing:border-box;"
+                             title="Payments have been applied to this charge; amount is locked.">
+                          {{ a.amount }}
+                        </div>
+                      {% else %}
+                        <input type="number" name="amount" value="{{ a.amount }}" step="0.01" min="0.01" required />
+                      {% endif %}
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Category</span>
+                      <select name="category_id">
+                        <option value="">— None —</option>
+                        {% for c in income_categories %}
+                          <option value="{{ c.id }}" {% if a.category_id and a.category_id|string == c.id|string %}selected{% endif %}>{{ c.label }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+
+                    <label class="field" style="grid-column: span 4;">
+                      <span class="field__label">Description *</span>
+                      <input type="text" name="description" value="{{ a.description }}" required />
+                    </label>
+                    <div style="grid-column:span 4;display:flex;gap:.5rem;">
+                      <button type="submit" class="btn btn--primary btn--sm">Save</button>
+                      <button type="button" class="btn btn--ghost btn--sm" onclick="toggleEdit({{ a.id }})">Cancel</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No assessments recorded yet.</div>
+    {% endif %}
+  </div>
+
+<style>
+  #asm-table th .sort-ind { font-size:10px; color: var(--text-muted); margin-left:.25rem; }
+  #asm-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
+  #asm-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
+  #asm-table tr.asm-row.filtered { display: none; }
+  .asm-sticky-header { position: sticky; top: var(--app-topbar-offset, 0); z-index: 5;
+    background: var(--surface); border-bottom: 1px solid var(--border); }
+  #asm-table thead th { position: sticky; top: var(--asm-head-offset, 0);
+    background: var(--accent-subtle, #eaf4ec); color: var(--accent-dark, var(--accent));
+    font-weight: 600; z-index: 4; box-shadow: 0 1px 0 var(--border); }
+  .asm-scroll { overflow: visible; }
+</style>
+<script>
+(function () {
+  function sync() {
+    var topbar = document.querySelector('header.topbar');
+    var topH = topbar ? topbar.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--app-topbar-offset', topH + 'px');
+    var h = document.querySelector('.asm-sticky-header');
+    var headH = h ? h.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--asm-head-offset', (topH + headH) + 'px');
+  }
+  window.addEventListener('load', sync);
+  window.addEventListener('resize', sync);
+  setTimeout(sync, 50);
+
+  var table = document.getElementById('asm-table');
+  if (!table) return;
+
+  window.filterAsm = function () {
+    var q = (document.getElementById('asm-filter').value || '').trim().toLowerCase();
+    var shown = 0;
+    table.querySelectorAll('tr.asm-row').forEach(function (tr) {
+      var m = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
+      tr.classList.toggle('filtered', !m);
+      var edit = document.getElementById('asm-row-' + tr.dataset.rowId);
+      if (edit && !m) edit.style.display = 'none';
+      if (m) shown++;
+    });
+    var c = document.getElementById('asm-filter-count');
+    if (c) c.textContent = shown + ' charges';
+  };
+
+  function cellValue(tr, idx, type) {
+    var raw = (tr.children[idx] && tr.children[idx].textContent || '').trim();
+    if (type === 'number') return parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0;
+    if (type === 'date')   return raw || '';
+    return raw.toLowerCase();
+  }
+  window.sortBy = function (th, idx) {
+    var type = th.dataset.sort || 'text';
+    var asc = !th.classList.contains('sort-asc');
+    table.querySelectorAll('th').forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); });
+    th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+    var tbody = table.querySelector('tbody');
+    var pairs = [];
+    var children = Array.from(tbody.children);
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].classList.contains('asm-row')) {
+        var next = children[i + 1];
+        pairs.push([children[i], next && next.classList.contains('asm-edit-row') ? next : null]);
+      }
+    }
+    pairs.sort(function (a, b) {
+      var av = cellValue(a[0], idx, type);
+      var bv = cellValue(b[0], idx, type);
+      if (av < bv) return asc ? -1 : 1;
+      if (av > bv) return asc ?  1 : -1;
+      return 0;
+    });
+    pairs.forEach(function (p) { tbody.appendChild(p[0]); if (p[1]) tbody.appendChild(p[1]); });
+  };
+
+  window.toggleEdit = function (rowId) {
+    var er = document.getElementById('asm-row-' + rowId);
+    if (!er) return;
+    var open = er.style.display === 'table-row' || er.style.display === '';
+    document.querySelectorAll('tr.asm-edit-row').forEach(function (x) { if (x !== er) x.style.display = 'none'; });
+    er.style.display = open ? 'none' : 'table-row';
+  };
+})();
+</script>
+{% endblock %}

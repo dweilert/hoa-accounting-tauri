@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/manage/edit-records" class="btn btn--ghost">← Edit Records</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error" style="margin-bottom:1rem;">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header inc-sticky-header" style="flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
+      <div>
+        <div class="panel__title">Non-Dues Income</div>
+        <div class="panel__description">
+          Interest, fees, and other receipts. Click Edit to fix any field inline.
+        </div>
+      </div>
+      {% if batches %}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem;">
+        <input type="search" id="inc-filter" placeholder="Filter by any text…"
+               autocomplete="off"
+               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;"
+               oninput="filterInc()" />
+        <span id="inc-filter-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+          {{ batches|length }} entries
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if batches %}
+      <div class="table-wrap inc-scroll">
+        <table id="inc-table">
+          <thead>
+            <tr>
+              <th data-sort="date"   style="cursor:pointer;" onclick="sortBy(this, 0)">Date <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 1)">Description <span class="sort-ind"></span></th>
+              <th data-sort="number" style="cursor:pointer;text-align:right;" onclick="sortBy(this, 2)">Amount <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 3)">Category <span class="sort-ind"></span></th>
+              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 4)">Notes <span class="sort-ind"></span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in batches %}
+              <tr class="inc-row" data-row-id="{{ b.id }}">
+                <td>{{ b.posting_date }}</td>
+                <td>{{ b.income_description }}</td>
+                <td class="num">{{ b.total_amount }}</td>
+                <td>{{ b.category_name }}</td>
+                <td>{{ b.notes }}</td>
+                <td style="text-align:right;">
+                  <button type="button" class="btn btn--sm btn--ghost" onclick="toggleEdit({{ b.id }})">Edit</button>
+                </td>
+              </tr>
+              <tr class="inc-edit-row" id="inc-row-{{ b.id }}" data-row-id="{{ b.id }}" style="display:none;">
+                <td colspan="6" style="background:var(--surface-muted);padding:1rem;">
+                  <form method="post" action="/manage/edit-records/non-dues-income/{{ b.id }}/edit"
+                        style="display:grid;grid-template-columns:repeat(4, minmax(10rem, 1fr));gap:.6rem 1rem;align-items:start;">
+                    <label class="field">
+                      <span class="field__label">Posting Date *</span>
+                      <input type="date" name="posting_date" value="{{ b.posting_date }}" required />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Bank Account *</span>
+                      <select name="bank_account_id" required>
+                        {% for ba in bank_accounts %}
+                          <option value="{{ ba.id }}" {% if b.bank_account_id|string == ba.id|string %}selected{% endif %}>{{ ba.label }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Amount *</span>
+                      <input type="number" name="total_amount" value="{{ b.total_amount }}" step="0.01" min="0.01" required />
+                    </label>
+                    <label class="field">
+                      <span class="field__label">Category</span>
+                      <select name="category_id">
+                        <option value="">— None —</option>
+                        {% for c in income_categories %}
+                          <option value="{{ c.id }}" {% if b.category_id and b.category_id|string == c.id|string %}selected{% endif %}>{{ c.label }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+                    <label class="field" style="grid-column: span 2;">
+                      <span class="field__label">Description *</span>
+                      <input type="text" name="income_description" value="{{ b.income_description }}" required />
+                    </label>
+                    <label class="field" style="grid-column: span 2;">
+                      <span class="field__label">Notes</span>
+                      <input type="text" name="notes" value="{{ b.notes }}" />
+                    </label>
+                    <div style="grid-column:span 4;display:flex;gap:.5rem;">
+                      <button type="submit" class="btn btn--primary btn--sm">Save</button>
+                      <button type="button" class="btn btn--ghost btn--sm" onclick="toggleEdit({{ b.id }})">Cancel</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No non-dues income recorded yet.</div>
+    {% endif %}
+  </div>
+
+<style>
+  #inc-table th .sort-ind { font-size:10px; color: var(--text-muted); margin-left:.25rem; }
+  #inc-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
+  #inc-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
+  #inc-table tr.inc-row.filtered { display: none; }
+  .inc-sticky-header { position: sticky; top: var(--app-topbar-offset, 0); z-index: 5;
+    background: var(--surface); border-bottom: 1px solid var(--border); }
+  #inc-table thead th { position: sticky; top: var(--inc-head-offset, 0);
+    background: var(--accent-subtle, #eaf4ec); color: var(--accent-dark, var(--accent));
+    font-weight: 600; z-index: 4; box-shadow: 0 1px 0 var(--border); }
+  .inc-scroll { overflow: visible; }
+</style>
+<script>
+(function () {
+  function sync() {
+    var topbar = document.querySelector('header.topbar');
+    var topH = topbar ? topbar.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--app-topbar-offset', topH + 'px');
+    var h = document.querySelector('.inc-sticky-header');
+    var headH = h ? h.getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--inc-head-offset', (topH + headH) + 'px');
+  }
+  window.addEventListener('load', sync);
+  window.addEventListener('resize', sync);
+  setTimeout(sync, 50);
+
+  var table = document.getElementById('inc-table');
+  if (!table) return;
+
+  window.filterInc = function () {
+    var q = (document.getElementById('inc-filter').value || '').trim().toLowerCase();
+    var shown = 0;
+    table.querySelectorAll('tr.inc-row').forEach(function (tr) {
+      var m = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
+      tr.classList.toggle('filtered', !m);
+      var edit = document.getElementById('inc-row-' + tr.dataset.rowId);
+      if (edit && !m) edit.style.display = 'none';
+      if (m) shown++;
+    });
+    var c = document.getElementById('inc-filter-count');
+    if (c) c.textContent = shown + ' entries';
+  };
+
+  function cellValue(tr, idx, type) {
+    var raw = (tr.children[idx] && tr.children[idx].textContent || '').trim();
+    if (type === 'number') return parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0;
+    if (type === 'date')   return raw || '';
+    return raw.toLowerCase();
+  }
+  window.sortBy = function (th, idx) {
+    var type = th.dataset.sort || 'text';
+    var asc = !th.classList.contains('sort-asc');
+    table.querySelectorAll('th').forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); });
+    th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+    var tbody = table.querySelector('tbody');
+    var pairs = [];
+    var children = Array.from(tbody.children);
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].classList.contains('inc-row')) {
+        var next = children[i + 1];
+        pairs.push([children[i], next && next.classList.contains('inc-edit-row') ? next : null]);
+      }
+    }
+    pairs.sort(function (a, b) {
+      var av = cellValue(a[0], idx, type);
+      var bv = cellValue(b[0], idx, type);
+      if (av < bv) return asc ? -1 : 1;
+      if (av > bv) return asc ?  1 : -1;
+      return 0;
+    });
+    pairs.forEach(function (p) { tbody.appendChild(p[0]); if (p[1]) tbody.appendChild(p[1]); });
+  };
+
+  window.toggleEdit = function (rowId) {
+    var er = document.getElementById('inc-row-' + rowId);
+    if (!er) return;
+    var open = er.style.display === 'table-row' || er.style.display === '';
+    document.querySelectorAll('tr.inc-edit-row').forEach(function (x) { if (x !== er) x.style.display = 'none'; });
+    er.style.display = open ? 'none' : 'table-row';
+  };
+})();
+</script>
+{% endblock %}

@@ -1983,6 +1983,56 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    @app.get("/manage/edit-records/non-dues-income")
+    def edit_records_income() -> Response:
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = request.args.get("msg", "")
+        resp = pages.render_income(org=org_context, theme=theme, flash_message=flash)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/edit")
+    def edit_records_income_submit(income_batch_id: int) -> Response:
+        from flask import redirect
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_income_edit(
+            income_batch_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/manage/edit-records/assessments")
+    def edit_records_assessments() -> Response:
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = request.args.get("msg", "")
+        resp = pages.render_assessments(org=org_context, theme=theme, flash_message=flash)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/manage/edit-records/assessments/<int:assessment_id>/edit")
+    def edit_records_assessments_submit(assessment_id: int) -> Response:
+        from flask import redirect
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_assessment_edit(
+            assessment_id,
+            form_data={k: v for k, v in request.form.items()},
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     # ── Transaction pages: Deposit Batches ──────────────────────────
 
     def _open_deposit_batch_pages() -> DepositBatchPages:
