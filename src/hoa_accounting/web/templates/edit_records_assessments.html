@@ -238,7 +238,12 @@
     pairs.forEach(function (p) { tbody.appendChild(p[0]); if (p[1]) tbody.appendChild(p[1]); });
   };
 
+  function dismissFlash() {
+    document.querySelectorAll('.alert--ok').forEach(function (a) { a.remove(); });
+  }
+
   window.toggleEdit = function (rowId) {
+    dismissFlash();
     var er = document.getElementById('asm-row-' + rowId);
     if (!er) return;
     var open = er.style.display === 'table-row' || er.style.display === '';

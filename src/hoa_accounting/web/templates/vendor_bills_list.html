@@ -280,8 +280,13 @@
     });
   };
 
+  function dismissFlash() {
+    document.querySelectorAll('.alert--ok').forEach(function (a) { a.remove(); });
+  }
+
   // ── Inline edit toggle ───────────────────────────────────────────
   window.toggleEdit = function (rowId, btn) {
+    dismissFlash();
     var editRow = document.getElementById('bill-row-' + rowId);
     if (!editRow) return;
     var visible = editRow.style.display === 'table-row' || editRow.style.display === '';

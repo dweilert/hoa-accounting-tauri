@@ -287,7 +287,12 @@
     });
   };
 
+  function dismissFlash() {
+    document.querySelectorAll('.alert--ok').forEach(function (a) { a.remove(); });
+  }
+
   window.toggleEdit = function (rowId) {
+    dismissFlash();
     var er = document.getElementById('pay-row-' + rowId);
     if (!er) return;
     var isOpen = er.style.display === 'table-row' || er.style.display === '';
