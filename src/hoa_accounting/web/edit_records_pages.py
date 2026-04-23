@@ -143,6 +143,7 @@ class EditRecordsPages:
             "active_nav": "master-data",
             "page_key": "edit-records-payments",
             "breadcrumb": "Manage · Edit Records",
+            "parent_url": "/manage/edit-records",
             "payments": payments,
             "bank_accounts": bank_accounts,
             "income_categories": income_categories,
@@ -213,7 +214,10 @@ class EditRecordsPages:
             )
             return (None, resp)
 
-        return ("/manage/edit-records/payments?msg=Saved", None)
+        return (
+            f"/manage/edit-records/payments?msg=Saved&opened={payment_id}",
+            None,
+        )
 
     # ── Non-Dues Income ledger ──────────────────────────────────
 
@@ -262,6 +266,7 @@ class EditRecordsPages:
             "active_nav": "master-data",
             "page_key": "edit-records-income",
             "breadcrumb": "Manage · Edit Records",
+            "parent_url": "/manage/edit-records",
             "batches": batches,
             "bank_accounts": bank_accounts,
             "income_categories": income_categories,
@@ -309,7 +314,10 @@ class EditRecordsPages:
                 org=org, theme=theme, error_message=str(exc),
             )
             return (None, resp)
-        return ("/manage/edit-records/non-dues-income?msg=Saved", None)
+        return (
+            f"/manage/edit-records/non-dues-income?msg=Saved&opened={income_batch_id}",
+            None,
+        )
 
     # ── Assessments / Charges ledger ────────────────────────────
 
@@ -359,6 +367,7 @@ class EditRecordsPages:
             "active_nav": "master-data",
             "page_key": "edit-records-assessments",
             "breadcrumb": "Manage · Edit Records",
+            "parent_url": "/manage/edit-records",
             "assessments": rows,
             "income_categories": income_categories,
             "flash_message": flash_message,
@@ -409,4 +418,7 @@ class EditRecordsPages:
                 org=org, theme=theme, error_message=str(exc),
             )
             return (None, resp)
-        return ("/manage/edit-records/assessments?msg=Saved", None)
+        return (
+            f"/manage/edit-records/assessments?msg=Saved&opened={assessment_id}",
+            None,
+        )

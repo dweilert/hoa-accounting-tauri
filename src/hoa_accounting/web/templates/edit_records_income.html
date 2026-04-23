@@ -3,10 +3,6 @@
 {% block title %}{{ heading }} · {{ org.name }}{% endblock %}
 {% block heading %}{{ heading }}{% endblock %}
 
-{% block topbar_meta %}
-  <a href="/manage/edit-records" class="btn btn--ghost">← Edit Records</a>
-{% endblock %}
-
 {% block content %}
   {% if flash_message %}
     <div class="alert alert--ok" style="margin-bottom:1rem;">
@@ -200,6 +196,15 @@
     document.querySelectorAll('tr.inc-edit-row').forEach(function (x) { if (x !== er) x.style.display = 'none'; });
     er.style.display = open ? 'none' : 'table-row';
   };
+
+  var opened = new URLSearchParams(window.location.search).get('opened');
+  if (opened) {
+    var er = document.getElementById('inc-row-' + opened);
+    if (er) {
+      er.style.display = 'table-row';
+      er.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
 })();
 </script>
 {% endblock %}

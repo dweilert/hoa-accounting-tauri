@@ -377,8 +377,11 @@
                     fill="currentColor" opacity=".85"/>
             </svg>
           </a>
-          <a id="back-btn" href="#" title="Go back"
-             style="display:none;align-items:center;gap:.25rem;font-size:.8rem;
+          <a id="back-btn"
+             href="{{ parent_url or '#' }}"
+             data-parent-url="{{ parent_url or '' }}"
+             title="Go back"
+             style="display:{% if parent_url %}flex{% else %}none{% endif %};align-items:center;gap:.25rem;font-size:.8rem;
                     color:var(--text-muted);text-decoration:none;padding:.2rem .4rem;
                     border-radius:4px;border:1px solid var(--border);line-height:1;
                     white-space:nowrap;transition:color .15s,border-color .15s;"
@@ -787,10 +790,16 @@
     })();
   </script>
   <script>
-    /* Back button: show only when referrer is same origin and different page. */
+    /* Back button: prefer an explicit parent_url declared by the page; fall
+       back to the referrer when it's a different page on the same origin.
+       An explicit parent always shows — that keeps navigation consistent
+       across POST-redirect-GET cycles where the referrer becomes the same
+       page the user is already on. */
     (function () {
       var btn = document.getElementById("back-btn");
       if (!btn) return;
+      var declared = (btn.getAttribute("data-parent-url") || "").trim();
+      if (declared) { return; }  // already href'd + shown by the server render
       try {
         var ref = document.referrer;
         if (!ref) return;
