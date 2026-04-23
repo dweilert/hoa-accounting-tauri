@@ -20,3 +20,6 @@ dist/
 # Local config contains secrets (DB path, Cognito credentials).
 # Copy config.yaml.example → config.yaml and fill in your values.
 config.yaml
+
+# Scratch area for outside repos staged during dev — never commit.
+_external/
