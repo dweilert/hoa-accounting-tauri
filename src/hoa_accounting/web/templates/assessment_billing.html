@@ -143,11 +143,12 @@
                   </select>
                 </td>
                 <td>
-                  <input type="number" name="row_{{ loop.index0 }}_amount"
+                  <input type="text" name="row_{{ loop.index0 }}_amount"
                          value="{{ row.amount }}"
-                         step="0.01" min="0" inputmode="decimal"
+                         inputmode="decimal"
                          placeholder="0.00"
-                         style="text-align: right;" />
+                         class="dollar-input"
+                         style="text-align: right;font-family:var(--font-mono);" />
                 </td>
                 <td>
                   <button type="button" class="btn btn--ghost row-remove"
@@ -175,9 +176,11 @@
           </select>
         </td>
         <td>
-          <input type="number" name="row_IDX_amount"
-                 step="0.01" min="0" inputmode="decimal"
-                 placeholder="0.00" style="text-align: right;" />
+          <input type="text" name="row_IDX_amount"
+                 inputmode="decimal"
+                 placeholder="0.00"
+                 class="dollar-input"
+                 style="text-align: right;font-family:var(--font-mono);" />
         </td>
         <td>
           <button type="button" class="btn btn--ghost row-remove"
