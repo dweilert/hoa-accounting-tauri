@@ -4,6 +4,7 @@
 {% block heading %}Bill Assessments{% endblock %}
 
 {% block content %}
+{% include "_bill_owners_tabs.html" %}
   {% if success_message %}
     <div class="alert alert--info" style="background: var(--accent-subtle); color: var(--accent); border-color: var(--accent-border);">
       <div class="alert__content">{{ success_message }}</div>

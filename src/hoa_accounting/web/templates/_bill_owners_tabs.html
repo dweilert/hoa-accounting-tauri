@@ -1,0 +1,25 @@
+{# Shared tab bar for the four Bill Owners pages. Each page includes
+   this partial at the top of its content block and sets ``page_key`` to
+   one of: bill-dues, late-fees, bill-assessments, resale-fee. The active
+   tab highlights based on that key. #}
+<div class="bill-tabs" style="display:flex;gap:.25rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+  {% set tabs = [
+    ('/dues-billing',    'bill-dues',        'Dues'),
+    ('/late-fees',       'late-fees',        'Late Fees'),
+    ('/assessments/bill','bill-assessments', 'Special Assessments'),
+    ('/resale-fee',      'resale-fee',       'Resale Fee'),
+  ] %}
+  {% for href, key, label in tabs %}
+    {% set active = (page_key == key) %}
+    <a href="{{ href }}"
+       class="bill-tab{% if active %} bill-tab--active{% endif %}"
+       style="padding:.55rem 1rem;border:1px solid var(--border);
+              border-bottom:none;border-radius:6px 6px 0 0;
+              font-size:.85rem;font-weight:{% if active %}600{% else %}500{% endif %};
+              color:{% if active %}var(--text){% else %}var(--text-muted){% endif %};
+              background:{% if active %}var(--surface){% else %}var(--surface-muted){% endif %};
+              margin-bottom:-1px;text-decoration:none;">
+      {{ label }}
+    </a>
+  {% endfor %}
+</div>

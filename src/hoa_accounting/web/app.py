@@ -1305,6 +1305,16 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url, code=303)
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html; charset=utf-8")
 
+    # ── Menu aliases / retired-page redirects ────────────────────────────────
+    # The sidebar reorg points "Bill Owners" at /owners/bill — a thin alias
+    # that lands on the Dues tab of the existing billing stack. The four
+    # billing pages share a tab bar so any of them can land you elsewhere.
+
+    @app.get("/owners/bill")
+    def owners_bill_landing() -> Response:
+        from flask import redirect
+        return redirect("/dues-billing", code=303)
+
     # ── Record Deposit (unified money-in entry point) ────────────────────────
 
     def _open_record_deposit_pages():
@@ -2335,14 +2345,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         conn = _open_db()
         return DepositBatchPages(conn)
 
+    # /deposits was the old "Record Payments" screen; collapsed into the
+    # unified /deposit grid. Kept as a 303 so bookmarks survive.
     @app.get("/deposits")
     def list_deposits() -> Response:
-        pages = _open_deposit_batch_pages()
-        theme = str(org_context.get("theme", "warm"))
-        created = (request.args.get("created") or "").strip() or None
-        resp = pages.render_list(org=org_context, theme=theme, created_entry_number=created)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        from flask import redirect
+        return redirect("/deposit", code=303)
 
     @app.get("/deposits/new")
     def new_deposit_batch_form() -> Response:
@@ -2378,14 +2386,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         conn = _open_db()
         return NonDuesIncomePages(conn)
 
+    # /income was the old "Other Income" screen; its flow is now an
+    # "other source" row on the unified /deposit grid.
     @app.get("/income")
     def list_income() -> Response:
-        pages = _open_income_pages()
-        theme = str(org_context.get("theme", "warm"))
-        created = (request.args.get("created") or "").strip() or None
-        resp = pages.render_list(org=org_context, theme=theme, created_entry_number=created)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        from flask import redirect
+        return redirect("/deposit", code=303)
 
     @app.get("/income/new")
     def new_income_form() -> Response:
@@ -3243,18 +3249,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    # /resale-fee/payments was a specialized payment form; under the new
+    # model it's a specific-charges row on /deposit.
     @app.get("/resale-fee/payments")
     def resale_fee_payments_page() -> Response:
-        from flask import request as _req
-        pages = _open_resale_fee_pages()
-        theme = str(org_context.get("theme", "warm"))
-        flash = _req.args.get("msg", "")
-        resp = pages.render_payments_page(
-            org=org_context, theme=theme,
-            flash_message=flash,
-        )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        from flask import redirect
+        return redirect("/deposit", code=303)
 
     @app.post("/resale-fee/post-payment")
     def resale_fee_post_payment() -> Response:

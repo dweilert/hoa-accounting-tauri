@@ -4,6 +4,7 @@
 {% block heading %}{{ heading }}{% endblock %}
 
 {% block content %}
+{% include "_bill_owners_tabs.html" %}
 
   {# ── Alerts ──────────────────────────────────────────────────────── #}
   {% if flash_message %}

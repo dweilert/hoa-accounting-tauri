@@ -1,0 +1,21 @@
+{# Shared tab bar for the two Who Owes & Past Due screens. Each page
+   sets ``page_key`` to one of: ar-lots, delinquency-report. #}
+<div class="ar-tabs" style="display:flex;gap:.25rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+  {% set tabs = [
+    ('/ar/lots',            'ar-lots',            'Who Owes'),
+    ('/delinquency-report', 'delinquency-report', 'Past Due'),
+  ] %}
+  {% for href, key, label in tabs %}
+    {% set active = (page_key == key) %}
+    <a href="{{ href }}"
+       class="ar-tab{% if active %} ar-tab--active{% endif %}"
+       style="padding:.55rem 1rem;border:1px solid var(--border);
+              border-bottom:none;border-radius:6px 6px 0 0;
+              font-size:.85rem;font-weight:{% if active %}600{% else %}500{% endif %};
+              color:{% if active %}var(--text){% else %}var(--text-muted){% endif %};
+              background:{% if active %}var(--surface){% else %}var(--surface-muted){% endif %};
+              margin-bottom:-1px;text-decoration:none;">
+      {{ label }}
+    </a>
+  {% endfor %}
+</div>
