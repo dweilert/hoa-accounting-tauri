@@ -415,6 +415,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 if outstanding <= 0:
                     continue
                 charges.append({
+                    "id": int(r["id"]),
                     "charge_type": r["charge_type"],
                     "description": r["description"] or "",
                     "due_date": r["due_date"] or "",
@@ -1303,6 +1304,60 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if redirect_url:
             return redirect(redirect_url, code=303)
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html; charset=utf-8")
+
+    # ── Record Deposit (unified money-in entry point) ────────────────────────
+
+    def _open_record_deposit_pages():
+        from hoa_accounting.web.record_deposit_pages import RecordDepositPages
+        return RecordDepositPages(_open_db())
+
+    @app.get("/deposit")
+    def record_deposit_page() -> Response:
+        pages = _open_record_deposit_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(
+            org=org_context, theme=theme,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/deposit")
+    def record_deposit_submit() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        import re
+        pages = _open_record_deposit_pages()
+
+        deposit_date = (request.form.get("deposit_date") or "").strip()
+        bank_raw = (request.form.get("bank_account_id") or "").strip()
+        memo = (request.form.get("memo") or "").strip()
+
+        # Reconstruct the grid rows from the bracketed form names.
+        pat = re.compile(r"^rows\[(\d+)\]\[([a-z_]+)\]$")
+        rows_by_idx: dict[int, dict] = {}
+        for key, val in request.form.items():
+            m = pat.match(key)
+            if not m:
+                continue
+            rows_by_idx.setdefault(int(m.group(1)), {})[m.group(2)] = val
+        ordered_rows = [rows_by_idx[i] for i in sorted(rows_by_idx.keys())]
+
+        if not bank_raw.isdigit():
+            return redirect("/deposit?err=Pick+a+bank+account", code=303)
+
+        url, flash = pages.handle_submit(
+            deposit_date=deposit_date,
+            bank_account_id=int(bank_raw),
+            memo=memo,
+            rows=ordered_rows,
+        )
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "saved" in flash.lower() else "err"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
 
     # ── Pending Validation (canonical bank_transactions queue) ───────────────
 

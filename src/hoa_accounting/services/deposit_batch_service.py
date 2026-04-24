@@ -25,12 +25,29 @@ from hoa_accounting.validators.common import q2, require_positive_amount
 
 @dataclass(frozen=True)
 class DepositRow:
-    """One row in a deposit batch — a single owner's check."""
+    """One row in a deposit batch — a single owner's check.
+
+    Drain behavior is controlled by ``charge_type_filter`` and
+    ``apply_to_assessment_ids``:
+
+    - Neither set  → legacy behavior: drain ANY open assessment oldest
+      first. Preserved for existing callers; new callers should always
+      specify.
+    - ``charge_type_filter`` set → drain only assessments whose
+      ``charge_type`` is in the tuple, oldest first. This is how the
+      *regular* mode of Record Deposit prevents a dues payment from
+      accidentally consuming a resale fee.
+    - ``apply_to_assessment_ids`` set → drain exactly those assessments
+      in the given order, ignoring the filter. For the *specific
+      charges* mode where the treasurer picks what the check covers.
+    """
 
     lot_id: int
     amount: Decimal | str
     reference_number: str | None = None
     memo: str | None = None
+    charge_type_filter: tuple[str, ...] | None = None
+    apply_to_assessment_ids: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -101,6 +118,8 @@ class DepositBatchService:
                         amount=amount,
                         reference_number=(row.reference_number or None),
                         memo=(row.memo or ""),
+                        charge_type_filter=row.charge_type_filter,
+                        apply_to_assessment_ids=row.apply_to_assessment_ids,
                     )
                 )
                 total += amount
@@ -127,10 +146,12 @@ class DepositBatchService:
                     notes=r.memo,
                     deposit_batch_id=deposit_batch_id,
                 )
-                self._auto_apply_to_oldest_open_assessments(
+                self._apply_payment_to_assessments(
                     payment_id=payment_id,
                     owner_id=r.owner_id,
                     payment_amount=r.amount,
+                    charge_type_filter=r.charge_type_filter,
+                    explicit_assessment_ids=r.apply_to_assessment_ids,
                 )
                 payment_ids.append(payment_id)
 
@@ -174,15 +195,41 @@ class DepositBatchService:
             "Could not allocate a unique receipt number for this batch."
         )
 
-    def _auto_apply_to_oldest_open_assessments(
+    def _apply_payment_to_assessments(
         self,
         *,
         payment_id: int,
         owner_id: int,
         payment_amount: Decimal,
+        charge_type_filter: tuple[str, ...] | None,
+        explicit_assessment_ids: tuple[int, ...] | None,
     ) -> None:
+        """Drain open assessments by the payment amount.
+
+        Ordering rules:
+        - If ``explicit_assessment_ids`` is set, iterate in that exact
+          order (whatever the treasurer picked). Remaining amount after
+          the list is simply left as unapplied credit on the payment.
+        - Otherwise, iterate the owner's open assessments oldest-first,
+          filtered by ``charge_type_filter`` when present.
+
+        In both cases an individual assessment's outstanding amount caps
+        what this payment can apply to it — overflow carries to the next
+        one in order.
+        """
         remaining = q2(payment_amount)
-        for a in self.assessments_repo.list_open_for_owner(owner_id):
+
+        if explicit_assessment_ids:
+            all_rows = self.assessments_repo.list_open_for_owner(owner_id)
+            by_id = {int(r["id"]): r for r in all_rows}
+            candidates = [by_id[aid] for aid in explicit_assessment_ids if aid in by_id]
+        else:
+            candidates = list(self.assessments_repo.list_open_for_owner(owner_id))
+            if charge_type_filter:
+                allowed = set(charge_type_filter)
+                candidates = [a for a in candidates if (a["charge_type"] or "DUES") in allowed]
+
+        for a in candidates:
             if remaining <= Decimal("0.00"):
                 break
             outstanding = q2(a["amount"]) - q2(a["already_applied"])
@@ -208,3 +255,5 @@ class _ResolvedRow:
     amount: Decimal
     reference_number: str | None
     memo: str
+    charge_type_filter: tuple[str, ...] | None = None
+    apply_to_assessment_ids: tuple[int, ...] | None = None

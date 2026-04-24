@@ -21,6 +21,7 @@ class IncomeBatchesRepository(BaseRepository):
         notes: str | None,
         created_by_user_id: int | None,
         category_id: int | None = None,
+        deposit_batch_id: int | None = None,
     ) -> int:
         cur = self.conn.execute(
             """
@@ -32,8 +33,9 @@ class IncomeBatchesRepository(BaseRepository):
                 total_amount,
                 notes,
                 created_by_user_id,
-                category_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                category_id,
+                deposit_batch_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 posting_date,
@@ -44,6 +46,7 @@ class IncomeBatchesRepository(BaseRepository):
                 notes,
                 created_by_user_id,
                 category_id,
+                deposit_batch_id,
             ),
         )
         return int(cur.lastrowid)

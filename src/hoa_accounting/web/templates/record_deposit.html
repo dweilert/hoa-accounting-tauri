@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Record Deposit · {{ org.name }}{% endblock %}
+{% block heading %}Record Deposit{% endblock %}
+
+{% block content %}
+
+{% if flash_message %}
+  <div class="alert alert--success" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ flash_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+<div class="panel" style="margin-bottom:1.25rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">One deposit, many checks</div>
+      <div class="panel__description">
+        Add a row per item on the deposit slip. Most rows will be
+        <em>owner payments</em> — pick a lot and the payment drains that
+        lot's open dues and late fees oldest-first. For a resale fee or
+        special assessment, switch the row to <strong>Specific charges</strong>
+        and tick exactly what the check covers. For the rare non-owner
+        line (insurance rebate, refund) switch to <strong>Other source</strong>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/deposit" id="deposit-form">
+
+  {# ── Header ─────────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;display:grid;grid-template-columns:1fr 1fr 2fr;gap:1rem;align-items:end;">
+      <div>
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Deposit date <span style="color:var(--danger);">*</span>
+        </label>
+        <input type="date" name="deposit_date" value="{{ today }}" required style="width:100%;">
+      </div>
+      <div>
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Bank account <span style="color:var(--danger);">*</span>
+        </label>
+        <select name="bank_account_id" required style="width:100%;">
+          <option value="">— select —</option>
+          {% for a in accounts %}
+            <option value="{{ a.id }}">
+              {{ a.account_name }}{% if a.account_last4 %} ···{{ a.account_last4 }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Memo / slip reference
+        </label>
+        <input type="text" name="memo" placeholder="optional" style="width:100%;">
+      </div>
+    </div>
+  </div>
+
+  {# ── Grid ──────────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div class="table-wrap">
+      <table id="deposit-grid">
+        <thead>
+          <tr>
+            <th style="width:12rem;">Mode</th>
+            <th>Details</th>
+            <th style="width:8rem;text-align:right;">Amount</th>
+            <th style="width:7rem;">Ref / Check #</th>
+            <th style="width:3rem;"></th>
+          </tr>
+        </thead>
+        <tbody id="deposit-grid-body">
+          {% for i in range(6) %}
+          <tr class="deposit-row" data-idx="{{ i }}">
+            <td>
+              <select name="rows[{{ i }}][mode]" class="row-mode" onchange="onModeChange(this)">
+                <option value="blank">— blank —</option>
+                <option value="owner_regular" selected>Owner payment (regular)</option>
+                <option value="owner_specific">Owner payment (specific charges)</option>
+                <option value="other">Other source</option>
+              </select>
+            </td>
+            <td class="row-details">
+              {# Dynamic content injected by JS based on mode #}
+              <div class="row-details__owner">
+                <select name="rows[{{ i }}][lot_id]" class="lot-select" onchange="onLotChange(this)">
+                  <option value="">— pick a lot —</option>
+                  {% for l in lots %}
+                    <option value="{{ l.id }}">
+                      Lot {{ l.lot_number }}{% if l.owner_name %} · {{ l.owner_name }}{% endif %}
+                    </option>
+                  {% endfor %}
+                </select>
+                <div class="lot-preview" style="margin-top:.35rem;font-size:11px;color:var(--text-muted);"></div>
+                <div class="lot-specific" style="display:none;margin-top:.35rem;"></div>
+                <input type="hidden" name="rows[{{ i }}][assessment_ids]" class="assessment-ids">
+              </div>
+              <div class="row-details__other" style="display:none;">
+                <select name="rows[{{ i }}][category_id]" class="cat-select">
+                  <option value="">— category —</option>
+                  {% for c in categories %}
+                    <option value="{{ c.id }}">
+                      {{ c.name }}{% if c.group_name %} ({{ c.group_name }}){% endif %}
+                    </option>
+                  {% endfor %}
+                </select>
+                <input type="text" name="rows[{{ i }}][memo]" placeholder="description"
+                       class="other-memo" style="width:100%;margin-top:.35rem;">
+                <div style="font-size:11px;color:var(--text-muted);margin-top:.15rem;">
+                  Use only for one-off non-owner income. Recurring items like bank
+                  interest are better matched from the bank statement.
+                </div>
+              </div>
+            </td>
+            <td>
+              <input type="text" name="rows[{{ i }}][amount]" class="amount-input"
+                     inputmode="decimal" placeholder="0.00"
+                     style="width:100%;text-align:right;font-family:var(--font-mono);"
+                     oninput="recomputeTotal()">
+            </td>
+            <td>
+              <input type="text" name="rows[{{ i }}][reference_number]"
+                     placeholder="check #" style="width:100%;">
+            </td>
+            <td style="text-align:center;">
+              <button type="button" class="btn btn--ghost btn--sm" onclick="clearRow(this)"
+                      title="Clear row" aria-label="Clear row">×</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="text-align:right;font-weight:600;">Slip total</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;" id="slip-total">0.00</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div style="padding:.75rem 1rem;display:flex;gap:.5rem;border-top:1px solid var(--border);">
+      <button type="button" class="btn btn--ghost btn--sm" onclick="addRows(3)">+ 3 more rows</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:.75rem;">
+    <button type="submit" class="btn btn--primary">Save deposit</button>
+    <a href="/" class="btn btn--ghost">Cancel</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  var body = document.getElementById("deposit-grid-body");
+
+  window.clearRow = function (btn) {
+    var row = btn.closest("tr");
+    row.querySelectorAll("input, select").forEach(function (el) {
+      if (el.classList.contains("row-mode")) { el.value = "blank"; }
+      else { el.value = ""; }
+    });
+    onModeChange(row.querySelector(".row-mode"));
+    recomputeTotal();
+  };
+
+  window.addRows = function (n) {
+    var existing = body.querySelectorAll("tr").length;
+    var first = body.querySelector("tr");
+    if (!first) return;
+    for (var k = 0; k < n; k++) {
+      var idx = existing + k;
+      var clone = first.cloneNode(true);
+      clone.setAttribute("data-idx", idx);
+      clone.querySelectorAll("input, select").forEach(function (el) {
+        if (el.name) el.name = el.name.replace(/rows\[\d+\]/, "rows[" + idx + "]");
+        if (el.classList.contains("row-mode")) { el.value = "owner_regular"; }
+        else { el.value = ""; }
+      });
+      // Clear injected preview / specific-charge UI.
+      var prev = clone.querySelector(".lot-preview"); if (prev) prev.textContent = "";
+      var spec = clone.querySelector(".lot-specific"); if (spec) { spec.innerHTML = ""; spec.style.display = "none"; }
+      body.appendChild(clone);
+      onModeChange(clone.querySelector(".row-mode"));
+    }
+  };
+
+  window.onModeChange = function (sel) {
+    var row = sel.closest("tr");
+    var mode = sel.value;
+    row.querySelector(".row-details__owner").style.display = (mode === "owner_regular" || mode === "owner_specific") ? "" : "none";
+    row.querySelector(".row-details__other").style.display = (mode === "other") ? "" : "none";
+    var spec = row.querySelector(".lot-specific");
+    if (mode === "owner_specific") {
+      spec.style.display = "";
+      refreshLotCharges(row, true);
+    } else {
+      spec.style.display = "none";
+      row.querySelector(".assessment-ids").value = "";
+    }
+  };
+
+  window.onLotChange = function (sel) {
+    var row = sel.closest("tr");
+    refreshLotCharges(row, row.querySelector(".row-mode").value === "owner_specific");
+  };
+
+  function refreshLotCharges(row, showPicker) {
+    var lotId = row.querySelector(".lot-select").value;
+    var preview = row.querySelector(".lot-preview");
+    var picker  = row.querySelector(".lot-specific");
+    var idsField = row.querySelector(".assessment-ids");
+    preview.textContent = "";
+    picker.innerHTML = "";
+    idsField.value = "";
+    if (!lotId) return;
+
+    fetch("/api/lots/" + encodeURIComponent(lotId) + "/open-charges")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var charges = data.charges || [];
+        if (!charges.length) {
+          preview.textContent = "No open charges on this lot.";
+          return;
+        }
+        // Regular-mode preview: show what a regular payment will drain.
+        var regular = charges.filter(function (c) {
+          return c.charge_type === "DUES" || c.charge_type === "LATE_FEE";
+        });
+        if (regular.length) {
+          preview.textContent = "Will drain: " + regular.map(function (c) {
+            return c.charge_type + " " + c.due_date + " $" + c.outstanding;
+          }).join(" · ");
+        } else {
+          preview.textContent = "No regular charges open. Use Specific charges for resale/other.";
+        }
+
+        if (showPicker) {
+          // Pick-list for specific-charges mode.
+          var total = 0;
+          charges.forEach(function (c) {
+            var id = "chg-" + row.getAttribute("data-idx") + "-" + c.id;
+            var wrap = document.createElement("label");
+            wrap.style.cssText = "display:flex;gap:.4rem;align-items:center;font-size:11px;padding:.15rem 0;";
+            wrap.innerHTML =
+              '<input type="checkbox" value="' + c.id + '" data-amt="' + c.outstanding + '">' +
+              '<span>' + c.charge_type + ' · ' + (c.due_date || '') + ' · $' + c.outstanding + '</span>';
+            picker.appendChild(wrap);
+          });
+          picker.addEventListener("change", function () {
+            var ticked = picker.querySelectorAll('input[type="checkbox"]:checked');
+            var ids = [];
+            var sum = 0;
+            ticked.forEach(function (cb) {
+              ids.push(cb.value);
+              sum += parseFloat(cb.getAttribute("data-amt")) || 0;
+            });
+            idsField.value = ids.join(",");
+            var amtInput = row.querySelector(".amount-input");
+            if (!amtInput.value || amtInput.dataset.autoFilled === "1") {
+              amtInput.value = sum.toFixed(2);
+              amtInput.dataset.autoFilled = "1";
+              recomputeTotal();
+            }
+          });
+        }
+      })
+      .catch(function () { preview.textContent = "Could not load open charges."; });
+  }
+
+  window.recomputeTotal = function () {
+    var total = 0;
+    body.querySelectorAll(".amount-input").forEach(function (el) {
+      var v = parseFloat((el.value || "").replace(/[^0-9.\-]/g, ""));
+      if (!isNaN(v)) total += v;
+    });
+    document.getElementById("slip-total").textContent = total.toFixed(2);
+  };
+
+  // Initial mode-sync for seed rows.
+  body.querySelectorAll(".row-mode").forEach(function (sel) { onModeChange(sel); });
+})();
+</script>
+
+{% endblock %}

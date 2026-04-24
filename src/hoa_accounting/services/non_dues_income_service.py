@@ -64,6 +64,7 @@ class NonDuesIncomeService:
         # Kept for call-site compatibility during transition; unused.
         income_account_id: int | None = None,
         category_id: int | None = None,
+        deposit_batch_id: int | None = None,
     ) -> IncomeBatchResult:
         """Post a non-dues income batch atomically."""
         with transaction(self.conn):
@@ -100,6 +101,7 @@ class NonDuesIncomeService:
                 notes=notes,
                 created_by_user_id=created_by_user_id,
                 category_id=category_id,
+                deposit_batch_id=deposit_batch_id,
             )
 
             self.audit_repo.write(
