@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Validation · {{ org.name }}{% endblock %}
+{% block heading %}Pending Validation{% endblock %}
+
+{% block content %}
+
+{% if flash_message %}
+  <div class="alert alert--success" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ flash_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+<div class="panel" style="margin-bottom:1.25rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        {{ total_pending }} transaction{% if total_pending != 1 %}s{% endif %} awaiting validation
+      </div>
+      <div class="panel__description">
+        Bank lines ingested from OFX / CSV imports. Accept a proposed rule
+        match to post a ledger record, or ignore rows that aren't
+        accounting events (internal transfer counterparts, duplicate pulls,
+        etc.).
+      </div>
+    </div>
+  </div>
+
+  {# ── Account filter ──────────────────────────────────────────────── #}
+  <div style="padding:.75rem 1rem;border-top:1px solid var(--border);
+              display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:.8rem;color:var(--text-muted);">Filter:</span>
+    <a href="/bank-transactions/pending"
+       class="btn btn--sm {% if not selected_bank_account_id %}btn--primary{% else %}btn--ghost{% endif %}">
+      All accounts ({{ total_pending }})
+    </a>
+    {% for a in accounts %}
+      {% set n = count_by_account.get(a.id, 0) %}
+      {% if n > 0 or selected_bank_account_id == a.id %}
+        <a href="/bank-transactions/pending?bank_account_id={{ a.id }}"
+           class="btn btn--sm {% if selected_bank_account_id == a.id %}btn--primary{% else %}btn--ghost{% endif %}">
+          {{ a.account_name }}{% if a.account_last4 %} ···{{ a.account_last4 }}{% endif %}
+          ({{ n }})
+        </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if rows %}
+<div class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Account</th>
+          <th>Description</th>
+          <th style="text-align:right;">Amount</th>
+          <th>Proposed Match</th>
+          <th style="text-align:right;white-space:nowrap;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="white-space:nowrap;font-size:13px;">{{ r.transaction_date }}</td>
+          <td style="font-size:12px;white-space:nowrap;">
+            {{ r.account_name }}{% if r.account_last4 %}
+              <span style="color:var(--text-muted);">···{{ r.account_last4 }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:13px;max-width:320px;">
+            <div>{{ r.description }}</div>
+            {% if r.memo %}
+              <div style="font-size:11px;color:var(--text-muted);">{{ r.memo }}</div>
+            {% endif %}
+          </td>
+          <td style="text-align:right;font-family:var(--font-mono);
+                     font-size:13px;white-space:nowrap;
+                     color:{% if (r.amount | float) < 0 %}#991b1b{% else %}#166534{% endif %};">
+            {{ '%.2f' | format(r.amount | float) }}
+          </td>
+          <td style="font-size:12px;">
+            {% if r.match_type == 'RULE' and r.rule_name %}
+              <span class="pill" style="font-size:.7rem;background:#ede9fe;color:#5b21b6;border:none;">Rule</span>
+              <span>{{ r.rule_name }}</span>
+              {% if r.category_name %}
+                <div style="color:var(--text-muted);font-size:11px;">→ {{ r.category_name }}</div>
+              {% endif %}
+            {% elif r.match_type == 'SOURCE' %}
+              <span class="pill" style="font-size:.7rem;background:#fef3c7;color:#92400e;border:none;">Matches existing</span>
+              <div style="color:var(--text-muted);font-size:11px;">
+                {{ r.matched_source_type }} #{{ r.matched_source_id }}
+              </div>
+            {% elif r.match_type == 'BATCH' %}
+              <span class="pill" style="font-size:.7rem;background:#fef3c7;color:#92400e;border:none;">Deposit batch</span>
+              <div style="color:var(--text-muted);font-size:11px;">
+                Batch #{{ r.matched_source_id }}
+              </div>
+            {% else %}
+              <span style="color:var(--text-muted);">No match yet</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right;white-space:nowrap;">
+            {% if r.match_type == 'RULE' %}
+              <form method="post"
+                    action="/bank-transactions/{{ r.id }}/accept"
+                    style="display:inline;">
+                <button type="submit" class="btn btn--sm btn--primary">Accept</button>
+              </form>
+            {% endif %}
+            <a href="/bank-transactions/{{ r.id }}/classify"
+               class="btn btn--sm btn--ghost">Classify…</a>
+            <form method="post"
+                  action="/bank-transactions/{{ r.id }}/ignore"
+                  style="display:inline;"
+                  data-confirm="Ignore this transaction? It won't be posted to the ledger."
+                  data-confirm-title="Ignore Transaction"
+                  data-confirm-label="Ignore">
+              <button type="submit" class="btn btn--sm btn--ghost">Ignore</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="panel">
+  <div class="empty" style="padding:2.5rem 1.5rem;">
+    {% if selected_bank_account_id %}
+      No pending transactions for this account.
+    {% else %}
+      Nothing to validate — the queue is empty. Import OFX/CSV files to
+      populate it.
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

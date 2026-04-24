@@ -127,7 +127,17 @@
               <li><a href="/deposits" class="sidebar__link{% if page_key == 'deposits' %} sidebar__link--active{% endif %}">Record Payments</a></li>
               <li><a href="/resale-fee/payments" class="sidebar__link{% if page_key == 'resale-fee-payments' %} sidebar__link--active{% endif %}">Resale Fee Payments</a></li>
               <li><a href="/income" class="sidebar__link{% if page_key == 'income' %} sidebar__link--active{% endif %}">Other Income</a></li>
+            </ul>
+          </li>
+          <li class="sidebar__subsection" data-subsection="money-in-bank-data">
+            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="money-in-bank-data">
+              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Bank Data
+            </button>
+            <ul class="sidebar__subnav">
               <li><a href="/ofx-inbox" class="sidebar__link{% if page_key == 'ofx-inbox' %} sidebar__link--active{% endif %}">OFX Inbox</a></li>
+              <li><a href="/bank-import/upload" class="sidebar__link{% if page_key == 'bank-import' %} sidebar__link--active{% endif %}">Upload File</a></li>
+              <li><a href="/bank-transactions/manual" class="sidebar__link{% if page_key == 'bank-manual' %} sidebar__link--active{% endif %}">Manual Entry</a></li>
+              <li><a href="/bank-transactions/pending" class="sidebar__link{% if page_key == 'bank-pending' %} sidebar__link--active{% endif %}">Pending Validation</a></li>
             </ul>
           </li>
           <li class="sidebar__subsection" data-subsection="money-in-collections">
@@ -267,7 +277,6 @@
             </button>
             <ul class="sidebar__subnav">
               <li><a href="/bank-accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">Bank Accounts</a></li>
-              <li><a href="/bank-import/upload" class="sidebar__link{% if page_key == 'bank-import' %} sidebar__link--active{% endif %}">Import Bank Data</a></li>
               <li><a href="/categories" class="sidebar__link{% if page_key == 'categories' %} sidebar__link--active{% endif %}">Maintain Categories</a></li>
               <li><a href="/admin/transaction-rules" class="sidebar__link{% if page_key == 'transaction-rules' %} sidebar__link--active{% endif %}">Transaction Rules</a></li>
               <li><a href="/budgets" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'budgets' %} sidebar__link--active{% endif %}">Budget</a></li>

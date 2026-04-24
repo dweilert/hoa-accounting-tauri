@@ -6,9 +6,13 @@ The reconciliation view rows are polymorphic single-entry records
 has linked it (``has_bank_match``) and whether it is cleared in this or
 a prior reconciliation.
 
-Cleared state is tracked in ``reconciliation_clears`` with the same
-polymorphic key. OFX imports no longer auto-insert clears — that is
-reserved for the monthly reconciliation workflow.
+Cleared state is tracked in ``reconciliation_clears`` keyed by
+``bank_transaction_id`` — the bank line is the authoritative statement
+that something cleared. Clearing a ledger row in the UI resolves to its
+linked bank_transaction (via ``matched_source_*`` or
+``bank_transaction_links``) and records the clear against that id. A
+ledger record with no bank_transaction counterpart therefore cannot be
+cleared until its bank line arrives.
 """
 
 from __future__ import annotations
@@ -188,19 +192,62 @@ class ReconciliationRepository(BaseRepository):
                     WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
                     GROUP BY p.id
                 ),
-                cleared_this AS (
-                    SELECT source_type, source_id
-                    FROM reconciliation_clears
-                    WHERE reconciliation_id = (SELECT recon_id FROM ctx)
+                -- Bank transactions cleared in THIS reconciliation (by id).
+                cleared_bt_this AS (
+                    SELECT rc.bank_transaction_id AS bt_id
+                    FROM reconciliation_clears rc
+                    WHERE rc.reconciliation_id = (SELECT recon_id FROM ctx)
                 ),
-                cleared_prior AS (
-                    SELECT rc.source_type, rc.source_id
+                -- Bank transactions cleared in any prior FINALIZED reconciliation.
+                cleared_bt_prior AS (
+                    SELECT rc.bank_transaction_id AS bt_id
                     FROM reconciliation_clears rc
                     JOIN bank_reconciliations br2
                         ON br2.id = rc.reconciliation_id
                     JOIN ctx ON ctx.bank_account_id = br2.bank_account_id
                     WHERE br2.id != (SELECT recon_id FROM ctx)
                       AND br2.status = 'FINALIZED'
+                ),
+                -- Map cleared bank_transactions back to the ledger rows they
+                -- represent, via both matched_source_* and bank_transaction_links.
+                cleared_this AS (
+                    SELECT bt.matched_source_type AS source_type,
+                           bt.matched_source_id   AS source_id
+                    FROM bank_transactions bt
+                    JOIN cleared_bt_this ct ON ct.bt_id = bt.id
+                    WHERE bt.matched_source_type IS NOT NULL
+                      AND bt.matched_source_id   IS NOT NULL
+                      AND bt.matched_source_type <> 'DEPOSIT_BATCH'
+                    UNION
+                    -- Deposit batches cleared as a unit → member payments cleared.
+                    SELECT 'PAYMENT', p.id
+                    FROM bank_transactions bt
+                    JOIN cleared_bt_this ct ON ct.bt_id = bt.id
+                    JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
+                    WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT btl.ledger_source_type, btl.ledger_source_id
+                    FROM bank_transaction_links btl
+                    JOIN cleared_bt_this ct ON ct.bt_id = btl.bank_transaction_id
+                ),
+                cleared_prior AS (
+                    SELECT bt.matched_source_type AS source_type,
+                           bt.matched_source_id   AS source_id
+                    FROM bank_transactions bt
+                    JOIN cleared_bt_prior cp ON cp.bt_id = bt.id
+                    WHERE bt.matched_source_type IS NOT NULL
+                      AND bt.matched_source_id   IS NOT NULL
+                      AND bt.matched_source_type <> 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT 'PAYMENT', p.id
+                    FROM bank_transactions bt
+                    JOIN cleared_bt_prior cp ON cp.bt_id = bt.id
+                    JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
+                    WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT btl.ledger_source_type, btl.ledger_source_id
+                    FROM bank_transaction_links btl
+                    JOIN cleared_bt_prior cp ON cp.bt_id = btl.bank_transaction_id
                 ),
                 all_items AS (
                     SELECT 'PAYMENT' AS source_type, p.id AS source_id,
@@ -346,22 +393,65 @@ class ReconciliationRepository(BaseRepository):
         self.conn.commit()
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
+    def _resolve_bank_txn_ids(
+        self, source_type: str, source_id: int
+    ) -> list[int]:
+        """Return bank_transaction_ids that represent a ledger record.
+
+        Resolution order — both paths are checked, and every match is
+        returned so that a ledger record represented by multiple bank
+        lines (rare, but possible after a correction) clears consistently:
+
+        1. ``bank_transactions.matched_source_type/id`` — the direct link
+           written at ingest time, including DEPOSIT_BATCH fan-out for
+           member payments.
+        2. ``bank_transaction_links`` — the canonical many-to-many link
+           table, populated by the Pending Validation flow.
+        """
+        rows = self.conn.execute(
+            """
+            SELECT id FROM bank_transactions
+             WHERE matched_source_type = ? AND matched_source_id = ?
+            UNION
+            SELECT bank_transaction_id FROM bank_transaction_links
+             WHERE ledger_source_type = ? AND ledger_source_id = ?
+            UNION
+            -- Deposit-batch fan-in: a PAYMENT whose deposit_batch matches
+            -- a bank line's matched_source_id is also covered.
+            SELECT bt.id FROM bank_transactions bt
+             JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
+             WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+               AND ? = 'PAYMENT' AND p.id = ?
+            """,
+            (source_type, source_id, source_type, source_id,
+             source_type, source_id),
+        ).fetchall()
+        return [int(r[0]) for r in rows]
+
     def clear_item(
         self,
         reconciliation_id: int,
         source_type: str,
         source_id: int,
-    ) -> None:
-        """Mark a single-entry record as cleared in this reconciliation."""
-        self.conn.execute(
+    ) -> bool:
+        """Mark a single-entry record as cleared in this reconciliation by
+        clearing the bank_transaction(s) that represent it. Returns True
+        if at least one clear row was written — False when the ledger
+        record has no bank counterpart yet (the user must import the
+        statement first)."""
+        bt_ids = self._resolve_bank_txn_ids(source_type, source_id)
+        if not bt_ids:
+            return False
+        self.conn.executemany(
             """
             INSERT OR IGNORE INTO reconciliation_clears
-                (reconciliation_id, source_type, source_id)
-            VALUES (?, ?, ?)
+                (reconciliation_id, bank_transaction_id)
+            VALUES (?, ?)
             """,
-            (reconciliation_id, source_type, source_id),
+            [(reconciliation_id, bt_id) for bt_id in bt_ids],
         )
         self.conn.commit()
+        return True
 
     def unclear_item(
         self,
@@ -369,15 +459,46 @@ class ReconciliationRepository(BaseRepository):
         source_type: str,
         source_id: int,
     ) -> None:
-        """Remove a record's cleared status from this reconciliation."""
+        """Remove cleared status by resolving to the same bank_transaction(s)
+        clear_item would write and deleting their clear rows."""
+        bt_ids = self._resolve_bank_txn_ids(source_type, source_id)
+        if not bt_ids:
+            return
+        placeholders = ",".join(["?"] * len(bt_ids))
+        self.conn.execute(
+            f"""
+            DELETE FROM reconciliation_clears
+             WHERE reconciliation_id = ?
+               AND bank_transaction_id IN ({placeholders})
+            """,
+            (reconciliation_id, *bt_ids),
+        )
+        self.conn.commit()
+
+    def clear_bank_transaction(
+        self, reconciliation_id: int, bank_transaction_id: int
+    ) -> None:
+        """Native path — clear by bank_transaction_id. Used by new UIs that
+        operate directly on the bank-line queue rather than the ledger view."""
+        self.conn.execute(
+            """
+            INSERT OR IGNORE INTO reconciliation_clears
+                (reconciliation_id, bank_transaction_id)
+            VALUES (?, ?)
+            """,
+            (reconciliation_id, bank_transaction_id),
+        )
+        self.conn.commit()
+
+    def unclear_bank_transaction(
+        self, reconciliation_id: int, bank_transaction_id: int
+    ) -> None:
         self.conn.execute(
             """
             DELETE FROM reconciliation_clears
-             WHERE reconciliation_id = ?
-               AND source_type = ?
-               AND source_id   = ?
+             WHERE reconciliation_id = ? AND bank_transaction_id = ?
             """,
-            (reconciliation_id, source_type, source_id),
+            (reconciliation_id, bank_transaction_id),
         )
         self.conn.commit()
 

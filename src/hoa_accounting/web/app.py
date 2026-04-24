@@ -1304,6 +1304,155 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return redirect(redirect_url, code=303)
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html; charset=utf-8")
 
+    # ── Pending Validation (canonical bank_transactions queue) ───────────────
+
+    def _open_bank_txn_pages():
+        from hoa_accounting.web.bank_transactions_pages import BankTransactionsPages
+        return BankTransactionsPages(_open_db())
+
+    @app.get("/bank-transactions/pending")
+    def bank_txn_pending_page() -> Response:
+        pages = _open_bank_txn_pages()
+        theme = str(org_context.get("theme", "warm"))
+        raw = request.args.get("bank_account_id", "")
+        bank_account_id = int(raw) if raw.isdigit() else None
+        resp = pages.render_pending(
+            org=org_context, theme=theme,
+            bank_account_id=bank_account_id,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-transactions/<int:bank_txn_id>/accept")
+    def bank_txn_accept(bank_txn_id: int) -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        url, flash = pages.handle_accept(bank_txn_id)
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "could not" not in flash.lower() and "not found" not in flash.lower() else "err"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
+
+    @app.get("/bank-transactions/manual")
+    def bank_txn_manual_page() -> Response:
+        pages = _open_bank_txn_pages()
+        theme = str(org_context.get("theme", "warm"))
+        raw = request.args.get("bank_account_id", "")
+        resp = pages.render_manual_entry(
+            org=org_context, theme=theme,
+            bank_account_id=int(raw) if raw.isdigit() else None,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-transactions/manual")
+    def bank_txn_manual_submit() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        theme = str(org_context.get("theme", "warm"))
+        ba_raw = (request.form.get("bank_account_id") or "").strip()
+        if not ba_raw.isdigit():
+            return redirect("/bank-transactions/manual?err=Select+a+bank+account", code=303)
+
+        # Rebuild the list of row dicts from the bracketed form names
+        # ("rows[3][date]" etc.). Flask's MultiDict flattens them so we
+        # walk the keys and coalesce by index.
+        import re
+        pat = re.compile(r"^rows\[(\d+)\]\[([a-z_]+)\]$")
+        rows_by_idx: dict[int, dict] = {}
+        for key, val in request.form.items():
+            m = pat.match(key)
+            if not m:
+                continue
+            idx = int(m.group(1))
+            rows_by_idx.setdefault(idx, {})[m.group(2)] = val
+        ordered_rows = [rows_by_idx[i] for i in sorted(rows_by_idx.keys())]
+
+        url, flash = pages.handle_manual_submit(
+            bank_account_id=int(ba_raw),
+            rows=ordered_rows,
+            org=org_context, theme=theme,
+        )
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "added" in flash.lower() else "err"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
+
+    @app.get("/bank-transactions/<int:bank_txn_id>/classify")
+    def bank_txn_classify_page(bank_txn_id: int) -> Response:
+        pages = _open_bank_txn_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_classify(
+            bank_txn_id=bank_txn_id, org=org_context, theme=theme,
+            error_message=request.args.get("err", ""),
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-transactions/<int:bank_txn_id>/classify/pick")
+    def bank_txn_classify_pick(bank_txn_id: int) -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        cat_raw = (request.form.get("category_id") or "").strip()
+        if not cat_raw.isdigit():
+            return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Select+a+category", code=303)
+        vendor_raw = (request.form.get("vendor_id") or "").strip()
+        vendor_id = int(vendor_raw) if vendor_raw.isdigit() else None
+        memo = (request.form.get("memo") or "").strip()
+        url, flash = pages.handle_pick_category(
+            bank_txn_id,
+            category_id=int(cat_raw),
+            vendor_id=vendor_id,
+            memo=memo,
+        )
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "not" not in flash.lower() and "required" not in flash.lower() else "err"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
+
+    @app.post("/bank-transactions/<int:bank_txn_id>/classify/link")
+    def bank_txn_classify_link(bank_txn_id: int) -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        pick = (request.form.get("pick") or "").strip()
+        if ":" not in pick:
+            return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Select+a+record", code=303)
+        source_type, _, source_id_raw = pick.partition(":")
+        if not source_id_raw.isdigit():
+            return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Invalid+selection", code=303)
+        url, flash = pages.handle_link_existing(
+            bank_txn_id,
+            source_type=source_type,
+            source_id=int(source_id_raw),
+        )
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "linked" in flash.lower() else "err"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
+
+    @app.post("/bank-transactions/<int:bank_txn_id>/ignore")
+    def bank_txn_ignore(bank_txn_id: int) -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        url, flash = pages.handle_ignore(bank_txn_id)
+        if flash:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}msg={quote(flash)}"
+        return redirect(url, code=303)
+
     # ── OFX Inbox (fetcher daemon integration) ───────────────────────────────
 
     def _open_ofx_inbox_pages():
@@ -1471,33 +1620,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
-    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/reapply-rules")
-    def bank_import_reapply(bank_account_id: int, batch_id: int) -> Response:
-        from flask import redirect
-        pages = _open_bank_stmt_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, page_resp = pages.handle_standalone_reapply(
-            bank_account_id, batch_id, org=org_context, theme=theme
-        )
-        if redirect_url:
-            return redirect(redirect_url, code=303)
-        assert page_resp is not None
-        return Response(page_resp.body_html, status=page_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/apply")
-    def bank_import_apply(bank_account_id: int, batch_id: int) -> Response:
-        from flask import redirect
-        pages = _open_bank_stmt_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, page_resp = pages.handle_standalone_apply(
-            bank_account_id, batch_id, org=org_context, theme=theme
-        )
-        if redirect_url:
-            return redirect(redirect_url, code=303)
-        assert page_resp is not None
-        return Response(page_resp.body_html, status=page_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+    # Legacy /apply and /reapply-rules removed — superseded by the canonical
+    # bank_transactions queue at /bank-transactions/pending. Batches now serve
+    # only as an import audit log.
 
     @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/delete")
     def bank_import_delete(bank_account_id: int, batch_id: int) -> Response:
@@ -2851,8 +2976,73 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def import_page() -> Response:
         pages = _open_import_pages()
         theme = str(org_context.get("theme", "warm"))
-        resp  = pages.render_page(org=org_context, theme=theme)
+        ba_raw = request.args.get("bank_account_id", "")
+        resp  = pages.render_page(
+            org=org_context, theme=theme,
+            prefill_type=request.args.get("prefill_type", ""),
+            stash_token=request.args.get("stash", ""),
+            bank_account_id=int(ba_raw) if ba_raw.isdigit() else None,
+            note=request.args.get("note", ""),
+        )
         return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-import/save-mapping")
+    def bank_import_save_mapping() -> Response:
+        """Persist a CSV → canonical-fields map, then replay the stashed
+        upload through the normal ingest path so it produces canonical
+        ``bank_transactions`` rows with the new mapping applied."""
+        from flask import redirect
+        from urllib.parse import quote
+        from hoa_accounting.web.bank_ingest import (
+            consume_stash, fingerprint_csv_headers, read_csv_headers,
+            save_csv_mapping,
+        )
+        import json as _json
+        conn = _open_db()
+        theme = str(org_context.get("theme", "warm"))
+
+        try:
+            mapping = _json.loads(request.form.get("mapping", "{}"))
+        except ValueError:
+            return redirect("/bank-transactions/pending?err=Invalid+mapping", code=303)
+        stash_token = (request.form.get("stash_token") or "").strip()
+        if not stash_token:
+            return redirect("/bank-transactions/pending?err=Missing+stash+token", code=303)
+
+        stash = consume_stash(conn, stash_token)
+        if stash is None:
+            return redirect(
+                "/bank-transactions/pending?err=Upload+expired.+Please+retry.",
+                code=303,
+            )
+        bank_account_id, filename, content = stash
+
+        # Persist the mapping so future uploads with this same CSV shape
+        # skip the wizard entirely.
+        fp = fingerprint_csv_headers(content)
+        save_csv_mapping(conn, bank_account_id, fp, mapping, read_csv_headers(content))
+
+        # Replay ingest with the mapping now in place. The saved-mapping
+        # lookup inside handle_agnostic_upload will find the new row and
+        # parse silently.
+        from hoa_accounting.web.bank_statement_pages import BankStatementPages
+        pages = BankStatementPages(conn)
+        url, page_resp = pages.handle_agnostic_upload(
+            file_bytes=content, filename=filename or "upload.csv",
+            csv_bank_account_id=bank_account_id,
+            org=org_context, theme=theme,
+        )
+        if url:
+            # Success: drop them on the Pending Validation queue scoped to
+            # this account so they see the rows they just imported.
+            return redirect(
+                f"/bank-transactions/pending?bank_account_id={bank_account_id}"
+                f"&msg={quote('Mapping saved; import complete.')}",
+                code=303,
+            )
+        assert page_resp is not None
+        return Response(page_resp.body_html, status=page_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     @app.post("/admin/import/run")

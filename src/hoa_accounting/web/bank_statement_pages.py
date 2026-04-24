@@ -5,6 +5,7 @@ Transactions are stored immediately as PENDING on upload and survive navigation.
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json
 import re
@@ -169,6 +170,7 @@ class BankStatementPages:
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
                    r.action_type, r.category_id, r.vendor_id, r.lot_id,
                    r.default_memo, r.active_flag,
+                   r.confidence_mode, r.auto_post_after_n, r.confirmed_matches,
                    c.name AS category_name,
                    v.vendor_name AS vendor_name
             FROM bank_transaction_rules r
@@ -344,6 +346,28 @@ class BankStatementPages:
         )
         return rule_m, source_m, batch_m
 
+    @staticmethod
+    def _dedup_key(txn, bank_account_id: int) -> str:
+        """Per-account unique key. Prefers the canonical record's hash so
+        identity is bank-agnostic and FITID-independent; falls back to a
+        content-based key for legacy ``ParsedTransaction`` callers during
+        cutover."""
+        from hoa_accounting.web.bank_ingest import CanonicalBankTxn
+        if isinstance(txn, CanonicalBankTxn):
+            return txn.dedup_key(bank_account_id)
+        # Legacy ParsedTransaction — compute the same hash from its fields
+        # so mixed callers produce identical keys.
+        raw = "|".join([
+            str(bank_account_id),
+            txn.transaction_date.isoformat(),
+            str(txn.amount),
+            txn.description or "",
+            txn.memo or "",
+            (txn.transaction_type or "").upper(),
+            "",  # check_number not available on ParsedTransaction
+        ])
+        return "h:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
     def _insert_bank_txn(
         self,
         *,
@@ -354,18 +378,17 @@ class BankStatementPages:
         rule_m: dict[int, dict],
         source_m: dict[int, tuple[str, int]],
         batch_m: dict[int, int],
-    ) -> None:
-        """Insert one bank_transactions row, picking match fields by priority.
+    ) -> bool:
+        """Insert one bank_transactions row; return True if a new row was written.
 
-        Priority: RULE > SOURCE > BATCH > UNMATCHED. Centralised so the
-        import paths (preview/save × reconciliation/standalone, plus
-        re-apply) share one implementation.
+        Uses INSERT OR IGNORE against the (bank_account_id, dedup_key) unique
+        index so re-importing a file, or importing overlapping OFX ranges,
+        silently dedupes.
 
-        - SOURCE matches set ``matched_source_type`` / ``matched_source_id``
-          directly (PAYMENT/INCOME_BATCH/BILL_PAYMENT/RESERVE_TRANSFER).
-        - BATCH matches set ``matched_source_type='DEPOSIT_BATCH'`` with
-          ``matched_source_id`` = deposit_batches.id; member payments are
-          cleared individually at apply time.
+        Priority for the proposed match recorded on the row:
+        RULE > SOURCE > BATCH > UNMATCHED. A match is a *proposal* only — the
+        row still lands with validation_status='UNVALIDATED' so the user sees
+        it in the Pending Validation queue and decides whether to post.
         """
         rule_id: int | None = None
         matched_source_type: str | None = None
@@ -384,26 +407,55 @@ class BankStatementPages:
         else:
             match_type = "UNMATCHED"
 
-        self._conn.execute(
+        dedup_key = self._dedup_key(txn, bank_account_id)
+        recon_status = "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED"
+
+        cur = self._conn.execute(
             """
-            INSERT INTO bank_transactions
+            INSERT OR IGNORE INTO bank_transactions
                 (bank_account_id, import_batch_id, transaction_date,
                  description, memo, amount, external_reference,
                  transaction_type, reconciliation_status,
                  match_type, rule_id,
-                 matched_source_type, matched_source_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 matched_source_type, matched_source_id,
+                 dedup_key, validation_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 bank_account_id, batch_id,
                 txn.transaction_date.isoformat(),
                 txn.description, txn.memo, str(txn.amount),
                 txn.fitid, txn.transaction_type,
-                "UNMATCHED" if match_type == "UNMATCHED" else "MATCHED",
+                recon_status,
                 match_type, rule_id,
                 matched_source_type, matched_source_id,
+                dedup_key, "UNVALIDATED",
             ),
         )
+        if cur.rowcount == 1:
+            return True
+
+        # Conflict on (bank_account_id, dedup_key) — row already exists. For
+        # unvalidated rows, refresh the proposed match so re-running rules
+        # produces current suggestions. Validated rows are left alone; their
+        # ledger links are authoritative and shouldn't be clobbered.
+        self._conn.execute(
+            """
+            UPDATE bank_transactions
+               SET match_type = ?, rule_id = ?,
+                   matched_source_type = ?, matched_source_id = ?,
+                   reconciliation_status = ?
+             WHERE bank_account_id = ? AND dedup_key = ?
+               AND validation_status = 'UNVALIDATED'
+            """,
+            (
+                match_type, rule_id,
+                matched_source_type, matched_source_id,
+                recon_status,
+                bank_account_id, dedup_key,
+            ),
+        )
+        return False
 
     def _store_pending_batch(
         self,
@@ -441,20 +493,15 @@ class BankStatementPages:
         )
         batch_id = int(cur.lastrowid)  # type: ignore[arg-type]
 
-        # Build set of FITIDs already stored for this bank account so we skip duplicates.
-        existing_fitids: set[str] = set()
-        for row in self._conn.execute(
-            "SELECT external_reference FROM bank_transactions WHERE bank_account_id = ? AND external_reference != ''",
-            (bank_account_id,),
-        ):
-            existing_fitids.add(row["external_reference"])
-
+        # Dedup is enforced by the (bank_account_id, dedup_key) unique index;
+        # INSERT OR IGNORE returns rowcount=0 for a duplicate. We keep track
+        # of how many rows actually landed — and how many of those were
+        # proposed matches — so the batch audit row reflects reality.
         inserted = 0
+        inserted_matches = 0
+        auto_posted = 0
         for i, txn in enumerate(transactions):
-            # Skip OFX transactions we've already imported (identified by FITID).
-            if txn.fitid and txn.fitid in existing_fitids:
-                continue
-            self._insert_bank_txn(
+            was_new = self._insert_bank_txn(
                 bank_account_id=bank_account_id,
                 batch_id=batch_id,
                 txn=txn,
@@ -463,15 +510,74 @@ class BankStatementPages:
                 source_m=source_m,
                 batch_m=batch_m,
             )
-            inserted += 1
+            if was_new:
+                inserted += 1
+                if i in rule_m or i in source_m or i in batch_m:
+                    inserted_matches += 1
 
-        # Update batch counts to reflect only what was actually inserted.
+            # Auto-post rules skip the review queue: post the ledger record
+            # and flip validation_status to VALIDATED right at ingest. Only
+            # applies to fresh rows — re-imports of an already-posted line
+            # are left alone.
+            if was_new and i in rule_m:
+                rule = rule_m[i]
+                if str(rule.get("confidence_mode") or "review_first") == "auto_post":
+                    if self._auto_post_rule_match(txn, rule, bank_account_id):
+                        auto_posted += 1
+
         self._conn.execute(
             "UPDATE bank_import_batches SET transaction_count = ?, matched_count = ? WHERE id = ?",
-            (inserted, min(match_count, inserted), batch_id),
+            (inserted, inserted_matches, batch_id),
         )
         self._conn.commit()
         return batch_id
+
+    def _auto_post_rule_match(
+        self,
+        txn: ParsedTransaction,
+        rule: dict,
+        bank_account_id: int,
+    ) -> bool:
+        """Post a ledger record for an auto-post rule match and mark the
+        bank transaction VALIDATED. Returns True on success, False if the
+        rule couldn't be applied (missing vendor/category/lot, wrong sign,
+        etc.) — in which case the row stays UNVALIDATED for the user to
+        handle in the Pending Validation queue.
+        """
+        row = self._conn.execute(
+            "SELECT id, transaction_date, description, amount FROM bank_transactions "
+            "WHERE bank_account_id = ? AND dedup_key = ?",
+            (bank_account_id, self._dedup_key(txn, bank_account_id)),
+        ).fetchone()
+        if row is None:
+            return False
+        result = self._apply_rule(dict(row), dict(rule), bank_account_id=bank_account_id)
+        if result is None:
+            return False
+        source_type, source_id = result
+        self._conn.execute(
+            """
+            UPDATE bank_transactions
+               SET matched_source_type = ?, matched_source_id = ?,
+                   validation_status = 'VALIDATED'
+             WHERE id = ?
+            """,
+            (source_type, int(source_id), int(row["id"])),
+        )
+        self._conn.execute(
+            """
+            INSERT OR IGNORE INTO bank_transaction_links
+                (bank_transaction_id, ledger_source_type, ledger_source_id,
+                 link_source, rule_id)
+            VALUES (?, ?, ?, 'RULE', ?)
+            """,
+            (int(row["id"]), source_type, int(source_id), int(rule["id"])),
+        )
+        self._conn.execute(
+            "UPDATE bank_transaction_rules SET confirmed_matches = confirmed_matches + 1 WHERE id = ?",
+            (int(rule["id"]),),
+        )
+        return True
 
     # ── Standalone import (no reconciliation) ────────────────────────────────
 
@@ -528,18 +634,33 @@ class BankStatementPages:
         org: dict,
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
-        """Account-agnostic upload: OFX routes by ACCTID, CSV uses the selected account."""
+        """Account-agnostic upload.
+
+        Routes through the ingest adapter registry: the dispatcher picks
+        the right parser (OFX/CSV/…), the adapter emits canonical records,
+        and this method is format-agnostic past that point. OFX retains
+        its ACCTID-split special case because one file can span multiple
+        accounts; other adapters target a single selected account.
+        """
+        from hoa_accounting.web.bank_ingest import (
+            canonical_from_parsed, dispatch,
+        )
+
         def _err(msg: str) -> tuple[None, PageResponse]:
             return None, self.render_agnostic_upload_form(org, theme, error=msg)
 
         try:
-            file_format = detect_format(file_bytes)
+            choice = dispatch(file_bytes)
         except ParseError as e:
             return _err(str(e))
 
         rules = self._load_rules()
+        adapter_name = choice.adapter.name
 
-        if file_format == "OFX":
+        # OFX keeps its multi-account routing: one file can hold sections
+        # for every bank account at the institution, each tagged with an
+        # ACCTID we match to ``bank_accounts.account_last4``.
+        if adapter_name == "ofx":
             try:
                 account_sections = parse_ofx_by_account(file_bytes)
             except Exception as exc:
@@ -548,23 +669,24 @@ class BankStatementPages:
             created: list[tuple[int, int, str]] = []
             skipped: list[str] = []
 
-            for acctid, transactions in account_sections:
+            for acctid, parsed_txns in account_sections:
                 last4 = acctid[-4:] if acctid else ""
                 row = self._conn.execute(
                     "SELECT id, account_name FROM bank_accounts WHERE account_last4 = ?", (last4,)
                 ).fetchone() if last4 else None
-
                 if row is None:
                     skipped.append(acctid or "(no ACCTID)")
                     continue
 
                 matched_bank_id = int(row["id"])
+                canonical = [canonical_from_parsed(p, p.transaction_type)
+                             for p in parsed_txns]
                 batch_id = self._store_pending_batch(
                     reconciliation_id=None,
                     bank_account_id=matched_bank_id,
-                    filename=filename, file_format=file_format,
+                    filename=filename, file_format="OFX",
                     file_bytes=file_bytes, csv_col_map={},
-                    transactions=transactions,
+                    transactions=canonical,
                     items=self._get_unmatched_items(matched_bank_id),
                     batches=self._get_unmatched_batches(matched_bank_id),
                     rules=rules,
@@ -588,31 +710,64 @@ class BankStatementPages:
                 msg += f" Skipped unrecognized account IDs: {', '.join(skipped)}."
             return f"/bank-import/upload?ok=1&msg={msg}", None
 
-        else:
-            # CSV — need an account selected
-            if not csv_bank_account_id:
-                return _err("Please select which bank account this CSV is for.")
-            ba = self._get_bank_account(csv_bank_account_id)
-            if not ba:
-                return _err("Selected bank account not found.")
-            try:
-                transactions, _headers, csv_col_map = parse_csv(file_bytes)
-            except Exception as exc:
-                return _err(f"Could not read CSV file: {exc}")
-            if not csv_map_is_usable(csv_col_map):
-                transactions = []
-            batch_id = self._store_pending_batch(
-                reconciliation_id=None,
-                bank_account_id=csv_bank_account_id,
-                filename=filename, file_format=file_format,
-                file_bytes=file_bytes, csv_col_map=csv_col_map,
-                transactions=transactions,
-                items=self._get_unmatched_items(csv_bank_account_id),
-                batches=self._get_unmatched_batches(csv_bank_account_id),
-                rules=rules,
-            )
-            msg = f"Imported {len(transactions)} transactions into {ba['account_name']}."
-            return f"/bank-import/upload?ok=1&msg={msg}", None
+        # CSV-style adapter — one account per upload. If the dispatcher
+        # says ``needs_mapping`` we consult the saved column-map store
+        # first; a previously-mapped shape (same headers as a prior
+        # upload) parses silently. A truly new shape is stashed and the
+        # user is redirected into the mapping wizard.
+        from hoa_accounting.web.bank_ingest import (
+            fingerprint_csv_headers, lookup_csv_mapping, read_csv_headers,
+            stash_upload,
+        )
+
+        if not csv_bank_account_id:
+            return _err("Please select which bank account this file is for.")
+        ba = self._get_bank_account(csv_bank_account_id)
+        if not ba:
+            return _err("Selected bank account not found.")
+
+        mapping: dict | None = None
+        if choice.needs_mapping:
+            fp = fingerprint_csv_headers(file_bytes)
+            mapping = lookup_csv_mapping(self._conn, csv_bank_account_id, fp)
+            if mapping is None:
+                # First time seeing this CSV shape for this account. Stash
+                # the bytes and hand off to the mapping wizard; once the
+                # user saves a mapping, the save-mapping endpoint replays
+                # the upload with the new mapping in hand.
+                token = stash_upload(
+                    self._conn, csv_bank_account_id,
+                    filename or "upload.csv", file_bytes,
+                )
+                headers = ",".join(read_csv_headers(file_bytes)[:6])
+                preview = (f"This CSV from {ba['account_name']} uses a column layout "
+                           f"we haven't seen before ({headers}…). Map its columns "
+                           f"to the canonical fields to continue.")
+                from urllib.parse import quote
+                return (
+                    f"/admin/import?prefill_type=bank_statement_csv"
+                    f"&stash={token}&bank_account_id={csv_bank_account_id}"
+                    f"&note={quote(preview)}",
+                    None,
+                )
+
+        try:
+            canonical = choice.adapter.parse(file_bytes, mapping=mapping)
+        except Exception as exc:
+            return _err(f"Could not read file: {exc}")
+
+        batch_id = self._store_pending_batch(
+            reconciliation_id=None,
+            bank_account_id=csv_bank_account_id,
+            filename=filename, file_format=adapter_name.upper(),
+            file_bytes=file_bytes, csv_col_map={},
+            transactions=canonical,
+            items=self._get_unmatched_items(csv_bank_account_id),
+            batches=self._get_unmatched_batches(csv_bank_account_id),
+            rules=rules,
+        )
+        msg = f"Imported {len(canonical)} transactions into {ba['account_name']}."
+        return f"/bank-import/upload?ok=1&msg={msg}", None
 
     def render_standalone_upload_form(
         self,
@@ -914,8 +1069,16 @@ class BankStatementPages:
         )
         match_count = len(rule_m) + len(source_m) + len(batch_m)
 
+        # Only drop rows that were first-seen by this batch AND are still
+        # unvalidated — upsert below will refresh matches for any row that
+        # was introduced by an earlier batch and reappears here.
         self._conn.execute(
-            "DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,)
+            """
+            DELETE FROM bank_transactions
+             WHERE import_batch_id = ?
+               AND validation_status = 'UNVALIDATED'
+            """,
+            (batch_id,),
         )
 
         for i, txn in enumerate(transactions):
@@ -941,133 +1104,10 @@ class BankStatementPages:
 
         return f"/bank-accounts/{bank_account_id}/import-statement/{batch_id}", None
 
-    def handle_standalone_reapply(
-        self,
-        bank_account_id: int,
-        batch_id: int,
-        org: dict,
-        theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
-        """Re-run rule matching against stored file content (no GL lines in standalone mode)."""
-        ba = self._get_bank_account(bank_account_id)
-        if not ba:
-            return f"/bank-accounts/{bank_account_id}/import-statement", None
-
-        fb = self._conn.execute(
-            "SELECT file_content, file_format, csv_col_map FROM bank_import_batches WHERE id = ? AND bank_account_id = ? AND reconciliation_id IS NULL",
-            (batch_id, bank_account_id),
-        ).fetchone()
-        if not fb or not fb["file_content"]:
-            resp = self.render_standalone_batch_preview(bank_account_id, batch_id, org, theme,
-                                                        error="File data not found — please re-upload.")
-            return None, resp
-
-        file_format = fb["file_format"] or detect_format(fb["file_content"])
-        if file_format == "OFX":
-            # Filter to only transactions for this batch's account using ACCTID last-4
-            last4 = ba["account_last4"] or ""
-            sections = parse_ofx_by_account(fb["file_content"])
-            transactions = []
-            for acctid, txns in sections:
-                if not last4 or acctid.endswith(last4):
-                    transactions = txns
-                    break
-            if not transactions and sections:
-                transactions = sections[0][1]  # fallback
-            resolved_col_map: dict = {}
-        else:
-            col_map = json.loads(fb["csv_col_map"] or "{}")
-            transactions, _headers, resolved_col_map = parse_csv(fb["file_content"], col_map or None)
-
-        rules = self._load_rules()
-        items = self._get_unmatched_items(bank_account_id)
-        batches = self._get_unmatched_batches(bank_account_id)
-        rule_m, source_m, batch_m = self._compute_matches(
-            transactions, items, batches, rules, bank_account_id=bank_account_id
-        )
-        match_count = len(rule_m) + len(source_m) + len(batch_m)
-
-        self._conn.execute("DELETE FROM bank_transactions WHERE import_batch_id = ?", (batch_id,))
-
-        for i, txn in enumerate(transactions):
-            self._insert_bank_txn(
-                bank_account_id=bank_account_id,
-                batch_id=batch_id,
-                txn=txn,
-                idx=i,
-                rule_m=rule_m,
-                source_m=source_m,
-                batch_m=batch_m,
-            )
-
-        self._conn.execute(
-            "UPDATE bank_import_batches SET transaction_count = ?, matched_count = ? WHERE id = ?",
-            (len(transactions), match_count, batch_id),
-        )
-        self._conn.commit()
-        return f"/bank-accounts/{bank_account_id}/import-statement/{batch_id}", None
-
-    def handle_standalone_apply(
-        self,
-        bank_account_id: int,
-        batch_id: int,
-        org: dict,
-        theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
-        """Post single-entry records for rule-matched transactions and link
-        them to the bank_transactions row. SOURCE and BATCH matches were
-        linked at import time and need no further action here. No writes
-        to reconciliation_clears — that happens only when a reconciliation
-        is finalized.
-        """
-        ba = self._get_bank_account(bank_account_id)
-        if not ba:
-            return f"/bank-accounts/{bank_account_id}/import-statement", None
-
-        batch = self._conn.execute(
-            "SELECT id FROM bank_import_batches WHERE id = ? AND bank_account_id = ? AND reconciliation_id IS NULL AND status = 'PENDING'",
-            (batch_id, bank_account_id),
-        ).fetchone()
-        if not batch:
-            return f"/bank-accounts/{bank_account_id}/import-statement", None
-
-        txn_rows = self._conn.execute(
-            """
-            SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
-                   bt.match_type, bt.rule_id,
-                   r.action_type, r.category_id, r.lot_id, r.vendor_id, r.default_memo
-            FROM bank_transactions bt
-            LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
-            WHERE bt.import_batch_id = ?
-            """,
-            (batch_id,),
-        ).fetchall()
-
-        for txn in txn_rows:
-            if txn["match_type"] != "RULE" or not txn["rule_id"]:
-                continue
-            result = self._apply_rule(
-                dict(txn),
-                dict(txn),
-                bank_account_id=bank_account_id,
-            )
-            if result is None:
-                continue
-            source_type, source_id = result
-            self._conn.execute(
-                """UPDATE bank_transactions
-                   SET matched_source_type = ?, matched_source_id = ?
-                   WHERE id = ?""",
-                (source_type, source_id, txn["id"]),
-            )
-
-        self._conn.execute(
-            "UPDATE bank_import_batches SET status = 'APPLIED' WHERE id = ?",
-            (batch_id,),
-        )
-        self._conn.commit()
-
-        return f"/bank-accounts/{bank_account_id}/import-statement?applied={batch_id}", None
+    # handle_standalone_apply / handle_standalone_reapply removed: the
+    # Pending Validation queue is the canonical review path and auto_post
+    # rules post at ingest time. Routes were deleted in step 7; these
+    # methods are deleted here to finish that cleanup.
 
     def handle_standalone_delete(
         self,

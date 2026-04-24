@@ -232,17 +232,55 @@ class ImportPages:
         org: dict | None,
         theme: str,
         error_message: str = "",
+        prefill_type: str = "",
+        stash_token: str = "",
+        bank_account_id: int | None = None,
+        note: str = "",
     ) -> ImportPageResponse:
-        ordered = sorted(TABLE_DEFS.items(), key=lambda kv: kv[1]["order"])
+        # Expose a virtual ``bank_statement_csv`` target so the existing
+        # wizard can be reused for mapping bank CSVs onto canonical ingest
+        # fields. The entry is built lazily here (instead of living in
+        # TABLE_DEFS permanently) because its submit path doesn't insert
+        # rows — it saves a column map and re-runs ingest.
+        from hoa_accounting.web.bank_ingest import (
+            CANONICAL_CSV_FIELDS, peek_stash,
+        )
+        defs = dict(TABLE_DEFS)
+        defs["bank_statement_csv"] = {
+            "label":    "Bank Statement (CSV)",
+            "order":    99,
+            "requires": [],
+            "fields":   CANONICAL_CSV_FIELDS,
+            "save_only": True,
+            "submit_url": "/bank-import/save-mapping",
+        }
+
+        # If the caller handed us a stash token, pre-load its CSV so the
+        # wizard opens on step 2 with the headers already visible.
+        prefill_csv = ""
+        prefill_filename = ""
+        if stash_token:
+            row = peek_stash(self.conn, stash_token)
+            if row is not None:
+                _, prefill_filename, content = row
+                prefill_csv = content.decode("utf-8-sig", errors="replace")
+
+        ordered = sorted(defs.items(), key=lambda kv: kv[1]["order"])
         ctx = {
             "heading":         "Import Data",
             "breadcrumb":      "System",
             "org":             org or {},
             "theme":           theme,
             "page_key":        "import",
-            "table_defs_json": json.dumps(TABLE_DEFS),
+            "table_defs_json": json.dumps(defs),
             "import_order":    [(k, v) for k, v in ordered],
             "error_message":   error_message,
+            "prefill_type":    prefill_type,
+            "stash_token":     stash_token,
+            "bank_account_id": bank_account_id or "",
+            "prefill_csv":     prefill_csv,
+            "prefill_filename": prefill_filename,
+            "note":            note,
         }
         return ImportPageResponse(
             status_code=HTTPStatus.OK,

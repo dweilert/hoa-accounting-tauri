@@ -164,20 +164,20 @@ class ReserveTransferPages:
         if not row:
             return None, self._render_error(404, "Transfer not found.", org, theme)
 
-        if row["journal_entry_id"] is not None:
-            cleared = self._conn.execute(
-                """
-                SELECT COUNT(*) FROM reconciliation_clears rc
-                JOIN journal_entry_lines jel ON jel.id = rc.journal_entry_line_id
-                WHERE jel.journal_entry_id = ?
-                """,
-                (row["journal_entry_id"],),
-            ).fetchone()
-            if cleared and int(cleared[0]) > 0:
-                return (
-                    "/reserve-transfers?error=Cannot+delete+a+transfer+that+has+been+reconciled.",
-                    None,
-                )
+        cleared = self._conn.execute(
+            """
+            SELECT COUNT(*) FROM reconciliation_clears rc
+            JOIN bank_transactions bt ON bt.id = rc.bank_transaction_id
+            WHERE bt.matched_source_type = 'RESERVE_TRANSFER'
+              AND bt.matched_source_id   = ?
+            """,
+            (transfer_id,),
+        ).fetchone()
+        if cleared and int(cleared[0]) > 0:
+            return (
+                "/reserve-transfers?error=Cannot+delete+a+transfer+that+has+been+reconciled.",
+                None,
+            )
 
         self._repo.delete_transfer(transfer_id)
         return "/reserve-transfers?msg=Transfer+deleted.", None

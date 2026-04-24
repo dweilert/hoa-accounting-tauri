@@ -67,25 +67,12 @@
             <a href="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}"
                class="btn btn--sm btn--ghost">View</a>
             {% if b.status == 'PENDING' %}
-              {% if b.matched_count > 0 %}
-                <form method="post"
-                      action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/apply"
-                      style="display:inline;"
-                      data-confirm="Apply {{ b.matched_count }} rule match{% if b.matched_count != 1 %}es{% endif %} for {{ b.account_name }}? This will record matched transactions."
-                      data-confirm-title="Apply Import"
-                      data-confirm-label="Apply">
-                  <button type="submit" class="btn btn--sm btn--primary">Apply</button>
-                </form>
-              {% endif %}
-              <form method="post"
-                    action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/reapply-rules"
-                    style="display:inline;">
-                <button type="submit" class="btn btn--sm btn--ghost">↺ Re-run Rules</button>
-              </form>
+              <a href="/bank-transactions/pending?bank_account_id={{ b.bank_account_id }}"
+                 class="btn btn--sm btn--primary">Review</a>
               <form method="post"
                     action="/bank-accounts/{{ b.bank_account_id }}/import-statement/{{ b.id }}/delete"
                     style="display:inline;"
-                    data-confirm="Discard this pending import?"
+                    data-confirm="Discard this import audit record? The bank transactions remain but this file-level log entry is removed."
                     data-confirm-title="Discard Import"
                     data-confirm-label="Discard">
                 <button type="submit" class="btn btn--sm btn--danger">Discard</button>

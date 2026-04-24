@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Bank Entry · {{ org.name }}{% endblock %}
+{% block heading %}Manual Bank Entry{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/bank-transactions/pending" class="btn btn--ghost btn--sm">← Back to queue</a>
+{% endblock %}
+
+{% block content %}
+
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+{% if flash_message %}
+  <div class="alert alert--success" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ flash_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+<div class="panel" style="margin-bottom:1.25rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">Enter bank lines from your statement</div>
+      <div class="panel__description">
+        Use when you don't receive a downloadable bank file. Each row
+        becomes a canonical bank transaction and lands in the Pending
+        Validation queue just like an imported line. Blank rows are
+        ignored; add as many as you need.
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/bank-transactions/manual">
+
+  {# ── Target account ─────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:.85rem;font-weight:600;">Bank account</label>
+      <select name="bank_account_id" required style="min-width:260px;">
+        <option value="">— select —</option>
+        {% for a in accounts %}
+          <option value="{{ a.id }}"
+                  {% if selected_bank_account_id == a.id %}selected{% endif %}>
+            {{ a.account_name }}{% if a.account_last4 %} ···{{ a.account_last4 }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <span style="font-size:.75rem;color:var(--text-muted);">
+        Amounts are signed: <code>-</code> for debits, no sign for credits.
+      </span>
+    </div>
+  </div>
+
+  {# ── Entry grid ─────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div class="table-wrap">
+      <table id="manual-grid">
+        <thead>
+          <tr>
+            <th style="width:10rem;">Date</th>
+            <th style="width:8rem;text-align:right;">Amount</th>
+            <th>Description</th>
+            <th>Memo</th>
+            <th style="width:8rem;">Type</th>
+            <th style="width:7rem;">Check #</th>
+            <th style="width:3rem;"></th>
+          </tr>
+        </thead>
+        <tbody id="manual-grid-body">
+          {% for i in range(10) %}
+          <tr class="manual-row">
+            <td><input type="date" name="rows[{{ i }}][date]" style="width:100%;"></td>
+            <td><input type="text" name="rows[{{ i }}][amount]"
+                       inputmode="decimal"
+                       placeholder="0.00"
+                       style="width:100%;text-align:right;font-family:var(--font-mono);"></td>
+            <td><input type="text" name="rows[{{ i }}][description]" style="width:100%;"></td>
+            <td><input type="text" name="rows[{{ i }}][memo]" style="width:100%;"></td>
+            <td>
+              <select name="rows[{{ i }}][transaction_type]" style="width:100%;">
+                <option value="">auto</option>
+                {% for t in trn_types %}
+                  <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="text" name="rows[{{ i }}][check_number]" style="width:100%;"></td>
+            <td style="text-align:center;">
+              <button type="button" class="btn btn--ghost btn--sm" onclick="clearRow(this)"
+                      title="Clear this row" aria-label="Clear row">×</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:.75rem 1rem;display:flex;gap:.5rem;border-top:1px solid var(--border);">
+      <button type="button" class="btn btn--ghost btn--sm" onclick="addRows(5)">+ 5 more rows</button>
+      <span style="font-size:.75rem;color:var(--text-muted);margin-left:auto;align-self:center;">
+        Tip: leave Type as "auto" to let the sign pick DEBIT or CREDIT.
+      </span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:.75rem;">
+    <button type="submit" class="btn btn--primary">Save entries</button>
+    <a href="/bank-transactions/pending" class="btn btn--ghost">Cancel</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  var body = document.getElementById("manual-grid-body");
+
+  window.clearRow = function (btn) {
+    var row = btn.closest("tr");
+    row.querySelectorAll("input, select").forEach(function (el) { el.value = ""; });
+  };
+
+  window.addRows = function (n) {
+    var existing = body.querySelectorAll("tr").length;
+    var first = body.querySelector("tr");
+    if (!first) return;
+    for (var k = 0; k < n; k++) {
+      var idx = existing + k;
+      var clone = first.cloneNode(true);
+      clone.querySelectorAll("input, select").forEach(function (el) {
+        el.value = "";
+        if (el.name) el.name = el.name.replace(/rows\[\d+\]/, "rows[" + idx + "]");
+      });
+      body.appendChild(clone);
+    }
+  };
+})();
+</script>
+
+{% endblock %}

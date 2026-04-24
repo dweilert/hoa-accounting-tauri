@@ -141,6 +141,7 @@ class TransactionRulePages:
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
                    r.action_type, r.category_id, r.vendor_id, r.default_memo,
                    r.active_flag, r.created_at, r.lot_id,
+                   r.confidence_mode, r.auto_post_after_n, r.confirmed_matches,
                    c.code AS category_code, c.name AS category_name,
                    l.lot_number,
                    o.display_name AS lot_owner_name,
@@ -200,6 +201,18 @@ class TransactionRulePages:
         lot_id         = int(lot_id_raw) if lot_id_raw else None
         default_memo   = form_data.get("default_memo", "").strip()
         active_flag    = 1 if form_data.get("active_flag") else 0
+        # Rule confidence: 'review_first' (default) leaves matched txns in
+        # the Pending Validation queue; 'auto_post' posts them without
+        # review. Promotion is otherwise automatic once confirmed_matches
+        # reaches auto_post_after_n, but users can pin the mode here.
+        confidence_mode = form_data.get("confidence_mode", "review_first").strip()
+        if confidence_mode not in ("review_first", "auto_post"):
+            confidence_mode = "review_first"
+        auto_post_raw = form_data.get("auto_post_after_n", "3").strip()
+        try:
+            auto_post_after_n = max(1, int(auto_post_raw))
+        except ValueError:
+            auto_post_after_n = 3
 
         if action_type != "dues_payment":
             lot_id = None
@@ -230,12 +243,14 @@ class TransactionRulePages:
                 SET rule_name = ?, description_contains = ?,
                     match_type = ?, match_memo = ?, match_amount = ?, bank_account_id = ?,
                     action_type = ?, category_id = ?, vendor_id = ?, lot_id = ?,
-                    default_memo = ?, active_flag = ?
+                    default_memo = ?, active_flag = ?,
+                    confidence_mode = ?, auto_post_after_n = ?
                 WHERE id = ?
                 """,
                 (rule_name, desc_contains, match_type, match_memo, match_amount,
                  rule_bank_acct_id, action_type, category_id, vendor_id, lot_id,
-                 default_memo, active_flag, int(rule_id)),
+                 default_memo, active_flag,
+                 confidence_mode, auto_post_after_n, int(rule_id)),
             )
         else:
             self._conn.execute(
@@ -243,12 +258,14 @@ class TransactionRulePages:
                 INSERT INTO bank_transaction_rules
                     (rule_name, description_contains, match_type, match_memo, match_amount,
                      bank_account_id, action_type, category_id, vendor_id, lot_id,
-                     default_memo, active_flag)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     default_memo, active_flag,
+                     confidence_mode, auto_post_after_n)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (rule_name, desc_contains, match_type, match_memo, match_amount,
                  rule_bank_acct_id, action_type, category_id, vendor_id, lot_id,
-                 default_memo, active_flag),
+                 default_memo, active_flag,
+                 confidence_mode, auto_post_after_n),
             )
 
         self._conn.commit()

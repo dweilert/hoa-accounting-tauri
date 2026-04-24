@@ -3,6 +3,10 @@
 {% block heading %}{{ heading }}{% endblock %}
 
 {% block content %}
+
+<div id="prefill-note" class="alert alert--info"
+     style="display:none;margin-bottom:1rem;"></div>
+
 <style>
 /* ── Drop zone ─────────────────────────────────────────────────────── */
 .drop-zone {
@@ -329,6 +333,18 @@
 (function () {
   // ── Injected server data ──────────────────────────────────────────
   var TABLE_DEFS = {{ table_defs_json | safe }};
+
+  // Optional prefill bootstrap — set when the page is opened from a
+  // domain flow that already has a file and a target in mind (e.g. bank
+  // CSV mapping from /bank-import/upload). Empty strings when absent.
+  window.__prefill = {
+    type:            {{ (prefill_type or "") | tojson }},
+    stash_token:     {{ (stash_token or "") | tojson }},
+    bank_account_id: {{ (bank_account_id or "") | tojson }},
+    csv:             {{ (prefill_csv or "") | tojson }},
+    filename:        {{ (prefill_filename or "") | tojson }},
+    note:            {{ (note or "") | tojson }}
+  };
 
   // ── State ─────────────────────────────────────────────────────────
   var selectedType = null;   // e.g. "accounts"
@@ -732,7 +748,10 @@
   window.runImport = function () {
     var form = document.createElement("form");
     form.method = "POST";
-    form.action = "/admin/import/run";
+    var def = TABLE_DEFS[selectedType] || {};
+    // Some targets (like bank_statement_csv) don't run an insert loop —
+    // they save a mapping and hand control back to a domain flow.
+    form.action = def.submit_url || "/admin/import/run";
     function add(name, value) {
       var inp = document.createElement("input");
       inp.type = "hidden"; inp.name = name; inp.value = value;
@@ -742,6 +761,11 @@
     add("mapping",     JSON.stringify(connections));
     add("csv_content", csvContent);
     add("file_name",   fileName);
+    // Pass-through identifiers for save-only targets.
+    var stash = (window.__prefill && window.__prefill.stash_token) || "";
+    var bankId = (window.__prefill && window.__prefill.bank_account_id) || "";
+    if (stash)  add("stash_token",     stash);
+    if (bankId) add("bank_account_id", bankId);
     document.body.appendChild(form);
     form.submit();
   };
@@ -886,6 +910,37 @@
     // Safe ID suffix: base64-like encoding of the column name
     return btoa(unescape(encodeURIComponent(col))).replace(/[^a-zA-Z0-9]/g, "_");
   }
+
+  // ── Prefill bootstrap ─────────────────────────────────────────────
+  // If the page was opened from a domain flow (e.g. bank CSV mapping)
+  // the server has already stashed the file and picked the target.
+  // Jump straight to the mapper step with the CSV loaded.
+  (function () {
+    var pf = window.__prefill || {};
+    if (pf.note) {
+      var banner = document.getElementById("prefill-note");
+      if (banner) {
+        banner.textContent = pf.note;
+        banner.style.display = "";
+      }
+    }
+    if (!pf.type || !pf.csv) return;
+    if (typeof window.onTableSelect === "function") {
+      window.onTableSelect(pf.type);
+    } else {
+      selectedType = pf.type;
+    }
+    fileName   = pf.filename || "upload.csv";
+    csvContent = pf.csv;
+    var info   = parseCsvHeaders(pf.csv);
+    csvHeaders = info.headers;
+    var lbl    = document.getElementById("drop-label");
+    var sub    = document.getElementById("drop-sublabel");
+    if (lbl) lbl.textContent = "✓ " + fileName + " — " + info.rowCount + " data row(s)";
+    if (sub) sub.textContent = info.headers.length + " column(s): " +
+             info.headers.slice(0, 5).join(", ") + (info.headers.length > 5 ? " …" : "");
+    maybeShowMapper();
+  })();
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Classify Transaction · {{ org.name }}{% endblock %}
+{% block heading %}Classify Transaction{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/bank-transactions/pending" class="btn btn--ghost btn--sm">← Back to queue</a>
+{% endblock %}
+
+{% block content %}
+
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+{# ── Transaction summary ───────────────────────────────────────────── #}
+<div class="panel" style="margin-bottom:1.25rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        {{ txn.transaction_date }} ·
+        {{ txn.account_name }}{% if txn.account_last4 %}
+          <span style="color:var(--text-muted);">···{{ txn.account_last4 }}</span>
+        {% endif %}
+      </div>
+      <div class="panel__description">
+        <strong style="color:{% if is_income %}#166534{% else %}#991b1b{% endif %};">
+          {{ '%.2f' | format(txn.amount | float) }}
+        </strong>
+        · {{ txn.description }}
+        {% if txn.memo %}<br><span style="color:var(--text-muted);font-size:12px;">{{ txn.memo }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+
+  {# ── Option A: Pick Category ────────────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Pick a category</div>
+        <div class="panel__description">
+          Posts a new {% if is_income %}income{% else %}expense{% endif %} record
+          and links it to this bank line.
+        </div>
+      </div>
+    </div>
+    <form method="post" action="/bank-transactions/{{ txn.id }}/classify/pick"
+          style="padding:1rem;">
+
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Category <span style="color:var(--danger);">*</span>
+        </label>
+        <select name="category_id" required style="width:100%;">
+          <option value="">— select category —</option>
+          {% for c in categories %}
+            {% if (is_income and c.category_type == 'INCOME') or (not is_income and c.category_type == 'EXPENSE') %}
+              <option value="{{ c.id }}">
+                {{ c.name }}{% if c.group_name %} ({{ c.group_name }}){% endif %}
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if not is_income %}
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Vendor <span style="color:var(--danger);">*</span>
+        </label>
+        <select name="vendor_id" required style="width:100%;">
+          <option value="">— select vendor —</option>
+          {% for v in vendors %}
+            <option value="{{ v.id }}">{{ v.vendor_name }}</option>
+          {% endfor %}
+        </select>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;">
+          A vendor bill and bill payment will be posted against this vendor.
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="margin-bottom:1.25rem;">
+        <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+          Memo
+        </label>
+        <input type="text" name="memo" value="{{ txn.description }}" style="width:100%;">
+      </div>
+
+      <button type="submit" class="btn btn--primary">Post &amp; Validate</button>
+    </form>
+  </div>
+
+  {# ── Option B: Link existing ───────────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Link to an existing record</div>
+        <div class="panel__description">
+          {{ candidates | length }} candidate{% if candidates | length != 1 %}s{% endif %}
+          on this account within ±14 days matching the amount.
+        </div>
+      </div>
+    </div>
+    {% if candidates %}
+    <form method="post" action="/bank-transactions/{{ txn.id }}/classify/link"
+          style="padding:1rem;">
+      <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;">
+        {% for c in candidates %}
+          <label style="display:flex;align-items:center;gap:.5rem;padding:.5rem .65rem;
+                        border:1px solid var(--border);border-radius:var(--radius);
+                        cursor:pointer;">
+            <input type="radio" name="pick"
+                   value="{{ c.source_type }}:{{ c.source_id }}" required>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;">{{ c.label }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">
+                {{ c.date }} · {{ '%.2f' | format(c.amount | float) }}
+              </div>
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn--primary">Link &amp; Validate</button>
+    </form>
+    {% else %}
+    <div class="empty" style="padding:1.5rem 1rem;">
+      No matching ledger records found. Post a new one on the left.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{# ── Ignore ───────────────────────────────────────────────────────── #}
+<div class="panel" style="margin-top:1.25rem;">
+  <div style="padding:.85rem 1rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:.85rem;color:var(--text-muted);">
+      Not an accounting event? (e.g. internal transfer counterpart, duplicate
+      pull, test transaction.)
+    </div>
+    <form method="post" action="/bank-transactions/{{ txn.id }}/ignore"
+          data-confirm="Ignore this transaction? It won't be posted to the ledger."
+          data-confirm-title="Ignore Transaction"
+          data-confirm-label="Ignore">
+      <button type="submit" class="btn btn--ghost btn--sm">Mark ignored</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
