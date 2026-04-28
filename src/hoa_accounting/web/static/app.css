@@ -1162,3 +1162,32 @@ pre.raw-json {
   .panel { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
   tbody tr:hover { background: transparent; }
 }
+
+/* ── Sortable tables (driven by /static/sortable-tables.js) ──────────────── */
+table[data-sortable] th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+}
+table[data-sortable] th[data-sort] .sort-ind {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: .25rem;
+}
+table[data-sortable] th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
+table[data-sortable] th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
+table[data-sortable] tbody > tr.filtered { display: none; }
+
+/* Sticky column-header strip used by list pages above scrollable tables. */
+.list-sticky-header {
+  position: sticky;
+  top: var(--app-topbar-offset, 0);
+  background: var(--accent-subtle, #eaf4ec);
+  color: var(--accent-dark, var(--accent));
+  border-bottom: 1px solid var(--border);
+  z-index: 5;
+  padding: .4rem .65rem;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}

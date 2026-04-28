@@ -9,9 +9,8 @@
 
 {% block content %}
   <style>
-    /* Shared column geometry across the header bar and every per-panel
-       table. All widths are explicit so the rows below line up under the
-       single sticky header. */
+    /* Per-page column widths (the rest is in app.css under .list-sticky-header
+       and table[data-sortable]). */
     .cat-page table.cat-table { table-layout: fixed; width: 100%; }
     .cat-page col.col-code  { width: 8rem; }
     .cat-page col.col-name  { width: 12rem; }
@@ -25,8 +24,6 @@
       vertical-align: top;
       overflow-wrap: break-word;
     }
-
-    /* One sticky column-header strip above all panels. */
     .cat-header {
       position: sticky;
       top: var(--app-topbar-offset, 0);
@@ -190,20 +187,6 @@
     </script>
   {% endif %}
 
-  <script>
-    // Sync the sticky-header offset with the live topbar height. The topbar
-    // is itself sticky, so headers must sit just below it.
-    (function () {
-      function sync() {
-        var topbar = document.querySelector('header.topbar');
-        var h = topbar ? topbar.getBoundingClientRect().height : 0;
-        document.documentElement.style.setProperty('--app-topbar-offset', h + 'px');
-      }
-      window.addEventListener('load', sync);
-      window.addEventListener('resize', sync);
-      setTimeout(sync, 50);
-    })();
-  </script>
   <script>
     // Preserve scroll position across Delete-and-reload (and any other
     // POST-then-redirect on this page). Save before submit; restore on load.

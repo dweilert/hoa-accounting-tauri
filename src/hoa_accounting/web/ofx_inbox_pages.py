@@ -438,6 +438,39 @@ class OFXInboxPages:
             f"Import failed for {filename}: {result['error']}",
         )
 
+    def handle_delete(
+        self, *, filename: str, org: dict | None,
+    ) -> tuple[str, str]:
+        """Delete a pending OFX file without importing it.
+
+        Files in the inbox root are pending — once imported they're moved
+        into ``archive/`` and disappear from this listing. Deleting just
+        prevents an unwanted file (test data, duplicate, etc.) from ever
+        being imported. Archived files aren't reachable through this
+        action.
+
+        Returns ``(redirect_url, flash_message)``.
+        """
+        root = _inbox_root(org)
+        target = root / filename
+        safe = _safe_inbox_path(root, str(target))
+        if safe is None or not safe.is_file():
+            return "/ofx-inbox", f"File not found: {filename}"
+        # Only allow deleting files at the inbox root (pending). Archive
+        # files are off-limits — they represent imported transactions and
+        # are kept as audit history.
+        if safe.parent.resolve() != root.resolve():
+            return "/ofx-inbox", f"Refusing to delete {filename}: outside inbox."
+        try:
+            safe.unlink()
+        except OSError as exc:
+            return ("/ofx-inbox?err=" + str(exc).replace(" ", "+"),
+                    f"Could not delete {filename}: {exc}")
+        return (
+            "/ofx-inbox?msg=Deleted+" + filename,
+            f"Deleted {filename} (was not imported).",
+        )
+
     def handle_import_all(self, *, org: dict | None) -> tuple[str, str]:
         """Import every unprocessed file. Keep going on per-file failure
         and report counts — as agreed."""

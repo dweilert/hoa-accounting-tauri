@@ -112,12 +112,21 @@
                 <td class="mono">{{ f.filename }}</td>
                 <td>{{ f.mtime }}</td>
                 <td class="num">{{ "%.1f"|format(f.size / 1024) }} KB</td>
-                <td style="text-align:right;">
+                <td style="text-align:right;white-space:nowrap;">
                   <form method="post" action="/ofx-inbox/import"
                         style="display:inline;">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token }}" />
                     <input type="hidden" name="filename" value="{{ f.filename }}" />
                     <button type="submit" class="btn btn--sm btn--primary">Import</button>
+                  </form>
+                  <form method="post" action="/ofx-inbox/delete"
+                        style="display:inline;margin-left:.25rem;"
+                        data-confirm="Delete {{ f.filename }} from the inbox? It will not be imported. This is just a file delete — already-imported transactions are not affected."
+                        data-confirm-title="Delete OFX File"
+                        data-confirm-label="Delete">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}" />
+                    <input type="hidden" name="filename" value="{{ f.filename }}" />
+                    <button type="submit" class="btn btn--sm btn--danger">Delete</button>
                   </form>
                 </td>
               </tr>

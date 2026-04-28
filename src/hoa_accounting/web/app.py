@@ -1508,6 +1508,21 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             redirect_url = f"{redirect_url}{sep}{tag}={quote(flash)}"
         return redirect(redirect_url, code=303)
 
+    @app.post("/ofx-inbox/delete")
+    def ofx_inbox_delete() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_ofx_inbox_pages()
+        filename = (request.form.get("filename") or "").strip()
+        redirect_url, flash = pages.handle_delete(
+            filename=filename, org=org_context,
+        )
+        if flash:
+            sep = "&" if "?" in redirect_url else "?"
+            tag = "msg" if "could not" not in flash.lower() else "err"
+            redirect_url = f"{redirect_url}{sep}{tag}={quote(flash)}"
+        return redirect(redirect_url, code=303)
+
     @app.post("/ofx-inbox/import-all")
     def ofx_inbox_import_all() -> Response:
         from flask import redirect
