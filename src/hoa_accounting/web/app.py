@@ -230,7 +230,19 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     @app.before_request
     def _attach_org() -> None:
         from hoa_accounting.web.auth_pages import _get_current_user
+        from flask import session as _session
         g.org = org_context
+        # In TESTING mode, auto-seat an admin session so test_client tests
+        # don't need to call _login_as_admin manually. Production runs
+        # with TESTING=False so this is a no-op.
+        if app.config.get("TESTING") and "user" not in _session:
+            _session["user"] = {
+                "email": "test-admin@local",
+                "display_name": "Test Admin",
+                "role": "admin",
+                "backend": "local",
+                "groups": [],
+            }
         g.current_user = _get_current_user()
 
     # ── Setup wizard ──────────────────────────────────────────────────────
@@ -2624,6 +2636,20 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         pages = _open_budget_pages()
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_archive(
+            budget_id, org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/budgets/<int:budget_id>/un-archive")
+    def un_archive_budget(budget_id: int) -> Response:
+        from flask import redirect
+        pages = _open_budget_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_un_archive(
             budget_id, org=org_context, theme=theme,
         )
         if redirect_url is not None:

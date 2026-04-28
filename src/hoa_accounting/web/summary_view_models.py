@@ -458,6 +458,25 @@ def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]
                 for row in rows
             ],
         })
+    # ``expected_pct`` = how much of the year SHOULD be spent by today, used
+    # by the partial to color the % Used column. When the report is for a
+    # past or future fiscal year, peg at 100% (past) or 0% (future).
+    from datetime import date as _date
+    today = _date.today()
+    fy = int(data.get("fiscal_year") or 0)
+    if fy and today.year > fy:
+        expected_pct = 100.0
+    elif fy and today.year < fy:
+        expected_pct = 0.0
+    elif fy:
+        # Approximation: simple month-of-year share. Good enough for
+        # visual shading. (Doesn't try to handle non-Jan fiscal-year starts;
+        # could refine later by passing fy_start_month through.)
+        day_of_year = (today - _date(today.year, 1, 1)).days + 1
+        expected_pct = round(day_of_year / 365 * 100, 1)
+    else:
+        expected_pct = 100.0
+
     return {
         "summary_template": "partials/summary_expenses_vs_budget.html",
         "summary": {
@@ -469,6 +488,7 @@ def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]
             "total_actual": str(data.get("total_actual", "")),
             "total_variance": str(data.get("total_variance", "")),
             "groups": groups,
+            "expected_pct": expected_pct,
         },
     }
 

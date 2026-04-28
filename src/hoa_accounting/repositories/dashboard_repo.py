@@ -179,7 +179,7 @@ class DashboardRepository:
             SELECT SUM(bl.budget_amount) AS total
             FROM budget_lines bl
             JOIN budgets b ON b.id = bl.budget_id
-            WHERE b.fiscal_year = ? AND b.status = 'APPROVED'
+            WHERE b.fiscal_year = ? AND b.status IN ('APPROVED', 'ARCHIVED')
             """,
             (fiscal_year,),
         ).fetchone()
@@ -216,7 +216,7 @@ class DashboardRepository:
             SELECT SUM(bl.budget_amount) AS total
             FROM budget_lines bl
             JOIN budgets b ON b.id = bl.budget_id
-            WHERE b.fiscal_year = ? AND b.status = 'APPROVED'
+            WHERE b.fiscal_year = ? AND b.status IN ('APPROVED', 'ARCHIVED')
             """,
             (fiscal_year,),
         ).fetchone()
@@ -241,7 +241,7 @@ class DashboardRepository:
                 ) AS actual
             FROM budget_lines bl
             JOIN budgets b ON b.id = bl.budget_id
-            WHERE b.fiscal_year = ? AND b.status = 'APPROVED'
+            WHERE b.fiscal_year = ? AND b.status IN ('APPROVED', 'ARCHIVED')
               AND bl.category_id IS NOT NULL
             GROUP BY bl.category_id
             HAVING budgeted > 0

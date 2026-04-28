@@ -103,29 +103,9 @@ _SKIP_PATHS = {
     re.compile(r"/system-settings"),
     re.compile(r"/dashboard-config/"),
     re.compile(r"/admin/workflow-guide/"),
-    # ── Forms that require field data ──────────────────────────────
-    # Empty-body POST 500s here are UX bugs to fix later, not the
-    # "schema drift" class this smoke test is hunting.
-    re.compile(r"^/lots/(add|\d+/edit)$"),
-    re.compile(r"^/owners/(add|\d+/edit)$"),
-    re.compile(r"^/vendors/(add|\d+/edit)$"),
-    re.compile(r"^/vendor-bills/(new|\d+/(edit|split))$"),
-    re.compile(r"^/renters/(add|\d+/edit)$"),
-    re.compile(r"^/board-members/(add|\d+/edit)$"),
-    re.compile(r"^/reserve-transfers/new$"),
-    re.compile(r"^/reconciliations/new$"),
-    re.compile(r"^/resale-fee/post-(charge|payment)$"),
-    re.compile(r"^/opening-balances/save$"),
-    re.compile(r"^/system/(overrides|users/.+)$"),
-    re.compile(r"^/categories/(add|\d+/edit)$"),
-    re.compile(r"^/budgets/(new|\d+/edit)$"),
-    re.compile(r"^/bank-accounts/(add|\d+/edit)$"),
-    re.compile(r"^/accounting-periods/(add|generate)$"),
-    re.compile(r"^/bank-transactions/manual"),
-    re.compile(r"^/manage/edit-records/.+"),
-    re.compile(r"^/admin/transaction-rules/save$"),
-    re.compile(r"^/deposits/new$"),
-    re.compile(r"^/income/new$"),
+    # NOTE: forms that require field data used to live here. Most of them
+    # actually handle empty bodies gracefully — they re-render the form
+    # with a 400 + validation error. The smoke test now exercises them.
 }
 
 

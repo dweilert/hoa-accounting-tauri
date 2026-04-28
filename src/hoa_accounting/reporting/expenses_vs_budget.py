@@ -22,10 +22,16 @@ class ExpenseVsBudgetReportService:
         self.conn = conn
 
     def generate(self, *, fiscal_year: int, fund_code: str) -> ExpenseVsBudgetReport:
+        # ARCHIVED budgets are still authoritative for their own fiscal
+        # year — they're "previously approved, now historical" — so the
+        # report covers them too. Only DRAFT budgets are excluded.
         budget = self.conn.execute(
             """
             SELECT id FROM budgets
-            WHERE fiscal_year = ? AND fund_code = ? AND status = 'APPROVED'
+            WHERE fiscal_year = ? AND fund_code = ?
+              AND status IN ('APPROVED', 'ARCHIVED')
+            ORDER BY CASE status WHEN 'APPROVED' THEN 0 ELSE 1 END
+            LIMIT 1
             """,
             (fiscal_year, fund_code),
         ).fetchone()

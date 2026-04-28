@@ -25,6 +25,40 @@
   </div>
 </div>
 
+{# Shading rule: compare actual % spent to expected % (year-to-date pace).
+   If actual is at or below expected → green;
+     1.00x–1.10x of expected → amber;
+     >1.10x of expected but ≤100% absolute → orange;
+     >100% absolute → red.
+#}
+{% macro pct_used_cell(actual_pct, expected_pct) %}
+  {% set ratio = (actual_pct / expected_pct) if expected_pct > 0 else (2 if actual_pct > 0 else 0) %}
+  {% if actual_pct > 100 %}
+    {% set bg = "#fee2e2" %}{% set fg = "#991b1b" %}
+  {% elif ratio > 1.10 %}
+    {% set bg = "#fed7aa" %}{% set fg = "#9a3412" %}
+  {% elif ratio > 1.00 %}
+    {% set bg = "#fef3c7" %}{% set fg = "#854d0e" %}
+  {% elif ratio > 0.85 %}
+    {% set bg = "#d1fae5" %}{% set fg = "#065f46" %}
+  {% elif actual_pct > 0 %}
+    {% set bg = "#dcfce7" %}{% set fg = "#14532d" %}
+  {% else %}
+    {% set bg = "transparent" %}{% set fg = "var(--text-muted)" %}
+  {% endif %}
+  <td class="num"
+      style="background:{{ bg }};color:{{ fg }};font-weight:600;"
+      title="Year-to-date pace: {{ '%.0f'|format(expected_pct) }}% of the year has elapsed.">
+    {{ "%.0f"|format(actual_pct) }}%
+  </td>
+{% endmacro %}
+
+<div style="font-size:.85rem;color:var(--text-muted);margin:.25rem 0 .75rem;">
+  Today is {{ '%.0f'|format(summary.expected_pct) }}% through the fiscal year — % Used cells
+  shaded green-to-red based on whether spending is on or ahead of pace.
+  Over-budget variance is shown in <span style="color:#991b1b;font-weight:700;">bold red</span>.
+</div>
+
 {% if summary.groups %}
   {% for group in summary.groups %}
     <div class="section-heading">
@@ -54,12 +88,16 @@
         <tbody>
           {% for row in group.rows %}
             {% set pct = ((row.actual_amount | float) / (row.budget_amount | float) * 100) if (row.budget_amount | float) != 0 else 0 %}
+            {% set is_over = (row.variance | float) < 0 %}
             <tr>
               <td>{{ row.category_name }}</td>
               <td class="num">{{ row.budget_amount }}</td>
               <td class="num">{{ row.actual_amount }}</td>
-              <td class="num {% if (row.variance | float) < 0 %}text-danger{% endif %}">{{ row.variance }}</td>
-              <td class="num">{{ "%.0f"|format(pct) }}%</td>
+              <td class="num"
+                  style="{% if is_over %}color:#991b1b;font-weight:700;{% endif %}">
+                {{ row.variance }}
+              </td>
+              {{ pct_used_cell(pct, summary.expected_pct) }}
             </tr>
           {% endfor %}
         </tbody>

@@ -258,6 +258,7 @@ class BudgetPages:
             "error":          error,
             "is_approved":    budget["status"] == "APPROVED",
             "is_draft":       budget["status"] == "DRAFT",
+            "is_archived":    budget["status"] == "ARCHIVED",
             "legacy_lines":   legacy_lines,
         }
         return PageResponse(
@@ -369,6 +370,25 @@ class BudgetPages:
             self.conn.rollback()
             raise
         return f"/budgets/{budget_id}/edit?msg=Budget+archived.", None
+
+    def handle_un_archive(
+        self,
+        budget_id: int,
+        *,
+        org: dict,
+        theme: str,
+    ) -> tuple[str | None, PageResponse | None]:
+        """Reverse an accidental Archive — flip status back to APPROVED."""
+        budget = self._repo.get_budget(budget_id)
+        if budget is None:
+            return "/budgets?msg=Budget+not+found.", None
+        try:
+            self._repo.set_status(budget_id, "APPROVED")
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        return f"/budgets/{budget_id}/edit?msg=Budget+restored.", None
 
     def handle_delete(
         self,

@@ -148,23 +148,34 @@
       {% endfor %}
 
     {% elif card.report_name == 'budget_categories' and budget_cat_tile %}
-      <div class="fin-tile" style="background:{{ bg }};">
-        <div class="fin-tile__label">{{ fiscal_year }} Expenses vs Budget</div>
-        <div class="fin-tile__value">{{ budget_cat_tile.pct_used | round(1) }}%</div>
-        <div class="fin-tile__bar-bg">
-          <div class="fin-tile__bar-fill" style="width:{{ [budget_cat_tile.pct_used, 100]|min|round|int }}%;{% if budget_cat_tile.pct_used > 100 %}background:#f87171;{% endif %}"></div>
-        </div>
-        <div style="display:flex;gap:.75rem;margin-top:6px;">
-          <div class="fin-tile__sub" style="display:flex;align-items:center;gap:.3rem;">
-            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0;"></span>
-            {{ budget_cat_tile.over_budget }} over budget
+      {# Whole tile links to the per-category report; the over-budget sub
+         passes ``over_only=1`` so the report opens scrolled / filtered to
+         the categories that need attention. #}
+      <a href="/run-report?report_name=expenses-vs-budget&fiscal_year={{ budget_cat_tile.fiscal_year }}&fund_code=OPERATING"
+         class="fin-tile-link"
+         title="Open the full Expenses vs Budget report"
+         style="text-decoration:none;color:inherit;display:block;">
+        <div class="fin-tile" style="background:{{ bg }};">
+          <div class="fin-tile__label">{{ fiscal_year }} Expenses vs Budget</div>
+          <div class="fin-tile__value">{{ budget_cat_tile.pct_used | round(1) }}%</div>
+          <div class="fin-tile__bar-bg">
+            <div class="fin-tile__bar-fill" style="width:{{ [budget_cat_tile.pct_used, 100]|min|round|int }}%;{% if budget_cat_tile.pct_used > 100 %}background:#f87171;{% endif %}"></div>
           </div>
-          <div class="fin-tile__sub" style="display:flex;align-items:center;gap:.3rem;">
-            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);flex-shrink:0;"></span>
-            {{ budget_cat_tile.under_budget }} on track
+          <div style="display:flex;gap:.75rem;margin-top:6px;">
+            <div class="fin-tile__sub"
+                 style="display:flex;align-items:center;gap:.3rem;
+                        {% if budget_cat_tile.over_budget %}font-weight:600;text-decoration:underline;{% endif %}"
+                 title="{% if budget_cat_tile.over_budget %}Click the tile to see which categories are over budget.{% endif %}">
+              <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0;"></span>
+              {{ budget_cat_tile.over_budget }} over budget{% if budget_cat_tile.over_budget %} →{% endif %}
+            </div>
+            <div class="fin-tile__sub" style="display:flex;align-items:center;gap:.3rem;">
+              <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.5);flex-shrink:0;"></span>
+              {{ budget_cat_tile.under_budget }} on track
+            </div>
           </div>
         </div>
-      </div>
+      </a>
 
     {% elif card.report_name == 'last_recon' and last_recon %}
       <div class="fin-tile" style="background:{{ bg }};">

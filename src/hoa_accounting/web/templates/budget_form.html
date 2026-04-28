@@ -56,8 +56,19 @@
       <form method="post" action="/budgets/{{ budget.id }}/revert-to-draft" style="display:inline;">
         <button type="submit" class="btn btn--primary btn--sm">✎ Edit Budget</button>
       </form>
-      <form method="post" action="/budgets/{{ budget.id }}/archive" style="display:inline;">
+      <form method="post"
+            action="/budgets/{{ budget.id }}/archive"
+            style="display:inline;"
+            data-confirm="Archive the {{ budget.fiscal_year }} {{ budget.fund_code }} budget? It will be hidden from default reports and the dashboard tile. You can un-archive it later if you change your mind."
+            data-confirm-title="Archive Budget"
+            data-confirm-label="Archive">
         <button type="submit" class="btn btn--ghost btn--sm">Archive</button>
+      </form>
+    {% elif is_archived %}
+      <form method="post" action="/budgets/{{ budget.id }}/un-archive" style="display:inline;">
+        <button type="submit" class="btn btn--primary btn--sm" title="Restore this budget so it shows in reports again.">
+          ↺ Un-archive
+        </button>
       </form>
     {% endif %}
   </div>
