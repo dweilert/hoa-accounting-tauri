@@ -154,13 +154,19 @@ class ReserveTransfersRepository(BaseRepository):
         transfer_type: str | None = None,
         purpose: str | None = None,
     ) -> int:
-        """Insert a reserve transfer and return its id."""
+        """Insert a reserve transfer and return its id.
+
+        The legacy parameter names (``from_account_id`` / ``to_account_id``)
+        come from the chart-of-accounts era. After migration 0061 the columns
+        are ``from_bank_account_id`` / ``to_bank_account_id`` — callers now
+        pass bank-account IDs through the same kwargs.
+        """
         cur = self.conn.execute(
             """
             INSERT INTO reserve_transfers (
                 transfer_date,
-                from_account_id,
-                to_account_id,
+                from_bank_account_id,
+                to_bank_account_id,
                 amount,
                 notes,
                 transfer_type,

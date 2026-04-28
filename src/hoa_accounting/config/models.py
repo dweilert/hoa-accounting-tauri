@@ -34,15 +34,7 @@ class AccountingConfig:
     """Accounting defaults."""
     fiscal_year_start_month: int
     default_fund: str
-    # GL account number that owner dues payments credit. Defaults to
-    # 1100 (the seed chart's Accounts Receivable — Owners). Configurable
-    # so a chart that later renames the account doesn't break the UI.
-    dues_receivable_account_number: str = "1100"
-    # GL account number credited when dues are billed. Defaults to
-    # 4000 (the seed chart's Assessment Income — Operating).
-    dues_income_account_number: str = "4000"
     resale_fee_default_amount: str = "175.00"
-    resale_fee_income_account_number: str = "4070"
 
 
 @dataclass(frozen=True)

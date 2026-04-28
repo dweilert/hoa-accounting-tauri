@@ -18,6 +18,24 @@
   </div>
 {% endif %}
 
+{% if import_message %}
+  <div class="alert alert--info" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ import_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+{% if import_warnings %}
+  <div class="alert alert--warn" style="margin-bottom:1rem;background:#fff8e6;border-color:#e0b94a;color:#8a6500;">
+    <div class="alert__content">
+      <strong>Import warnings:</strong>
+      <ul style="margin:.35rem 0 0 1rem;padding:0;">
+        {% for w in import_warnings %}<li>{{ w }}</li>{% endfor %}
+      </ul>
+    </div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
 <div class="panel" style="margin-bottom:1.25rem;">
   <div class="panel__header">
     <div>
@@ -53,6 +71,13 @@
       {% endif %}
     {% endfor %}
     <span style="margin-left:auto;display:flex;gap:.4rem;align-items:center;">
+      {% if selected_bank_account_id %}
+        <a href="/bank-accounts/{{ selected_bank_account_id }}/import-statement"
+           class="btn btn--sm btn--ghost"
+           title="View past import batches; delete an entire upload or remap a CSV column layout.">
+          Recent Imports
+        </a>
+      {% endif %}
       {% if ignored_count and ignored_count > 0 %}
         <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text-muted);cursor:pointer;">
           <input type="checkbox" id="show-ignored-toggle"

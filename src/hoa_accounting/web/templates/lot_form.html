@@ -216,7 +216,12 @@
       </div>
 
       {% if owner_options %}
+        {# Default the new owner's effective date to match an existing co-owner
+           on this lot when present — co-owners almost always start ownership
+           on the same closing date. Falls back to today for a fresh lot. #}
+        {% set default_start = current_ownerships[0].start_date if current_ownerships else today %}
         <form method="post" action="/lots/{{ lot_id }}/owners/link"
+              id="link-owner-form"
               style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;padding:1rem 1.25rem 1.25rem;">
           <label class="field" style="margin:0;min-width:14rem;flex:1;">
             <span class="field__label">Owner *</span>
@@ -228,13 +233,41 @@
             </select>
           </label>
           <label class="field" style="margin:0;min-width:9rem;">
-            <span class="field__label">Start Date *</span>
-            <input type="date" name="start_date"
-                   value="{{ today }}"
+            <span class="field__label">Start Date * <span class="field__hint" style="font-weight:normal;">(YYYY-MM-DD — when this owner took ownership)</span></span>
+            <input type="date" name="start_date" id="link-start-date"
+                   value="{{ default_start }}"
                    required />
+            <div id="link-start-warn" class="field__hint"
+                 style="display:none;color:#c62828;font-size:.8rem;margin-top:.2rem;"></div>
           </label>
           <button type="submit" class="btn btn--primary">Link Owner</button>
         </form>
+        <script>
+          (function () {
+            var currentDates = [{% for ow in current_ownerships %}"{{ ow.start_date }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+            var owners       = [{% for ow in current_ownerships %}"{{ ow.owner_name|e }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+            var input = document.getElementById("link-start-date");
+            var warn  = document.getElementById("link-start-warn");
+            if (!input || !warn) return;
+            function check() {
+              if (!currentDates.length) { warn.style.display = "none"; return; }
+              var v = input.value;
+              var differs = currentDates.some(function (d) { return d && d !== v; });
+              if (differs) {
+                warn.textContent =
+                  "⚠ Existing co-owner(s) on this lot started on " +
+                  currentDates.map(function (d, i) { return owners[i] + " — " + d; }).join("; ") +
+                  ". Co-owners normally share the same effective date.";
+                warn.style.display = "";
+              } else {
+                warn.style.display = "none";
+              }
+            }
+            input.addEventListener("input", check);
+            input.addEventListener("change", check);
+            check();
+          })();
+        </script>
       {% else %}
         <div class="empty" style="padding:1rem 1.25rem;">
           All active owners are already linked to this lot, or there are no owners on record.

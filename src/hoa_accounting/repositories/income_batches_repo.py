@@ -15,32 +15,32 @@ class IncomeBatchesRepository(BaseRepository):
         *,
         posting_date: str,
         bank_account_id: int,
-        income_account_id: int | None,
         income_description: str,
         total_amount: str,
         notes: str | None,
-        created_by_user_id: int | None,
+        created_by_user_id: int | None = None,
         category_id: int | None = None,
         deposit_batch_id: int | None = None,
     ) -> int:
+        # ``income_account_id`` column still exists on income_batches but is
+        # unused after the Chart-of-Accounts removal — left out of the
+        # INSERT so the column defaults to NULL.
         cur = self.conn.execute(
             """
             INSERT INTO income_batches (
                 posting_date,
                 bank_account_id,
-                income_account_id,
                 income_description,
                 total_amount,
                 notes,
                 created_by_user_id,
                 category_id,
                 deposit_batch_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 posting_date,
                 bank_account_id,
-                income_account_id,
                 income_description,
                 total_amount,
                 notes,

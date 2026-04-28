@@ -39,9 +39,6 @@ class VendorPaymentService:
         bank_account_id: int,
         check_number: str | None = None,
         created_by_user_id: int | None = None,
-        # Kept for call-site compatibility during transition; unused.
-        payable_account_id: int | None = None,
-        cash_account_id: int | None = None,
     ) -> VendorPaymentResult:
         """Post payment of a vendor bill atomically."""
         with transaction(self.conn):
@@ -57,6 +54,26 @@ class VendorPaymentService:
                 check_number=check_number,
                 notes=description,
             )
+
+            # Roll up the bill's status. PAID when paid in full, PARTIAL
+            # otherwise. Single-entry cash-basis: status is purely derived
+            # from the sum of bill_payments against the bill.
+            paid_row = self.conn.execute(
+                """SELECT vb.amount AS bill_amount,
+                          COALESCE((SELECT SUM(amount) FROM bill_payments
+                                     WHERE vendor_bill_id = vb.id), 0) AS paid
+                     FROM vendor_bills vb
+                    WHERE vb.id = ?""",
+                (vendor_bill_id,),
+            ).fetchone()
+            if paid_row is not None:
+                bill_amount = Decimal(str(paid_row["bill_amount"]))
+                paid       = Decimal(str(paid_row["paid"]))
+                new_status = "PAID" if paid >= bill_amount else "PARTIAL"
+                self.conn.execute(
+                    "UPDATE vendor_bills SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (new_status, vendor_bill_id),
+                )
             self.audit_repo.write(
                 entity_type="bill_payments",
                 entity_id=bill_payment_id,

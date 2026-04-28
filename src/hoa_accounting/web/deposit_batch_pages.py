@@ -22,7 +22,6 @@ from http import HTTPStatus
 from typing import Sequence
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.repositories.deposit_batches_repo import DepositBatchesRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
@@ -42,31 +41,6 @@ def _today() -> str:
 
 
 _ROW_KEY_RE = re.compile(r"^row_(\d+)_(lot_id|amount|reference_number|memo)$")
-
-
-def _resolve_ar_account(conn: sqlite3.Connection, org: dict[str, object] | None):
-    """Look up the configured dues receivable account.
-
-    Returns the row (id, number, name, ...) or raises ValidationError
-    with a clear message so the treasurer knows to fix config rather
-    than staring at a server error.
-    """
-    org = org or {}
-    number = str(org.get("dues_receivable_account_number") or "1100")
-    row = AccountsRepository(conn).get_by_number(number)
-    if row is None:
-        raise ValidationError(
-            f"Dues receivable account '{number}' was not found in the chart "
-            "of accounts. Check accounting.dues_receivable_account_number "
-            "in config.yaml."
-        )
-    if int(row["is_active"]) != 1:
-        raise ValidationError(
-            f"Dues receivable account '{number}' is inactive. "
-            "Activate it or update accounting.dues_receivable_account_number "
-            "in config.yaml."
-        )
-    return row
 
 
 class DepositBatchPages:
@@ -137,16 +111,10 @@ class DepositBatchPages:
         values = form_values or {}
 
         # Resolve the posting AR account from config and show it read-only
-        # so the treasurer can see where credits land without having to
-        # pick it every time. If config is wrong, surface that as the
-        # form's error alert rather than a 500.
+        # AR account resolution removed — payments now apply directly to
+        # assessments by category (no GL receivable account).
         resolved_error = error_message
         ar_account_label = ""
-        try:
-            ar_row = _resolve_ar_account(self.conn, org)
-            ar_account_label = f"{ar_row['account_number']} · {ar_row['account_name']}"
-        except ValidationError as exc:
-            resolved_error = resolved_error or str(exc)
 
         banks = [
             {
@@ -224,10 +192,6 @@ class DepositBatchPages:
             bank_account_id = _parse_int(
                 form_data.get("bank_account_id", ""), "Bank account"
             )
-            # AR account comes from config now — one fixed account for
-            # dues payments rather than a per-batch pick.
-            ar_row = _resolve_ar_account(self.conn, org)
-            receivable_account_id = int(ar_row["id"])
             notes = (form_data.get("notes", "") or "").strip() or None
 
             if not active_rows:
@@ -253,7 +217,6 @@ class DepositBatchPages:
             result = self.factory.deposit_batch_service().post_batch(
                 deposit_date=deposit_date,
                 bank_account_id=bank_account_id,
-                receivable_account_id=receivable_account_id,
                 rows=deposit_rows,
                 notes=notes,
             )

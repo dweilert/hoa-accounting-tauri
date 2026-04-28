@@ -103,8 +103,6 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
             "environment": "local",
             "fiscal_year_start_month": 1,
             "theme": "warm",
-            "dues_receivable_account_number": "1100",
-            "dues_income_account_number": "4000",
         }
     # Try to read HOA names from the DB (editable via System Settings);
     # fall back to config.yaml values if the table is empty or missing.
@@ -141,17 +139,8 @@ def _load_org_context(config_path: Path) -> dict[str, Any]:
         "default_assessment_amount": db_dues,
         "default_billing_frequency": db_freq,
         "db_path": config.database.path,
-        "dues_receivable_account_number": getattr(
-            config.accounting, "dues_receivable_account_number", "1100"
-        ),
-        "dues_income_account_number": getattr(
-            config.accounting, "dues_income_account_number", "4000"
-        ),
         "resale_fee_default_amount": getattr(
             config.accounting, "resale_fee_default_amount", "175.00"
-        ),
-        "resale_fee_income_account_number": getattr(
-            config.accounting, "resale_fee_income_account_number", "4070"
         ),
         "backup_config": (yaml.safe_load(Path(config_path).read_text()) or {}).get("backup") or {},
     }
@@ -677,9 +666,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 ).fetchall()
 
                 # Chart of Accounts retired — these dropdowns are gone.
-                accounts = []
-                receivable_accounts = []
-
                 vendors = conn.execute(
                     """
                     SELECT id, vendor_name FROM vendors
@@ -712,16 +698,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                     "owner_id": [
                         {"value": str(r["id"]), "label": _owner_label(r)}
                         for r in owners
-                    ],
-                    "account_id": [
-                        {"value": str(r["id"]),
-                         "label": f"{r['account_number']} – {r['account_name']}"}
-                        for r in accounts
-                    ],
-                    "receivable_account_id": [
-                        {"value": str(r["id"]),
-                         "label": f"{r['account_number']} – {r['account_name']}"}
-                        for r in receivable_accounts
                     ],
                     "vendor_id": [
                         {"value": str(r["id"]), "label": str(r["vendor_name"])}
@@ -1174,7 +1150,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return Response(resp.body_html, status=200, mimetype="text/html; charset=utf-8")
         ba_id_raw = request.form.get("csv_bank_account_id", "").strip()
         csv_ba_id = int(ba_id_raw) if ba_id_raw else None
-        redirect_url, page_resp = pages.handle_agnostic_upload(
+        redirect_url, page_resp, _warnings = pages.handle_agnostic_upload(
             file_bytes=file.read(), filename=file.filename,
             csv_bank_account_id=csv_ba_id, org=org_context, theme=theme,
         )
@@ -1277,12 +1253,17 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         raw = request.args.get("bank_account_id", "")
         bank_account_id = int(raw) if raw.isdigit() else None
         show_ignored = (request.args.get("show_ignored") or "").strip() in ("1", "true", "yes")
+        import_msg = request.args.get("import_msg", "")
+        import_warn = request.args.get("import_warn", "")
+        warnings = [w.strip() for w in import_warn.split(" | ") if w.strip()] if import_warn else []
         resp = pages.render_pending(
             org=org_context, theme=theme,
             bank_account_id=bank_account_id,
             show_ignored=show_ignored,
             flash_message=request.args.get("msg", ""),
             error_message=request.args.get("err", ""),
+            import_message=import_msg,
+            import_warnings=warnings,
         )
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
@@ -1619,15 +1600,10 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
-    @app.get("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>")
-    def bank_import_preview(bank_account_id: int, batch_id: int) -> Response:
-        pages = _open_bank_stmt_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_standalone_batch_preview(
-            bank_account_id, batch_id, org=org_context, theme=theme
-        )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+    # Per-batch Import Preview screen retired — Pending Validation now
+    # serves both the OFX-inbox and Upload-File flows. Batch-level cleanup
+    # (delete a whole upload, remap a CSV) still lives at
+    # /bank-accounts/<id>/import-statement (the All Imports list).
 
     @app.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/remap")
     def bank_import_remap(bank_account_id: int, batch_id: int) -> Response:
@@ -1741,6 +1717,27 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from flask import redirect
         pages = _open_txn_rule_pages()
         return redirect(pages.handle_toggle(rule_id), code=303)
+
+    @app.get("/admin/transaction-rules/test")
+    def transaction_rules_test() -> Response:
+        from hoa_accounting.web.rule_tester_pages import RuleTesterPages
+        theme = str(org_context.get("theme", "warm"))
+        rule_id = request.args.get("rule_id", type=int)
+        txn_id = request.args.get("txn_id", type=int)
+        synthetic = {
+            "description": request.args.get("syn_description", ""),
+            "memo": request.args.get("syn_memo", ""),
+            "amount": request.args.get("syn_amount", ""),
+            "transaction_type": request.args.get("syn_type", ""),
+            "bank_account_id": request.args.get("syn_bank_account_id", ""),
+        }
+        resp = RuleTesterPages(_open_db()).render(
+            org=org_context, theme=theme,
+            focus_rule_id=rule_id, txn_id=txn_id,
+            synthetic=synthetic,
+        )
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
     # ── Lot pages ─────────────────────────────────────────────────────
 
@@ -2851,8 +2848,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 "database.path missing from config; opening balance pages need it."
             )
         conn = _open_db()
-        ar_num = str(org_context.get("dues_receivable_account_number", "1100"))
-        return OpeningBalancesPages(conn, ar_account_number=ar_num)
+        return OpeningBalancesPages(conn)
 
     @app.get("/opening-balances")
     def opening_balances_page() -> Response:
@@ -2890,52 +2886,28 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         conn = _open_db()
         return DatabaseAdminPages(conn, db_path=str(db_path))
 
-    @app.get("/admin/wizard-catalog")
-    def wizard_catalog() -> Response:
-        from hoa_accounting.web.wizard_pages import WizardAdminPages
+    # Wizard Catalog routes removed — the COA-era admin tool is gone.
+    # The interview now drives the Categories table instead.
+
+    @app.get("/setup/categories-interview")
+    def categories_interview() -> Response:
+        from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
-        active_step = int(request.args.get("step", 1))
-        flash = (request.args.get("flash") or "").replace("+", " ").strip()
-        status, html = WizardAdminPages(conn).render_catalog(
-            org=org_context, theme=theme, active_step=active_step, flash=flash
+        flash = (request.args.get("msg") or "").replace("+", " ").strip()
+        resp = CategoryWizardPages(conn).render(
+            org=org_context, theme=theme, flash_message=flash,
         )
-        return Response(html, status=status, mimetype="text/html; charset=utf-8")
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
 
-    @app.post("/admin/wizard-catalog/toggle")
-    def wizard_catalog_toggle() -> Response:
+    @app.post("/setup/categories-interview")
+    def categories_interview_submit() -> Response:
         from flask import redirect
-        from hoa_accounting.web.wizard_pages import WizardAdminPages
+        from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
         conn = _open_db()
-        option_id = int(request.form.get("option_id", 0))
-        active_step = int(request.form.get("active_step", 1))
-        url = WizardAdminPages(conn).handle_toggle(option_id, org_context, str(org_context.get("theme", "warm")), active_step)
-        return redirect(url, code=303)
-
-    @app.post("/admin/wizard-catalog/add-option")
-    def wizard_catalog_add_option() -> Response:
-        from flask import redirect
-        from hoa_accounting.web.wizard_pages import WizardAdminPages
-        conn = _open_db()
-        url = WizardAdminPages(conn).handle_add_option(request.form, org_context, str(org_context.get("theme", "warm")))
-        return redirect(url, code=303)
-
-    @app.post("/admin/wizard-catalog/delete")
-    def wizard_catalog_delete() -> Response:
-        from flask import redirect
-        from hoa_accounting.web.wizard_pages import WizardAdminPages
-        conn = _open_db()
-        option_id = int(request.form.get("option_id", 0))
-        active_step = int(request.form.get("active_step", 1))
-        url = WizardAdminPages(conn).handle_delete_option(option_id, active_step)
-        return redirect(url, code=303)
-
-    @app.post("/admin/wizard-catalog/add-group")
-    def wizard_catalog_add_group() -> Response:
-        from flask import redirect
-        from hoa_accounting.web.wizard_pages import WizardAdminPages
-        conn = _open_db()
-        url = WizardAdminPages(conn).handle_add_group(request.form)
+        codes = request.form.getlist("codes")
+        url, _ = CategoryWizardPages(conn).handle_submit(selected_codes=codes)
         return redirect(url, code=303)
 
     @app.get("/admin/database")
@@ -3165,7 +3137,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         # parse silently.
         from hoa_accounting.web.bank_statement_pages import BankStatementPages
         pages = BankStatementPages(conn)
-        url, page_resp = pages.handle_agnostic_upload(
+        url, page_resp, _warnings = pages.handle_agnostic_upload(
             file_bytes=content, filename=filename or "upload.csv",
             csv_bank_account_id=bank_account_id,
             org=org_context, theme=theme,
@@ -3251,10 +3223,15 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return ResaleFeePages(conn=conn)
 
     def _resale_fee_config() -> tuple[str, str]:
-        """Return (default_amount, income_account_number) from config."""
+        """Return (default_amount, income_account_number).
+
+        ``income_account_number`` is vestigial after the Chart-of-Accounts
+        removal — ResaleFeePages now looks up the RESALE_FEE category by
+        code internally and ignores this argument. Kept in the tuple to
+        avoid churning all the resale-fee call sites.
+        """
         amount = str(org_context.get("resale_fee_default_amount") or "175.00")
-        account = str(org_context.get("resale_fee_income_account_number") or "4070")
-        return amount, account
+        return amount, "4070"
 
     @app.get("/resale-fee")
     def resale_fee_page() -> Response:
@@ -3564,55 +3541,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         resp = ARPages(conn).render_delinquency_report(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
 
-    # ── Bill templates ───────────────────────────────────────────────────
-
-    from hoa_accounting.web.bill_template_pages import BillTemplatePages as _BillTemplatePages
-
-    def _open_bill_template_pages() -> _BillTemplatePages:
-        return _BillTemplatePages(_open_db())
-
-    @app.get("/bill-templates")
-    def list_bill_templates() -> Response:
-        theme = str(org_context.get("theme", "warm"))
-        flash = (request.args.get("msg") or "").strip() or None
-        resp = _open_bill_template_pages().render_list(org=org_context, theme=theme, flash=flash)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
-
-    @app.get("/bill-templates/new")
-    def new_bill_template_form() -> Response:
-        theme = str(org_context.get("theme", "warm"))
-        resp = _open_bill_template_pages().render_new_form(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
-
-    @app.post("/bill-templates/new")
-    def submit_new_bill_template() -> Response:
-        from flask import redirect
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = _open_bill_template_pages().handle_new(
-            {k: v for k, v in request.form.items()}, org=org_context, theme=theme,
-        )
-        if redirect_url:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code, mimetype="text/html; charset=utf-8")
-
-    @app.get("/bill-templates/<int:template_id>/edit")
-    def edit_bill_template_form(template_id: int) -> Response:
-        theme = str(org_context.get("theme", "warm"))
-        resp = _open_bill_template_pages().render_edit_form(template_id, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
-
-    @app.post("/bill-templates/<int:template_id>/edit")
-    def submit_edit_bill_template(template_id: int) -> Response:
-        from flask import redirect
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = _open_bill_template_pages().handle_edit(
-            template_id, {k: v for k, v in request.form.items()}, org=org_context, theme=theme,
-        )
-        if redirect_url:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code, mimetype="text/html; charset=utf-8")
+    # Bill Templates retired — recurring bills are now created automatically
+    # by OFX transaction rules (action_type=recurring_bill / vendor_bill_match)
+    # whenever a matching bank line lands in Pending Validation.
 
     # ── Global search ─────────────────────────────────────────────────────
 

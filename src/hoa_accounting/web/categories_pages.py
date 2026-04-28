@@ -65,7 +65,10 @@ class CategoriesPages:
         categories = []
         for r in rows:
             d = dict(r)
-            d["usage_count"] = self.repo.usage_count(int(d["id"]))
+            breakdown = self.repo.usage_breakdown(int(d["id"]))
+            d["transactions_count"] = breakdown["transactions"]
+            d["other_count"]        = breakdown["other"]
+            d["usage_count"]        = breakdown["total"]
             categories.append(d)
         ctx = {
             **_BASE_CTX,

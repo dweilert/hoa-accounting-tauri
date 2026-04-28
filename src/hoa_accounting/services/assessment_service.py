@@ -42,9 +42,6 @@ class AssessmentService:
         due_date: str | None = None,
         charge_type: str = "DUES",
         category_id: int | None = None,
-        # Kept for call-site compatibility during transition; unused.
-        receivable_account_id: int | None = None,
-        income_account_id: int | None = None,
     ) -> AssessmentResult:
         """Post an owner assessment atomically."""
         with transaction(self.conn):

@@ -53,7 +53,6 @@ class ARAgingReportService:
         self,
         *,
         as_of_date: str,
-        receivable_account_id: int | None = None,
     ) -> ARAgingReport:
         """Generate AR aging as of a date from open assessments."""
         detail_rows = self._load_open_items(as_of_date=as_of_date)
@@ -109,9 +108,6 @@ class ARAgingReportService:
 
         return ARAgingReport(
             as_of_date=as_of_date,
-            receivable_account_id=0,
-            receivable_account_number="AR",
-            receivable_account_name="Owner Receivables",
             detail_rows=detail_rows,
             owner_summaries=owner_summaries,
             total_current_amount=q2(total_current_amount),

@@ -48,9 +48,6 @@ class PaymentService:
         reference_number: str | None = None,
         created_by_user_id: int | None = None,
         apply_to_assessment_ids: Sequence[int] | None = None,
-        # Kept for call-site compatibility during transition; unused.
-        cash_account_id: int | None = None,
-        receivable_account_id: int | None = None,
     ) -> PaymentResult:
         """Post an owner payment atomically."""
         with transaction(self.conn):

@@ -107,18 +107,14 @@ class OpeningBalancesRepository(BaseRepository):
     def ensure_offset_account(self) -> int:
         return 0  # unused after GL retirement
 
-    def clear_all_je_references(self) -> None:
-        return None
-
     def upsert_balance(
         self,
         entity_type: str,
         entity_id: int,
         as_of_date: str,
         amount: str,
-        journal_entry_id: int = 0,  # ignored
     ) -> None:
-        """Insert or update a single opening-balance record (no JE link)."""
+        """Insert or update a single opening-balance record."""
         self.conn.execute(
             """
             INSERT INTO opening_balances

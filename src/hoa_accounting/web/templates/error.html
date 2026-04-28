@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading or 'Error' }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading or 'Page Unavailable' }}{% endblock %}
+
+{% block content %}
+  <div class="panel" style="max-width:48rem;">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">{{ heading or 'Page Unavailable' }}</div>
+      </div>
+    </div>
+    <div style="padding:1rem 1.25rem 1.25rem;">
+      {% if message %}
+        <p style="margin:0 0 1rem;">{{ message }}</p>
+      {% endif %}
+      <div style="display:flex;gap:.75rem;">
+        <a href="javascript:history.back()" class="btn btn--primary">Go Back</a>
+        <a href="/" class="btn btn--ghost">Dashboard</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

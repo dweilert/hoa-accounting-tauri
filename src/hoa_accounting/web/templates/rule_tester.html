@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Rule Tester · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/admin/transaction-rules" class="btn btn--ghost">Back to Rules</a>
+{% endblock %}
+
+{% block content %}
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Try a rule against a bank row</div>
+        <div class="panel__description">
+          Pick a rule, pick (or build) a transaction, and see whether the
+          rule fires — with a per-criterion explanation when it doesn't.
+          Also lists every <em>other</em> rule that would match the same row,
+          to spot rule-order conflicts.
+        </div>
+      </div>
+    </div>
+
+    <form method="get" action="/admin/transaction-rules/test"
+          style="padding:1rem 1.25rem;display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+      <div>
+        <label class="field">
+          <span class="field__label">Focus rule</span>
+          <select name="rule_id">
+            <option value="">— No focus (just show all matching rules) —</option>
+            {% for r in rules %}
+              <option value="{{ r.id }}"
+                {% if selected_rule_id == r.id %}selected{% endif %}>
+                {{ r.rule_name }}
+                {% if not r.active_flag %} (inactive){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field" style="margin-top:.75rem;">
+          <span class="field__label">Existing bank transaction</span>
+          <select name="txn_id">
+            <option value="">— pick one —</option>
+            {% for t in recent_txns %}
+              <option value="{{ t.id }}"
+                {% if selected_txn_id == t.id %}selected{% endif %}>
+                {{ t.transaction_date }} ·
+                {{ t.account_name }}{% if t.account_last4 %} ···{{ t.account_last4 }}{% endif %} ·
+                ${{ t.amount }} ·
+                {{ (t.description or '(no description)')[:35] }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <fieldset style="border:1px solid var(--border);border-radius:6px;padding:.75rem 1rem;">
+        <legend style="font-size:11px;text-transform:uppercase;color:var(--text-muted);">
+          …or build a synthetic row
+        </legend>
+        <label class="field">
+          <span class="field__label">Description</span>
+          <input type="text" name="syn_description"
+                 value="{{ synthetic.get('description', '') }}" />
+        </label>
+        <label class="field" style="margin-top:.5rem;">
+          <span class="field__label">Memo</span>
+          <input type="text" name="syn_memo"
+                 value="{{ synthetic.get('memo', '') }}" />
+        </label>
+        <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+          <label class="field" style="flex:1;">
+            <span class="field__label">Amount</span>
+            <input type="number" step="0.01" name="syn_amount"
+                   value="{{ synthetic.get('amount', '') }}" />
+          </label>
+          <label class="field" style="flex:1;">
+            <span class="field__label">Type</span>
+            <select name="syn_type">
+              <option value=""></option>
+              {% for t in ['DEBIT','CREDIT','CHECK','XFER','DIRECTDEP','OTHER'] %}
+                <option value="{{ t }}"
+                  {% if synthetic.get('transaction_type', '') == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <div style="grid-column:1/-1;display:flex;gap:.75rem;align-items:center;">
+        <button type="submit" class="btn btn--primary">Run Test</button>
+        <span style="color:var(--text-muted);font-size:.85rem;">
+          Existing-transaction picker takes priority if both are set.
+        </span>
+      </div>
+    </form>
+  </div>
+
+  {# ── Results ───────────────────────────────────────────────────── #}
+  {% if txn %}
+    <div class="panel" style="margin-bottom:1.25rem;">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Transaction under test</div>
+        </div>
+      </div>
+      <div style="padding:.75rem 1.25rem;">
+        <table style="width:auto;font-size:.9rem;">
+          <tr><th style="text-align:left;padding-right:1rem;">Description</th><td>{{ txn.description or '—' }}</td></tr>
+          <tr><th style="text-align:left;padding-right:1rem;">Memo</th><td>{{ txn.memo or '—' }}</td></tr>
+          <tr><th style="text-align:left;padding-right:1rem;">Amount</th><td class="mono">{{ txn.amount }}</td></tr>
+          <tr><th style="text-align:left;padding-right:1rem;">Type</th><td>{{ txn.transaction_type or '—' }}</td></tr>
+          <tr><th style="text-align:left;padding-right:1rem;">Bank account</th><td>#{{ txn.bank_account_id or '—' }}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    {% if focus_report %}
+      <div class="panel" style="margin-bottom:1.25rem;
+           border-left:6px solid {% if focus_report.would_match %}var(--success,#1e8449){% else %}var(--danger,#c0392b){% endif %};">
+        <div class="panel__header">
+          <div>
+            <div class="panel__title">
+              {% if focus_report.would_match %}
+                ✓ {{ focus_report.rule_name }} <span style="color:var(--success,#1e8449);">would fire</span>
+              {% else %}
+                ✗ {{ focus_report.rule_name }} <span style="color:var(--danger,#c0392b);">would NOT fire</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div style="padding:.5rem 1.25rem 1rem;">
+          {% if focus_report.checks %}
+            <table style="width:100%;font-size:.9rem;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;width:1.5rem;"></th>
+                  <th style="text-align:left;width:11rem;">Criterion</th>
+                  <th style="text-align:left;">Detail</th>
+                  <th style="text-align:left;">Suggestion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in focus_report.checks %}
+                  <tr style="background:{% if c.passed %}rgba(30,132,73,.05){% else %}rgba(192,57,43,.05){% endif %};">
+                    <td style="font-weight:600;color:{% if c.passed %}var(--success,#1e8449){% else %}var(--danger,#c0392b){% endif %};">
+                      {% if c.passed %}✓{% else %}✗{% endif %}
+                    </td>
+                    <td class="mono">{{ c.name }}</td>
+                    <td>{{ c.detail }}</td>
+                    <td style="color:var(--text-muted);">{{ c.suggestion }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <p style="color:var(--text-muted);">
+              The rule has no criteria set — it would fire on every transaction.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">
+            {% if focus_report %}
+              Other rules that also match
+            {% else %}
+              Rules that match this transaction
+            {% endif %}
+          </div>
+          <div class="panel__description">
+            {% if other_matches %}
+              At ingest time the <strong>first</strong> active rule in the
+              catalog wins — these would silently lose to whichever appears
+              first.
+            {% else %}
+              No other active rule matches this row.
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if other_matches %}
+        <ul style="padding:.5rem 1.5rem 1rem;margin:0;">
+          {% for m in other_matches %}
+            <li style="margin:.2rem 0;">
+              <strong>{{ m.rule_name }}</strong>
+              <span style="color:var(--text-muted);font-size:.85rem;margin-left:.4rem;">
+                (rule #{{ m.rule_id }})
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

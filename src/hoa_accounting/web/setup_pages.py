@@ -30,28 +30,6 @@ STEP_LABELS = {
 
 BILLING_FREQUENCIES = ["monthly", "quarterly", "semi-annual", "annual"]
 
-HOA_STARTER_ACCOUNTS = [
-    ("1010", "Operating Checking",    "ASSET",     "OPERATING", True,  "Primary operating bank account"),
-    ("1020", "Reserve Checking",      "ASSET",     "RESERVE",   True,  "Reserve fund bank account"),
-    ("1100", "Accounts Receivable",   "ASSET",     "OPERATING", False, "Amounts owed by homeowners"),
-    ("2010", "Accounts Payable",      "LIABILITY", "OPERATING", False, "Amounts owed to vendors"),
-    ("2020", "Prepaid Dues",          "LIABILITY", "OPERATING", False, "Assessments received in advance"),
-    ("3010", "Retained Earnings",     "EQUITY",    "OPERATING", False, "Accumulated operating surplus or deficit"),
-    ("3020", "Reserve Fund Balance",  "EQUITY",    "RESERVE",   False, "Accumulated reserve fund balance"),
-    ("4010", "Dues & Assessments",    "INCOME",    "OPERATING", False, "Regular homeowner assessments"),
-    ("4020", "Late Fees",             "INCOME",    "OPERATING", False, "Late payment fees"),
-    ("4030", "Interest Income",       "INCOME",    "OPERATING", False, "Interest earned on bank accounts"),
-    ("4040", "Miscellaneous Income",  "INCOME",    "OPERATING", False, "Other income"),
-    ("5010", "Landscaping",           "EXPENSE",   "OPERATING", False, "Lawn care and grounds maintenance"),
-    ("5020", "Insurance",             "EXPENSE",   "OPERATING", False, "Property and liability insurance"),
-    ("5030", "Utilities",             "EXPENSE",   "OPERATING", False, "Utilities for common areas"),
-    ("5040", "Repairs & Maintenance", "EXPENSE",   "OPERATING", False, "Routine repairs and upkeep"),
-    ("5050", "Management Fees",       "EXPENSE",   "OPERATING", False, "Property management fees"),
-    ("5060", "Administrative",        "EXPENSE",   "OPERATING", False, "Office and general admin costs"),
-    ("5070", "Legal & Professional",  "EXPENSE",   "OPERATING", False, "Attorney, CPA, and professional fees"),
-]
-
-
 def needs_setup(db_path: str) -> bool:
     """Return True when no local users exist (first launch)."""
     try:
@@ -223,20 +201,9 @@ class SetupPages:
     # ── Helpers ───────────────────────────────────────────────────────────
 
     def _seed_accounts(self, conn: sqlite3.Connection) -> None:
-        existing = conn.execute("SELECT COUNT(*) FROM accounts").fetchone()
-        if existing and existing[0] > 0:
-            return
-        type_map = {
-            row[1]: row[0]
-            for row in conn.execute("SELECT id, code FROM account_types").fetchall()
-        }
-        for number, name, atype, fund, is_bank, desc in HOA_STARTER_ACCOUNTS:
-            type_id = type_map.get(atype)
-            if not type_id:
-                continue
-            conn.execute(
-                "INSERT OR IGNORE INTO accounts "
-                "(account_number, account_name, account_type_id, fund_code, is_bank_account, description) "
-                "VALUES (?,?,?,?,?,?)",
-                (number, name, type_id, fund, 1 if is_bank else 0, desc),
-            )
+        # Chart of Accounts retired in migration 0061. Starter accounts /
+        # account_types tables are gone. The Categories Interview at
+        # /setup/categories-interview now seeds Income & Expense categories
+        # for new HOAs; this method is kept as a no-op so the existing
+        # "starter" action on the setup wizard doesn't 404.
+        return

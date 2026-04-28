@@ -651,10 +651,30 @@ class BankStatementPages:
         return [dict(r) for r in rows]
 
     def _get_all_batches(self) -> list[dict]:
+        # ``matched_count`` and ``status`` are computed LIVE from
+        # bank_transactions, not read from the stale stored columns. The
+        # batch row's ``matched_count`` / ``status`` are written once at
+        # upload time and never updated as the user validates rows, so
+        # relying on them showed batches as PENDING with 0 matched even
+        # after every row was processed.
         rows = self._conn.execute(
             """
             SELECT b.id, b.bank_account_id, b.source_filename, b.file_format,
-                   b.transaction_count, b.matched_count, b.status, b.imported_at,
+                   b.transaction_count,
+                   COALESCE((SELECT COUNT(*) FROM bank_transactions bt
+                              WHERE bt.import_batch_id = b.id
+                                AND bt.match_type != 'UNMATCHED'), 0) AS matched_count,
+                   CASE
+                     WHEN (SELECT COUNT(*) FROM bank_transactions bt2
+                            WHERE bt2.import_batch_id = b.id
+                              AND bt2.validation_status = 'UNVALIDATED') > 0
+                       THEN 'PENDING'
+                     WHEN (SELECT COUNT(*) FROM bank_transactions bt3
+                            WHERE bt3.import_batch_id = b.id) = 0
+                       THEN 'EMPTY'
+                     ELSE 'COMPLETE'
+                   END AS status,
+                   b.imported_at,
                    ba.account_name, ba.account_last4
             FROM bank_import_batches b
             JOIN bank_accounts ba ON ba.id = b.bank_account_id
@@ -690,7 +710,7 @@ class BankStatementPages:
         csv_bank_account_id: int | None,
         org: dict,
         theme: str,
-    ) -> tuple[str | None, PageResponse | None]:
+    ) -> tuple[str | None, PageResponse | None, list[str]]:
         """Account-agnostic upload.
 
         Routes through the ingest adapter registry: the dispatcher picks
@@ -703,8 +723,8 @@ class BankStatementPages:
             canonical_from_parsed, dispatch,
         )
 
-        def _err(msg: str) -> tuple[None, PageResponse]:
-            return None, self.render_agnostic_upload_form(org, theme, error=msg)
+        def _err(msg: str) -> tuple[None, PageResponse, list[str]]:
+            return None, self.render_agnostic_upload_form(org, theme, error=msg), []
 
         try:
             choice = dispatch(file_bytes)
@@ -762,10 +782,24 @@ class BankStatementPages:
                 ).fetchone()["transaction_count"]
                 for b_id, _, _ in created
             )
+            from urllib.parse import quote
             msg = f"Imported {total_txns} transactions into {acct_names}."
+            warnings: list[str] = []
             if skipped:
-                msg += f" Skipped unrecognized account IDs: {', '.join(skipped)}."
-            return f"/bank-import/upload?ok=1&msg={msg}", None
+                warnings = [
+                    f"Account ID {a!r} appeared in the OFX file but matches no "
+                    f"bank account in the system (last 4 = {a[-4:] if len(a) >= 4 else a!r}); "
+                    f"its transactions were not imported."
+                    for a in skipped
+                ]
+            # Single-account → land on Pending Validation filtered to that
+            # account. Multi-account → unfiltered Pending Validation.
+            qs = f"import_msg={quote(msg)}"
+            if warnings:
+                qs += "&import_warn=" + quote(" | ".join(warnings))
+            if len(created) == 1:
+                qs = f"bank_account_id={created[0][1]}&" + qs
+            return f"/bank-transactions/pending?{qs}", None, warnings
 
         # CSV-style adapter — one account per upload. If the dispatcher
         # says ``needs_mapping`` we consult the saved column-map store
@@ -806,6 +840,7 @@ class BankStatementPages:
                     f"&stash={token}&bank_account_id={csv_bank_account_id}"
                     f"&note={quote(preview)}",
                     None,
+                    [],
                 )
 
         try:
@@ -823,8 +858,13 @@ class BankStatementPages:
             batches=self._get_unmatched_batches(csv_bank_account_id),
             rules=rules,
         )
+        from urllib.parse import quote
         msg = f"Imported {len(canonical)} transactions into {ba['account_name']}."
-        return f"/bank-import/upload?ok=1&msg={msg}", None
+        return (
+            f"/bank-transactions/pending?bank_account_id={csv_bank_account_id}"
+            f"&import_msg={quote(msg)}",
+            None, [],
+        )
 
     def render_standalone_upload_form(
         self,
@@ -938,13 +978,30 @@ class BankStatementPages:
                     bank_account_id, org, theme, error=msg
                 )
 
-            # Single batch → go straight to its preview
+            # Land on Pending Validation, scoped to the account that
+            # received transactions when the file is single-account.
+            from urllib.parse import quote
+            total_txns = sum(
+                self._conn.execute(
+                    "SELECT transaction_count FROM bank_import_batches WHERE id = ?",
+                    (b_id,),
+                ).fetchone()["transaction_count"]
+                for b_id, _, _ in created_batches
+            )
+            acct_names = ", ".join(name for _, _, name in created_batches)
+            msg = f"Imported {total_txns} transactions into {acct_names}."
+            qs = f"import_msg={quote(msg)}"
+            if skipped_acctids:
+                warns = " | ".join(
+                    f"Account ID {a!r} appeared in the OFX file but matches no "
+                    f"bank account in the system; its transactions were not imported."
+                    for a in skipped_acctids
+                )
+                qs += "&import_warn=" + quote(warns)
             if len(created_batches) == 1:
-                b_id, b_ba_id, _name = created_batches[0]
-                return f"/bank-accounts/{b_ba_id}/import-statement/{b_id}", None
-
-            # Multiple batches → send to the All Imports list for the original account
-            return f"/bank-accounts/{bank_account_id}/import-statement", None
+                _, b_ba_id, _ = created_batches[0]
+                qs = f"bank_account_id={b_ba_id}&" + qs
+            return f"/bank-transactions/pending?{qs}", None
 
         else:
             # ── CSV path (single-account, unchanged) ───────────────────────
@@ -969,7 +1026,13 @@ class BankStatementPages:
                 items=items, batches=batches,
                 rules=rules,
             )
-            return f"/bank-accounts/{bank_account_id}/import-statement/{batch_id}", None
+            from urllib.parse import quote
+            msg = f"Imported {len(transactions)} transactions into {ba['account_name']}."
+            return (
+                f"/bank-transactions/pending?bank_account_id={bank_account_id}"
+                f"&import_msg={quote(msg)}",
+                None,
+            )
 
     def render_standalone_batch_preview(
         self,
@@ -1169,8 +1232,42 @@ class BankStatementPages:
         bank_account_id: int,
         batch_id: int,
     ) -> str:
+        """Discard an import batch.
+
+        Three-step:
+        1. Delete every UNVALIDATED bank_transactions row that came from this
+           batch — these are the staging rows the user is rolling back.
+        2. NULL the import_batch_id on any surviving rows (VALIDATED /
+           IGNORED) so we never leave dangling pointers to a deleted batch.
+        3. Delete the bank_import_batches audit row itself.
+
+        Validated rows are intentionally preserved: their ledger links are
+        authoritative; rolling them back is a separate (more dangerous)
+        operation that doesn't belong in Discard.
+        """
+        # 1. Delete unvalidated rows belonging to this batch.
         self._conn.execute(
-            "DELETE FROM bank_import_batches WHERE id = ? AND bank_account_id = ? AND reconciliation_id IS NULL",
+            """DELETE FROM bank_transactions
+                WHERE import_batch_id = ?
+                  AND bank_account_id = ?
+                  AND validation_status = 'UNVALIDATED'""",
+            (batch_id, bank_account_id),
+        )
+        # 2. Detach validated/ignored survivors from the batch they belonged
+        #    to so we don't leave dangling import_batch_id pointers when the
+        #    parent batch row is removed.
+        self._conn.execute(
+            """UPDATE bank_transactions
+                  SET import_batch_id = NULL
+                WHERE import_batch_id = ?
+                  AND bank_account_id = ?""",
+            (batch_id, bank_account_id),
+        )
+        # 3. Drop the audit row itself.
+        self._conn.execute(
+            """DELETE FROM bank_import_batches
+                WHERE id = ? AND bank_account_id = ?
+                  AND reconciliation_id IS NULL""",
             (batch_id, bank_account_id),
         )
         self._conn.commit()
@@ -1408,13 +1505,29 @@ class BankStatementPages:
                 "page_key": "bank-accounts",
             }))
 
+        # Match-count and status are computed live from bank_transactions —
+        # the stored columns are written once at upload time and don't reflect
+        # progress as rows are validated.
         batches = self._conn.execute(
             """
-            SELECT id, source_filename, file_format, transaction_count, matched_count,
-                   status, imported_at
-            FROM bank_import_batches
-            WHERE bank_account_id = ? AND reconciliation_id IS NULL
-            ORDER BY id DESC
+            SELECT b.id, b.source_filename, b.file_format, b.transaction_count,
+                   COALESCE((SELECT COUNT(*) FROM bank_transactions bt
+                              WHERE bt.import_batch_id = b.id
+                                AND bt.match_type != 'UNMATCHED'), 0) AS matched_count,
+                   CASE
+                     WHEN (SELECT COUNT(*) FROM bank_transactions bt2
+                            WHERE bt2.import_batch_id = b.id
+                              AND bt2.validation_status = 'UNVALIDATED') > 0
+                       THEN 'PENDING'
+                     WHEN (SELECT COUNT(*) FROM bank_transactions bt3
+                            WHERE bt3.import_batch_id = b.id) = 0
+                       THEN 'EMPTY'
+                     ELSE 'COMPLETE'
+                   END AS status,
+                   b.imported_at
+            FROM bank_import_batches b
+            WHERE b.bank_account_id = ? AND b.reconciliation_id IS NULL
+            ORDER BY b.id DESC
             """,
             (bank_account_id,),
         ).fetchall()

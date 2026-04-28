@@ -59,15 +59,14 @@ class DepositBatchesRepository(BaseRepository):
                     db.deposit_date,
                     db.total_amount,
                     db.notes,
-                    db.journal_entry_id,
+                    NULL AS journal_entry_id,
                     b.account_name AS bank_account_name,
                     b.institution_name,
-                    je.entry_number,
+                    NULL AS entry_number,
                     (SELECT COUNT(*) FROM payments p
                      WHERE p.deposit_batch_id = db.id) AS payment_count
                 FROM deposit_batches db
                 JOIN bank_accounts b ON b.id = db.bank_account_id
-                LEFT JOIN journal_entries je ON je.id = db.journal_entry_id
                 ORDER BY db.deposit_date DESC, db.id DESC
                 LIMIT ?
                 """,

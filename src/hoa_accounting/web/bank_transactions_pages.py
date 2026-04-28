@@ -57,6 +57,8 @@ class BankTransactionsPages:
         flash_message: str = "",
         error_message: str = "",
         show_ignored: bool = False,
+        import_message: str = "",
+        import_warnings: list[str] | None = None,
     ) -> PageResponse:
         accounts = self._conn.execute(
             "SELECT id, account_name, account_last4 "
@@ -140,6 +142,8 @@ class BankTransactionsPages:
             "show_ignored": show_ignored,
             "flash_message": flash_message,
             "error_message": error_message,
+            "import_message": import_message,
+            "import_warnings": import_warnings or [],
         }
         status = 400 if error_message else 200
         return PageResponse(
@@ -697,7 +701,9 @@ class BankTransactionsPages:
         self._conn.execute(
             """
             UPDATE bank_transactions
-               SET matched_source_type = ?, matched_source_id = ?,
+               SET match_type = 'SOURCE',
+                   matched_source_type = ?, matched_source_id = ?,
+                   reconciliation_status = 'MATCHED',
                    validation_status = 'VALIDATED'
              WHERE id = ?
             """,

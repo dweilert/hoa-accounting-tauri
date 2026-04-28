@@ -133,6 +133,22 @@ TABLE_DEFS: dict[str, dict] = {
             {"name": "active",           "label": "Active",             "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
         ],
     },
+    "renters": {
+        "label": "Renters",
+        "order": 8,
+        "requires": ["Lots"],
+        "fields": [
+            {"name": "lot_number",      "label": "Lot Number",     "required": True,  "type": "text",    "note": "Must match an existing lot"},
+            {"name": "display_name",    "label": "Display Name",   "required": True,  "type": "text"},
+            {"name": "first_name",      "label": "First Name",     "required": False, "type": "text"},
+            {"name": "last_name",       "label": "Last Name",      "required": False, "type": "text"},
+            {"name": "email",           "label": "Email",          "required": False, "type": "text"},
+            {"name": "phone",           "label": "Phone",          "required": False, "type": "text"},
+            {"name": "start_date",      "label": "Start Date",     "required": False, "type": "date",    "note": "YYYY-MM-DD"},
+            {"name": "end_date",        "label": "End Date",       "required": False, "type": "date",    "note": "YYYY-MM-DD"},
+            {"name": "notes",           "label": "Notes",          "required": False, "type": "text"},
+        ],
+    },
     "lot_ownership": {
         "label": "Lot Ownership History",
         "order": 7,
@@ -886,6 +902,32 @@ class ImportPages:
                 owner_row[0],
                 sd,
                 self._v(row, "end_date") or None,
+            ),
+        )
+        return []
+
+    def _insert_renters(self, row: dict) -> list[str]:
+        lot_num = self._v(row, "lot_number")
+        lot_row = self.conn.execute(
+            "SELECT id FROM lots WHERE lot_number=?", (lot_num,)
+        ).fetchone()
+        if not lot_row:
+            return [f'Lot "{lot_num}" not found. Import Lots first.']
+        self.conn.execute(
+            """INSERT INTO lot_renters
+               (lot_id, display_name, first_name, last_name,
+                email, phone, start_date, end_date, notes)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (
+                lot_row[0],
+                self._v(row, "display_name"),
+                self._v(row, "first_name"),
+                self._v(row, "last_name"),
+                self._v(row, "email"),
+                self._v(row, "phone"),
+                self._v(row, "start_date") or None,
+                self._v(row, "end_date") or None,
+                self._v(row, "notes"),
             ),
         )
         return []

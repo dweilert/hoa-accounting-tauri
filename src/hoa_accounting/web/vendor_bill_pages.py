@@ -199,29 +199,15 @@ class VendorBillPages:
                 "payment_date": values.get("payment_date", ""),
             },
             "error_message": error_message,
-            "templates": self._load_bill_templates(),
+            # Bill Templates retired — empty list keeps the form template
+            # happy without rendering the (deleted) "apply template" panel.
+            "templates": [],
         }
         status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
         return VendorBillFormResponse(
             status_code=status,
             body_html=render_template(self.FORM_TEMPLATE, ctx),
         )
-
-    def _load_bill_templates(self) -> list[dict]:
-        try:
-            rows = self.conn.execute(
-                """
-                SELECT id, template_name, vendor_id, expense_account_id,
-                       payable_account_id, fund_code, expense_classification,
-                       default_amount, description
-                FROM bill_templates
-                WHERE active_flag = 1
-                ORDER BY template_name
-                """
-            ).fetchall()
-            return [dict(r) for r in rows]
-        except Exception:
-            return []
 
     # ── Edit form (GET) ─────────────────────────────────────────
 

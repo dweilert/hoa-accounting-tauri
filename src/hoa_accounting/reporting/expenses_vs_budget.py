@@ -39,16 +39,25 @@ class ExpenseVsBudgetReportService:
         from_date = f"{fiscal_year}-01-01"
         to_date   = f"{fiscal_year}-12-31"
 
+        # Show every active EXPENSE category whose fund matches this budget's
+        # fund — even if it has no budget line (budget = 0) and even if it has
+        # no actual expenses (actual = 0). This makes un-budgeted spend and
+        # un-spent categories both visible in one report.
         rows = self.conn.execute(
             """
             SELECT
-                c.name                        AS category_name,
-                COALESCE(c.group_name, '')    AS group_code,
-                COALESCE(c.sort_order, 0)     AS sort_order,
-                SUM(bl.budget_amount)         AS budget_amount,
-                COALESCE(actual.actual_amount, 0) AS actual_amount
-            FROM budget_lines bl
-            JOIN categories c ON c.id = bl.category_id
+                c.name                              AS category_name,
+                COALESCE(c.group_name, '')          AS group_code,
+                COALESCE(c.sort_order, 0)           AS sort_order,
+                COALESCE(bl_sum.budget_amount, 0)   AS budget_amount,
+                COALESCE(actual.actual_amount, 0)   AS actual_amount
+            FROM categories c
+            LEFT JOIN (
+                SELECT category_id, SUM(budget_amount) AS budget_amount
+                FROM budget_lines
+                WHERE budget_id = ?
+                GROUP BY category_id
+            ) bl_sum ON bl_sum.category_id = c.id
             LEFT JOIN (
                 SELECT category_id, SUM(amount) AS actual_amount
                 FROM vendor_bills
@@ -57,12 +66,12 @@ class ExpenseVsBudgetReportService:
                   AND status != 'VOID'
                 GROUP BY category_id
             ) actual ON actual.category_id = c.id
-            WHERE bl.budget_id = ?
-              AND bl.category_id IS NOT NULL
-            GROUP BY c.id, c.name, c.group_name, c.sort_order
+            WHERE c.category_type = 'EXPENSE'
+              AND c.active_flag = 1
+              AND (c.fund_code = ? OR c.fund_code IS NULL OR c.fund_code = '')
             ORDER BY c.group_name, c.sort_order, c.name
             """,
-            (from_date, to_date, budget_id),
+            (budget_id, from_date, to_date, fund_code),
         ).fetchall()
 
         rows_by_group: dict[str, list[ExpenseVsBudgetRow]] = defaultdict(list)

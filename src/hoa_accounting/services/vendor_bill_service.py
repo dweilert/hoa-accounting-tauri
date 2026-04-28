@@ -42,9 +42,6 @@ class VendorBillService:
         fund_code: str = "OPERATING",
         category_id: int | None = None,
         created_by_user_id: int | None = None,
-        # Kept for call-site compatibility during transition; unused.
-        expense_account_id: int | None = None,
-        payable_account_id: int | None = None,
         expense_classification: str = "OPERATING",
     ) -> VendorBillResult:
         """Post a vendor bill atomically."""

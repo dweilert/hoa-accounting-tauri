@@ -45,10 +45,9 @@ class ReconciliationRepository(BaseRepository):
                     ba.account_name,
                     ba.institution_name,
                     ba.account_last4,
-                    a.account_number AS gl_account_number
+                    NULL AS gl_account_number
                 FROM bank_reconciliations br
                 JOIN bank_accounts ba ON ba.id = br.bank_account_id
-                JOIN accounts a ON a.id = ba.gl_account_id
                 ORDER BY br.statement_ending_date DESC, br.id DESC
                 """
             ).fetchall()
@@ -71,12 +70,11 @@ class ReconciliationRepository(BaseRepository):
                 ba.account_name,
                 ba.institution_name,
                 ba.account_last4,
-                ba.gl_account_id,
-                a.account_number AS gl_account_number,
-                a.account_name   AS gl_account_name
+                NULL AS gl_account_id,
+                NULL AS gl_account_number,
+                ba.account_name AS gl_account_name
             FROM bank_reconciliations br
             JOIN bank_accounts ba ON ba.id = br.bank_account_id
-            JOIN accounts a ON a.id = ba.gl_account_id
             WHERE br.id = ?
             """,
             (reconciliation_id,),
@@ -131,10 +129,10 @@ class ReconciliationRepository(BaseRepository):
                     ba.account_last4,
                     COALESCE(ba.opening_balance, 0) AS opening_balance,
                     ba.opening_balance_date,
-                    a.account_number         AS gl_account_number,
-                    a.account_name           AS gl_account_name
+                    NULL                          AS gl_account_number,
+                    ba.account_name               AS gl_account_name,
+                    ba.fund_code                  AS fund_code
                 FROM bank_accounts ba
-                JOIN accounts a ON a.id = ba.gl_account_id
                 WHERE ba.active_flag = 1
                 ORDER BY ba.account_name COLLATE NOCASE
                 """
@@ -164,7 +162,7 @@ class ReconciliationRepository(BaseRepository):
                     SELECT br.id                   AS recon_id,
                            br.bank_account_id,
                            br.statement_ending_date,
-                           ba.gl_account_id
+                           NULL                    AS gl_account_id
                     FROM bank_reconciliations br
                     JOIN bank_accounts ba ON ba.id = br.bank_account_id
                     WHERE br.id = ?
@@ -276,13 +274,13 @@ class ReconciliationRepository(BaseRepository):
                     UNION ALL
                     SELECT 'RESERVE_TRANSFER', rt.id,
                            rt.transfer_date,
-                           CASE WHEN rt.to_account_id = ctx.gl_account_id
+                           CASE WHEN rt.to_bank_account_id = ctx.bank_account_id
                                 THEN  CAST(rt.amount AS REAL)
                                 ELSE -CAST(rt.amount AS REAL) END,
                            COALESCE(rt.notes, '')
                     FROM reserve_transfers rt, ctx
-                    WHERE (rt.from_account_id = ctx.gl_account_id
-                           OR rt.to_account_id = ctx.gl_account_id)
+                    WHERE (rt.from_bank_account_id = ctx.bank_account_id
+                           OR rt.to_bank_account_id = ctx.bank_account_id)
                       AND rt.transfer_date <= ctx.statement_ending_date
                 )
                 SELECT

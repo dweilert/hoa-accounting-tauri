@@ -300,8 +300,6 @@
             {{ stat_row('Lots',            last_backup.lot_count) }}
             {{ stat_row('Owners',          last_backup.owner_count) }}
             {{ stat_row('Renters',         last_backup.renter_count) }}
-            {{ stat_row('Transactions',    last_backup.journal_entry_count) }}
-            {{ stat_row('Last transaction',last_backup.last_gl_entry_date) }}
           {% endif %}
         </div>
       </div>
@@ -516,9 +514,7 @@
         row("Backed up at",    backedUpAt) +
         row("Lots",            data.lot_count) +
         row("Owners",          data.owner_count) +
-        row("Renters",         data.renter_count) +
-        row("Transactions",    data.journal_entry_count) +
-        row("Last transaction",data.last_gl_entry_date || "—");
+        row("Renters",         data.renter_count);
     }
 
     function renderBackupStats(data) {

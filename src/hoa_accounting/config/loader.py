@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
+from typing import TypeVar
 
 import yaml
 
@@ -14,6 +16,21 @@ from hoa_accounting.config.models import (
     HOAConfig,
 )
 from hoa_accounting.exceptions import ValidationError
+
+
+_T = TypeVar("_T")
+
+
+def _build(cls: type[_T], raw: dict) -> _T:
+    """Construct a dataclass, ignoring any extra keys in the YAML.
+
+    Lets old config.yaml files keep stale fields (e.g. retired GL account
+    numbers) without crashing config loading after those fields are dropped
+    from the dataclass.
+    """
+    valid = {f.name for f in fields(cls)}  # type: ignore[arg-type]
+    filtered = {k: v for k, v in raw.items() if k in valid}
+    return cls(**filtered)  # type: ignore[arg-type]
 
 
 def load_config(path: str | Path = "config.yaml") -> Config:
@@ -35,8 +52,8 @@ def load_config(path: str | Path = "config.yaml") -> Config:
         raise ValidationError(f"Missing config section: {exc.args[0]}") from exc
 
     return Config(
-        hoa=HOAConfig(**hoa_raw),
-        database=DatabaseConfig(**database_raw),
-        app=AppConfig(**app_raw),
-        accounting=AccountingConfig(**accounting_raw),
+        hoa=_build(HOAConfig, hoa_raw),
+        database=_build(DatabaseConfig, database_raw),
+        app=_build(AppConfig, app_raw),
+        accounting=_build(AccountingConfig, accounting_raw),
     )

@@ -374,7 +374,7 @@ class OFXInboxPages:
         org = getattr(g, "org", {}) or {}
         # handle_agnostic_upload needs org + theme; theme isn't used in
         # the import math, just in rendered responses we discard here.
-        redirect_url, form_resp = pages.handle_agnostic_upload(
+        redirect_url, form_resp, warnings = pages.handle_agnostic_upload(
             file_bytes=file_bytes,
             filename=ofx_path.name,
             csv_bank_account_id=None,
@@ -386,6 +386,13 @@ class OFXInboxPages:
             # ACCTID, parse failure, etc.). Treat as a file-level failure.
             return {"ok": False, "batches": 0, "transactions": 0,
                     "error": "agnostic upload rejected the file (see fetcher page for details)"}
+
+        # Surface skipped-account warnings prominently — without this they
+        # were silently dropped and the user would never know an OFX
+        # section never landed (e.g. Reserve account section in a file
+        # uploaded before the Reserve bank record existed).
+        for w in warnings:
+            _log.warning("ofx-import %s: %s", ofx_path.name, w)
 
         # Count what landed to put in the log line. Cheap: look at the
         # batches for the most recent import timestamp for this filename.

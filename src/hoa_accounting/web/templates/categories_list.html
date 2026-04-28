@@ -8,6 +8,45 @@
 {% endblock %}
 
 {% block content %}
+  <style>
+    /* Shared column geometry across the header bar and every per-panel
+       table. All widths are explicit so the rows below line up under the
+       single sticky header. */
+    .cat-page table.cat-table { table-layout: fixed; width: 100%; }
+    .cat-page col.col-code  { width: 8rem; }
+    .cat-page col.col-name  { width: 12rem; }
+    .cat-page col.col-group { width: 8rem; }
+    .cat-page col.col-fund  { width: 7rem; }
+    .cat-page col.col-desc  { width: auto; }
+    .cat-page col.col-stat  { width: 6rem; }
+    .cat-page col.col-num   { width: 6rem; }
+    .cat-page col.col-acts  { width: 13rem; }
+    .cat-page table.cat-table th, .cat-page table.cat-table td {
+      vertical-align: top;
+      overflow-wrap: break-word;
+    }
+
+    /* One sticky column-header strip above all panels. */
+    .cat-header {
+      position: sticky;
+      top: var(--app-topbar-offset, 0);
+      background: var(--accent-subtle, #eaf4ec);
+      color: var(--accent-dark, var(--accent));
+      z-index: 5;
+      box-shadow: 0 1px 0 var(--border);
+      border-radius: 6px;
+      margin-bottom: var(--sp-3);
+    }
+    .cat-header table.cat-table th {
+      font-weight: 600;
+      text-align: left;
+      padding: .55rem .65rem;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+  </style>
+  <div class="cat-page">
   {% if flash_message %}
     <div class="alert alert--success">
       <div class="alert__content">{{ flash_message }}</div>
@@ -18,6 +57,36 @@
   {# Group categories by type for display #}
   {% set types_order = ['INCOME', 'EXPENSE', 'TRANSFER'] %}
   {% set type_labels = {'INCOME': 'Income Categories', 'EXPENSE': 'Expense Categories', 'TRANSFER': 'Transfer Categories'} %}
+
+  {# Single sticky column-header strip — the per-panel <thead>s are gone. #}
+  <div class="cat-header">
+    <table class="cat-table">
+      <colgroup>
+        <col class="col-code">
+        <col class="col-name">
+        <col class="col-group">
+        <col class="col-fund">
+        <col class="col-desc">
+        <col class="col-stat">
+        <col class="col-num">
+        <col class="col-num">
+        <col class="col-acts">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Group</th>
+          <th>Fund</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th title="Posted ledger rows: bills, income batches, assessments, reserve transfers.">Trx</th>
+          <th title="Non-ledger references: budget lines, bank-transaction rules, raw bank rows, etc.">Other</th>
+          <th></th>
+        </tr>
+      </thead>
+    </table>
+  </div>
 
   {% for cat_type in types_order %}
     {% set type_rows = categories | selectattr('category_type', 'equalto', cat_type) | list %}
@@ -38,19 +107,18 @@
           </div>
         </div>
         <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Group</th>
-                <th>Fund</th>
-                <th>Description</th>
-                <th>Status</th>
-                <th>In Use</th>
-                <th></th>
-              </tr>
-            </thead>
+          <table class="cat-table">
+            <colgroup>
+              <col class="col-code">
+              <col class="col-name">
+              <col class="col-group">
+              <col class="col-fund">
+              <col class="col-desc">
+              <col class="col-stat">
+              <col class="col-num">
+              <col class="col-num">
+              <col class="col-acts">
+            </colgroup>
             <tbody>
               {% for c in type_rows %}
                 <tr{% if not c.active_flag %} style="opacity:.5;"{% endif %}>
@@ -64,7 +132,8 @@
                       {{ 'Active' if c.active_flag else 'Inactive' }}
                     </span>
                   </td>
-                  <td class="mono">{{ c.usage_count }}</td>
+                  <td class="mono">{{ c.transactions_count }}</td>
+                  <td class="mono">{{ c.other_count }}</td>
                   <td style="display:flex;gap:.4rem;justify-content:flex-end;">
                     <a href="/categories/{{ c.id }}/ledger" class="btn btn--sm btn--ghost">Ledger</a>
                     <a href="/categories/{{ c.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
@@ -99,4 +168,70 @@
       <div class="empty">No categories found. Click <strong>+ Add Category</strong> to create one.</div>
     </div>
   {% endif %}
+
+  </div>
+  {% if flash_message %}
+    <script>
+      // Strip ?flash=… from the URL so reloads, Back-button restores, and
+      // shared URLs don't redisplay the message. Preserves any other query
+      // params if present.
+      (function () {
+        try {
+          var s = location.search || "";
+          if (s.indexOf("flash=") < 0) return;
+          var kept = s.replace(/^\?/, "")
+                      .split("&")
+                      .filter(function (p) { return p && p.indexOf("flash=") !== 0; })
+                      .join("&");
+          var newUrl = location.pathname + (kept ? "?" + kept : "") + location.hash;
+          history.replaceState(null, "", newUrl);
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
+  {% endif %}
+
+  <script>
+    // Sync the sticky-header offset with the live topbar height. The topbar
+    // is itself sticky, so headers must sit just below it.
+    (function () {
+      function sync() {
+        var topbar = document.querySelector('header.topbar');
+        var h = topbar ? topbar.getBoundingClientRect().height : 0;
+        document.documentElement.style.setProperty('--app-topbar-offset', h + 'px');
+      }
+      window.addEventListener('load', sync);
+      window.addEventListener('resize', sync);
+      setTimeout(sync, 50);
+    })();
+  </script>
+  <script>
+    // Preserve scroll position across Delete-and-reload (and any other
+    // POST-then-redirect on this page). Save before submit; restore on load.
+    (function () {
+      var KEY = "categories-list-scroll";
+      // Restore — fire after layout settles so the position lands cleanly.
+      var saved = sessionStorage.getItem(KEY);
+      if (saved !== null) {
+        sessionStorage.removeItem(KEY);
+        var y = parseInt(saved, 10);
+        if (!isNaN(y)) {
+          requestAnimationFrame(function () { window.scrollTo(0, y); });
+        }
+      }
+      // Save on any same-page form submit.
+      document.addEventListener("submit", function (e) {
+        if (e.target && e.target.tagName === "FORM") {
+          sessionStorage.setItem(KEY, String(window.scrollY));
+        }
+      }, true);
+      // Save when leaving via Edit / Ledger so the position is restored
+      // when the user comes back via the Back button.
+      document.addEventListener("click", function (e) {
+        var a = e.target && e.target.closest && e.target.closest("a");
+        if (a && a.href && /\/categories\/\d+\/(edit|ledger)/.test(a.getAttribute("href") || "")) {
+          sessionStorage.setItem(KEY, String(window.scrollY));
+        }
+      }, true);
+    })();
+  </script>
 {% endblock %}

@@ -641,10 +641,17 @@ class ReserveStudyPages:
         scenarios   = self._repo.list_scenarios()
 
         if assumptions is None:
+            # The report template assumes the full data set; on the empty
+            # path we render a small placeholder rather than feeding it
+            # missing context vars.
             ctx = {**self._base_ctx(org, theme, "reserve-study"),
                    "breadcrumb": "Reserve Study / Report",
-                   "error": "No active assumptions found."}
-            return PageResponse(HTTPStatus.OK, render_template("reserve_study_report.html", ctx))
+                   "heading": "Reserve Study Report",
+                   "message": ("No active reserve study assumptions found. "
+                               "Visit Reserve Fund Study → Assumptions to "
+                               "enter study-year inputs first."),
+                   "page_key": "reserve-study"}
+            return PageResponse(HTTPStatus.OK, render_template("error.html", ctx))
 
         override = assumptions["reserve_balance_override"]
         opening_balance = _q2(override) if override is not None else self._repo.get_reserve_fund_balance()

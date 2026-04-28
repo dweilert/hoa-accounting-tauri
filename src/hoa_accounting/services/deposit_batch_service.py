@@ -88,8 +88,6 @@ class DepositBatchService:
         notes: str | None = None,
         payment_method: str = "CHECK",
         created_by_user_id: int | None = None,
-        # Kept for call-site compatibility during transition; unused.
-        receivable_account_id: int | None = None,
     ) -> DepositBatchResult:
         """Post a deposit batch atomically."""
         with transaction(self.conn):

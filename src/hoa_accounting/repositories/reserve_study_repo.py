@@ -206,25 +206,27 @@ class ReserveStudyRepository:
             (scenario_id,),
         )
 
-    # ── Reserve balance from GL ───────────────────────────────────────
+    # ── Reserve balance ───────────────────────────────────────────────
 
     def get_reserve_fund_balance(self) -> Decimal:
-        """Sum of all RESERVE fund bank account balances from the GL."""
+        """Sum of all RESERVE fund bank-account balances using the cash-basis
+        flow on bank_accounts (the GL was retired in migration 0061)."""
         row = self.conn.execute(
             """
-            SELECT COALESCE(SUM(
-                CASE WHEN a.normal_balance = 'DEBIT' THEN
-                    (SELECT COALESCE(SUM(jel.debit_amount - jel.credit_amount), 0)
-                     FROM journal_entry_lines jel WHERE jel.account_id = a.id)
-                ELSE
-                    (SELECT COALESCE(SUM(jel.credit_amount - jel.debit_amount), 0)
-                     FROM journal_entry_lines jel WHERE jel.account_id = a.id)
-                END
-            ), 0) AS balance
-            FROM accounts a
-            JOIN bank_accounts ba ON ba.account_id = a.id
-            WHERE ba.fund_code = 'RESERVE'
-              AND a.active_flag = 1
+            SELECT
+                COALESCE(SUM(ba.opening_balance), 0)
+                + COALESCE((SELECT SUM(p.amount) FROM payments p
+                             JOIN bank_accounts b ON b.id = p.bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                + COALESCE((SELECT SUM(ib.total_amount) FROM income_batches ib
+                             JOIN bank_accounts b ON b.id = ib.bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                - COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp
+                             JOIN bank_accounts b ON b.id = bp.bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                AS balance
+            FROM bank_accounts ba
+            WHERE ba.fund_code = 'RESERVE' AND ba.active_flag = 1
             """
         ).fetchone()
-        return Decimal(str(row["balance"] if row else 0))
+        return Decimal(str(row["balance"] if row and row["balance"] is not None else 0))

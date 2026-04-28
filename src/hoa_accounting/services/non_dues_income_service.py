@@ -61,8 +61,6 @@ class NonDuesIncomeService:
         rows: Sequence[IncomeRow],
         notes: str | None = None,
         created_by_user_id: int | None = None,
-        # Kept for call-site compatibility during transition; unused.
-        income_account_id: int | None = None,
         category_id: int | None = None,
         deposit_batch_id: int | None = None,
     ) -> IncomeBatchResult:
@@ -95,7 +93,6 @@ class NonDuesIncomeService:
             income_batch_id = self.income_batches_repo.insert_income_batch(
                 posting_date=posting_date,
                 bank_account_id=bank_account_id,
-                income_account_id=income_account_id,
                 income_description=income_description,
                 total_amount=str(q2(total)),
                 notes=notes,

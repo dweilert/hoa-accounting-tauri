@@ -443,23 +443,9 @@ class DashboardRepository:
         except Exception:
             pass
 
-        # ── Prior fiscal year not closed (after Jan 1) ────────────────────
-        try:
-            import datetime
-            today = datetime.date.today()
-            if today.month >= 2:
-                prior_year = today.year - 1
-                row = self._conn.execute(
-                    "SELECT COUNT(*) c FROM fiscal_year_closes WHERE fiscal_year=?",
-                    (prior_year,),
-                ).fetchone()
-                if row and row["c"] == 0:
-                    _add("fiscal_year_not_closed", "info", "📆",
-                         f"Fiscal year {prior_year} has not been closed — "
-                         "run the year-end closing to finalize the books.",
-                         "/year-end-close", "Year-End Close")
-        except Exception:
-            pass
+        # Year-end-close alert retired with migration 0061 — fiscal_year_closes
+        # table dropped. Will return when the close-the-books workflow is
+        # rebuilt for the single-entry model.
 
         # ── Reserve study older than 3 years ─────────────────────────────
         try:

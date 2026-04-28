@@ -22,7 +22,6 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
 from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.assessment_billing_service import IndividualAssessmentRow
@@ -77,27 +76,6 @@ def _fiscal_year_range(org: dict[str, object] | None) -> tuple[str, str]:
     return from_date, to_date
 
 
-def _resolve_ar_account(conn: sqlite3.Connection, org: dict[str, object] | None):
-    """Look up the configured AR account — same one the deposit form uses.
-
-    Reusing ``dues_receivable_account_number`` here means assessments
-    billed for dues + payments received for dues land on the same AR
-    account, which is what lets AR Aging net correctly.
-    """
-    org = org or {}
-    number = str(org.get("dues_receivable_account_number") or "1100")
-    row = AccountsRepository(conn).get_by_number(number)
-    if row is None:
-        raise ValidationError(
-            f"Dues receivable account '{number}' was not found in the chart."
-        )
-    if int(row["is_active"]) != 1:
-        raise ValidationError(
-            f"Dues receivable account '{number}' is inactive."
-        )
-    return row
-
-
 class AssessmentBillingPages:
     """Render + handle POST for the Bill Assessments page."""
 
@@ -124,11 +102,6 @@ class AssessmentBillingPages:
 
         resolved_error = error_message
         ar_account_label = ""
-        try:
-            ar_row = _resolve_ar_account(self.conn, org)
-            ar_account_label = f"{ar_row['account_number']} · {ar_row['account_name']}"
-        except ValidationError:
-            ar_account_label = "(not configured)"
 
         income_categories = [
             {

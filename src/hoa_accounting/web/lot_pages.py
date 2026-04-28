@@ -152,6 +152,7 @@ class LotPages:
             **_BASE_CTX,
             "heading": heading,
             "breadcrumb": breadcrumb,
+            "parent_url": "/lots",
             "org": org or {},
             "theme": theme,
             "is_edit": is_edit,

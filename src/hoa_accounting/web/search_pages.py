@@ -55,7 +55,6 @@ class SearchPages:
                 self._search_owners(term),
                 self._search_lots(term),
                 self._search_vendors(term),
-                self._search_journal_entries(term),
                 self._search_payments(term),
                 self._search_assessments(term),
             ]
@@ -233,32 +232,6 @@ class SearchPages:
             for r in rows[:MAX_PER_GROUP]
         ]
         return SearchGroup(label="Vendors", hits=hits, total=count_row[0])
-
-    def _search_journal_entries(self, term: str) -> SearchGroup:
-        rows = self._conn.execute(
-            """
-            SELECT id, entry_number, entry_date, memo, status, source_type
-            FROM journal_entries
-            WHERE (entry_number LIKE ? OR memo LIKE ?)
-            ORDER BY entry_date DESC, id DESC
-            LIMIT ?
-            """,
-            (term, term, MAX_PER_GROUP + 1),
-        ).fetchall()
-        count_row = self._conn.execute(
-            "SELECT COUNT(*) FROM journal_entries WHERE entry_number LIKE ? OR memo LIKE ?",
-            (term, term),
-        ).fetchone()
-        hits = [
-            SearchHit(
-                title=f"JE-{r['entry_number']}",
-                subtitle=" · ".join(filter(None, [r["entry_date"], r["memo"]])),
-                url=f"/journal-entries/{r['id']}",
-                badge=r["status"] or "",
-            )
-            for r in rows[:MAX_PER_GROUP]
-        ]
-        return SearchGroup(label="Corrections", hits=hits, total=count_row[0])
 
     def _search_payments(self, term: str) -> SearchGroup:
         rows = self._conn.execute(

@@ -21,16 +21,10 @@ class PageResponse:
 class OpeningBalancesPages:
     """Render and handle the Opening Balances entry screen."""
 
-    def __init__(
-        self,
-        conn: sqlite3.Connection,
-        *,
-        ar_account_number: str = "1100",
-    ) -> None:
+    def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
         self._repo = OpeningBalancesRepository(conn)
         self._factory = ServiceFactory(conn)
-        self._ar_account_number = ar_account_number
 
     # ── Helpers ────────────────────────────────────────────────────────
 

@@ -106,11 +106,18 @@ class CategoriesRepository(BaseRepository):
         "vendor_bills",
     )
 
+    # Tables whose rows show up in the category ledger view. Splitting these
+    # out keeps the "Transactions" count on the categories list aligned with
+    # what the ledger actually displays.
+    _LEDGER_TABLES: tuple[str, ...] = (
+        "assessments",
+        "income_batches",
+        "reserve_transfers",
+        "vendor_bills",
+    )
+
     def usage_count(self, category_id: int) -> int:
-        """Return the number of rows across the system that reference this
-        category. Used to gate the delete action — a category that anything
-        points at cannot be removed without breaking history.
-        """
+        """Total references across every table — gates the delete action."""
         total = 0
         for table in self._CATEGORY_REFERENCE_TABLES:
             row = self.conn.execute(
@@ -119,6 +126,29 @@ class CategoriesRepository(BaseRepository):
             ).fetchone()
             total += int(row["n"])
         return total
+
+    def usage_breakdown(self, category_id: int) -> dict[str, int]:
+        """Return ``{"transactions": n, "other": n, "total": n}``.
+
+        * ``transactions`` — rows that show up in the category ledger view
+          (vendor bills, income batches, assessments, reserve transfers).
+        * ``other`` — non-ledger references: budget lines, bank-transaction
+          rules, raw bank rows, payments, owner adjustments, deposit batches.
+
+        The split lets the UI distinguish "this category has actual spending"
+        from "this category is referenced by a plan / rule / staging row".
+        """
+        counts: dict[str, int] = {"transactions": 0, "other": 0}
+        for table in self._CATEGORY_REFERENCE_TABLES:
+            row = self.conn.execute(
+                f"SELECT COUNT(*) AS n FROM {table} WHERE category_id = ?",
+                (category_id,),
+            ).fetchone()
+            n = int(row["n"])
+            bucket = "transactions" if table in self._LEDGER_TABLES else "other"
+            counts[bucket] += n
+        counts["total"] = counts["transactions"] + counts["other"]
+        return counts
 
     def delete_category(self, category_id: int) -> None:
         """Hard-delete a category. Caller must check ``usage_count`` first."""
@@ -182,23 +212,8 @@ class CategoriesRepository(BaseRepository):
                 FROM reserve_transfers rt
                 WHERE rt.category_id = ?
 
-                UNION ALL
-
-                SELECT 'Bill Payment' AS txn_type,
-                       bp.payment_date AS txn_date,
-                       bp.check_number AS ref,
-                       v.vendor_name AS party,
-                       bp.amount,
-                       COALESCE(bp.notes, vb.description) AS memo,
-                       NULL AS status,
-                       NULL AS entry_number
-                FROM bill_payments bp
-                JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
-                LEFT JOIN vendors v ON v.id = vb.vendor_id
-                WHERE vb.category_id = ?
-
                 ORDER BY txn_date DESC
                 """,
-                (category_id, category_id, category_id, category_id, category_id),
+                (category_id, category_id, category_id, category_id),
             ).fetchall()
         )

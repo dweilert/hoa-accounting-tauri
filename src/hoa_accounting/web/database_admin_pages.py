@@ -243,13 +243,11 @@ class DatabaseAdminPages:
 
     _BACKUP_METADATA_DDL = """
         CREATE TABLE IF NOT EXISTS backup_metadata (
-            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            backed_up_at        TEXT NOT NULL,
-            lot_count           INTEGER,
-            owner_count         INTEGER,
-            renter_count        INTEGER,
-            journal_entry_count INTEGER,
-            last_gl_entry_date  TEXT
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            backed_up_at  TEXT NOT NULL,
+            lot_count     INTEGER,
+            owner_count   INTEGER,
+            renter_count  INTEGER
         )
     """
 
@@ -275,10 +273,6 @@ class DatabaseAdminPages:
             "lot_count": count("lots"),
             "owner_count": count("owners"),
             "renter_count": count("lot_renters"),
-            "journal_entry_count": count("journal_entries"),
-            "last_gl_entry_date": scalar(
-                "SELECT MAX(entry_date) FROM journal_entries"
-            ),
         }
 
     def _record_backup_in_live_db(self, stats: dict) -> None:
@@ -288,17 +282,14 @@ class DatabaseAdminPages:
             self.conn.execute(
                 """
                 INSERT INTO backup_metadata
-                    (backed_up_at, lot_count, owner_count, renter_count,
-                     journal_entry_count, last_gl_entry_date)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (backed_up_at, lot_count, owner_count, renter_count)
+                VALUES (?, ?, ?, ?)
                 """,
                 (
                     stats["backed_up_at"],
                     stats["lot_count"],
                     stats["owner_count"],
                     stats["renter_count"],
-                    stats["journal_entry_count"],
-                    stats["last_gl_entry_date"],
                 ),
             )
             self.conn.commit()
@@ -354,17 +345,14 @@ class DatabaseAdminPages:
                 dest.execute(
                     """
                     INSERT INTO backup_metadata
-                        (backed_up_at, lot_count, owner_count, renter_count,
-                         journal_entry_count, last_gl_entry_date)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        (backed_up_at, lot_count, owner_count, renter_count)
+                    VALUES (?, ?, ?, ?)
                     """,
                     (
                         stats["backed_up_at"],
                         stats["lot_count"],
                         stats["owner_count"],
                         stats["renter_count"],
-                        stats["journal_entry_count"],
-                        stats["last_gl_entry_date"],
                     ),
                 )
                 dest.commit()
@@ -447,8 +435,6 @@ class DatabaseAdminPages:
                     "lot_count": meta_row.get("lot_count") if meta_row else count("lots"),
                     "owner_count": meta_row.get("owner_count") if meta_row else count("owners"),
                     "renter_count": meta_row.get("renter_count") if meta_row else count("lot_renters"),
-                    "journal_entry_count": meta_row.get("journal_entry_count") if meta_row else count("journal_entries"),
-                    "last_gl_entry_date": meta_row.get("last_gl_entry_date") if meta_row else scalar("SELECT MAX(entry_date) FROM journal_entries"),
                 }
             finally:
                 conn.close()

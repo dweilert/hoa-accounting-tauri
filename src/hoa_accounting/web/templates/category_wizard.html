@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Categories Interview · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/categories" class="btn btn--ghost">View Categories</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--ok">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Build a baseline list of Income & Expense categories</div>
+        <div class="panel__description">
+          Tick the boxes that apply to your HOA. Saving will create the
+          matching categories. You can re-run this any time — already-used
+          categories are never removed automatically.
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="/setup/categories-interview" style="padding:0 1.25rem 1.25rem;">
+      {% for step in steps %}
+        {% for group in step.groups %}
+          <div style="margin-top:1.5rem;">
+            <h3 style="margin:0 0 .35rem;font-size:14px;">
+              {{ group.label }}
+              <span style="font-size:11px;color:var(--text-muted);font-weight:normal;margin-left:.5rem;">
+                ({{ group.category_type }} · Fund {{ group.fund_code }})
+              </span>
+            </h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(20rem,1fr));gap:.4rem .9rem;">
+              {% for opt in group.options %}
+                <label style="display:flex;gap:.55rem;align-items:flex-start;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;background:{% if opt.checked %}var(--accent-subtle, #eaf4ec){% else %}var(--surface){% endif %};cursor:pointer;">
+                  <input type="checkbox" name="codes" value="{{ opt.code }}"
+                         {% if opt.checked %}checked{% endif %}
+                         style="margin-top:.2rem;flex-shrink:0;" />
+                  <span>
+                    <span style="font-weight:600;">{{ opt.label }}</span>
+                    {% if opt.already_exists %}
+                      <span style="font-size:10px;color:var(--text-muted);margin-left:.3rem;">(exists)</span>
+                    {% endif %}
+                    {% if opt.description %}
+                      <div style="font-size:11px;color:var(--text-muted);margin-top:.15rem;line-height:1.35;">{{ opt.description }}</div>
+                    {% endif %}
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      {% endfor %}
+
+      <div style="margin-top:1.5rem;display:flex;gap:.75rem;align-items:center;">
+        <button type="submit" class="btn btn--primary">Save Categories</button>
+        <a href="/categories" class="btn btn--ghost">Cancel</a>
+        <span style="font-size:12px;color:var(--text-muted);">
+          Already-used categories are kept even if un-ticked.
+        </span>
+      </div>
+    </form>
+  </div>
+{% endblock %}

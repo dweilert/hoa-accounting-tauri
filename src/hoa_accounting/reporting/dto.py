@@ -131,9 +131,6 @@ class ARAgingOwnerSummary:
 class ARAgingReport:
     """Accounts receivable aging report."""
     as_of_date: str
-    receivable_account_id: int
-    receivable_account_number: str
-    receivable_account_name: str
     detail_rows: list[ARAgingDetailRow]
     owner_summaries: list[ARAgingOwnerSummary]
     total_current_amount: Decimal

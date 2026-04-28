@@ -129,7 +129,7 @@
 
 {# ── Existing rules ────────────────────────────────────────────────────── #}
 <div class="panel" style="margin-bottom:1.5rem;">
-  <div class="panel__header">
+  <div class="panel__header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;">
     <div>
       <div class="panel__title">Saved Rules</div>
       <div class="panel__description">
@@ -137,6 +137,12 @@
         a rule are automatically posted.
       </div>
     </div>
+    <a href="/admin/transaction-rules/test"
+       class="btn btn--primary btn--sm"
+       style="flex-shrink:0;"
+       title="Test a rule against a real or synthetic bank transaction.">
+      Test Rule…
+    </a>
   </div>
 
   {% if rules %}

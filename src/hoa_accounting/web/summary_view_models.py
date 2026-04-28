@@ -449,8 +449,8 @@ def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]
             "group_variance": str(group.get("group_variance", "")),
             "rows": [
                 {
-                    "account_number": str(row.get("account_number", "")),
-                    "account_name": str(row.get("account_name", "")),
+                    "category_name": str(row.get("category_name", "")),
+                    "group_code": str(row.get("group_code", "")),
                     "budget_amount": str(row.get("budget_amount", "")),
                     "actual_amount": str(row.get("actual_amount", "")),
                     "variance": str(row.get("variance", "")),

@@ -28,7 +28,6 @@ from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 
-_AR_DEFAULT = "1100"
 _RESALE_FEE_ACCOUNT = "4070"
 _CHARGE_TYPE = "RESALE_FEE"
 
@@ -62,9 +61,6 @@ class ResaleFeePages:
         if not int(row["active_flag"]):
             return None, "RESALE_FEE category is inactive."
         return int(row["id"]), f"{row['code']} · {row['name']}"
-
-    def _resolve_ar_account(self, account_number: str) -> tuple[int | None, str]:  # noqa: ARG002
-        return None, ""  # Chart of Accounts retired — AR is implicit.
 
     def _lot_options(self) -> list[dict]:
         lots = LotsRepository(self.conn).list_lots(active_only=True)
@@ -201,8 +197,6 @@ class ResaleFeePages:
         default_amount: str,
         income_account_number: str,
     ) -> tuple[str | None, ResaleFeePageResponse | None]:
-        ar_num = str(org.get("dues_receivable_account_number") or _AR_DEFAULT)
-
         def _err(msg: str) -> tuple[None, ResaleFeePageResponse]:
             return None, self.render_page(
                 org=org, theme=theme,
@@ -270,8 +264,6 @@ class ResaleFeePages:
         default_amount: str,
         income_account_number: str,
     ) -> tuple[str | None, ResaleFeePageResponse | None]:
-        ar_num = str(org.get("dues_receivable_account_number") or _AR_DEFAULT)
-
         def _err(msg: str) -> tuple[None, ResaleFeePageResponse]:
             # Re-render the Receiving page (payments) with the error banner
             # so the user stays where they submitted from.

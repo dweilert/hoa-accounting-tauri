@@ -36,6 +36,7 @@ EXPORT_GROUPS: list[dict] = [
             {"key": "owners",           "label": "Owners",                 "filename": "owners"},
             {"key": "lots",             "label": "Lots",                   "filename": "lots"},
             {"key": "lot_ownership",    "label": "Lot Ownership History",  "filename": "lot_ownership"},
+            {"key": "renters",          "label": "Renters",                "filename": "renters"},
             {"key": "vendors",          "label": "Vendors",                "filename": "vendors"},
             {"key": "bank_accounts",    "label": "Bank Accounts",          "filename": "bank_accounts"},
             {"key": "budgets",          "label": "Budgets",                "filename": "budgets"},
@@ -153,6 +154,17 @@ QUERIES: dict[str, str] = {
         JOIN lots   l ON l.id = lo.lot_id
         JOIN owners o ON o.id = lo.owner_id
         ORDER BY l.lot_number, lo.start_date
+    """,
+    "renters": """
+        SELECT
+            l.lot_number,
+            r.display_name, r.first_name, r.last_name,
+            r.email, r.phone,
+            r.start_date, r.end_date,
+            r.notes
+        FROM lot_renters r
+        JOIN lots l ON l.id = r.lot_id
+        ORDER BY l.lot_number, r.start_date
     """,
     "vendors": """
         SELECT

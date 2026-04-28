@@ -52,8 +52,10 @@
               <td style="text-align:right;font-family:var(--font-mono);font-size:13px;">{{ b.transaction_count }}</td>
               <td style="text-align:right;font-family:var(--font-mono);font-size:13px;">{{ b.matched_count }}</td>
               <td>
-                {% if b.status == 'APPLIED' %}
-                  <span class="pill pill--ok" style="font-size:.7rem;">Applied</span>
+                {% if b.status == 'COMPLETE' or b.status == 'APPLIED' %}
+                  <span class="pill pill--ok" style="font-size:.7rem;">Complete</span>
+                {% elif b.status == 'EMPTY' %}
+                  <span class="pill pill--muted" style="font-size:.7rem;">Empty</span>
                 {% else %}
                   <span class="pill pill--warn" style="font-size:.7rem;">Pending</span>
                 {% endif %}
@@ -62,8 +64,9 @@
                 {{ b.imported_at[:10] if b.imported_at else '—' }}
               </td>
               <td style="white-space:nowrap;">
-                <a href="/bank-accounts/{{ bank_account_id }}/import-statement/{{ b.id }}"
-                   class="btn btn--sm btn--ghost">View</a>
+                <a href="/bank-transactions/pending?bank_account_id={{ bank_account_id }}"
+                   class="btn btn--sm btn--ghost"
+                   title="See this account's rows in Pending Validation.">View</a>
                 {% if b.status == 'PENDING' %}
                   <form method="post"
                         action="/bank-accounts/{{ bank_account_id }}/import-statement/{{ b.id }}/reapply-rules"
