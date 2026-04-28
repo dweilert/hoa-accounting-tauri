@@ -19,6 +19,14 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  /* Stretch to fill the grid cell — keeps every tile the same height
+     even when their content (bank list / progress bar / sub-text) varies. */
+  height: 100%;
+  box-sizing: border-box;
+}
+.fin-tile-link {
+  display: block;
+  height: 100%;
 }
 .fin-tile__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .85; }
 .fin-tile__value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
@@ -177,12 +185,30 @@
         </div>
       </a>
 
-    {% elif card.report_name == 'last_recon' and last_recon %}
-      <div class="fin-tile" style="background:{{ bg }};">
-        <div class="fin-tile__label">Last Reconciliation</div>
-        <div class="fin-tile__value">${{ '{:,.0f}'.format(last_recon.ending_balance) }}</div>
-        <div class="fin-tile__sub">{{ last_recon.account_name }} · {{ last_recon.ending_date }}</div>
-      </div>
+    {% elif card.report_name == 'last_recon' %}
+      {% if last_recon %}
+        <a href="/reconciliations" class="fin-tile-link"
+           style="text-decoration:none;color:inherit;display:block;"
+           title="Open the reconciliation list.">
+          <div class="fin-tile" style="background:{{ bg }};">
+            <div class="fin-tile__label">Last Reconciliation</div>
+            <div class="fin-tile__value">${{ '{:,.0f}'.format(last_recon.ending_balance) }}</div>
+            <div class="fin-tile__sub">{{ last_recon.account_name }} · {{ last_recon.ending_date }}</div>
+          </div>
+        </a>
+      {% else %}
+        <a href="/reconciliations/new" class="fin-tile-link"
+           style="text-decoration:none;color:inherit;display:block;"
+           title="Start a new bank reconciliation.">
+          <div class="fin-tile" style="background:{{ bg }};">
+            <div class="fin-tile__label">Last Reconciliation</div>
+            <div class="fin-tile__value" style="font-size:1.1rem;font-weight:600;line-height:1.3;">
+              No reconciliations yet
+            </div>
+            <div class="fin-tile__sub">Reconcile your first statement →</div>
+          </div>
+        </a>
+      {% endif %}
 
     {% endif %}
   {% endfor %}

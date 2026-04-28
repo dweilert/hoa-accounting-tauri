@@ -13,9 +13,5 @@ class ClosedPeriodError(AccountingError):
     """Raised when attempting to post to a closed accounting period."""
 
 
-class UnbalancedJournalError(AccountingError):
-    """Raised when journal entry lines are not balanced."""
-
-
 class NotFoundError(AccountingError):
     """Raised when a required database record cannot be found."""
