@@ -32,12 +32,10 @@ EXPORT_GROUPS: list[dict] = [
         "types": [
             {"key": "hoa_profile",      "label": "HOA Profile",            "filename": "hoa_profile"},
             {"key": "board_members",    "label": "Board Members",          "filename": "board_members"},
-            {"key": "accounts",         "label": "Chart of Accounts",      "filename": "accounts"},
-            {"key": "account_types",    "label": "Account Types (lookup)", "filename": "account_types"},
+            {"key": "categories",       "label": "Categories (Chart)",     "filename": "categories"},
             {"key": "owners",           "label": "Owners",                 "filename": "owners"},
             {"key": "lots",             "label": "Lots",                   "filename": "lots"},
             {"key": "lot_ownership",    "label": "Lot Ownership History",  "filename": "lot_ownership"},
-            {"key": "renters",          "label": "Renters",                "filename": "renters"},
             {"key": "vendors",          "label": "Vendors",                "filename": "vendors"},
             {"key": "bank_accounts",    "label": "Bank Accounts",          "filename": "bank_accounts"},
             {"key": "budgets",          "label": "Budgets",                "filename": "budgets"},
@@ -58,9 +56,8 @@ EXPORT_GROUPS: list[dict] = [
             {"key": "bill_payments",         "label": "Bill Payments",                         "filename": "bill_payments"},
             {"key": "deposit_batches",       "label": "Deposit Batches",                       "filename": "deposit_batches"},
             {"key": "non_dues_income",       "label": "Non-Dues Income",                       "filename": "non_dues_income"},
-            {"key": "journal_entries",       "label": "Journal Entries (header)",              "filename": "journal_entries"},
-            {"key": "journal_entry_lines",   "label": "Journal Entry Lines",                   "filename": "journal_entry_lines"},
             {"key": "bank_transactions",     "label": "Bank Transactions (canonical feed)",    "filename": "bank_transactions"},
+            {"key": "bank_transaction_links","label": "Bank Transaction Links",                "filename": "bank_transaction_links"},
             {"key": "bank_transaction_rules","label": "Bank Transaction Rules",                "filename": "bank_transaction_rules"},
         ],
     },
@@ -71,7 +68,6 @@ EXPORT_GROUPS: list[dict] = [
             {"key": "reserve_transfers",     "label": "Reserve Transfers",       "filename": "reserve_transfers"},
             {"key": "opening_balances",      "label": "Opening Balances",        "filename": "opening_balances"},
             {"key": "accounting_periods",    "label": "Accounting Periods",      "filename": "accounting_periods"},
-            {"key": "fiscal_year_closes",    "label": "Fiscal Year Closes",      "filename": "fiscal_year_closes"},
         ],
     },
     {
@@ -90,19 +86,36 @@ EXPORT_TYPES: list[dict] = [t for g in EXPORT_GROUPS for t in g["types"]]
 
 # Map each key → SQL that produces a flat, human-readable result set.
 QUERIES: dict[str, str] = {
-    "accounts": """
+    # ── Master Data ──────────────────────────────────────────────────────
+    "hoa_profile": """
         SELECT
-            a.account_number,
-            a.account_name,
-            at.name         AS account_type,
-            at.normal_balance,
-            a.fund_code,
-            CASE a.is_bank_account WHEN 1 THEN 'Yes' ELSE 'No' END AS is_bank_account,
-            CASE a.is_active       WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
-            a.description
-        FROM accounts a
-        JOIN account_types at ON at.id = a.account_type_id
-        ORDER BY a.account_number
+            legal_name, display_name, corporate_state,
+            federal_tax_id, state_tax_id, formation_date,
+            mailing_address_1, mailing_address_2, city, state, postal_code,
+            phone, email, website,
+            fiscal_year_start_month, timezone, default_currency,
+            default_annual_dues, default_assessment_amount, default_billing_frequency,
+            report_header_text, report_footer_text, theme
+        FROM hoa_profile
+        WHERE id = 1
+    """,
+    "board_members": """
+        SELECT
+            full_name, title, email, phone,
+            start_date, end_date,
+            CASE is_active WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            notes
+        FROM board_members
+        ORDER BY is_active DESC, title, full_name
+    """,
+    "categories": """
+        SELECT
+            code, name, category_type, fund_code, group_name,
+            sort_order,
+            CASE active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            description
+        FROM categories
+        ORDER BY category_type, sort_order, code
     """,
     "owners": """
         SELECT
@@ -134,22 +147,12 @@ QUERIES: dict[str, str] = {
             l.lot_number,
             o.display_name  AS owner_name,
             lo.start_date,
-            lo.end_date
+            lo.end_date,
+            CASE lo.is_primary_contact WHEN 1 THEN 'Yes' ELSE 'No' END AS primary_contact
         FROM lot_ownership lo
         JOIN lots   l ON l.id = lo.lot_id
         JOIN owners o ON o.id = lo.owner_id
         ORDER BY l.lot_number, lo.start_date
-    """,
-    "renters": """
-        SELECT
-            l.lot_number,
-            r.display_name, r.first_name, r.last_name,
-            r.email, r.phone,
-            r.start_date, r.end_date,
-            r.notes
-        FROM lot_renters r
-        JOIN lots l ON l.id = r.lot_id
-        ORDER BY l.lot_number, r.start_date
     """,
     "vendors": """
         SELECT
@@ -166,11 +169,11 @@ QUERIES: dict[str, str] = {
             ba.institution_name,
             ba.account_last4,
             ba.account_type,
-            a.account_number AS gl_account_number,
-            a.account_name   AS gl_account_name,
+            ba.fund_code,
+            ba.opening_balance,
+            ba.opening_balance_date,
             CASE ba.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
         FROM bank_accounts ba
-        JOIN accounts a ON a.id = ba.gl_account_id
         ORDER BY ba.account_name
     """,
     "budgets": """
@@ -183,18 +186,46 @@ QUERIES: dict[str, str] = {
         SELECT
             b.fiscal_year,
             b.fund_code,
-            a.account_number,
-            a.account_name,
+            c.code AS category_code,
+            c.name AS category_name,
             bl.fiscal_period,
             bl.budget_amount
         FROM budget_lines bl
-        JOIN budgets  b ON b.id = bl.budget_id
-        JOIN accounts a ON a.id = bl.account_id
-        ORDER BY b.fiscal_year, b.fund_code, a.account_number, bl.fiscal_period
+        JOIN budgets    b ON b.id = bl.budget_id
+        JOIN categories c ON c.id = bl.category_id
+        ORDER BY b.fiscal_year, b.fund_code, c.code, bl.fiscal_period
+    """,
+    "assessment_rules": """
+        SELECT
+            ar.rule_name,
+            ar.frequency,
+            ar.default_amount,
+            ar.fund_code,
+            c.code AS category_code,
+            c.name AS category_name,
+            ar.effective_start_date,
+            ar.effective_end_date,
+            CASE ar.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            ar.notes
+        FROM assessment_rules ar
+        LEFT JOIN categories c ON c.id = ar.category_id
+        ORDER BY ar.rule_name
+    """,
+    "bill_templates": """
+        SELECT
+            bt.template_name,
+            v.vendor_name,
+            bt.fund_code,
+            bt.expense_classification,
+            bt.default_amount,
+            bt.description,
+            CASE bt.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
+        FROM bill_templates bt
+        JOIN vendors v ON v.id = bt.vendor_id
+        ORDER BY bt.template_name
     """,
 
-    # ── Transactions & Financials ─────────────────────────────────────────
-
+    # ── Transactions & Financials ────────────────────────────────────────
     "assessments": """
         SELECT
             l.lot_number,
@@ -204,17 +235,17 @@ QUERIES: dict[str, str] = {
             a.due_date,
             a.amount,
             a.status,
-            a.description,
-            je.entry_number       AS journal_entry
+            c.code                AS category_code,
+            a.description
         FROM assessments a
-        JOIN lots            l  ON l.id  = a.lot_id
-        JOIN owners          o  ON o.id  = a.owner_id
-        LEFT JOIN journal_entries je ON je.id = a.journal_entry_id
+        JOIN lots            l  ON l.id = a.lot_id
+        JOIN owners          o  ON o.id = a.owner_id
+        LEFT JOIN categories c  ON c.id = a.category_id
         ORDER BY a.assessment_date, l.lot_number
     """,
-
     "payments": """
         SELECT
+            p.receipt_number,
             p.payment_date,
             o.display_name        AS owner_name,
             p.amount,
@@ -222,22 +253,20 @@ QUERIES: dict[str, str] = {
             p.reference_number,
             ba.account_name       AS bank_account,
             ba.institution_name,
-            je.entry_number       AS journal_entry,
+            c.code                AS category_code,
             p.notes
         FROM payments p
         JOIN owners             o  ON o.id  = p.owner_id
         LEFT JOIN bank_accounts ba ON ba.id = p.bank_account_id
-        LEFT JOIN journal_entries je ON je.id = p.journal_entry_id
+        LEFT JOIN categories    c  ON c.id  = p.category_id
         ORDER BY p.payment_date, o.display_name
     """,
-
     "payment_applications": """
         SELECT
             p.payment_date,
+            p.receipt_number,
             o.display_name        AS owner_name,
             p.amount              AS payment_amount,
-            p.payment_method,
-            p.reference_number,
             l.lot_number,
             a.charge_type,
             a.assessment_date,
@@ -251,7 +280,33 @@ QUERIES: dict[str, str] = {
         JOIN lots        l  ON l.id  = a.lot_id
         ORDER BY p.payment_date, o.display_name, a.charge_type
     """,
-
+    "owner_adjustments": """
+        SELECT
+            oa.adjustment_date,
+            o.display_name AS owner_name,
+            l.lot_number,
+            oa.adjustment_type,
+            oa.amount,
+            c.code         AS category_code,
+            oa.description
+        FROM owner_adjustments oa
+        JOIN owners o       ON o.id = oa.owner_id
+        JOIN lots   l       ON l.id = oa.lot_id
+        LEFT JOIN categories c ON c.id = oa.category_id
+        ORDER BY oa.adjustment_date, o.display_name
+    """,
+    "dues_billing_history": """
+        SELECT
+            cycle_type,
+            period_label,
+            period_year,
+            period_sequence,
+            amount,
+            owner_count,
+            billed_at
+        FROM dues_billing_history
+        ORDER BY period_year, period_sequence
+    """,
     "vendor_bills": """
         SELECT
             v.vendor_name,
@@ -259,19 +314,31 @@ QUERIES: dict[str, str] = {
             vb.invoice_date,
             vb.due_date,
             vb.amount,
-            ea.account_number     AS expense_account_number,
-            ea.account_name       AS expense_account_name,
             vb.fund_code,
             vb.status,
-            vb.description,
-            je.entry_number       AS journal_entry
+            c.code AS category_code,
+            c.name AS category_name,
+            vb.description
         FROM vendor_bills vb
-        JOIN vendors      v  ON v.id  = vb.vendor_id
-        JOIN accounts     ea ON ea.id = vb.expense_account_id
-        LEFT JOIN journal_entries je ON je.id = vb.journal_entry_id
+        JOIN vendors    v ON v.id = vb.vendor_id
+        LEFT JOIN categories c ON c.id = vb.category_id
         ORDER BY vb.invoice_date, v.vendor_name
     """,
-
+    "bill_payments": """
+        SELECT
+            bp.payment_date,
+            v.vendor_name,
+            vb.invoice_number,
+            bp.amount,
+            ba.account_name AS bank_account,
+            bp.check_number,
+            bp.notes
+        FROM bill_payments bp
+        JOIN vendor_bills  vb ON vb.id = bp.vendor_bill_id
+        JOIN vendors       v  ON v.id  = vb.vendor_id
+        JOIN bank_accounts ba ON ba.id = bp.bank_account_id
+        ORDER BY bp.payment_date, v.vendor_name
+    """,
     "deposit_batches": """
         SELECT
             db.deposit_date,
@@ -279,36 +346,93 @@ QUERIES: dict[str, str] = {
             ba.institution_name,
             db.total_amount,
             COUNT(p.id)           AS payment_count,
-            je.entry_number       AS journal_entry,
+            c.code                AS category_code,
             db.notes
         FROM deposit_batches db
         JOIN bank_accounts   ba ON ba.id = db.bank_account_id
-        LEFT JOIN journal_entries je ON je.id = db.journal_entry_id
-        LEFT JOIN payments   p  ON p.deposit_batch_id = db.id
+        LEFT JOIN payments    p ON p.deposit_batch_id = db.id
+        LEFT JOIN categories  c ON c.id = db.category_id
         GROUP BY db.id, db.deposit_date, ba.account_name, ba.institution_name,
-                 db.total_amount, je.entry_number, db.notes
+                 db.total_amount, c.code, db.notes
         ORDER BY db.deposit_date
     """,
-
     "non_dues_income": """
         SELECT
             ib.posting_date,
             ba.account_name       AS bank_account,
-            ia.account_number     AS income_account_number,
-            ia.account_name       AS income_account_name,
+            c.code                AS category_code,
+            c.name                AS category_name,
             ib.income_description,
             ib.total_amount,
-            je.entry_number       AS journal_entry,
             ib.notes
         FROM income_batches ib
         JOIN bank_accounts    ba ON ba.id = ib.bank_account_id
-        JOIN accounts         ia ON ia.id = ib.income_account_id
-        LEFT JOIN journal_entries je ON je.id = ib.journal_entry_id
+        LEFT JOIN categories  c  ON c.id = ib.category_id
         ORDER BY ib.posting_date
     """,
+    "bank_transactions": """
+        SELECT
+            bt.transaction_date,
+            ba.account_name AS bank_account,
+            bt.description,
+            bt.memo,
+            bt.transaction_type,
+            bt.amount,
+            bt.external_reference,
+            bt.reconciliation_status,
+            bt.match_type,
+            bt.validation_status,
+            r.rule_name AS matched_rule,
+            bt.matched_source_type,
+            bt.matched_source_id,
+            c.code      AS category_code
+        FROM bank_transactions bt
+        JOIN bank_accounts ba ON ba.id = bt.bank_account_id
+        LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
+        LEFT JOIN categories c ON c.id = bt.category_id
+        ORDER BY bt.transaction_date, ba.account_name
+    """,
+    "bank_transaction_links": """
+        SELECT
+            btl.bank_transaction_id,
+            bt.transaction_date,
+            ba.account_name AS bank_account,
+            btl.ledger_source_type,
+            btl.ledger_source_id,
+            btl.link_source,
+            r.rule_name AS source_rule
+        FROM bank_transaction_links btl
+        JOIN bank_transactions bt ON bt.id = btl.bank_transaction_id
+        JOIN bank_accounts     ba ON ba.id = bt.bank_account_id
+        LEFT JOIN bank_transaction_rules r ON r.id = btl.rule_id
+        ORDER BY bt.transaction_date, btl.bank_transaction_id, btl.id
+    """,
+    "bank_transaction_rules": """
+        SELECT
+            r.rule_name,
+            r.action_type,
+            r.description_contains,
+            r.match_type,
+            r.match_memo,
+            r.match_amount,
+            ba.account_name AS bank_account,
+            c.code          AS category_code,
+            v.vendor_name,
+            l.lot_number,
+            r.default_memo,
+            r.confidence_mode,
+            r.auto_post_after_n,
+            r.confirmed_matches,
+            CASE r.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
+        FROM bank_transaction_rules r
+        LEFT JOIN bank_accounts ba ON ba.id = r.bank_account_id
+        LEFT JOIN categories    c  ON c.id  = r.category_id
+        LEFT JOIN vendors       v  ON v.id  = r.vendor_id
+        LEFT JOIN lots          l  ON l.id  = r.lot_id
+        ORDER BY r.rule_name
+    """,
 
-    # ── Historical & Operational ──────────────────────────────────────────
-
+    # ── Historical & Operational ─────────────────────────────────────────
     "bank_reconciliations": """
         SELECT
             ba.account_name             AS bank_account,
@@ -323,257 +447,44 @@ QUERIES: dict[str, str] = {
         JOIN bank_accounts ba ON ba.id = br.bank_account_id
         ORDER BY br.statement_ending_date, ba.account_name
     """,
-
     "reserve_transfers": """
         SELECT
             rt.transfer_date,
             rt.transfer_type,
             rt.purpose,
-            fa.account_number           AS from_account_number,
-            fa.account_name             AS from_account_name,
-            ta.account_number           AS to_account_number,
-            ta.account_name             AS to_account_name,
+            fb.account_name AS from_bank_account,
+            fb.fund_code    AS from_fund_code,
+            tb.account_name AS to_bank_account,
+            tb.fund_code    AS to_fund_code,
             rt.amount,
-            je.entry_number             AS journal_entry,
             rt.notes
         FROM reserve_transfers rt
-        JOIN accounts fa ON fa.id = rt.from_account_id
-        JOIN accounts ta ON ta.id = rt.to_account_id
-        LEFT JOIN journal_entries je ON je.id = rt.journal_entry_id
+        LEFT JOIN bank_accounts fb ON fb.id = rt.from_bank_account_id
+        LEFT JOIN bank_accounts tb ON tb.id = rt.to_bank_account_id
         ORDER BY rt.transfer_date
     """,
-
     "opening_balances": """
         SELECT
             ob.as_of_date,
             ob.entity_type,
             CASE ob.entity_type
-                WHEN 'account' THEN a.account_number
-                WHEN 'lot'     THEN CAST(l.lot_number AS TEXT)
+                WHEN 'BANK_ACCOUNT' THEN ba.account_name
+                WHEN 'LOT_DUES'     THEN CAST(l.lot_number AS TEXT)
+                WHEN 'LOT_ASSESSMENT' THEN CAST(l.lot_number AS TEXT)
                 ELSE CAST(ob.entity_id AS TEXT)
             END                         AS entity_key,
             CASE ob.entity_type
-                WHEN 'account' THEN a.account_name
-                WHEN 'lot'     THEN l.street_address_1
+                WHEN 'BANK_ACCOUNT' THEN ba.institution_name
+                WHEN 'LOT_DUES'     THEN l.street_address_1
+                WHEN 'LOT_ASSESSMENT' THEN l.street_address_1
                 ELSE ''
             END                         AS entity_name,
-            ob.amount,
-            je.entry_number             AS journal_entry
+            ob.amount
         FROM opening_balances ob
-        LEFT JOIN accounts a ON a.id = ob.entity_id AND ob.entity_type = 'account'
-        LEFT JOIN lots     l ON l.id = ob.entity_id AND ob.entity_type = 'lot'
-        LEFT JOIN journal_entries je ON je.id = ob.journal_entry_id
+        LEFT JOIN bank_accounts ba ON ba.id = ob.bank_account_id
+        LEFT JOIN lots          l  ON l.id  = ob.entity_id AND ob.entity_type IN ('LOT_DUES','LOT_ASSESSMENT')
         ORDER BY ob.as_of_date, ob.entity_type
     """,
-
-    # ── Master Data additions ─────────────────────────────────────────────
-
-    "hoa_profile": """
-        SELECT
-            legal_name, display_name, corporate_state,
-            federal_tax_id, state_tax_id, formation_date,
-            mailing_address_1, mailing_address_2, city, state, postal_code,
-            phone, email, website,
-            fiscal_year_start_month, timezone, default_currency,
-            default_annual_dues, default_assessment_amount, default_billing_frequency,
-            report_header_text, report_footer_text, theme
-        FROM hoa_profile
-        WHERE id = 1
-    """,
-
-    "board_members": """
-        SELECT
-            full_name, title, email, phone,
-            start_date, end_date,
-            CASE is_active WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
-            notes
-        FROM board_members
-        ORDER BY is_active DESC, title, full_name
-    """,
-
-    "account_types": """
-        SELECT code, name, normal_balance, financial_statement_group
-        FROM account_types
-        ORDER BY code
-    """,
-
-    "assessment_rules": """
-        SELECT
-            ar.rule_name,
-            ar.frequency,
-            ar.default_amount,
-            ar.fund_code,
-            ia.account_number AS income_account_number,
-            ia.account_name   AS income_account_name,
-            ra.account_number AS receivable_account_number,
-            ra.account_name   AS receivable_account_name,
-            ar.effective_start_date,
-            ar.effective_end_date,
-            CASE ar.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
-            ar.notes
-        FROM assessment_rules ar
-        JOIN accounts ia ON ia.id = ar.income_account_id
-        JOIN accounts ra ON ra.id = ar.receivable_account_id
-        ORDER BY ar.rule_name
-    """,
-
-    "bill_templates": """
-        SELECT
-            bt.template_name,
-            v.vendor_name,
-            ea.account_number AS expense_account_number,
-            ea.account_name   AS expense_account_name,
-            pa.account_number AS payable_account_number,
-            pa.account_name   AS payable_account_name,
-            bt.fund_code,
-            bt.expense_classification,
-            bt.default_amount,
-            bt.description,
-            CASE bt.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
-        FROM bill_templates bt
-        JOIN vendors  v  ON v.id  = bt.vendor_id
-        JOIN accounts ea ON ea.id = bt.expense_account_id
-        JOIN accounts pa ON pa.id = bt.payable_account_id
-        ORDER BY bt.template_name
-    """,
-
-    # ── Transactions & Financials additions ───────────────────────────────
-
-    "owner_adjustments": """
-        SELECT
-            oa.adjustment_date,
-            o.display_name AS owner_name,
-            l.lot_number,
-            oa.adjustment_type,
-            oa.amount,
-            oa.description,
-            je.entry_number AS journal_entry
-        FROM owner_adjustments oa
-        JOIN owners o ON o.id = oa.owner_id
-        JOIN lots   l ON l.id = oa.lot_id
-        LEFT JOIN journal_entries je ON je.id = oa.journal_entry_id
-        ORDER BY oa.adjustment_date, o.display_name
-    """,
-
-    "dues_billing_history": """
-        SELECT
-            cycle_type,
-            period_label,
-            period_year,
-            period_sequence,
-            amount,
-            owner_count,
-            billed_at
-        FROM dues_billing_history
-        ORDER BY period_year, period_sequence
-    """,
-
-    "bill_payments": """
-        SELECT
-            bp.payment_date,
-            v.vendor_name,
-            vb.invoice_number,
-            bp.amount,
-            ba.account_name AS bank_account,
-            bp.check_number,
-            je.entry_number AS journal_entry,
-            bp.notes
-        FROM bill_payments bp
-        JOIN vendor_bills  vb ON vb.id = bp.vendor_bill_id
-        JOIN vendors       v  ON v.id  = vb.vendor_id
-        JOIN bank_accounts ba ON ba.id = bp.bank_account_id
-        LEFT JOIN journal_entries je ON je.id = bp.journal_entry_id
-        ORDER BY bp.payment_date, v.vendor_name
-    """,
-
-    "journal_entries": """
-        SELECT
-            je.entry_number,
-            je.entry_date,
-            ap.period_name AS accounting_period,
-            je.source_type,
-            je.source_id,
-            je.status,
-            rev.entry_number AS reversal_of,
-            je.posted_at,
-            je.memo
-        FROM journal_entries je
-        JOIN accounting_periods ap ON ap.id = je.accounting_period_id
-        LEFT JOIN journal_entries rev ON rev.id = je.reversal_entry_id
-        ORDER BY je.entry_date, je.entry_number
-    """,
-
-    "journal_entry_lines": """
-        SELECT
-            je.entry_number,
-            jel.line_number,
-            a.account_number,
-            a.account_name,
-            l.lot_number,
-            o.display_name AS owner_name,
-            v.vendor_name,
-            jel.debit_amount,
-            jel.credit_amount,
-            jel.expense_classification,
-            jel.description
-        FROM journal_entry_lines jel
-        JOIN journal_entries je ON je.id = jel.journal_entry_id
-        JOIN accounts        a  ON a.id  = jel.account_id
-        LEFT JOIN lots    l ON l.id = jel.lot_id
-        LEFT JOIN owners  o ON o.id = jel.owner_id
-        LEFT JOIN vendors v ON v.id = jel.vendor_id
-        ORDER BY je.entry_date, je.entry_number, jel.line_number
-    """,
-
-    "bank_transactions": """
-        SELECT
-            bt.transaction_date,
-            ba.account_name AS bank_account,
-            bt.description,
-            bt.memo,
-            bt.transaction_type,
-            bt.amount,
-            bt.external_reference,
-            bt.reconciliation_status,
-            bt.match_type,
-            bt.validation_status,
-            r.rule_name AS matched_rule,
-            je.entry_number AS journal_entry
-        FROM bank_transactions bt
-        JOIN bank_accounts ba ON ba.id = bt.bank_account_id
-        LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
-        LEFT JOIN journal_entries je ON je.id = bt.matched_journal_entry_id
-        ORDER BY bt.transaction_date, ba.account_name
-    """,
-
-    "bank_transaction_rules": """
-        SELECT
-            r.rule_name,
-            r.action_type,
-            r.description_contains,
-            r.match_type,
-            r.match_memo,
-            r.match_amount,
-            ba.account_name AS bank_account,
-            a.account_number AS gl_account_number,
-            a.account_name   AS gl_account_name,
-            v.vendor_name,
-            l.lot_number,
-            r.default_memo,
-            r.confidence_mode,
-            r.auto_post_after_n,
-            r.confirmed_matches,
-            CASE r.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
-        FROM bank_transaction_rules r
-        LEFT JOIN bank_accounts ba ON ba.id = r.bank_account_id
-        LEFT JOIN accounts      a  ON a.id  = r.gl_account_id
-        LEFT JOIN vendors       v  ON v.id  = r.vendor_id
-        LEFT JOIN lots          l  ON l.id  = r.lot_id
-        ORDER BY r.rule_name
-    """,
-
-    # ── Historical & Operational additions ────────────────────────────────
-
     "accounting_periods": """
         SELECT
             period_name,
@@ -587,8 +498,7 @@ QUERIES: dict[str, str] = {
         ORDER BY fiscal_year, fiscal_period
     """,
 
-    # ── Reserve Study ─────────────────────────────────────────────────────
-
+    # ── Reserve Study ────────────────────────────────────────────────────
     "reserve_assets": """
         SELECT
             asset_group, component, install_year, useful_life_years,
@@ -598,7 +508,6 @@ QUERIES: dict[str, str] = {
         FROM reserve_assets
         ORDER BY sort_order, asset_group, component
     """,
-
     "reserve_components": """
         SELECT
             component_name, useful_life_years, remaining_life_years,
@@ -608,7 +517,6 @@ QUERIES: dict[str, str] = {
         FROM reserve_components
         ORDER BY component_name
     """,
-
     "reserve_study_assumptions": """
         SELECT
             study_year,
@@ -623,7 +531,6 @@ QUERIES: dict[str, str] = {
         FROM reserve_study_assumptions
         ORDER BY study_year
     """,
-
     "reserve_study_scenarios": """
         SELECT
             scenario_name, description,
@@ -633,19 +540,6 @@ QUERIES: dict[str, str] = {
             notes
         FROM reserve_study_scenarios
         ORDER BY sort_order, scenario_name
-    """,
-
-    "fiscal_year_closes": """
-        SELECT
-            fyc.fiscal_year,
-            fyc.closed_at,
-            fyc.reopened_at,
-            je_op.entry_number          AS operating_close_entry,
-            je_res.entry_number         AS reserve_close_entry
-        FROM fiscal_year_closes fyc
-        LEFT JOIN journal_entries je_op  ON je_op.id  = fyc.closing_je_operating_id
-        LEFT JOIN journal_entries je_res ON je_res.id = fyc.closing_je_reserve_id
-        ORDER BY fyc.fiscal_year
     """,
 }
 

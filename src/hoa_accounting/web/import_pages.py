@@ -144,22 +144,6 @@ TABLE_DEFS: dict[str, dict] = {
             {"name": "end_date",          "label": "End Date",        "required": False, "type": "date",    "note": "YYYY-MM-DD, blank = current owner"},
         ],
     },
-    "renters": {
-        "label": "Renters",
-        "order": 8,
-        "requires": ["Lots"],
-        "fields": [
-            {"name": "lot_number",      "label": "Lot Number",     "required": True,  "type": "text", "note": "Must match an existing lot"},
-            {"name": "display_name",    "label": "Display Name",   "required": True,  "type": "text"},
-            {"name": "first_name",      "label": "First Name",     "required": False, "type": "text"},
-            {"name": "last_name",       "label": "Last Name",      "required": False, "type": "text"},
-            {"name": "email",           "label": "Email",          "required": False, "type": "text"},
-            {"name": "phone",           "label": "Phone",          "required": False, "type": "text"},
-            {"name": "start_date",      "label": "Start Date",     "required": False, "type": "date", "note": "YYYY-MM-DD"},
-            {"name": "end_date",        "label": "End Date",       "required": False, "type": "date", "note": "YYYY-MM-DD"},
-            {"name": "notes",           "label": "Notes",          "required": False, "type": "text"},
-        ],
-    },
     "board_members": {
         "label": "Board Members",
         "order": 8,
@@ -236,6 +220,107 @@ TABLE_DEFS: dict[str, dict] = {
             {"name": "category_code",  "label": "Category Code", "required": True, "type": "text",    "key": True,  "note": "Combined key — must match an existing category code"},
             {"name": "fiscal_period",  "label": "Fiscal Period", "required": True, "type": "integer", "key": True,  "note": "Combined key — 1–12"},
             {"name": "budget_amount",  "label": "Budget Amount", "required": True, "type": "decimal"},
+        ],
+    },
+    "deposit_batches": {
+        "label": "Deposit Batches",
+        "order": 14,
+        "requires": ["Bank Accounts"],
+        "fields": [
+            {"name": "deposit_date",       "label": "Deposit Date",     "required": True,  "type": "date",    "key": True, "note": "YYYY-MM-DD"},
+            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
+            {"name": "total_amount",       "label": "Total Amount",     "required": True,  "type": "decimal", "key": True},
+            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text",    "note": "Optional — must match an existing category code"},
+            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+        ],
+    },
+    "assessments": {
+        "label": "Assessments / Charges",
+        "order": 15,
+        "requires": ["Lots", "Owners", "Categories"],
+        "fields": [
+            {"name": "lot_number",         "label": "Lot Number",       "required": True,  "type": "text",    "key": True, "note": "Must match an existing lot"},
+            {"name": "owner_name",         "label": "Owner Name",       "required": True,  "type": "text",    "key": True, "note": "Must match an existing owner display name"},
+            {"name": "charge_type",        "label": "Charge Type",      "required": True,  "type": "enum",    "values": ["DUES","LATE_FEE","RESALE_FEE","SPECIAL","OTHER"]},
+            {"name": "assessment_date",    "label": "Assessment Date",  "required": True,  "type": "date",    "key": True, "note": "YYYY-MM-DD"},
+            {"name": "due_date",           "label": "Due Date",         "required": True,  "type": "date"},
+            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
+            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text"},
+            {"name": "status",             "label": "Status",           "required": False, "type": "enum",    "values": ["OPEN","PAID","PARTIAL","VOID","WRITTEN_OFF"], "note": "Default OPEN"},
+            {"name": "description",        "label": "Description",      "required": False, "type": "text"},
+        ],
+    },
+    "payments": {
+        "label": "Payments Received",
+        "order": 16,
+        "requires": ["Owners", "Bank Accounts"],
+        "fields": [
+            {"name": "receipt_number",     "label": "Receipt Number",   "required": True,  "type": "text",    "key": True, "note": "Must be unique"},
+            {"name": "owner_name",         "label": "Owner Name",       "required": True,  "type": "text",    "note": "Must match an existing owner display name"},
+            {"name": "payment_date",       "label": "Payment Date",     "required": True,  "type": "date"},
+            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
+            {"name": "payment_method",     "label": "Payment Method",   "required": True,  "type": "enum",    "values": ["CHECK","CASH","ACH","CREDIT_CARD","OTHER"]},
+            {"name": "reference_number",   "label": "Reference Number", "required": False, "type": "text"},
+            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "note": "Must match an existing bank account name"},
+            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text"},
+            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+        ],
+    },
+    "vendor_bills": {
+        "label": "Vendor Bills",
+        "order": 17,
+        "requires": ["Vendors", "Categories"],
+        "fields": [
+            {"name": "vendor_name",        "label": "Vendor Name",      "required": True,  "type": "text",    "key": True, "note": "Must match an existing vendor"},
+            {"name": "invoice_number",     "label": "Invoice Number",   "required": True,  "type": "text",    "key": True, "note": "Unique per vendor"},
+            {"name": "invoice_date",       "label": "Invoice Date",     "required": True,  "type": "date"},
+            {"name": "due_date",           "label": "Due Date",         "required": False, "type": "date"},
+            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
+            {"name": "fund_code",          "label": "Fund Code",        "required": False, "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
+            {"name": "category_code",      "label": "Category Code",    "required": True,  "type": "text",    "note": "Must match an existing category code"},
+            {"name": "status",             "label": "Status",           "required": False, "type": "enum",    "values": ["OPEN","PAID","VOID"], "note": "Default OPEN"},
+            {"name": "description",        "label": "Description",      "required": False, "type": "text"},
+        ],
+    },
+    "bill_payments": {
+        "label": "Bill Payments",
+        "order": 18,
+        "requires": ["Vendor Bills", "Bank Accounts"],
+        "fields": [
+            {"name": "vendor_name",        "label": "Vendor Name",      "required": True,  "type": "text",    "key": True, "note": "Combined key with invoice number"},
+            {"name": "invoice_number",     "label": "Invoice Number",   "required": True,  "type": "text",    "key": True, "note": "Bill must already exist"},
+            {"name": "payment_date",       "label": "Payment Date",     "required": True,  "type": "date"},
+            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
+            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "note": "Must match an existing bank account name"},
+            {"name": "check_number",       "label": "Check Number",     "required": False, "type": "text"},
+            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+        ],
+    },
+    "non_dues_income": {
+        "label": "Non-Dues Income",
+        "order": 19,
+        "requires": ["Bank Accounts", "Categories"],
+        "fields": [
+            {"name": "posting_date",       "label": "Posting Date",     "required": True,  "type": "date",    "key": True},
+            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
+            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text",    "note": "Optional"},
+            {"name": "income_description", "label": "Description",      "required": True,  "type": "text",    "key": True},
+            {"name": "total_amount",       "label": "Total Amount",     "required": True,  "type": "decimal"},
+            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+        ],
+    },
+    "reserve_transfers": {
+        "label": "Reserve Transfers",
+        "order": 20,
+        "requires": ["Bank Accounts"],
+        "fields": [
+            {"name": "transfer_date",        "label": "Transfer Date",      "required": True,  "type": "date",    "key": True},
+            {"name": "from_bank_account",    "label": "From Bank Account",  "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
+            {"name": "to_bank_account",      "label": "To Bank Account",    "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
+            {"name": "amount",               "label": "Amount",             "required": True,  "type": "decimal"},
+            {"name": "transfer_type",        "label": "Transfer Type",      "required": False, "type": "text",    "note": "e.g. CONTRIBUTION, FUNDING, OTHER"},
+            {"name": "purpose",              "label": "Purpose",            "required": False, "type": "text"},
+            {"name": "notes",                "label": "Notes",              "required": False, "type": "text"},
         ],
     },
 }
@@ -805,32 +890,6 @@ class ImportPages:
         )
         return []
 
-    def _insert_renters(self, row: dict) -> list[str]:
-        lot_num = self._v(row, "lot_number")
-        lot_row = self.conn.execute(
-            "SELECT id FROM lots WHERE lot_number=?", (lot_num,)
-        ).fetchone()
-        if not lot_row:
-            return [f"Lot \"{lot_num}\" not found. Import Lots first."]
-        self.conn.execute(
-            """INSERT INTO lot_renters
-               (lot_id, display_name, first_name, last_name,
-                email, phone, start_date, end_date, notes)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
-            (
-                lot_row[0],
-                self._v(row, "display_name"),
-                self._v(row, "first_name"),
-                self._v(row, "last_name"),
-                self._v(row, "email"),
-                self._v(row, "phone"),
-                self._v(row, "start_date") or None,
-                self._v(row, "end_date")   or None,
-                self._v(row, "notes"),
-            ),
-        )
-        return []
-
     def _insert_budget_lines(self, row: dict) -> list[str]:
         fy = int(self._v(row, "fiscal_year", 0))
         fc = self._v(row, "fund_code", "").upper()
@@ -867,6 +926,269 @@ class ImportPages:
                 period,
                 float(self._v(row, "budget_amount", 0)),
             ),
+        )
+        return []
+
+
+    # ── Transactional imports (mid-year migration) ─────────────────────
+
+    def _lookup(self, table: str, key_col: str, value: str, label: str | None = None):
+        if not value:
+            return None, [f'{label or key_col} is required.']
+        row = self.conn.execute(
+            f"SELECT id FROM {table} WHERE {key_col}=?", (value,)
+        ).fetchone()
+        if not row:
+            return None, [f'{label or key_col} "{value}" not found.']
+        return int(row[0]), []
+
+    def _insert_deposit_batches(self, row: dict) -> list[str]:
+        bank_id, errs = self._lookup("bank_accounts", "account_name",
+                                     self._v(row, "bank_account_name"), "Bank account")
+        if errs:
+            return errs
+        cat_code = (self._v(row, "category_code", "") or "").upper()
+        cat_id = None
+        if cat_code:
+            cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
+            if e:
+                return e
+            cat_id = cid
+        try:
+            total = float(self._v(row, "total_amount", "0"))
+        except ValueError:
+            return ["Total amount must be a number."]
+        deposit_date = self._v(row, "deposit_date")
+        if self.conn.execute(
+            """SELECT 1 FROM deposit_batches
+                WHERE deposit_date=? AND bank_account_id=? AND total_amount=?""",
+            (deposit_date, bank_id, str(total)),
+        ).fetchone():
+            return ["A deposit with this date / bank / amount already exists."]
+        self.conn.execute(
+            """INSERT INTO deposit_batches
+               (deposit_date, bank_account_id, total_amount, category_id, notes)
+               VALUES (?,?,?,?,?)""",
+            (deposit_date, bank_id, str(total), cat_id, self._v(row, "notes")),
+        )
+        return []
+
+    def _insert_assessments(self, row: dict) -> list[str]:
+        lot_id, errs = self._lookup("lots", "lot_number",
+                                    self._v(row, "lot_number"), "Lot")
+        if errs:
+            return errs
+        owner_id, errs = self._lookup("owners", "display_name",
+                                      self._v(row, "owner_name"), "Owner")
+        if errs:
+            return errs
+        cat_id = None
+        cat_code = (self._v(row, "category_code", "") or "").upper()
+        if cat_code:
+            cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
+            if e:
+                return e
+            cat_id = cid
+        try:
+            amt = float(self._v(row, "amount", "0"))
+        except ValueError:
+            return ["Amount must be a number."]
+        charge_type = (self._v(row, "charge_type", "") or "").upper()
+        assessment_date = self._v(row, "assessment_date")
+        due_date = self._v(row, "due_date")
+        status = (self._v(row, "status", "OPEN") or "OPEN").upper()
+        if self.conn.execute(
+            """SELECT 1 FROM assessments
+                WHERE lot_id=? AND owner_id=? AND charge_type=?
+                  AND assessment_date=? AND amount=?""",
+            (lot_id, owner_id, charge_type, assessment_date, str(amt)),
+        ).fetchone():
+            return ["This lot / owner / charge_type / date / amount already exists."]
+        self.conn.execute(
+            """INSERT INTO assessments
+               (lot_id, owner_id, charge_type, assessment_date, due_date,
+                amount, status, category_id, description)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (lot_id, owner_id, charge_type, assessment_date, due_date,
+             str(amt), status, cat_id, self._v(row, "description")),
+        )
+        return []
+
+    def _insert_payments(self, row: dict) -> list[str]:
+        receipt = self._v(row, "receipt_number")
+        if not receipt:
+            return ["Receipt Number is required."]
+        if self.conn.execute(
+            "SELECT 1 FROM payments WHERE receipt_number=?", (receipt,)
+        ).fetchone():
+            return [f'Receipt "{receipt}" already exists.']
+        owner_id, errs = self._lookup("owners", "display_name",
+                                      self._v(row, "owner_name"), "Owner")
+        if errs:
+            return errs
+        bank_id, errs = self._lookup("bank_accounts", "account_name",
+                                     self._v(row, "bank_account_name"), "Bank account")
+        if errs:
+            return errs
+        cat_id = None
+        cat_code = (self._v(row, "category_code", "") or "").upper()
+        if cat_code:
+            cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
+            if e:
+                return e
+            cat_id = cid
+        try:
+            amt = float(self._v(row, "amount", "0"))
+        except ValueError:
+            return ["Amount must be a number."]
+        method = (self._v(row, "payment_method", "") or "").upper()
+        self.conn.execute(
+            """INSERT INTO payments
+               (receipt_number, owner_id, payment_date, amount, payment_method,
+                reference_number, bank_account_id, category_id, notes)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (receipt, owner_id, self._v(row, "payment_date"), str(amt), method,
+             self._v(row, "reference_number"), bank_id, cat_id,
+             self._v(row, "notes")),
+        )
+        return []
+
+    def _insert_vendor_bills(self, row: dict) -> list[str]:
+        vendor_id, errs = self._lookup("vendors", "vendor_name",
+                                       self._v(row, "vendor_name"), "Vendor")
+        if errs:
+            return errs
+        cat_id, errs = self._lookup("categories", "UPPER(code)",
+                                    (self._v(row, "category_code", "") or "").upper(),
+                                    "Category")
+        if errs:
+            return errs
+        invoice = self._v(row, "invoice_number")
+        if self.conn.execute(
+            "SELECT 1 FROM vendor_bills WHERE vendor_id=? AND invoice_number=?",
+            (vendor_id, invoice),
+        ).fetchone():
+            return [f'Invoice "{invoice}" already exists for this vendor.']
+        try:
+            amt = float(self._v(row, "amount", "0"))
+        except ValueError:
+            return ["Amount must be a number."]
+        fund = (self._v(row, "fund_code", "OPERATING") or "OPERATING").upper()
+        if fund not in ("OPERATING", "RESERVE", "SPECIAL"):
+            fund = "OPERATING"
+        status = (self._v(row, "status", "OPEN") or "OPEN").upper()
+        self.conn.execute(
+            """INSERT INTO vendor_bills
+               (vendor_id, invoice_number, invoice_date, due_date, amount,
+                fund_code, status, description, category_id)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (vendor_id, invoice, self._v(row, "invoice_date"),
+             self._v(row, "due_date") or None, str(amt), fund, status,
+             self._v(row, "description"), cat_id),
+        )
+        return []
+
+    def _insert_bill_payments(self, row: dict) -> list[str]:
+        vn = self._v(row, "vendor_name")
+        inv = self._v(row, "invoice_number")
+        bill = self.conn.execute(
+            """SELECT vb.id FROM vendor_bills vb
+                JOIN vendors v ON v.id = vb.vendor_id
+                WHERE v.vendor_name=? AND vb.invoice_number=?""",
+            (vn, inv),
+        ).fetchone()
+        if not bill:
+            return [f'Bill "{inv}" for vendor "{vn}" not found.']
+        bank_id, errs = self._lookup("bank_accounts", "account_name",
+                                     self._v(row, "bank_account_name"), "Bank account")
+        if errs:
+            return errs
+        try:
+            amt = float(self._v(row, "amount", "0"))
+        except ValueError:
+            return ["Amount must be a number."]
+        if self.conn.execute(
+            """SELECT 1 FROM bill_payments
+                WHERE vendor_bill_id=? AND payment_date=? AND amount=?""",
+            (int(bill[0]), self._v(row, "payment_date"), str(amt)),
+        ).fetchone():
+            return ["A payment for this bill / date / amount already exists."]
+        self.conn.execute(
+            """INSERT INTO bill_payments
+               (vendor_bill_id, payment_date, amount, bank_account_id,
+                check_number, notes)
+               VALUES (?,?,?,?,?,?)""",
+            (int(bill[0]), self._v(row, "payment_date"), str(amt), bank_id,
+             self._v(row, "check_number"), self._v(row, "notes")),
+        )
+        return []
+
+    def _insert_non_dues_income(self, row: dict) -> list[str]:
+        bank_id, errs = self._lookup("bank_accounts", "account_name",
+                                     self._v(row, "bank_account_name"), "Bank account")
+        if errs:
+            return errs
+        cat_id = None
+        cat_code = (self._v(row, "category_code", "") or "").upper()
+        if cat_code:
+            cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
+            if e:
+                return e
+            cat_id = cid
+        try:
+            total = float(self._v(row, "total_amount", "0"))
+        except ValueError:
+            return ["Total amount must be a number."]
+        posting_date = self._v(row, "posting_date")
+        desc = self._v(row, "income_description")
+        if self.conn.execute(
+            """SELECT 1 FROM income_batches
+                WHERE posting_date=? AND bank_account_id=?
+                  AND income_description=? AND total_amount=?""",
+            (posting_date, bank_id, desc, str(total)),
+        ).fetchone():
+            return ["A batch with this date / bank / description / amount already exists."]
+        self.conn.execute(
+            """INSERT INTO income_batches
+               (posting_date, bank_account_id, income_description,
+                total_amount, notes, category_id)
+               VALUES (?,?,?,?,?,?)""",
+            (posting_date, bank_id, desc, str(total),
+             self._v(row, "notes"), cat_id),
+        )
+        return []
+
+    def _insert_reserve_transfers(self, row: dict) -> list[str]:
+        from_id, errs = self._lookup("bank_accounts", "account_name",
+                                     self._v(row, "from_bank_account"), "From bank account")
+        if errs:
+            return errs
+        to_id, errs = self._lookup("bank_accounts", "account_name",
+                                   self._v(row, "to_bank_account"), "To bank account")
+        if errs:
+            return errs
+        if from_id == to_id:
+            return ["From and To bank accounts must be different."]
+        try:
+            amt = float(self._v(row, "amount", "0"))
+        except ValueError:
+            return ["Amount must be a number."]
+        transfer_date = self._v(row, "transfer_date")
+        if self.conn.execute(
+            """SELECT 1 FROM reserve_transfers
+                WHERE transfer_date=? AND from_bank_account_id=?
+                  AND to_bank_account_id=? AND amount=?""",
+            (transfer_date, from_id, to_id, str(amt)),
+        ).fetchone():
+            return ["A transfer with this date / accounts / amount already exists."]
+        self.conn.execute(
+            """INSERT INTO reserve_transfers
+               (transfer_date, from_bank_account_id, to_bank_account_id,
+                amount, transfer_type, purpose, notes)
+               VALUES (?,?,?,?,?,?,?)""",
+            (transfer_date, from_id, to_id, str(amt),
+             (self._v(row, "transfer_type", "") or "").upper() or None,
+             self._v(row, "purpose"), self._v(row, "notes")),
         )
         return []
 
