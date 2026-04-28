@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Dry Run · {{ org.name }}{% endblock %}
+{% block heading %}Dry Run{% endblock %}
+
+{% block content %}
+
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">What would happen if Accept All were pressed</div>
+      <div class="panel__description">
+        Read-only preview. Nothing is written to the books.
+        UNMATCHED rows are listed at the bottom — those still need
+        Classify or Ignore.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:1rem;padding:.75rem 1rem;
+                          display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+  <a href="/bank-transactions/pending{% if selected_bank_account_id %}?bank_account_id={{ selected_bank_account_id }}{% endif %}"
+     class="btn btn--ghost btn--sm">← Back to Pending</a>
+
+  {% if acceptable_count > 0 %}
+    <form method="post" action="/bank-transactions/accept-all" style="display:inline;"
+          data-confirm="This will post {{ acceptable_count }} ledger record(s) for the matched bank transactions. Continue?"
+          data-confirm-title="Accept All Matched Transactions"
+          data-confirm-label="Accept All"
+          data-confirm-danger="false">
+      {% if selected_bank_account_id %}
+        <input type="hidden" name="bank_account_id" value="{{ selected_bank_account_id }}" />
+      {% endif %}
+      <button type="submit" class="btn btn--primary btn--sm">
+        ✓ Accept All ({{ acceptable_count }})
+      </button>
+    </form>
+  {% endif %}
+
+  <span style="margin-left:auto;font-size:.85rem;color:var(--text-muted);">
+    Net to bank: <strong>{{ net }}</strong>
+  </span>
+</div>
+
+{# ── Rule matches ───────────────────────────────────────────────────── #}
+{% if rule_rows %}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        <span class="pill" style="background:#ede9fe;color:#5b21b6;border:none;">RULE</span>
+        Auto-posted by rules ({{ rule_rows | length }}, total {{ rule_total }})
+      </div>
+      <div class="panel__description">
+        Each row creates a new ledger record (vendor bill + bill payment, owner
+        payment + deposit batch, or non-dues income batch — depending on the rule's action).
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Account</th>
+          <th>Description</th>
+          <th class="num">Amount</th>
+          <th>Rule</th>
+          <th>Will create</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rule_rows %}
+        <tr>
+          <td>{{ r.transaction_date }}</td>
+          <td>{{ r.account_name }}{% if r.account_last4 %} ···{{ r.account_last4 }}{% endif %}</td>
+          <td>{{ r.description }}</td>
+          <td class="num" style="color:{% if (r.amount | float) < 0 %}#991b1b{% else %}#166534{% endif %};">
+            {{ '%.2f' | format(r.amount | float) }}
+          </td>
+          <td>{{ r.rule_name }}</td>
+          <td style="font-size:12px;">
+            {% if r.action_type == 'dues_payment' %}
+              Owner payment to <strong>Lot {{ r.rule_lot_number }}</strong> +
+              single-row deposit batch
+            {% elif r.action_type in ('recurring_bill','direct_expense','bank_charge') %}
+              Vendor bill + payment to <strong>{{ r.vendor_name }}</strong>
+              ({{ r.category_name }})
+            {% elif r.action_type == 'vendor_bill_match' %}
+              Match (or create) bill for <strong>{{ r.vendor_name }}</strong> + payment
+            {% elif r.action_type in ('fee_income','direct_income') %}
+              Non-dues income → <strong>{{ r.category_name }}</strong>
+            {% else %}
+              {{ r.action_type }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Source matches ──────────────────────────────────────────────────── #}
+{% if source_rows %}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        <span class="pill" style="background:#fef3c7;color:#92400e;border:none;">SOURCE</span>
+        Linking to existing ledger rows ({{ source_rows | length }}, total {{ source_total }})
+      </div>
+      <div class="panel__description">
+        These bank lines already correspond to a payment, bill payment, or
+        income batch you've recorded. Accepting just marks them validated.
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Account</th>
+          <th>Description</th>
+          <th class="num">Amount</th>
+          <th>Linked record</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in source_rows %}
+        <tr>
+          <td>{{ r.transaction_date }}</td>
+          <td>{{ r.account_name }}</td>
+          <td>{{ r.description }}</td>
+          <td class="num">{{ '%.2f' | format(r.amount | float) }}</td>
+          <td>{{ r.matched_source_type }} #{{ r.matched_source_id }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Batch matches ───────────────────────────────────────────────────── #}
+{% if batch_rows %}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        <span class="pill" style="background:#fef3c7;color:#92400e;border:none;">BATCH</span>
+        Linking to deposit batches ({{ batch_rows | length }}, total {{ batch_total }})
+      </div>
+      <div class="panel__description">
+        Bank deposits matched to deposit slips you recorded. Accepting marks
+        the bank line cleared.
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Account</th>
+          <th class="num">Bank amount</th>
+          <th>Deposit batch</th>
+          <th class="num">Batch total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in batch_rows %}
+        <tr>
+          <td>{{ r.transaction_date }}</td>
+          <td>{{ r.account_name }}</td>
+          <td class="num">{{ '%.2f' | format(r.amount | float) }}</td>
+          <td>Batch #{{ r.matched_source_id }} ({{ r.batch_date }}){% if r.batch_notes %} — {{ r.batch_notes }}{% endif %}</td>
+          <td class="num">{{ '%.2f' | format(r.batch_amount | float) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Unmatched ──────────────────────────────────────────────────────── #}
+{% if unmatched_rows %}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        <span class="pill" style="background:#fee2e2;color:#991b1b;border:none;">UNMATCHED</span>
+        Need Classify or Ignore ({{ unmatched_rows | length }})
+      </div>
+      <div class="panel__description">
+        These won't be touched by Accept All. Resolve each from the
+        Pending Validation page.
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Account</th>
+          <th>Description</th>
+          <th class="num">Amount</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in unmatched_rows %}
+        <tr>
+          <td>{{ r.transaction_date }}</td>
+          <td>{{ r.account_name }}</td>
+          <td>{{ r.description }}</td>
+          <td class="num" style="color:{% if (r.amount | float) < 0 %}#991b1b{% else %}#166534{% endif %};">
+            {{ '%.2f' | format(r.amount | float) }}
+          </td>
+          <td><a href="/bank-transactions/{{ r.id }}/classify" class="btn btn--ghost btn--sm">Classify…</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not rule_rows and not source_rows and not batch_rows and not unmatched_rows %}
+<div class="panel"><div class="empty" style="padding:2.5rem 1.5rem;">
+  Nothing pending. The queue is empty.
+</div></div>
+{% endif %}
+
+{% endblock %}

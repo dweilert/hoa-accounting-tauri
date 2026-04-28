@@ -42,18 +42,17 @@ class ReserveTransfersRepository(BaseRepository):
                     rt.amount,
                     rt.notes,
                     rt.purpose,
-                    rt.journal_entry_id,
-                    je.entry_number,
-                    fa.account_number AS from_account_number,
-                    fa.account_name   AS from_account_name,
-                    fa.fund_code      AS from_fund_code,
-                    ta.account_number AS to_account_number,
-                    ta.account_name   AS to_account_name,
-                    ta.fund_code      AS to_fund_code
+                    NULL AS journal_entry_id,
+                    NULL AS entry_number,
+                    NULL AS from_account_number,
+                    fb.account_name   AS from_account_name,
+                    fb.fund_code      AS from_fund_code,
+                    NULL AS to_account_number,
+                    tb.account_name   AS to_account_name,
+                    tb.fund_code      AS to_fund_code
                 FROM reserve_transfers rt
-                LEFT JOIN journal_entries je ON je.id = rt.journal_entry_id
-                LEFT JOIN accounts fa ON fa.id = rt.from_account_id
-                LEFT JOIN accounts ta ON ta.id = rt.to_account_id
+                LEFT JOIN bank_accounts fb ON fb.id = rt.from_bank_account_id
+                LEFT JOIN bank_accounts tb ON tb.id = rt.to_bank_account_id
                 {where}
                 ORDER BY rt.transfer_date DESC, rt.id DESC
                 """,
@@ -72,28 +71,24 @@ class ReserveTransfersRepository(BaseRepository):
                 rt.amount,
                 rt.notes,
                 rt.purpose,
-                rt.journal_entry_id,
-                je.entry_number,
-                fa.account_number AS from_account_number,
-                fa.account_name   AS from_account_name,
-                fa.fund_code      AS from_fund_code,
-                ta.account_number AS to_account_number,
-                ta.account_name   AS to_account_name,
-                ta.fund_code      AS to_fund_code
+                NULL AS journal_entry_id,
+                NULL AS entry_number,
+                NULL AS from_account_number,
+                fb.account_name   AS from_account_name,
+                fb.fund_code      AS from_fund_code,
+                NULL AS to_account_number,
+                tb.account_name   AS to_account_name,
+                tb.fund_code      AS to_fund_code
             FROM reserve_transfers rt
-            LEFT JOIN journal_entries je ON je.id = rt.journal_entry_id
-            LEFT JOIN accounts fa ON fa.id = rt.from_account_id
-            LEFT JOIN accounts ta ON ta.id = rt.to_account_id
+            LEFT JOIN bank_accounts fb ON fb.id = rt.from_bank_account_id
+            LEFT JOIN bank_accounts tb ON tb.id = rt.to_bank_account_id
             WHERE rt.id = ?
             """,
             (transfer_id,),
         ).fetchone()
 
     def get_bank_accounts_by_fund(self) -> dict[str, list[sqlite3.Row]]:
-        """Return active bank accounts grouped by GL fund code.
-
-        Keys are fund codes (e.g. 'OPERATING', 'RESERVE').
-        """
+        """Return active bank accounts grouped by fund code."""
         rows = list(
             self.conn.execute(
                 """
@@ -102,14 +97,10 @@ class ReserveTransfersRepository(BaseRepository):
                     ba.account_name,
                     ba.account_last4,
                     ba.institution_name,
-                    a.id     AS gl_account_id,
-                    a.account_number AS gl_account_number,
-                    a.account_name   AS gl_account_name,
-                    a.fund_code
+                    ba.fund_code
                 FROM bank_accounts ba
-                JOIN accounts a ON a.id = ba.gl_account_id
                 WHERE ba.active_flag = 1
-                ORDER BY a.fund_code, ba.account_name COLLATE NOCASE
+                ORDER BY ba.fund_code, ba.account_name COLLATE NOCASE
                 """
             ).fetchall()
         )
@@ -119,25 +110,23 @@ class ReserveTransfersRepository(BaseRepository):
         return result
 
     def get_reserve_balance(self) -> str:
-        """Return the current net balance of all RESERVE-fund GL accounts.
-
-        Computes opening_balance + net posted JE lines for each active
-        RESERVE bank account's GL account, summed together.
-        """
+        """Return the current cash balance of all RESERVE bank accounts."""
         row = self.conn.execute(
             """
             SELECT
                 COALESCE(SUM(ba.opening_balance), 0)
-                + COALESCE(SUM(
-                    CASE WHEN je.status = 'POSTED' THEN
-                        jel.debit_amount - jel.credit_amount
-                    ELSE 0 END
-                ), 0) AS balance
+                + COALESCE((SELECT SUM(p.amount) FROM payments p
+                            JOIN bank_accounts b ON b.id = p.bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                + COALESCE((SELECT SUM(ib.total_amount) FROM income_batches ib
+                            JOIN bank_accounts b ON b.id = ib.bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                - COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp
+                            JOIN bank_accounts b ON b.id = bp.bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                AS balance
             FROM bank_accounts ba
-            JOIN accounts a ON a.id = ba.gl_account_id AND a.fund_code = 'RESERVE'
-            LEFT JOIN journal_entry_lines jel ON jel.account_id = a.id
-            LEFT JOIN journal_entries je ON je.id = jel.journal_entry_id
-            WHERE ba.active_flag = 1
+            WHERE ba.fund_code = 'RESERVE' AND ba.active_flag = 1
             """
         ).fetchone()
         if row and row["balance"] is not None:

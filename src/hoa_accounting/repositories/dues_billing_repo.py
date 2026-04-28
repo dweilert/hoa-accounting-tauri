@@ -17,6 +17,20 @@ class DuesBillingRepository:
         ).fetchone()
         return dict(row) if row else None
 
+    def get_billing_for_period(
+        self, *, cycle_type: str, period_year: int, period_sequence: int
+    ) -> dict | None:
+        """Return the existing history row for this period, or None."""
+        row = self.conn.execute(
+            """
+            SELECT * FROM dues_billing_history
+            WHERE cycle_type = ? AND period_year = ? AND period_sequence = ?
+            LIMIT 1
+            """,
+            (cycle_type, period_year, period_sequence),
+        ).fetchone()
+        return dict(row) if row else None
+
     def insert_history(
         self,
         *,

@@ -53,21 +53,69 @@
     <form method="post" action="/bank-transactions/{{ txn.id }}/classify/pick"
           style="padding:1rem;">
 
+      {% set abs_amt = (txn.amount | float) | abs %}
       <div style="margin-bottom:1rem;">
+        <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.35rem;">
+          <label style="font-size:.8rem;font-weight:600;">
+            Lines <span style="color:var(--danger);">*</span>
+          </label>
+          <span style="font-size:.72rem;color:var(--text-muted);">
+            Split across multiple categories if needed. Lines must sum to
+            <strong>{{ '%.2f' | format(abs_amt) }}</strong>.
+          </span>
+        </div>
+        <div id="split-lines">
+          <div class="split-line" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.4rem;">
+            <select name="line_category_id" class="line-category" required style="flex:1;">
+              <option value="">— select category —</option>
+              {% for c in categories %}
+                {% if (is_income and c.category_type == 'INCOME') or (not is_income and c.category_type == 'EXPENSE') %}
+                  <option value="{{ c.id }}" data-code="{{ c.code }}">
+                    {{ c.name }}{% if c.group_name %} ({{ c.group_name }}){% endif %}
+                  </option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <input type="text" name="line_amount" class="line-amount dollar-input"
+                   inputmode="decimal" required
+                   value="{{ '%.2f' | format(abs_amt) }}"
+                   style="width:8rem;text-align:right;font-family:var(--font-mono);" />
+            <button type="button" class="btn btn--ghost btn--sm line-remove"
+                    title="Remove line" style="visibility:hidden;">×</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-top:.25rem;">
+          <button type="button" id="add-split-line"
+                  class="btn btn--ghost btn--sm">+ Add line</button>
+          <span id="split-total" style="font-size:.78rem;color:var(--text-muted);">
+            Total <strong>{{ '%.2f' | format(abs_amt) }}</strong> /
+            target <strong>{{ '%.2f' | format(abs_amt) }}</strong>
+          </span>
+        </div>
+      </div>
+      <input type="hidden" id="bank-amount" value="{{ '%.2f' | format(abs_amt) }}" />
+
+      {% if is_income %}
+      {# Lot picker — only used when the category is an owner-payment type
+         (HOA Dues / Late Fees / Resale Fee). JS toggles visibility. #}
+      <div id="classify-lot-row" style="display:none;margin-bottom:1rem;">
         <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
-          Category <span style="color:var(--danger);">*</span>
+          Lot <span style="color:var(--danger);">*</span>
         </label>
-        <select name="category_id" required style="width:100%;">
-          <option value="">— select category —</option>
-          {% for c in categories %}
-            {% if (is_income and c.category_type == 'INCOME') or (not is_income and c.category_type == 'EXPENSE') %}
-              <option value="{{ c.id }}">
-                {{ c.name }}{% if c.group_name %} ({{ c.group_name }}){% endif %}
-              </option>
-            {% endif %}
+        <select name="lot_id" id="classify-lot" style="width:100%;">
+          <option value="">— select lot —</option>
+          {% for l in lots %}
+            <option value="{{ l.id }}">
+              Lot {{ l.lot_number }}{% if l.owner_name %} · {{ l.owner_name }}{% endif %}
+            </option>
           {% endfor %}
         </select>
+        <div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem;">
+          Owner payment will drain this lot's open charges of the matching type.
+          A single-row deposit batch is created so the Deposits report sees it.
+        </div>
       </div>
+      {% endif %}
 
       {% if not is_income %}
       <div style="margin-bottom:1rem;">
@@ -153,5 +201,112 @@
     </form>
   </div>
 </div>
+
+<script>
+  (function () {
+    var ownerCodes = {DUES: 1, LATE_FEE: 1, RESALE_FEE: 1};
+    var bankAmt    = parseFloat((document.getElementById("bank-amount") || {}).value || "0");
+    var linesEl    = document.getElementById("split-lines");
+    var addBtn     = document.getElementById("add-split-line");
+    var totalEl    = document.getElementById("split-total");
+    var saveBtn    = document.querySelector("form[action$='/classify/pick'] button[type='submit']");
+    var lotRow     = document.getElementById("classify-lot-row");
+    var lotSel     = document.getElementById("classify-lot");
+
+    function firstLineCode() {
+      var first = linesEl.querySelector(".line-category");
+      if (!first) return "";
+      var opt = first.options[first.selectedIndex];
+      return opt ? (opt.getAttribute("data-code") || "").toUpperCase() : "";
+    }
+
+    function isOwnerPaymentSelected() {
+      return ownerCodes[firstLineCode()] === 1;
+    }
+
+    function recalc() {
+      var sum = 0;
+      linesEl.querySelectorAll(".line-amount").forEach(function (inp) {
+        var v = parseFloat((inp.value || "").replace(/[^0-9.\-]/g, ""));
+        if (!isNaN(v)) sum += v;
+      });
+      var diff = +(bankAmt - sum).toFixed(2);
+      var ok = Math.abs(diff) < 0.01;
+      totalEl.innerHTML =
+        "Total <strong>" + sum.toFixed(2) + "</strong> / target <strong>" +
+        bankAmt.toFixed(2) + "</strong>" +
+        (ok ? "" :
+          " <span style='color:#b91c1c;'>(off by " + diff.toFixed(2) + ")</span>");
+      if (saveBtn) {
+        saveBtn.disabled = !ok;
+        saveBtn.style.opacity = ok ? "" : "0.5";
+        saveBtn.style.cursor = ok ? "" : "not-allowed";
+      }
+
+      // Owner-payment categories (DUES / LATE_FEE / RESALE_FEE) require a
+      // single line tied to a single lot. Hide the Add Line button and
+      // remove any extra lines if the user picks one.
+      if (isOwnerPaymentSelected()) {
+        addBtn.style.display = "none";
+        var lines = linesEl.querySelectorAll(".split-line");
+        for (var i = 1; i < lines.length; i++) lines[i].remove();
+        if (lotRow) { lotRow.style.display = ""; if (lotSel) lotSel.required = true; }
+      } else {
+        addBtn.style.display = "";
+        if (lotRow) { lotRow.style.display = "none"; if (lotSel) lotSel.required = false; }
+      }
+    }
+
+    function wireLine(row) {
+      row.querySelectorAll(".line-category").forEach(function (s) {
+        s.addEventListener("change", recalc);
+      });
+      row.querySelectorAll(".line-amount").forEach(function (i) {
+        i.addEventListener("input", recalc);
+        i.addEventListener("blur", function () {
+          var v = parseFloat((i.value || "").replace(/[^0-9.\-]/g, ""));
+          if (!isNaN(v)) i.value = v.toFixed(2);
+          recalc();
+        });
+      });
+      var rm = row.querySelector(".line-remove");
+      if (rm) {
+        rm.addEventListener("click", function () { row.remove(); refreshRemoveButtons(); recalc(); });
+      }
+    }
+
+    function refreshRemoveButtons() {
+      var rows = linesEl.querySelectorAll(".split-line");
+      rows.forEach(function (r, idx) {
+        var rm = r.querySelector(".line-remove");
+        if (rm) rm.style.visibility = (rows.length > 1) ? "" : "hidden";
+      });
+    }
+
+    addBtn.addEventListener("click", function () {
+      if (isOwnerPaymentSelected()) return;
+      var first = linesEl.querySelector(".split-line");
+      var clone = first.cloneNode(true);
+      clone.querySelector(".line-category").value = "";
+      // Default new line's amount to the remaining diff so the user only
+      // has to pick a category.
+      var sum = 0;
+      linesEl.querySelectorAll(".line-amount").forEach(function (i) {
+        var v = parseFloat((i.value || "").replace(/[^0-9.\-]/g, ""));
+        if (!isNaN(v)) sum += v;
+      });
+      var rem = +(bankAmt - sum).toFixed(2);
+      clone.querySelector(".line-amount").value = rem > 0 ? rem.toFixed(2) : "0.00";
+      linesEl.appendChild(clone);
+      wireLine(clone);
+      refreshRemoveButtons();
+      recalc();
+    });
+
+    linesEl.querySelectorAll(".split-line").forEach(wireLine);
+    refreshRemoveButtons();
+    recalc();
+  })();
+</script>
 
 {% endblock %}

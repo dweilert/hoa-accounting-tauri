@@ -118,6 +118,10 @@ class DashboardPages:
             new_dues = "0.00"
         new_freq = form.get("default_billing_frequency", "annual")
         self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme, default_assessment_amount=new_dues, default_billing_frequency=new_freq)
+        # Keep the in-memory org_context in sync so the sidebar / topbar pick
+        # up the new names without a server restart.
+        org["name"] = display_name
+        org["legal_name"] = legal_name
         org["theme"] = new_theme
         org["default_assessment_amount"] = new_dues
         org["default_billing_frequency"] = new_freq

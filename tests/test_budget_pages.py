@@ -35,21 +35,15 @@ _ORG = {"name": "Test HOA", "environment": "test",
 
 
 def _seed(conn: sqlite3.Connection) -> None:
+    """Seed the categories the budget UI lists. Migrations may already have
+    seeded similar rows; INSERT OR IGNORE keeps both paths safe."""
     conn.executemany(
-        "INSERT OR IGNORE INTO account_types (id, code, name, normal_balance) VALUES (?, ?, ?, ?)",
+        "INSERT OR IGNORE INTO categories "
+        "(id, code, name, category_type, fund_code, sort_order, active_flag) "
+        "VALUES (?, ?, ?, ?, ?, ?, 1)",
         [
-            (1, "ASSET", "Asset", "DEBIT"),
-            (5, "EXPENSE", "Expense", "DEBIT"),
-        ],
-    )
-    conn.executemany(
-        "INSERT OR IGNORE INTO accounts "
-        "(id, account_number, account_name, account_type_id, fund_code, group_code, is_bank_account, is_active) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            (1000, "1000", "Cash",       1, "OPERATING", None,        1, 1),
-            (6100, "6100", "Mow & Blow", 5, "OPERATING", "LANDSCAPE", 0, 1),
-            (6200, "6200", "Sewer Fee",  5, "OPERATING", "SEWER",     0, 1),
+            (6100, "MOW_BLOW", "Mow & Blow", "EXPENSE", "OPERATING", 110),
+            (6200, "SEWER",    "Sewer Fee",  "EXPENSE", "OPERATING", 120),
         ],
     )
     conn.commit()
@@ -154,7 +148,7 @@ def test_edit_form_404(conn: sqlite3.Connection) -> None:
 def test_edit_form_loads_saved_amounts(conn: sqlite3.Connection) -> None:
     bid = _make_budget(conn, 2025)
     conn.execute(
-        "INSERT INTO budget_lines (budget_id, account_id, fiscal_period, budget_amount) VALUES (?, ?, ?, ?)",
+        "INSERT INTO budget_lines (budget_id, category_id, fiscal_period, budget_amount) VALUES (?, ?, ?, ?)",
         (bid, 6100, 3, "250.00"),
     )
     conn.commit()

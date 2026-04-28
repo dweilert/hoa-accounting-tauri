@@ -159,19 +159,6 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     _trig(conn, "audit_lot_ownership_delete", "BEFORE", "DELETE", "lot_ownership",
           _del("lot_ownership", "OLD.id", _j_lo_old))
 
-    # ── journal_entries ────────────────────────────────────────────────────
-    _j_je_new = (
-        "json_object('id',NEW.id,'entry_number',NEW.entry_number,"
-        "'entry_date',NEW.entry_date,'memo',NEW.memo,"
-        "'status',NEW.status,'source_type',NEW.source_type)"
-    )
-    _j_je_old = _j_je_new.replace("NEW.", "OLD.")
-
-    _trig(conn, "audit_journal_entries_insert", "AFTER", "INSERT", "journal_entries",
-          _ins("journal_entries", "NEW.id", _j_je_new))
-    _trig(conn, "audit_journal_entries_update", "AFTER", "UPDATE", "journal_entries",
-          _upd("journal_entries", "NEW.id", _j_je_old, _j_je_new))
-    _trig(conn, "audit_journal_entries_delete", "BEFORE", "DELETE", "journal_entries",
-          _del("journal_entries", "OLD.id", _j_je_old))
+    # journal_entries triggers removed — table retired in migration 0061.
 
     conn.commit()

@@ -30,26 +30,38 @@ EXPORT_GROUPS: list[dict] = [
     {
         "title": "Master Data",
         "types": [
-            {"key": "accounts",      "label": "Chart of Accounts",    "filename": "accounts"},
-            {"key": "owners",        "label": "Owners",                "filename": "owners"},
-            {"key": "lots",          "label": "Lots",                  "filename": "lots"},
-            {"key": "lot_ownership", "label": "Lot Ownership History", "filename": "lot_ownership"},
-            {"key": "renters",       "label": "Renters",               "filename": "renters"},
-            {"key": "vendors",       "label": "Vendors",               "filename": "vendors"},
-            {"key": "bank_accounts", "label": "Bank Accounts",         "filename": "bank_accounts"},
-            {"key": "budgets",       "label": "Budgets",               "filename": "budgets"},
-            {"key": "budget_lines",  "label": "Budget Line Detail",    "filename": "budget_lines"},
+            {"key": "hoa_profile",      "label": "HOA Profile",            "filename": "hoa_profile"},
+            {"key": "board_members",    "label": "Board Members",          "filename": "board_members"},
+            {"key": "accounts",         "label": "Chart of Accounts",      "filename": "accounts"},
+            {"key": "account_types",    "label": "Account Types (lookup)", "filename": "account_types"},
+            {"key": "owners",           "label": "Owners",                 "filename": "owners"},
+            {"key": "lots",             "label": "Lots",                   "filename": "lots"},
+            {"key": "lot_ownership",    "label": "Lot Ownership History",  "filename": "lot_ownership"},
+            {"key": "renters",          "label": "Renters",                "filename": "renters"},
+            {"key": "vendors",          "label": "Vendors",                "filename": "vendors"},
+            {"key": "bank_accounts",    "label": "Bank Accounts",          "filename": "bank_accounts"},
+            {"key": "budgets",          "label": "Budgets",                "filename": "budgets"},
+            {"key": "budget_lines",     "label": "Budget Line Detail",     "filename": "budget_lines"},
+            {"key": "assessment_rules", "label": "Assessment Rules",       "filename": "assessment_rules"},
+            {"key": "bill_templates",   "label": "Recurring Bill Templates","filename": "bill_templates"},
         ],
     },
     {
         "title": "Transactions & Financials",
         "types": [
-            {"key": "assessments",           "label": "Assessments / Charges",                    "filename": "assessments"},
-            {"key": "payments",              "label": "Payments Received",                         "filename": "payments"},
-            {"key": "payment_applications",  "label": "Payment Applications (charge detail)",      "filename": "payment_applications"},
-            {"key": "vendor_bills",          "label": "Vendor Bills",                              "filename": "vendor_bills"},
-            {"key": "deposit_batches",       "label": "Deposit Batches",                           "filename": "deposit_batches"},
-            {"key": "non_dues_income",       "label": "Non-Dues Income",                           "filename": "non_dues_income"},
+            {"key": "assessments",           "label": "Assessments / Charges",                "filename": "assessments"},
+            {"key": "payments",              "label": "Payments Received",                     "filename": "payments"},
+            {"key": "payment_applications",  "label": "Payment Applications (charge detail)",  "filename": "payment_applications"},
+            {"key": "owner_adjustments",     "label": "Owner Adjustments (credits/write-offs)","filename": "owner_adjustments"},
+            {"key": "dues_billing_history",  "label": "Dues Billing History",                  "filename": "dues_billing_history"},
+            {"key": "vendor_bills",          "label": "Vendor Bills",                          "filename": "vendor_bills"},
+            {"key": "bill_payments",         "label": "Bill Payments",                         "filename": "bill_payments"},
+            {"key": "deposit_batches",       "label": "Deposit Batches",                       "filename": "deposit_batches"},
+            {"key": "non_dues_income",       "label": "Non-Dues Income",                       "filename": "non_dues_income"},
+            {"key": "journal_entries",       "label": "Journal Entries (header)",              "filename": "journal_entries"},
+            {"key": "journal_entry_lines",   "label": "Journal Entry Lines",                   "filename": "journal_entry_lines"},
+            {"key": "bank_transactions",     "label": "Bank Transactions (canonical feed)",    "filename": "bank_transactions"},
+            {"key": "bank_transaction_rules","label": "Bank Transaction Rules",                "filename": "bank_transaction_rules"},
         ],
     },
     {
@@ -58,7 +70,17 @@ EXPORT_GROUPS: list[dict] = [
             {"key": "bank_reconciliations",  "label": "Bank Reconciliations",   "filename": "bank_reconciliations"},
             {"key": "reserve_transfers",     "label": "Reserve Transfers",       "filename": "reserve_transfers"},
             {"key": "opening_balances",      "label": "Opening Balances",        "filename": "opening_balances"},
+            {"key": "accounting_periods",    "label": "Accounting Periods",      "filename": "accounting_periods"},
             {"key": "fiscal_year_closes",    "label": "Fiscal Year Closes",      "filename": "fiscal_year_closes"},
+        ],
+    },
+    {
+        "title": "Reserve Study",
+        "types": [
+            {"key": "reserve_assets",            "label": "Reserve Assets",             "filename": "reserve_assets"},
+            {"key": "reserve_components",        "label": "Reserve Components",         "filename": "reserve_components"},
+            {"key": "reserve_study_assumptions", "label": "Reserve Study Assumptions",  "filename": "reserve_study_assumptions"},
+            {"key": "reserve_study_scenarios",   "label": "Reserve Study Scenarios",    "filename": "reserve_study_scenarios"},
         ],
     },
 ]
@@ -342,6 +364,275 @@ QUERIES: dict[str, str] = {
         LEFT JOIN lots     l ON l.id = ob.entity_id AND ob.entity_type = 'lot'
         LEFT JOIN journal_entries je ON je.id = ob.journal_entry_id
         ORDER BY ob.as_of_date, ob.entity_type
+    """,
+
+    # ── Master Data additions ─────────────────────────────────────────────
+
+    "hoa_profile": """
+        SELECT
+            legal_name, display_name, corporate_state,
+            federal_tax_id, state_tax_id, formation_date,
+            mailing_address_1, mailing_address_2, city, state, postal_code,
+            phone, email, website,
+            fiscal_year_start_month, timezone, default_currency,
+            default_annual_dues, default_assessment_amount, default_billing_frequency,
+            report_header_text, report_footer_text, theme
+        FROM hoa_profile
+        WHERE id = 1
+    """,
+
+    "board_members": """
+        SELECT
+            full_name, title, email, phone,
+            start_date, end_date,
+            CASE is_active WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            notes
+        FROM board_members
+        ORDER BY is_active DESC, title, full_name
+    """,
+
+    "account_types": """
+        SELECT code, name, normal_balance, financial_statement_group
+        FROM account_types
+        ORDER BY code
+    """,
+
+    "assessment_rules": """
+        SELECT
+            ar.rule_name,
+            ar.frequency,
+            ar.default_amount,
+            ar.fund_code,
+            ia.account_number AS income_account_number,
+            ia.account_name   AS income_account_name,
+            ra.account_number AS receivable_account_number,
+            ra.account_name   AS receivable_account_name,
+            ar.effective_start_date,
+            ar.effective_end_date,
+            CASE ar.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            ar.notes
+        FROM assessment_rules ar
+        JOIN accounts ia ON ia.id = ar.income_account_id
+        JOIN accounts ra ON ra.id = ar.receivable_account_id
+        ORDER BY ar.rule_name
+    """,
+
+    "bill_templates": """
+        SELECT
+            bt.template_name,
+            v.vendor_name,
+            ea.account_number AS expense_account_number,
+            ea.account_name   AS expense_account_name,
+            pa.account_number AS payable_account_number,
+            pa.account_name   AS payable_account_name,
+            bt.fund_code,
+            bt.expense_classification,
+            bt.default_amount,
+            bt.description,
+            CASE bt.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
+        FROM bill_templates bt
+        JOIN vendors  v  ON v.id  = bt.vendor_id
+        JOIN accounts ea ON ea.id = bt.expense_account_id
+        JOIN accounts pa ON pa.id = bt.payable_account_id
+        ORDER BY bt.template_name
+    """,
+
+    # ── Transactions & Financials additions ───────────────────────────────
+
+    "owner_adjustments": """
+        SELECT
+            oa.adjustment_date,
+            o.display_name AS owner_name,
+            l.lot_number,
+            oa.adjustment_type,
+            oa.amount,
+            oa.description,
+            je.entry_number AS journal_entry
+        FROM owner_adjustments oa
+        JOIN owners o ON o.id = oa.owner_id
+        JOIN lots   l ON l.id = oa.lot_id
+        LEFT JOIN journal_entries je ON je.id = oa.journal_entry_id
+        ORDER BY oa.adjustment_date, o.display_name
+    """,
+
+    "dues_billing_history": """
+        SELECT
+            cycle_type,
+            period_label,
+            period_year,
+            period_sequence,
+            amount,
+            owner_count,
+            billed_at
+        FROM dues_billing_history
+        ORDER BY period_year, period_sequence
+    """,
+
+    "bill_payments": """
+        SELECT
+            bp.payment_date,
+            v.vendor_name,
+            vb.invoice_number,
+            bp.amount,
+            ba.account_name AS bank_account,
+            bp.check_number,
+            je.entry_number AS journal_entry,
+            bp.notes
+        FROM bill_payments bp
+        JOIN vendor_bills  vb ON vb.id = bp.vendor_bill_id
+        JOIN vendors       v  ON v.id  = vb.vendor_id
+        JOIN bank_accounts ba ON ba.id = bp.bank_account_id
+        LEFT JOIN journal_entries je ON je.id = bp.journal_entry_id
+        ORDER BY bp.payment_date, v.vendor_name
+    """,
+
+    "journal_entries": """
+        SELECT
+            je.entry_number,
+            je.entry_date,
+            ap.period_name AS accounting_period,
+            je.source_type,
+            je.source_id,
+            je.status,
+            rev.entry_number AS reversal_of,
+            je.posted_at,
+            je.memo
+        FROM journal_entries je
+        JOIN accounting_periods ap ON ap.id = je.accounting_period_id
+        LEFT JOIN journal_entries rev ON rev.id = je.reversal_entry_id
+        ORDER BY je.entry_date, je.entry_number
+    """,
+
+    "journal_entry_lines": """
+        SELECT
+            je.entry_number,
+            jel.line_number,
+            a.account_number,
+            a.account_name,
+            l.lot_number,
+            o.display_name AS owner_name,
+            v.vendor_name,
+            jel.debit_amount,
+            jel.credit_amount,
+            jel.expense_classification,
+            jel.description
+        FROM journal_entry_lines jel
+        JOIN journal_entries je ON je.id = jel.journal_entry_id
+        JOIN accounts        a  ON a.id  = jel.account_id
+        LEFT JOIN lots    l ON l.id = jel.lot_id
+        LEFT JOIN owners  o ON o.id = jel.owner_id
+        LEFT JOIN vendors v ON v.id = jel.vendor_id
+        ORDER BY je.entry_date, je.entry_number, jel.line_number
+    """,
+
+    "bank_transactions": """
+        SELECT
+            bt.transaction_date,
+            ba.account_name AS bank_account,
+            bt.description,
+            bt.memo,
+            bt.transaction_type,
+            bt.amount,
+            bt.external_reference,
+            bt.reconciliation_status,
+            bt.match_type,
+            bt.validation_status,
+            r.rule_name AS matched_rule,
+            je.entry_number AS journal_entry
+        FROM bank_transactions bt
+        JOIN bank_accounts ba ON ba.id = bt.bank_account_id
+        LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
+        LEFT JOIN journal_entries je ON je.id = bt.matched_journal_entry_id
+        ORDER BY bt.transaction_date, ba.account_name
+    """,
+
+    "bank_transaction_rules": """
+        SELECT
+            r.rule_name,
+            r.action_type,
+            r.description_contains,
+            r.match_type,
+            r.match_memo,
+            r.match_amount,
+            ba.account_name AS bank_account,
+            a.account_number AS gl_account_number,
+            a.account_name   AS gl_account_name,
+            v.vendor_name,
+            l.lot_number,
+            r.default_memo,
+            r.confidence_mode,
+            r.auto_post_after_n,
+            r.confirmed_matches,
+            CASE r.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active
+        FROM bank_transaction_rules r
+        LEFT JOIN bank_accounts ba ON ba.id = r.bank_account_id
+        LEFT JOIN accounts      a  ON a.id  = r.gl_account_id
+        LEFT JOIN vendors       v  ON v.id  = r.vendor_id
+        LEFT JOIN lots          l  ON l.id  = r.lot_id
+        ORDER BY r.rule_name
+    """,
+
+    # ── Historical & Operational additions ────────────────────────────────
+
+    "accounting_periods": """
+        SELECT
+            period_name,
+            fiscal_year,
+            fiscal_period,
+            start_date,
+            end_date,
+            CASE is_closed WHEN 1 THEN 'Yes' ELSE 'No' END AS closed,
+            closed_at
+        FROM accounting_periods
+        ORDER BY fiscal_year, fiscal_period
+    """,
+
+    # ── Reserve Study ─────────────────────────────────────────────────────
+
+    "reserve_assets": """
+        SELECT
+            asset_group, component, install_year, useful_life_years,
+            condition, replacement_cost, annual_inflation,
+            CASE active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            sort_order, notes
+        FROM reserve_assets
+        ORDER BY sort_order, asset_group, component
+    """,
+
+    "reserve_components": """
+        SELECT
+            component_name, useful_life_years, remaining_life_years,
+            current_replacement_cost, funding_method,
+            CASE active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            notes
+        FROM reserve_components
+        ORDER BY component_name
+    """,
+
+    "reserve_study_assumptions": """
+        SELECT
+            study_year,
+            reserve_balance_override,
+            annual_contribution,
+            contribution_growth_rate,
+            investment_return_rate,
+            num_lots,
+            projection_years,
+            CASE is_active WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            notes
+        FROM reserve_study_assumptions
+        ORDER BY study_year
+    """,
+
+    "reserve_study_scenarios": """
+        SELECT
+            scenario_name, description,
+            emergency_cost, expected_year,
+            sort_order,
+            CASE active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
+            notes
+        FROM reserve_study_scenarios
+        ORDER BY sort_order, scenario_name
     """,
 
     "fiscal_year_closes": """

@@ -1033,14 +1033,32 @@ th.num {
 
 /* Success / confirmation banner. Uses the theme accent so it reads as
    "good thing happened" without stealing attention from danger red. */
-.alert--ok {
+.alert--ok,
+.alert--success {
   background: #e8f5ea;
   color: #1e5e2a;
   border-color: #7bb888;
   border-left-width: 4px;
   font-weight: 500;
 }
-.alert--ok .alert__close { color: #1e5e2a; }
+.alert--ok .alert__close,
+.alert--success .alert__close { color: #1e5e2a; }
+
+/* alert--err is shorthand for the same look as alert--error. */
+.alert--err {
+  background: var(--danger-subtle);
+  color: var(--danger);
+  border-color: var(--danger-border);
+  border-left-width: 4px;
+}
+
+.alert--warn {
+  background: #fef3c7;
+  color: #78350f;
+  border-color: #f59e0b;
+  border-left-width: 4px;
+}
+.alert--warn .alert__close { color: #78350f; }
 .alert--ok::before {
   content: "✓";
   display: inline-flex;

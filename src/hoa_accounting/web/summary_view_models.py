@@ -25,14 +25,14 @@ def build_summary_view_model(
         }
 
     builders = {
-        "trial-balance": _build_trial_balance_summary,
-        "balance-sheet": _build_balance_sheet_summary,
-        "income-statement": _build_income_statement_summary,
         "owner-ledger": _build_owner_ledger_summary,
         "ar-aging": _build_ar_aging_summary,
         "ytd-expense-summary": _build_ytd_expense_summary,
         "expenses-by-date": _build_expenses_by_date_summary,
         "income-by-date": _build_income_by_date_summary,
+        "deposits": _build_deposits_summary,
+        "categories": _build_categories_summary,
+        "bank-transactions": _build_bank_transactions_summary,
         "vendor-expenses": _build_vendor_expenses_summary,
         "homeowner-contact-list": _build_homeowner_contact_list_summary,
         "expenses-vs-budget": _build_expenses_vs_budget_summary,
@@ -287,6 +287,102 @@ def _build_income_by_date_summary(data: dict[str, object]) -> dict[str, Any]:
                     "memo":         str(row.get("memo", "")),
                     "comment":      str(row.get("comment", "")),
                     "amount":       str(row.get("amount", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_bank_transactions_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_bank_transactions.html",
+        "summary": {
+            "from_date":         str(data.get("from_date", "")),
+            "to_date":           str(data.get("to_date", "")),
+            "bank_account_name": str(data.get("bank_account_name") or "All accounts"),
+            "total_in":          str(data.get("total_in", "")),
+            "total_out":         str(data.get("total_out", "")),
+            "rows": [
+                {
+                    "transaction_date":    str(row.get("transaction_date", "")),
+                    "bank_account":        str(row.get("bank_account", "")),
+                    "description":         str(row.get("description", "")),
+                    "memo":                str(row.get("memo", "")),
+                    "amount":              str(row.get("amount", "")),
+                    "transaction_type":    str(row.get("transaction_type", "")),
+                    "match_type":          str(row.get("match_type", "")),
+                    "matched_source_type": str(row.get("matched_source_type", "")),
+                    "matched_source_id":   str(row.get("matched_source_id", "")),
+                    "validation_status":   str(row.get("validation_status", "")),
+                    "rule_name":           str(row.get("rule_name", "")),
+                }
+                for row in rows
+            ],
+        },
+    }
+
+
+def _build_categories_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    # Group by category_type for display.
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        ct = str(r.get("category_type", "OTHER"))
+        grouped.setdefault(ct, []).append({
+            "code":          str(r.get("code", "")),
+            "name":          str(r.get("name", "")),
+            "group_name":    str(r.get("group_name", "")),
+            "fund_code":     str(r.get("fund_code", "")),
+            "sort_order":    str(r.get("sort_order", "")),
+            "active":        str(r.get("active", "")),
+            "description":   str(r.get("description", "")),
+        })
+    # Stable ordering: INCOME, EXPENSE, TRANSFER, then anything else.
+    ordered = [t for t in ("INCOME", "EXPENSE", "TRANSFER") if t in grouped]
+    ordered += [t for t in grouped if t not in ordered]
+    groups = [{"category_type": t, "rows": grouped[t]} for t in ordered]
+    return {
+        "summary_template": "partials/summary_categories.html",
+        "summary": {
+            "total_count": len(rows),
+            "groups": groups,
+        },
+    }
+
+
+def _build_deposits_summary(data: dict[str, object]) -> dict[str, Any]:
+    rows = _safe_dict_list(data.get("rows"))
+    return {
+        "summary_template": "partials/summary_deposits.html",
+        "summary": {
+            "from_date":   str(data.get("from_date", "")),
+            "to_date":     str(data.get("to_date", "")),
+            "grand_total": str(data.get("grand_total", "")),
+            "rows": [
+                {
+                    "batch_id":             str(row.get("batch_id", "")),
+                    "deposit_date":         str(row.get("deposit_date", "")),
+                    "bank_account":         str(row.get("bank_account", "")),
+                    "bank_account_last4":   str(row.get("bank_account_last4", "")),
+                    "total_amount":         str(row.get("total_amount", "")),
+                    "journal_entry":        str(row.get("journal_entry", "")),
+                    "memo":                 str(row.get("memo", "")),
+                    "owner_payment_count":  str(row.get("owner_payment_count", "")),
+                    "owner_payment_total":  str(row.get("owner_payment_total", "")),
+                    "other_source_count":   str(row.get("other_source_count", "")),
+                    "other_source_total":   str(row.get("other_source_total", "")),
+                    "lines": [
+                        {
+                            "line_type":   str(line.get("line_type", "")),
+                            "description": str(line.get("description", "")),
+                            "detail":      str(line.get("detail", "")),
+                            "reference":   str(line.get("reference", "")),
+                            "amount":      str(line.get("amount", "")),
+                        }
+                        for line in _safe_dict_list(row.get("lines"))
+                    ],
                 }
                 for row in rows
             ],

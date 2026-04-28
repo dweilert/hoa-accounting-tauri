@@ -1,0 +1,80 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Period</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      {{ summary.from_date }} – {{ summary.to_date }}
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Account</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      {{ summary.bank_account_name }}
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total In</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_in }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Out</span>
+    <span class="summary-totals__value">{{ summary.total_out }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Transactions</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.rows | length }}</span>
+  </div>
+</div>
+
+{% if summary.rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Bank Account</th>
+          <th>Description / Memo</th>
+          <th class="num">Amount</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Match</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.rows %}
+        <tr>
+          <td>{{ row.transaction_date }}</td>
+          <td>{{ row.bank_account }}</td>
+          <td>
+            <div>{{ row.description }}</div>
+            {% if row.memo %}
+              <div style="font-size:11px;color:var(--text-muted);">{{ row.memo }}</div>
+            {% endif %}
+          </td>
+          <td class="num">{{ row.amount }}</td>
+          <td>{{ row.transaction_type }}</td>
+          <td>
+            {% if row.validation_status == 'VALIDATED' %}
+              <span class="pill" style="background:#dcfce7;color:#166534;border:none;">Validated</span>
+            {% elif row.validation_status == 'IGNORED' %}
+              <span class="pill" style="background:#e5e7eb;color:#4b5563;border:none;">Ignored</span>
+            {% else %}
+              <span class="pill" style="background:#fef3c7;color:#92400e;border:none;">Pending</span>
+            {% endif %}
+          </td>
+          <td style="font-size:11px;">
+            {% if row.match_type == 'RULE' %}
+              Rule: {{ row.rule_name }}
+            {% elif row.match_type and row.matched_source_id %}
+              {{ row.match_type }} → {{ row.matched_source_type }} #{{ row.matched_source_id }}
+            {% else %}
+              {{ row.match_type }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p>No bank transactions in this date range.</p>
+{% endif %}

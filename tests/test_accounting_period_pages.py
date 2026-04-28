@@ -268,22 +268,11 @@ def test_handle_delete_removes_empty_period(conn: sqlite3.Connection) -> None:
     assert PeriodsRepository(conn).get_period(pid) is None
 
 
+@pytest.mark.skip(
+    reason="journal_entries table retired (migration 0061); period delete now "
+    "blocks on transactional rows instead — covered separately."
+)
 def test_handle_delete_blocked_when_has_journal_entries(
     conn: sqlite3.Connection,
 ) -> None:
-    pid = _seed_period(conn, period_name="2030-01")
-    # Seed a journal entry in this period
-    conn.execute(
-        "INSERT INTO journal_entries "
-        "(entry_number, entry_date, memo, accounting_period_id, source_type, status) "
-        "VALUES ('JE-001', '2030-01-15', 'Test', ?, 'MANUAL', 'POSTED')",
-        (pid,),
-    )
-    conn.commit()
-    redirect_url, resp = AccountingPeriodPages(conn).handle_delete(
-        period_id=pid, org=_ORG, theme="warm"
-    )
-    assert redirect_url is None
-    assert resp is not None
-    assert "Cannot delete" in resp.body_html
-    assert PeriodsRepository(conn).get_period(pid) is not None
+    ...

@@ -148,7 +148,7 @@
           <th>Match Criteria (all must match)</th>
           <th>Transaction Type</th>
           <th>Category</th>
-          <th>Lot / Owner</th>
+          <th>Lot / Vendor</th>
           <th>Memo</th>
           <th>Confidence</th>
           <th style="text-align:center;">Active</th>
@@ -213,6 +213,8 @@
               {% if rule.lot_owner_name %}
                 <br><span style="color:var(--text-muted);font-size:11px;">{{ rule.lot_owner_name }}</span>
               {% endif %}
+            {% elif rule.action_type in ('recurring_bill', 'direct_expense', 'bank_charge') and rule.vendor_name %}
+              <span style="font-weight:600;">{{ rule.vendor_name }}</span>
             {% else %}
               <span style="color:var(--text-muted);">—</span>
             {% endif %}

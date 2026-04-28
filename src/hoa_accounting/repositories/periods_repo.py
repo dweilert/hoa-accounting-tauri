@@ -73,12 +73,10 @@ class PeriodsRepository(BaseRepository):
         return int(row[0]) > 0
 
     def has_journal_entries(self, period_id: int) -> bool:
-        """Return True if any journal entries are posted to this period."""
-        row = self.conn.execute(
-            "SELECT COUNT(*) FROM journal_entries WHERE accounting_period_id = ? LIMIT 1",
-            (period_id,),
-        ).fetchone()
-        return int(row[0]) > 0
+        """Always False — journal_entries was retired in migration 0061.
+        Kept as a stub so callers compile; period deletion no longer needs
+        this guard since periods are loose containers in cash basis."""
+        return False
 
     # ── Mutations ──────────────────────────────────────────────────────
 

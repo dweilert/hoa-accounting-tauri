@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Split Income Batch · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/manage/edit-records/non-dues-income" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Split Income Batch Across Categories</div>
+        <div class="panel__description">
+          Posting Date: <b>{{ batch.posting_date }}</b> ·
+          Description: <b>{{ batch.income_description }}</b> ·
+          Total: <b>${{ batch_amount }}</b>.
+          Lines must sum exactly to the batch total. The original batch
+          will be replaced by the new split lines.
+        </div>
+      </div>
+    </div>
+
+    <form method="post"
+          action="/manage/edit-records/non-dues-income/{{ batch.id }}/split"
+          id="split-form">
+      <div id="lines">
+        {% for ln in initial_lines %}
+        <div class="row split-line" style="gap:8px;align-items:center;margin-bottom:6px;">
+          <select name="line_category_id" required style="flex:1;">
+            <option value="">— Category —</option>
+            {% for c in income_categories %}
+              <option value="{{ c.id }}" {% if ln.category_id|string == c.id|string %}selected{% endif %}>{{ c.label }}</option>
+            {% endfor %}
+          </select>
+          <input type="number" name="line_amount" value="{{ ln.amount }}"
+                 step="0.01" min="0.01" required
+                 class="line-amount" style="width:120px;" />
+          <button type="button" class="btn btn--ghost btn-remove">×</button>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="row" style="margin:10px 0;gap:10px;align-items:center;">
+        <button type="button" id="add-line" class="btn btn--ghost">+ Add line</button>
+        <span>Sum: <b id="lines-sum">0.00</b> / Target: <b>{{ batch_amount }}</b></span>
+        <span id="sum-status" style="color:var(--danger);"></span>
+      </div>
+
+      <div class="row" style="gap:10px;">
+        <button type="submit" id="save-btn" class="btn btn--primary" disabled>Save Split</button>
+        <a href="/manage/edit-records/non-dues-income" class="btn btn--ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <template id="line-template">
+    <div class="row split-line" style="gap:8px;align-items:center;margin-bottom:6px;">
+      <select name="line_category_id" required style="flex:1;">
+        <option value="">— Category —</option>
+        {% for c in income_categories %}
+          <option value="{{ c.id }}">{{ c.label }}</option>
+        {% endfor %}
+      </select>
+      <input type="number" name="line_amount" value=""
+             step="0.01" min="0.01" required
+             class="line-amount" style="width:120px;" />
+      <button type="button" class="btn btn--ghost btn-remove">×</button>
+    </div>
+  </template>
+
+  <script>
+    (function() {
+      var target = parseFloat({{ batch_amount }});
+      var linesEl = document.getElementById("lines");
+      var sumEl = document.getElementById("lines-sum");
+      var statusEl = document.getElementById("sum-status");
+      var saveBtn = document.getElementById("save-btn");
+      var addBtn = document.getElementById("add-line");
+      var tpl = document.getElementById("line-template");
+
+      function recompute() {
+        var inputs = linesEl.querySelectorAll(".line-amount");
+        var sum = 0;
+        inputs.forEach(function(i) {
+          var v = parseFloat(i.value || "0");
+          if (!isNaN(v)) sum += v;
+        });
+        sumEl.textContent = sum.toFixed(2);
+        var diff = Math.abs(sum - target);
+        if (diff < 0.005) {
+          statusEl.textContent = "✓";
+          statusEl.style.color = "var(--success, green)";
+          saveBtn.disabled = false;
+        } else {
+          statusEl.textContent = "(off by " + (sum - target).toFixed(2) + ")";
+          statusEl.style.color = "var(--danger, #c00)";
+          saveBtn.disabled = true;
+        }
+      }
+
+      linesEl.addEventListener("input", recompute);
+      linesEl.addEventListener("click", function(e) {
+        if (e.target && e.target.classList.contains("btn-remove")) {
+          if (linesEl.querySelectorAll(".split-line").length <= 1) return;
+          e.target.closest(".split-line").remove();
+          recompute();
+        }
+      });
+      addBtn.addEventListener("click", function() {
+        var node = tpl.content.cloneNode(true);
+        linesEl.appendChild(node);
+        recompute();
+      });
+      recompute();
+    })();
+  </script>
+{% endblock %}

@@ -108,18 +108,12 @@ class BankAccountPages:
                 "institution_name": row["institution_name"] or "",
                 "account_last4": row["account_last4"] or "",
                 "account_type": row["account_type"] or "CHECKING",
-                "gl_account_id": str(row["gl_account_id"]),
+                "fund_code": row["fund_code"] or "OPERATING",
                 "active_flag": str(row["active_flag"]),
             }
         else:
             values = form_values or {}
 
-        gl_options = [
-            dict(r)
-            for r in self.repo.list_gl_account_options(
-                exclude_bank_account_id=bank_account_id
-            )
-        ]
         has_txns = is_edit and self.repo.has_transactions(bank_account_id)  # type: ignore[arg-type]
 
         heading = "Edit Bank Account" if is_edit else "Add Bank Account"
@@ -134,13 +128,13 @@ class BankAccountPages:
             "bank_account_id": bank_account_id,
             "has_transactions": has_txns,
             "account_types": _ACCOUNT_TYPES,
-            "gl_options": gl_options,
+            "fund_codes": ["OPERATING", "RESERVE", "SPECIAL"],
             "values": {
                 "account_name": values.get("account_name", ""),
                 "institution_name": values.get("institution_name", ""),
                 "account_last4": values.get("account_last4", ""),
                 "account_type": values.get("account_type", "CHECKING"),
-                "gl_account_id": values.get("gl_account_id", ""),
+                "fund_code": values.get("fund_code", "OPERATING"),
                 "active_flag": values.get("active_flag", "1"),
             },
             "error_message": error_message,
@@ -168,17 +162,16 @@ class BankAccountPages:
             account_type_raw = (form_data.get("account_type") or "").strip()
             if account_type_raw not in _ACCOUNT_TYPES:
                 raise ValidationError("Account Type is required.")
-            gl_account_id_raw = (form_data.get("gl_account_id") or "").strip()
-            if not gl_account_id_raw:
-                raise ValidationError("Linked Account is required.")
-            gl_account_id = int(gl_account_id_raw)
+            fund_code = (form_data.get("fund_code") or "OPERATING").strip().upper()
+            if fund_code not in ("OPERATING", "RESERVE", "SPECIAL"):
+                fund_code = "OPERATING"
 
             self.repo.insert_bank_account(
                 account_name=account_name,
                 institution_name=institution_name,
                 account_last4=_opt(form_data.get("account_last4", "")),
                 account_type=account_type_raw,
-                gl_account_id=gl_account_id,
+                fund_code=fund_code,
             )
             self.conn.commit()
         except ValidationError as exc:
@@ -210,12 +203,10 @@ class BankAccountPages:
             account_type_raw = (form_data.get("account_type") or "").strip()
             if account_type_raw not in _ACCOUNT_TYPES:
                 raise ValidationError("Account Type is required.")
-            gl_account_id_raw = (form_data.get("gl_account_id") or "").strip()
-            if not gl_account_id_raw:
-                raise ValidationError("Linked Account is required.")
-            gl_account_id = int(gl_account_id_raw)
+            fund_code = (form_data.get("fund_code") or "OPERATING").strip().upper()
+            if fund_code not in ("OPERATING", "RESERVE", "SPECIAL"):
+                fund_code = "OPERATING"
 
-            # active_flag: presence of hidden sentinel means checkbox was rendered
             if form_data.get("_active_flag_present"):
                 active_flag = form_data.get("active_flag") == "1"
             else:
@@ -227,7 +218,7 @@ class BankAccountPages:
                 institution_name=institution_name,
                 account_last4=_opt(form_data.get("account_last4", "")),
                 account_type=account_type_raw,
-                gl_account_id=gl_account_id,
+                fund_code=fund_code,
                 active_flag=active_flag,
             )
             self.conn.commit()

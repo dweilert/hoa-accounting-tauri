@@ -84,7 +84,7 @@ class BudgetSummaryReportService:
         # Support both category_id (new) and account_id (legacy) budget lines
         sql = f"""
             SELECT
-                COALESCE(c.name, a.account_name, 'Unknown') AS category_name,
+                COALESCE(c.name, 'Unknown') AS category_name,
                 COALESCE(c.group_name, '') AS group_code,
                 COALESCE(c.sort_order, 0) AS sort_order,
                 {case_cols}
@@ -93,10 +93,9 @@ class BudgetSummaryReportService:
               ON b.id = bl.budget_id
              AND b.status != 'ARCHIVED'
             LEFT JOIN categories c ON c.id = bl.category_id
-            LEFT JOIN accounts a ON a.id = bl.account_id AND bl.category_id IS NULL
             WHERE b.fiscal_year IN ({placeholders})
             GROUP BY
-                COALESCE(c.name, a.account_name, 'Unknown'),
+                COALESCE(c.name, 'Unknown'),
                 COALESCE(c.group_name, ''),
                 COALESCE(c.sort_order, 0)
             ORDER BY group_code, sort_order, category_name

@@ -42,24 +42,24 @@ class BudgetsRepository(BaseRepository):
         ).fetchone()
 
     def get_budget_lines(self, budget_id: int) -> list[sqlite3.Row]:
-        """Return all lines for a budget, supporting both category_id and legacy account_id."""
+        """Return all lines for a budget. Lines are keyed by category_id;
+        the legacy account_id column is ignored after Chart of Accounts removal."""
         return self.conn.execute(
             """
             SELECT
                 bl.id,
                 bl.category_id,
-                bl.account_id,
+                NULL AS account_id,
                 bl.fiscal_period,
                 bl.budget_amount,
                 c.code  AS category_code,
                 c.name  AS category_name,
                 c.group_name,
-                a.account_name AS legacy_account_name
+                NULL AS legacy_account_name
             FROM budget_lines bl
             LEFT JOIN categories c ON c.id = bl.category_id
-            LEFT JOIN accounts  a ON a.id = bl.account_id AND bl.category_id IS NULL
             WHERE bl.budget_id = ?
-            ORDER BY COALESCE(c.sort_order, 999), COALESCE(c.name, a.account_name), bl.fiscal_period
+            ORDER BY COALESCE(c.sort_order, 999), COALESCE(c.name, ''), bl.fiscal_period
             """,
             (budget_id,),
         ).fetchall()
@@ -136,8 +136,8 @@ class BudgetsRepository(BaseRepository):
             self.conn.execute(
                 """
                 INSERT INTO budget_lines
-                    (budget_id, category_id, fiscal_period, budget_amount, account_id)
-                VALUES (?, ?, ?, ?, 0)
+                    (budget_id, category_id, fiscal_period, budget_amount)
+                VALUES (?, ?, ?, ?)
                 """,
                 (budget_id, category_id, fiscal_period, str(amount)),
             )

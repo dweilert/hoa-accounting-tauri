@@ -301,9 +301,19 @@
     </div>
 
     {% if is_draft %}
-      <div style="display:flex;gap:.5rem;margin-top:.75rem;">
-        <button type="submit" class="btn btn--primary">Save</button>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;align-items:center;">
+        <button type="submit" id="save-budget" class="btn btn--primary">Save</button>
         <a href="/budgets" class="btn btn--ghost">Cancel</a>
+        <span id="save-pending-hint"
+              style="display:none;font-size:12px;color:var(--danger,#b91c1c);">
+          You have unapplied amounts in the AMOUNT column. Press
+          <strong>Apply</strong> to spread them, or clear those fields,
+          before saving.
+        </span>
+      </div>
+    {% else %}
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;align-items:center;">
+        <a href="/budgets" class="btn btn--ghost">← Back to Budgets</a>
       </div>
     {% endif %}
   </form>
@@ -441,8 +451,30 @@
         spread(rowId, val, method);
         inp.value = "";
       });
+      refreshSaveGate();
     });
   }
+
+  // ── Save gate: block Save while any annual amount is unapplied ─────
+  var saveBtn = document.getElementById("save-budget");
+  var saveHint = document.getElementById("save-pending-hint");
+  function refreshSaveGate() {
+    if (!saveBtn) return;
+    var pending = false;
+    document.querySelectorAll(".annual-input").forEach(function (inp) {
+      if (inp.value.trim() !== "") pending = true;
+    });
+    saveBtn.disabled = pending;
+    saveBtn.classList.toggle("btn--disabled", pending);
+    saveBtn.style.opacity = pending ? "0.5" : "";
+    saveBtn.style.cursor = pending ? "not-allowed" : "";
+    if (saveHint) saveHint.style.display = pending ? "" : "none";
+  }
+  document.querySelectorAll(".annual-input").forEach(function (inp) {
+    inp.addEventListener("input", refreshSaveGate);
+    inp.addEventListener("blur", refreshSaveGate);
+  });
+  refreshSaveGate();
 
   // Reset horizontal scroll to leftmost on load
   var scrollWrap = document.querySelector("#budget-grid")

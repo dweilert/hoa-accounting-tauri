@@ -124,19 +124,17 @@ def test_default_migrations_dir_applies_all_packaged_migrations() -> None:
         r["name"]
         for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
-    assert "journal_entries" in tables
-    assert "accounts" in tables
+    # accounts / account_types / journal_entries were retired in migration 0061.
     assert "schema_version" in tables
+    assert "categories" in tables
+    assert "bank_accounts" in tables
+    assert "journal_entries" not in tables
+    assert "accounts" not in tables
 
-    # 0002 adds the new columns and seeds fine-grained expense accounts.
-    cols = {r["name"] for r in conn.execute("PRAGMA table_info(accounts)")}
-    assert "group_code" in cols
-    line_cols = {r["name"] for r in conn.execute("PRAGMA table_info(journal_entry_lines)")}
-    assert "expense_classification" in line_cols
-    landscape = conn.execute(
-        "SELECT COUNT(*) AS c FROM accounts WHERE group_code = 'LANDSCAPE' AND is_active = 1"
-    ).fetchone()
-    assert landscape["c"] >= 9  # nine Landscape categories seeded
+    # bank_accounts now carries fund_code directly (no GL pointer).
+    bank_cols = {r["name"] for r in conn.execute("PRAGMA table_info(bank_accounts)")}
+    assert "fund_code" in bank_cols
+    assert "gl_account_id" not in bank_cols
 
 
 def test_migrator_is_safe_on_existing_database() -> None:

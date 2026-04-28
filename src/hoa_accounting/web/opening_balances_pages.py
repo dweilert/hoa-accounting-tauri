@@ -6,9 +6,7 @@ import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from hoa_accounting.exceptions import ClosedPeriodError, ValidationError
-from hoa_accounting.models.dto import JournalLineInput
-from hoa_accounting.models.enums import SourceType
+from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.opening_balances_repo import OpeningBalancesRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
@@ -128,7 +126,7 @@ class OpeningBalancesPages:
 
         # ── Parse bank amounts ─────────────────────────────────────────
         bank_rows = self._repo.get_bank_accounts_with_balances()
-        bank_amounts: dict[int, tuple[int, Decimal]] = {}  # bank_id → (gl_id, amt)
+        bank_amounts: dict[int, tuple[None, Decimal]] = {}  # bank_id → (None, amt) — gl_id retired
         for row in bank_rows:
             bid = int(row["bank_account_id"])
             raw = form_data.get(f"bank_{bid}", "0").strip().replace(",", "") or "0"
@@ -139,7 +137,7 @@ class OpeningBalancesPages:
             if amt < 0:
                 return _err(f"Amount for {row['account_name']} cannot be negative.")
             if amt > 0:
-                bank_amounts[bid] = (int(row["gl_account_id"]), amt)
+                bank_amounts[bid] = (None, amt)
 
         # ── Parse lot amounts (dues + assessment separately) ───────────
         lot_rows = self._repo.get_lots_with_balances()
@@ -166,91 +164,21 @@ class OpeningBalancesPages:
         if total == 0 and not lot_dues and not lot_assess:
             return _err("Enter at least one opening balance before saving.")
 
-        # ── Validate AR account when lot balances exist ────────────────
-        ar_acct_id: int | None = None
-        if total_lots > 0:
-            ar_row = self._conn.execute(
-                "SELECT id FROM accounts WHERE account_number = ? AND is_active = 1",
-                (self._ar_account_number,),
-            ).fetchone()
-            if not ar_row:
-                return _err(
-                    f"AR account {self._ar_account_number!r} not found. "
-                    "Check your Chart of Accounts."
-                )
-            ar_acct_id = int(ar_row["id"])
+        # AR account no longer needed — chart of accounts retired.
 
         try:
-            # Delete existing JE if one was previously posted
-            existing_je_id = self._repo.get_current_je_id()
-            if existing_je_id:
-                self._repo.clear_all_je_references()
-                self._conn.execute(
-                    "DELETE FROM journal_entries WHERE id = ?", (existing_je_id,)
-                )
-
-            # Ensure the Opening Balance Offset equity account exists
-            offset_id = self._repo.ensure_offset_account()
-
-            # Build JE lines
-            lines: list[JournalLineInput] = []
-            for _bid, (gl_id, amt) in bank_amounts.items():
-                lines.append(
-                    JournalLineInput(
-                        account_id=gl_id,
-                        description="Opening balance",
-                        debit_amount=amt,
-                    )
-                )
-            total_dues = sum(lot_dues.values())
-            total_assess = sum(lot_assess.values())
-            if ar_acct_id is not None and total_dues > 0:
-                lines.append(
-                    JournalLineInput(
-                        account_id=ar_acct_id,
-                        description="Opening balance — dues AR",
-                        debit_amount=total_dues,
-                    )
-                )
-            if ar_acct_id is not None and total_assess > 0:
-                lines.append(
-                    JournalLineInput(
-                        account_id=ar_acct_id,
-                        description="Opening balance — assessment AR",
-                        debit_amount=total_assess,
-                    )
-                )
-            lines.append(
-                JournalLineInput(
-                    account_id=offset_id,
-                    description="Opening balance offset",
-                    credit_amount=total,
-                )
-            )
-
-            # Post the JE
-            svc = self._factory.journal_service()
-            journal = svc.post_journal_entry(
-                entry_date=as_of_date,
-                source_type=SourceType.OPENING_BALANCE.value,
-                memo="Opening balances",
-                created_by_user_id=None,
-                inter_fund_allowed=True,
-                lines=lines,
-            )
-            je_id = journal.journal_entry_id
-
-            # Persist opening-balance records
+            # Cash basis, no GL: opening balances are simple data rows.
+            # Persist directly without journal-entry posting.
             for bid, (_gl_id, amt) in bank_amounts.items():
-                self._repo.upsert_balance("BANK_ACCOUNT", bid, as_of_date, str(amt), je_id)
+                self._repo.upsert_balance("BANK_ACCOUNT", bid, as_of_date, str(amt))
             for lid, amt in lot_dues.items():
-                self._repo.upsert_balance("LOT_DUES", lid, as_of_date, str(amt), je_id)
+                self._repo.upsert_balance("LOT_DUES", lid, as_of_date, str(amt))
             for lid, amt in lot_assess.items():
-                self._repo.upsert_balance("LOT_ASSESSMENT", lid, as_of_date, str(amt), je_id)
+                self._repo.upsert_balance("LOT_ASSESSMENT", lid, as_of_date, str(amt))
 
             self._conn.commit()
 
-        except (ValidationError, ClosedPeriodError) as exc:
+        except ValidationError as exc:
             self._conn.rollback()
             return _err(str(exc))
         except Exception:

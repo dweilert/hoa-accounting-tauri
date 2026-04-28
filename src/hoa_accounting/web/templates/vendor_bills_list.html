@@ -158,6 +158,13 @@
                       <button type="submit" class="btn btn--primary btn--sm">Save</button>
                       <button type="button" class="btn btn--ghost btn--sm"
                               onclick="toggleEdit({{ b.id }})">Cancel</button>
+                      {% if b.has_payment %}
+                        <a href="/vendor-bills/{{ b.id }}/split"
+                           class="btn btn--ghost btn--sm" style="margin-left:auto;"
+                           title="Split this bill across two or more categories that sum to the same total.">
+                          Split…
+                        </a>
+                      {% endif %}
                     </div>
                   </form>
                 </td>

@@ -15,7 +15,6 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
 from hoa_accounting.repositories.dues_billing_repo import DuesBillingRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
@@ -99,17 +98,16 @@ _DEFAULT_GRACE_DAYS: dict[str, int] = {
 
 
 def _default_due_date(cycle_type: str, entry_date_iso: str) -> str:
-    """Return entry_date + grace days (never before today)."""
+    """Return entry_date + grace days. Doesn't floor at today so that
+    backdated migration entries get a sensible delinquent date relative
+    to the posting date, not today."""
     try:
         base = _date.fromisoformat(entry_date_iso)
     except ValueError:
         base = _date.today()
     grace = _DEFAULT_GRACE_DAYS.get(cycle_type, 15)
     from datetime import timedelta
-    due = base + timedelta(days=grace)
-    if due < _date.today():
-        due = _date.today()
-    return due.isoformat()
+    return (base + timedelta(days=grace)).isoformat()
 
 
 @dataclass(frozen=True)
@@ -132,22 +130,25 @@ class DuesBillingPages:
 
     @staticmethod
     def _resolve_income_account(
-        conn: sqlite3.Connection, org: dict
+        conn: sqlite3.Connection, org: dict  # noqa: ARG004 — kept for signature stability
     ) -> tuple[int | None, str]:
-        """Return (account_id, display_label) for the configured income account.
+        """Return (category_id, display_label) for the dues income category.
 
-        Looks up ``dues_income_account_number`` from org config (default 4000).
-        Returns (None, error_message) if the account cannot be found.
+        After Chart of Accounts removal, billing income is driven by the DUES
+        category (or whichever code is configured via dues_category_code).
+        Returns (None, error_message) if the category isn't found.
         """
-        acct_num = str(org.get("dues_income_account_number") or "4000")
-        repo = AccountsRepository(conn)
-        row = repo.get_by_number(acct_num)
+        cat_code = str(org.get("dues_category_code") or "DUES").upper()
+        row = conn.execute(
+            "SELECT id, code, name, active_flag "
+            "FROM categories WHERE UPPER(code) = ?",
+            (cat_code,),
+        ).fetchone()
         if row is None:
-            return None, f"Income account '{acct_num}' not found in the chart of accounts."
-        if int(row["is_active"]) != 1:
-            return None, f"Income account '{acct_num}' is inactive."
-        label = f"{row['account_number']} · {row['account_name']}"
-        return int(row["id"]), label
+            return None, f"Dues category '{cat_code}' not found. Add it on the Categories page."
+        if int(row["active_flag"]) != 1:
+            return None, f"Dues category '{cat_code}' is inactive."
+        return int(row["id"]), f"{row['code']} · {row['name']}"
 
     def render_page(
         self,
@@ -268,6 +269,21 @@ class DuesBillingPages:
 
             label = _period_label(cycle_type, period_year, period_sequence)
 
+            # Block re-billing the same period — dues_billing_history is the
+            # canonical record of which cycles have already gone out.
+            existing = self._dues_repo.get_billing_for_period(
+                cycle_type=cycle_type,
+                period_year=period_year,
+                period_sequence=period_sequence,
+            )
+            if existing:
+                return _err(
+                    f"{label} has already been billed "
+                    f"({existing['owner_count']} homeowners on "
+                    f"{str(existing['billed_at'])[:10]}). "
+                    "Pick a different period."
+                )
+
             try:
                 amount = Decimal((form_data.get("amount") or "").strip())
             except (InvalidOperation, ValueError):
@@ -282,6 +298,10 @@ class DuesBillingPages:
             entry_date = (form_data.get("entry_date") or "").strip()
             if not entry_date:
                 return _err("Posting date is required.")
+            try:
+                entry_dt = _date.fromisoformat(entry_date)
+            except ValueError:
+                return _err("Posting date must be a valid date.")
 
             due_date = (form_data.get("due_date") or "").strip()
             if not due_date:
@@ -290,30 +310,29 @@ class DuesBillingPages:
                 due_dt = _date.fromisoformat(due_date)
             except ValueError:
                 return _err("Delinquent date must be a valid date.")
-            if due_dt < _date.today():
-                return _err("Delinquent date cannot be before today.")
+            # Delinquent date must be on or after the posting date — supports
+            # back-dated migration entries (posting date is the operative
+            # reference, not today's date).
+            if due_dt < entry_dt:
+                return _err("Delinquent date cannot be before the posting date.")
 
-            # Both accounts are resolved from config — no user selection needed.
+            # Chart of accounts retired — bill against the DUES category.
             org_ctx = org or {}
-            ar_num = str(org_ctx.get("dues_receivable_account_number") or "1100")
-            ar_row = AccountsRepository(self.conn).get_by_number(ar_num)
-            if ar_row is None:
-                return _err(f"Dues receivable account '{ar_num}' not found.")
-
-            income_account_id, income_err = self._resolve_income_account(self.conn, org_ctx)
-            if income_account_id is None:
-                return _err(income_err)
+            category_id, cat_err = self._resolve_income_account(self.conn, org_ctx)
+            if category_id is None:
+                return _err(cat_err)
 
             result = self.factory.assessment_billing_service().bill_all_at_same_amount(
                 entry_date=entry_date,
                 amount=amount,
                 description=description,
-                receivable_account_id=int(ar_row["id"]),
-                income_account_id=income_account_id,
+                category_id=category_id,
                 due_date=due_date,
             )
 
-            # Record the cycle in history.
+            # Record the cycle in history. The billing service committed the
+            # assessments inside its own transaction; the history INSERT is
+            # outside that transaction and must be committed explicitly.
             DuesBillingRepository(self.conn).insert_history(
                 cycle_type=cycle_type,
                 period_label=label,
@@ -322,6 +341,7 @@ class DuesBillingPages:
                 amount=amount,
                 owner_count=result.owner_count,
             )
+            self.conn.commit()
 
         except (ValidationError, NotFoundError, AccountingError) as exc:
             return _err(str(exc))

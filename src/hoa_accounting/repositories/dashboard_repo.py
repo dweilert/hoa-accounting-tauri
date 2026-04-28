@@ -55,6 +55,18 @@ class BudgetCategoryTile:
         return float(self.actual_spent / self.total_budget * 100)
 
 
+def _fiscal_year_range(fiscal_year: int, fy_start_month: int = 1) -> tuple[str, str]:
+    """Return (start_date, end_date) ISO strings spanning a fiscal year."""
+    fy_start = f"{fiscal_year}-{fy_start_month:02d}-01"
+    if fy_start_month == 1:
+        return fy_start, f"{fiscal_year}-12-31"
+    import calendar as _cal
+    end_year = fiscal_year + 1
+    end_month = fy_start_month - 1
+    last_day = _cal.monthrange(end_year, end_month)[1]
+    return fy_start, f"{end_year}-{end_month:02d}-{last_day:02d}"
+
+
 class DashboardRepository:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
@@ -92,16 +104,22 @@ class DashboardRepository:
     # ── Financial Summary ──────────────────────────────────────────────
 
     def get_bank_tiles(self) -> list[BankTile]:
+        # Cash basis: each bank's balance is its opening balance plus money in
+        # (payments + non-dues income deposited to that account) minus money
+        # out (bill payments paid from that account).
         rows = self._conn.execute(
             """
-            SELECT ba.account_name, ba.account_type,
-                   a.fund_code,
-                   COALESCE(SUM(jl.debit_amount - jl.credit_amount), 0) AS balance
+            SELECT
+                ba.account_name,
+                ba.account_type,
+                ba.fund_code,
+                ba.opening_balance
+                  + COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.bank_account_id = ba.id), 0)
+                  + COALESCE((SELECT SUM(ib.total_amount) FROM income_batches ib WHERE ib.bank_account_id = ba.id), 0)
+                  - COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp WHERE bp.bank_account_id = ba.id), 0)
+                  AS balance
             FROM bank_accounts ba
-            JOIN accounts a ON a.id = ba.gl_account_id
-            LEFT JOIN journal_entry_lines jl ON jl.account_id = a.id
             WHERE ba.active_flag = 1
-            GROUP BY ba.id
             ORDER BY ba.account_name COLLATE NOCASE
             """
         ).fetchall()
@@ -148,29 +166,14 @@ class DashboardRepository:
         if not budget_row or not budget_row["total"]:
             return None
 
-        # Build fiscal-year date range: FY starts on fy_start_month/1 of fiscal_year.
-        # For a Jan-start FY this is Jan 1 – Dec 31 of fiscal_year.
-        # For a Jul-start FY this is Jul 1 of fiscal_year – Jun 30 of fiscal_year+1.
-        fy_start = f"{fiscal_year}-{fy_start_month:02d}-01"
-        if fy_start_month == 1:
-            fy_end = f"{fiscal_year}-12-31"
-        else:
-            end_year = fiscal_year + 1
-            end_month = fy_start_month - 1
-            import calendar as _cal
-            last_day = _cal.monthrange(end_year, end_month)[1]
-            fy_end = f"{end_year}-{end_month:02d}-{last_day:02d}"
+        fy_start, fy_end = _fiscal_year_range(fiscal_year, fy_start_month)
 
+        # Cash-basis actual spent = sum of bill_payments in the FY range.
         actual_row = self._conn.execute(
             """
-            SELECT COALESCE(SUM(jl.debit_amount - jl.credit_amount), 0) AS spent
-            FROM journal_entry_lines jl
-            JOIN accounts a ON a.id = jl.account_id
-            JOIN account_types at ON at.id = a.account_type_id
-            JOIN journal_entries je ON je.id = jl.journal_entry_id
-            WHERE at.code = 'EXPENSE'
-              AND je.entry_date >= ?
-              AND je.entry_date <= ?
+            SELECT COALESCE(SUM(amount), 0) AS spent
+            FROM bill_payments
+            WHERE payment_date >= ? AND payment_date <= ?
             """,
             (fy_start, fy_end),
         ).fetchone()
@@ -182,7 +185,12 @@ class DashboardRepository:
         )
 
     def get_budget_category_tile(self, fiscal_year: int, fy_start_month: int = 1) -> "BudgetCategoryTile | None":
-        """Return per-category over/under budget counts for the fiscal year."""
+        """Return per-category over/under budget counts for the fiscal year.
+
+        Cash basis: actual spend = sum of bill_payments in the fiscal-year
+        date range, joined to vendor_bills for the category. Budgets and
+        bill_payments share `category_id`, so the comparison is direct.
+        """
         budget_row = self._conn.execute(
             """
             SELECT SUM(bl.budget_amount) AS total
@@ -195,56 +203,48 @@ class DashboardRepository:
         if not budget_row or not budget_row["total"]:
             return None
 
-        fy_start = f"{fiscal_year}-{fy_start_month:02d}-01"
-        if fy_start_month == 1:
-            fy_end = f"{fiscal_year}-12-31"
-        else:
-            import calendar as _cal
-            end_year = fiscal_year + 1
-            end_month = fy_start_month - 1
-            last_day = _cal.monthrange(end_year, end_month)[1]
-            fy_end = f"{end_year}-{end_month:02d}-{last_day:02d}"
+        fy_start, fy_end = _fiscal_year_range(fiscal_year, fy_start_month)
 
-        # Per-account: annual budget vs actual spent
         rows = self._conn.execute(
             """
             SELECT
-                a.id AS account_id,
-                COALESCE(SUM(bl.budget_amount), 0) AS budgeted,
-                COALESCE(SUM(jl.debit_amount - jl.credit_amount), 0) AS actual
-            FROM accounts a
-            JOIN account_types at ON at.id = a.account_type_id AND at.code = 'EXPENSE'
-            JOIN budget_lines bl ON bl.account_id = a.id
-            JOIN budgets b ON b.id = bl.budget_id AND b.fiscal_year = ? AND b.status = 'APPROVED'
-            LEFT JOIN journal_entry_lines jl ON jl.account_id = a.id
-            LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
-                AND je.entry_date >= ? AND je.entry_date <= ?
-            GROUP BY a.id
+                bl.category_id,
+                SUM(bl.budget_amount) AS budgeted,
+                COALESCE(
+                    (SELECT SUM(bp.amount)
+                     FROM bill_payments bp
+                     JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
+                     WHERE vb.category_id = bl.category_id
+                       AND bp.payment_date >= ?
+                       AND bp.payment_date <= ?),
+                    0
+                ) AS actual
+            FROM budget_lines bl
+            JOIN budgets b ON b.id = bl.budget_id
+            WHERE b.fiscal_year = ? AND b.status = 'APPROVED'
+              AND bl.category_id IS NOT NULL
+            GROUP BY bl.category_id
             HAVING budgeted > 0
             """,
-            (fiscal_year, fy_start, fy_end),
+            (fy_start, fy_end, fiscal_year),
         ).fetchall()
 
-        total_actual = self._conn.execute(
+        total_actual_row = self._conn.execute(
             """
-            SELECT COALESCE(SUM(jl.debit_amount - jl.credit_amount), 0) AS spent
-            FROM journal_entry_lines jl
-            JOIN accounts a ON a.id = jl.account_id
-            JOIN account_types at ON at.id = a.account_type_id
-            JOIN journal_entries je ON je.id = jl.journal_entry_id
-            WHERE at.code = 'EXPENSE'
-              AND je.entry_date >= ? AND je.entry_date <= ?
+            SELECT COALESCE(SUM(bp.amount), 0) AS spent
+            FROM bill_payments bp
+            WHERE bp.payment_date >= ? AND bp.payment_date <= ?
             """,
             (fy_start, fy_end),
         ).fetchone()
 
-        over_count = sum(1 for r in rows if r["actual"] > r["budgeted"])
-        under_count = sum(1 for r in rows if r["actual"] <= r["budgeted"])
+        over_count = sum(1 for r in rows if Decimal(str(r["actual"])) > Decimal(str(r["budgeted"])))
+        under_count = sum(1 for r in rows if Decimal(str(r["actual"])) <= Decimal(str(r["budgeted"])))
 
         return BudgetCategoryTile(
             fiscal_year=fiscal_year,
             total_budget=Decimal(str(budget_row["total"])),
-            actual_spent=Decimal(str(total_actual["spent"] if total_actual else 0)),
+            actual_spent=Decimal(str(total_actual_row["spent"] if total_actual_row else 0)),
             over_budget=over_count,
             under_budget=under_count,
         )

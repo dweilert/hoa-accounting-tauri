@@ -64,15 +64,14 @@ class IncomeBatchesRepository(BaseRepository):
                     ib.total_amount,
                     ib.notes,
                     ib.category_id,
-                    ib.journal_entry_id,
+                    NULL AS journal_entry_id,
                     b.account_name AS bank_account_name,
                     b.account_last4 AS bank_account_last4,
                     c.name AS category_name,
-                    je.entry_number
+                    NULL AS entry_number
                 FROM income_batches ib
                 JOIN bank_accounts b ON b.id = ib.bank_account_id
                 LEFT JOIN categories c ON c.id = ib.category_id
-                LEFT JOIN journal_entries je ON je.id = ib.journal_entry_id
                 ORDER BY ib.posting_date DESC, ib.id DESC
                 LIMIT ?
                 """,

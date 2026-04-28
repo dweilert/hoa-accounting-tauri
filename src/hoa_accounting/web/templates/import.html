@@ -246,6 +246,37 @@
     </div>
   </div>
 
+  {# Schema preview — populated by JS when a table is selected #}
+  <div class="panel" id="schema-preview" style="margin-bottom:1rem;display:none;">
+    <div class="panel__header" style="display:flex;align-items:flex-start;gap:1rem;">
+      <div style="flex:1;">
+        <div class="panel__title">Required columns for <span id="schema-preview-label"></span></div>
+        <div class="panel__description">
+          Your CSV file should have these columns. Required columns are marked with
+          <span style="color:#e53935;">*</span>. Column names in your CSV don't need
+          to match exactly — you'll connect them in step 3.
+        </div>
+      </div>
+      <button type="button" class="btn btn--ghost btn--sm" onclick="downloadHeaderTemplate()"
+              style="flex-shrink:0;margin-top:.15rem;" id="btn-template-download">
+        ⬇ Header template (CSV)
+      </button>
+    </div>
+    <div class="table-wrap" style="padding:0 1rem 1rem 1rem;">
+      <table id="schema-preview-table">
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th style="text-align:center;">Required</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="schema-preview-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
   {# Drop zone #}
   <div class="panel" style="margin-bottom:1rem;">
     <div class="panel__header">
@@ -364,12 +395,63 @@
     var card = document.getElementById("tsel-" + key);
     if (card) card.classList.add("tsel-card--selected");
 
+    var def = TABLE_DEFS[key] || {};
     var hint = document.getElementById("drop-hint");
     if (hint) {
-      var def = TABLE_DEFS[key] || {};
       hint.textContent = "Drop your " + (def.label || key) + " CSV file onto the area below.";
     }
+    renderSchemaPreview(key, def);
     maybeShowMapper();
+  };
+
+  function renderSchemaPreview(key, def) {
+    var panel = document.getElementById("schema-preview");
+    var tbody = document.getElementById("schema-preview-tbody");
+    var labelEl = document.getElementById("schema-preview-label");
+    if (!panel || !tbody) return;
+    if (!def || !def.fields || !def.fields.length) {
+      panel.style.display = "none";
+      return;
+    }
+    labelEl.textContent = def.label || key;
+    var html = "";
+    def.fields.forEach(function (f) {
+      var typeLabel = f.type || "text";
+      if (f.type === "enum" && f.values && f.values.length) {
+        typeLabel = "enum (" + f.values.join(", ") + ")";
+      }
+      html +=
+        "<tr>" +
+          '<td><span class="mono">' + escapeHtml(f.name) + '</span> &nbsp;<span style="color:var(--text-muted);">' + escapeHtml(f.label || "") + '</span></td>' +
+          '<td>' + escapeHtml(typeLabel) + '</td>' +
+          '<td style="text-align:center;">' + (f.required ? '<span style="color:#e53935;">*</span>' : '') + '</td>' +
+          '<td style="color:var(--text-muted);font-size:.85rem;">' + escapeHtml(f.note || "") + '</td>' +
+        "</tr>";
+    });
+    tbody.innerHTML = html;
+    panel.style.display = "";
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  window.downloadHeaderTemplate = function () {
+    if (!selectedType) return;
+    var def = TABLE_DEFS[selectedType];
+    if (!def || !def.fields) return;
+    var headers = def.fields.map(function (f) { return f.name; }).join(",");
+    var blob = new Blob([headers + "\n"], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = selectedType + "_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // ── Step 1: Drop zone ─────────────────────────────────────────────
@@ -757,6 +839,7 @@
       inp.type = "hidden"; inp.name = name; inp.value = value;
       form.appendChild(inp);
     }
+    if (window.csrfToken) add("_csrf_token", window.csrfToken);
     add("data_type",   selectedType);
     add("mapping",     JSON.stringify(connections));
     add("csv_content", csvContent);

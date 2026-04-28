@@ -30,16 +30,13 @@ from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
 from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.owner_pages import OwnerPages
-from hoa_accounting.web.account_pages import AccountPages
 from hoa_accounting.web.all_ledger_pages import AllLedgerPages
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 from hoa_accounting.web.bank_account_pages import BankAccountPages
 from hoa_accounting.web.database_admin_pages import DatabaseAdminPages
 from hoa_accounting.web.export_pages import ExportPages
 from hoa_accounting.web.import_pages import ImportPages
-from hoa_accounting.web.gl_import_pages import GlImportPages
 from hoa_accounting.web.dashboard_pages import DashboardPages
-from hoa_accounting.web.year_end_close_pages import YearEndClosePages
 from hoa_accounting.web.dues_billing_pages import DuesBillingPages
 from hoa_accounting.web.late_fee_pages import LateFeePages
 from hoa_accounting.web.opening_balances_pages import OpeningBalancesPages
@@ -679,24 +676,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                     """
                 ).fetchall()
 
-                accounts = conn.execute(
-                    """
-                    SELECT a.id, a.account_number, a.account_name
-                    FROM accounts a
-                    WHERE a.is_active = 1
-                    ORDER BY a.account_number
-                    """
-                ).fetchall()
-
-                receivable_accounts = conn.execute(
-                    """
-                    SELECT a.id, a.account_number, a.account_name
-                    FROM accounts a
-                    JOIN account_types at ON at.id = a.account_type_id
-                    WHERE a.is_active = 1 AND at.code = 'ASSET'
-                    ORDER BY a.account_number
-                    """
-                ).fetchall()
+                # Chart of Accounts retired — these dropdowns are gone.
+                accounts = []
+                receivable_accounts = []
 
                 vendors = conn.execute(
                     """
@@ -793,113 +775,8 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         )
 
 
-    # ── Account (Chart of Accounts) pages ────────────────────────────
-
-    def _open_account_pages() -> AccountPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; account pages need it."
-            )
-        conn = _open_db()
-        return AccountPages(conn)
-
-    @app.get("/accounts")
-    def list_accounts() -> Response:
-        pages = _open_account_pages()
-        theme = str(org_context.get("theme", "warm"))
-        flash_message = (request.args.get("msg") or "").strip()
-        resp = pages.render_list(org=org_context, theme=theme,
-                                 flash_message=flash_message)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/accounts/add")
-    def new_account_form() -> Response:
-        pages = _open_account_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_form(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/accounts/add")
-    def submit_new_account() -> Response:
-        from flask import redirect
-        pages = _open_account_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_add(
-            form_data={k: v for k, v in request.form.items()},
-            org=org_context, theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/accounts/<int:account_id>/edit")
-    def edit_account_form(account_id: int) -> Response:
-        pages = _open_account_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_form(org=org_context, theme=theme,
-                                 account_id=account_id)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/accounts/<int:account_id>/edit")
-    def submit_edit_account(account_id: int) -> Response:
-        from flask import redirect
-        pages = _open_account_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_edit(
-            account_id=account_id,
-            form_data={k: v for k, v in request.form.items()},
-            org=org_context, theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/accounts/wizard")
-    def coa_wizard() -> Response:
-        from hoa_accounting.web.wizard_pages import WizardPages
-        conn = _open_db()
-        theme = str(org_context.get("theme", "warm"))
-        status, html = WizardPages(conn).render_wizard(org=org_context, theme=theme)
-        return Response(html, status=status, mimetype="text/html; charset=utf-8")
-
-    @app.post("/accounts/wizard/preview")
-    def coa_wizard_preview() -> Response:
-        from hoa_accounting.web.wizard_pages import WizardPages
-        conn = _open_db()
-        theme = str(org_context.get("theme", "warm"))
-        status, html = WizardPages(conn).render_preview(form=request.form, org=org_context, theme=theme)
-        return Response(html, status=status, mimetype="text/html; charset=utf-8")
-
-    @app.post("/accounts/wizard/create")
-    def coa_wizard_create() -> Response:
-        from flask import redirect
-        from hoa_accounting.web.wizard_pages import WizardPages
-        conn = _open_db()
-        url = WizardPages(conn).handle_create(form=request.form, org=org_context, theme=str(org_context.get("theme", "warm")))
-        return redirect(url, code=303)
-
-    @app.post("/accounts/<int:account_id>/delete")
-    def submit_delete_account(account_id: int) -> Response:
-        from flask import redirect
-        pages = _open_account_pages()
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_delete(
-            account_id=account_id,
-            org=org_context, theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+    # ── Chart of Accounts pages — REMOVED. ──────────────────────────
+    # Categories drive classification; bank_accounts hold the cash.
 
     # ── Categories pages ──────────────────────────────────────────────
 
@@ -1354,8 +1231,21 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             rows_by_idx.setdefault(int(m.group(1)), {})[m.group(2)] = val
         ordered_rows = [rows_by_idx[i] for i in sorted(rows_by_idx.keys())]
 
+        theme = str(org_context.get("theme", "warm"))
+
+        def _rerender(err: str) -> Response:
+            resp = pages.render_form(
+                org=org_context, theme=theme, error_message=err,
+                prior_deposit_date=deposit_date,
+                prior_bank_account_id=bank_raw,
+                prior_memo=memo,
+                prior_rows=ordered_rows,
+            )
+            return Response(resp.body_html, status=resp.status_code,
+                            mimetype="text/html; charset=utf-8")
+
         if not bank_raw.isdigit():
-            return redirect("/deposit?err=Pick+a+bank+account", code=303)
+            return _rerender("Pick a bank account.")
 
         url, flash = pages.handle_submit(
             deposit_date=deposit_date,
@@ -1363,6 +1253,11 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             memo=memo,
             rows=ordered_rows,
         )
+        # Validation failure: handle_submit returns ("/deposit", error_text).
+        # Re-render the form with the typed values + error so the user
+        # doesn't lose what they entered.
+        if flash and url == "/deposit":
+            return _rerender(flash)
         if flash:
             sep = "&" if "?" in url else "?"
             tag = "msg" if "saved" in flash.lower() else "err"
@@ -1381,14 +1276,54 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         theme = str(org_context.get("theme", "warm"))
         raw = request.args.get("bank_account_id", "")
         bank_account_id = int(raw) if raw.isdigit() else None
+        show_ignored = (request.args.get("show_ignored") or "").strip() in ("1", "true", "yes")
         resp = pages.render_pending(
             org=org_context, theme=theme,
             bank_account_id=bank_account_id,
+            show_ignored=show_ignored,
             flash_message=request.args.get("msg", ""),
             error_message=request.args.get("err", ""),
         )
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
+
+    @app.get("/bank-transactions/dry-run")
+    def bank_txn_dry_run() -> Response:
+        pages = _open_bank_txn_pages()
+        theme = str(org_context.get("theme", "warm"))
+        ba_raw = (request.args.get("bank_account_id") or "").strip()
+        ba_id = int(ba_raw) if ba_raw.isdigit() else None
+        resp = pages.render_dry_run(org=org_context, theme=theme, bank_account_id=ba_id)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/bank-transactions/accept-all")
+    def bank_txn_accept_all() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        ba_raw = (request.form.get("bank_account_id") or "").strip()
+        ba_id = int(ba_raw) if ba_raw.isdigit() else None
+        url, flash = pages.handle_accept_all(bank_account_id=ba_id)
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "Accepted" in flash else "msg"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
+
+    @app.post("/bank-transactions/revalidate")
+    def bank_txn_revalidate() -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        ba_raw = (request.form.get("bank_account_id") or "").strip()
+        ba_id = int(ba_raw) if ba_raw.isdigit() else None
+        url, flash = pages.handle_revalidate(bank_account_id=ba_id)
+        if flash:
+            sep = "&" if "?" in url else "?"
+            tag = "msg" if "no" not in flash.lower()[:3] else "msg"
+            url = f"{url}{sep}{tag}={quote(flash)}"
+        return redirect(url, code=303)
 
     @app.post("/bank-transactions/<int:bank_txn_id>/accept")
     def bank_txn_accept(bank_txn_id: int) -> Response:
@@ -1466,17 +1401,32 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def bank_txn_classify_pick(bank_txn_id: int) -> Response:
         from flask import redirect
         from urllib.parse import quote
+        from decimal import Decimal as _D, InvalidOperation as _IOp
         pages = _open_bank_txn_pages()
-        cat_raw = (request.form.get("category_id") or "").strip()
-        if not cat_raw.isdigit():
-            return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Select+a+category", code=303)
+        cat_list = request.form.getlist("line_category_id")
+        amt_list = request.form.getlist("line_amount")
+        if not cat_list or len(cat_list) != len(amt_list):
+            return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Pick+at+least+one+category", code=303)
+        lines: list[tuple[int, _D]] = []
+        for c_raw, a_raw in zip(cat_list, amt_list):
+            c = (c_raw or "").strip()
+            a = (a_raw or "").strip().replace(",", "").replace("$", "")
+            if not c.isdigit() or not a:
+                return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Each+line+needs+a+category+and+amount", code=303)
+            try:
+                lines.append((int(c), _D(a)))
+            except _IOp:
+                return redirect(f"/bank-transactions/{bank_txn_id}/classify?err=Invalid+amount", code=303)
         vendor_raw = (request.form.get("vendor_id") or "").strip()
         vendor_id = int(vendor_raw) if vendor_raw.isdigit() else None
+        lot_raw = (request.form.get("lot_id") or "").strip()
+        lot_id = int(lot_raw) if lot_raw.isdigit() else None
         memo = (request.form.get("memo") or "").strip()
         url, flash = pages.handle_pick_category(
             bank_txn_id,
-            category_id=int(cat_raw),
+            lines=lines,
             vendor_id=vendor_id,
+            lot_id=lot_id,
             memo=memo,
         )
         if flash:
@@ -1513,6 +1463,17 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
         url, flash = pages.handle_ignore(bank_txn_id)
+        if flash:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}msg={quote(flash)}"
+        return redirect(url, code=303)
+
+    @app.post("/bank-transactions/<int:bank_txn_id>/unignore")
+    def bank_txn_unignore(bank_txn_id: int) -> Response:
+        from flask import redirect
+        from urllib.parse import quote
+        pages = _open_bank_txn_pages()
+        url, flash = pages.handle_unignore(bank_txn_id)
         if flash:
             sep = "&" if "?" in url else "?"
             url = f"{url}{sep}msg={quote(flash)}"
@@ -2004,6 +1965,69 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    # ── Board Member pages ───────────────────────────────────────────
+
+    def _open_board_member_pages():
+        from hoa_accounting.web.board_member_pages import BoardMemberPages
+        return BoardMemberPages(_open_db())
+
+    @app.get("/board-members")
+    def list_board_members() -> Response:
+        pages = _open_board_member_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("msg") or "").strip()
+        resp = pages.render_list(org=org_context, theme=theme, flash_message=flash)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/board-members/add")
+    def new_board_member_form() -> Response:
+        pages = _open_board_member_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/board-members/add")
+    def submit_new_board_member() -> Response:
+        from flask import redirect
+        pages = _open_board_member_pages()
+        theme = str(org_context.get("theme", "warm"))
+        url, form_resp = pages.handle_add(form=request.form, org=org_context, theme=theme)
+        if url:
+            return redirect(url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/board-members/<int:member_id>/edit")
+    def edit_board_member_form(member_id: int) -> Response:
+        pages = _open_board_member_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_edit(member_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/board-members/<int:member_id>/edit")
+    def submit_edit_board_member(member_id: int) -> Response:
+        from flask import redirect
+        pages = _open_board_member_pages()
+        theme = str(org_context.get("theme", "warm"))
+        url, form_resp = pages.handle_edit(member_id, form=request.form,
+                                            org=org_context, theme=theme)
+        if url:
+            return redirect(url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/board-members/<int:member_id>/delete")
+    def delete_board_member(member_id: int) -> Response:
+        from flask import redirect
+        pages = _open_board_member_pages()
+        url = pages.handle_delete(member_id)
+        return redirect(url, code=303)
+
     # ── Vendor pages ─────────────────────────────────────────────────
 
     def _open_vendor_pages() -> VendorPages:
@@ -2243,6 +2267,32 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    @app.get("/vendor-bills/<int:vendor_bill_id>/split")
+    def split_vendor_bill_form(vendor_bill_id: int) -> Response:
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_split(vendor_bill_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/vendor-bills/<int:vendor_bill_id>/split")
+    def submit_vendor_bill_split(vendor_bill_id: int) -> Response:
+        from flask import redirect
+        pages = _open_vendor_bill_pages()
+        theme = str(org_context.get("theme", "warm"))
+        cats = request.form.getlist("line_category_id")
+        amts = request.form.getlist("line_amount")
+        redirect_url, form_resp = pages.handle_split(
+            vendor_bill_id,
+            line_category_ids=cats, line_amounts=amts,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
     # ── Edit Records hub + payments ledger ──────────────────────────
 
     def _open_edit_records_pages():
@@ -2291,6 +2341,32 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         flash = request.args.get("msg", "")
         resp = pages.render_income(org=org_context, theme=theme, flash_message=flash)
         return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.get("/manage/edit-records/non-dues-income/<int:income_batch_id>/split")
+    def edit_records_income_split_form(income_batch_id: int) -> Response:
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_income_split(income_batch_id, org=org_context, theme=theme)
+        return Response(resp.body_html, status=resp.status_code,
+                        mimetype="text/html; charset=utf-8")
+
+    @app.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/split")
+    def edit_records_income_split_submit(income_batch_id: int) -> Response:
+        from flask import redirect
+        pages = _open_edit_records_pages()
+        theme = str(org_context.get("theme", "warm"))
+        cats = request.form.getlist("line_category_id")
+        amts = request.form.getlist("line_amount")
+        redirect_url, form_resp = pages.handle_income_split(
+            income_batch_id,
+            line_category_ids=cats, line_amounts=amts,
+            org=org_context, theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
     @app.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/edit")
@@ -3106,6 +3182,11 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(page_resp.body_html, status=page_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
+    @app.get("/admin/import/run")
+    def import_run_redirect() -> Response:
+        from flask import redirect
+        return redirect("/admin/import", code=303)
+
     @app.post("/admin/import/run")
     def import_run() -> Response:
         pages = _open_import_pages()
@@ -3134,46 +3215,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return Response(_json.dumps(result), status=200,
                         mimetype="application/json")
 
-    # ── GL Transaction Import ──────────────────────────────────────────
-
-    def _open_gl_import_pages() -> GlImportPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError("database.path missing from config.")
-        conn = _open_db()
-        return GlImportPages(conn)
-
-    @app.get("/admin/gl-import")
-    def gl_import_page() -> Response:
-        theme = str(org_context.get("theme", "warm"))
-        pages = _open_gl_import_pages()
-        resp  = pages.render_page(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
-
-    @app.post("/admin/gl-import/preview")
-    def gl_import_preview() -> Response:
-        theme = str(org_context.get("theme", "warm"))
-        pages = _open_gl_import_pages()
-        csv_content = request.form.get("csv_content", "")
-        resp = pages.handle_preview(csv_content=csv_content, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
-
-    @app.post("/admin/gl-import/run")
-    def gl_import_run() -> Response:
-        theme = str(org_context.get("theme", "warm"))
-        pages = _open_gl_import_pages()
-        csv_content = request.form.get("csv_content", "")
-        resp = pages.handle_run(csv_content=csv_content, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html")
-
-    # ── Year-End Close pages ───────────────────────────────────────────
-
-    def _open_yec_pages() -> YearEndClosePages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError("database.path missing from config.")
-        conn = _open_db()
-        return YearEndClosePages(conn)
+    # ── GL Transaction Import + Year-End Close — REMOVED ──────────────
 
     # ── Batch PDF ─────────────────────────────────────────────────────────────
     def _open_batch_pdf_pages() -> BatchPdfPages:
@@ -3272,38 +3314,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if redirect_url:
             return redirect(redirect_url)
         assert resp is not None
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/year-end-close")
-    def yec_list() -> Response:
-        pages = _open_yec_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp  = pages.render_list(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.get("/year-end-close/<int:fiscal_year>")
-    def yec_detail(fiscal_year: int) -> Response:
-        pages = _open_yec_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp  = pages.render_detail(fiscal_year, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/year-end-close/<int:fiscal_year>/close")
-    def yec_close(fiscal_year: int) -> Response:
-        pages = _open_yec_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp  = pages.handle_close(fiscal_year, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
-    @app.post("/year-end-close/<int:fiscal_year>/reopen")
-    def yec_reopen(fiscal_year: int) -> Response:
-        pages = _open_yec_pages()
-        theme = str(org_context.get("theme", "warm"))
-        resp  = pages.handle_reopen(fiscal_year, org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
                         mimetype="text/html; charset=utf-8")
 

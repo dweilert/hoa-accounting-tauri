@@ -23,12 +23,14 @@
     <div>
       <div class="panel__title">One deposit, many checks</div>
       <div class="panel__description">
-        Add a row per item on the deposit slip. Most rows will be
-        <em>owner payments</em> — pick a lot and the payment drains that
-        lot's open dues and late fees oldest-first. For a resale fee or
-        special assessment, switch the row to <strong>Specific charges</strong>
-        and tick exactly what the check covers. For the rare non-owner
-        line (insurance rebate, refund) switch to <strong>Other source</strong>.
+        Add a row per item on the deposit slip. Pick the income
+        <strong>Category</strong> for each row. <em>HOA Dues</em> and
+        <em>Late Payment Fees</em> apply oldest-first against the lot's
+        open dues and late fees. <em>Resale / Transfer Fees</em> drain
+        the open resale fee on the lot (or tick exactly which one if
+        there are several). Categories like <em>Bank Interest</em>,
+        <em>Reserve Fund Interest</em>, and <em>Other Income</em> are
+        non-owner income and don't need a lot.
       </div>
     </div>
   </div>
@@ -43,7 +45,7 @@
         <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
           Deposit date <span style="color:var(--danger);">*</span>
         </label>
-        <input type="date" name="deposit_date" value="{{ today }}" required style="width:100%;">
+        <input type="date" name="deposit_date" value="{{ prior_deposit_date or today }}" required style="width:100%;">
       </div>
       <div>
         <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
@@ -51,8 +53,9 @@
         </label>
         <select name="bank_account_id" required style="width:100%;">
           <option value="">— select —</option>
+          {% set bank_pick = prior_bank_account_id|string if prior_bank_account_id else (default_bank_id|string if default_bank_id else '') %}
           {% for a in accounts %}
-            <option value="{{ a.id }}">
+            <option value="{{ a.id }}"{% if bank_pick and a.id|string == bank_pick %} selected{% endif %}>
               {{ a.account_name }}{% if a.account_last4 %} ···{{ a.account_last4 }}{% endif %}
             </option>
           {% endfor %}
@@ -62,7 +65,7 @@
         <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
           Memo / slip reference
         </label>
-        <input type="text" name="memo" placeholder="optional" style="width:100%;">
+        <input type="text" name="memo" value="{{ prior_memo or '' }}" placeholder="optional" style="width:100%;">
       </div>
     </div>
   </div>
@@ -73,7 +76,7 @@
       <table id="deposit-grid">
         <thead>
           <tr>
-            <th style="width:12rem;">Mode</th>
+            <th style="width:14rem;">Category</th>
             <th>Details</th>
             <th style="width:8rem;text-align:right;">Amount</th>
             <th style="width:7rem;">Ref / Check #</th>
@@ -81,56 +84,63 @@
           </tr>
         </thead>
         <tbody id="deposit-grid-body">
-          {% for i in range(6) %}
+          {% set seed_count = prior_rows|length if prior_rows else 6 %}
+          {% if prior_rows and seed_count < 6 %}{% set seed_count = 6 %}{% endif %}
+          {% for i in range(seed_count) %}
+          {% set pr = prior_rows[i] if prior_rows and i < prior_rows|length else {} %}
           <tr class="deposit-row" data-idx="{{ i }}">
             <td>
-              <select name="rows[{{ i }}][mode]" class="row-mode" onchange="onModeChange(this)">
-                <option value="blank">— blank —</option>
-                <option value="owner_regular" selected>Owner payment (regular)</option>
-                <option value="owner_specific">Owner payment (specific charges)</option>
-                <option value="other">Other source</option>
+              {# Default new rows to HOA Dues (the common case) so the
+                 lot picker is visible immediately. The treasurer can
+                 switch the category if the row is for late fees, a
+                 resale fee, or other income. #}
+              {% set dues_cat = (categories | selectattr('code', 'equalto', 'DUES') | list | first) %}
+              {% set picked_cat = pr.get('category_id')|string if pr.get('category_id') else (dues_cat.id|string if dues_cat else '') %}
+              <select name="rows[{{ i }}][category_id]" class="cat-select" onchange="onCategoryChange(this)">
+                <option value="">— pick a category —</option>
+                {% for c in categories %}
+                  <option value="{{ c.id }}"
+                          data-behavior="{{ c.behavior }}"
+                          data-charge-types="{{ c.charge_types }}"
+                          {% if picked_cat and picked_cat == c.id|string %} selected{% endif %}>
+                    {{ c.name }}
+                  </option>
+                {% endfor %}
               </select>
             </td>
             <td class="row-details">
-              {# Dynamic content injected by JS based on mode #}
-              <div class="row-details__owner">
+              <div class="row-details__owner" style="display:none;">
                 <select name="rows[{{ i }}][lot_id]" class="lot-select" onchange="onLotChange(this)">
                   <option value="">— pick a lot —</option>
                   {% for l in lots %}
-                    <option value="{{ l.id }}">
+                    <option value="{{ l.id }}"{% if pr.get('lot_id') and pr.get('lot_id')|string == l.id|string %} selected{% endif %}>
                       Lot {{ l.lot_number }}{% if l.owner_name %} · {{ l.owner_name }}{% endif %}
                     </option>
                   {% endfor %}
                 </select>
                 <div class="lot-preview" style="margin-top:.35rem;font-size:11px;color:var(--text-muted);"></div>
                 <div class="lot-specific" style="display:none;margin-top:.35rem;"></div>
-                <input type="hidden" name="rows[{{ i }}][assessment_ids]" class="assessment-ids">
+                <input type="hidden" name="rows[{{ i }}][assessment_ids]" class="assessment-ids" value="{{ pr.get('assessment_ids', '') }}">
               </div>
               <div class="row-details__other" style="display:none;">
-                <select name="rows[{{ i }}][category_id]" class="cat-select">
-                  <option value="">— category —</option>
-                  {% for c in categories %}
-                    <option value="{{ c.id }}">
-                      {{ c.name }}{% if c.group_name %} ({{ c.group_name }}){% endif %}
-                    </option>
-                  {% endfor %}
-                </select>
                 <input type="text" name="rows[{{ i }}][memo]" placeholder="description"
-                       class="other-memo" style="width:100%;margin-top:.35rem;">
+                       value="{{ pr.get('memo', '') }}"
+                       class="other-memo" style="width:100%;">
                 <div style="font-size:11px;color:var(--text-muted);margin-top:.15rem;">
-                  Use only for one-off non-owner income. Recurring items like bank
-                  interest are better matched from the bank statement.
+                  Use only for one-off non-owner income. Recurring items like
+                  bank interest are better matched from the bank statement.
                 </div>
               </div>
             </td>
             <td>
               <input type="text" name="rows[{{ i }}][amount]" class="amount-input"
-                     inputmode="decimal" placeholder="0.00"
+                     inputmode="decimal" placeholder="0.00" value="{{ pr.get('amount', '') }}"
                      style="width:100%;text-align:right;font-family:var(--font-mono);"
-                     oninput="recomputeTotal()">
+                     oninput="recomputeTotal()" onblur="formatAmount(this)">
             </td>
             <td>
               <input type="text" name="rows[{{ i }}][reference_number]"
+                     value="{{ pr.get('reference_number', '') }}"
                      placeholder="check #" style="width:100%;">
             </td>
             <td style="text-align:center;">
@@ -164,13 +174,19 @@
 (function () {
   var body = document.getElementById("deposit-grid-body");
 
+  function selectedBehavior(catSel) {
+    var opt = catSel.options[catSel.selectedIndex];
+    if (!opt || !opt.value) return { behavior: "", chargeTypes: [] };
+    var ct = (opt.getAttribute("data-charge-types") || "").split(",").filter(Boolean);
+    return { behavior: opt.getAttribute("data-behavior") || "other", chargeTypes: ct };
+  }
+
   window.clearRow = function (btn) {
     var row = btn.closest("tr");
     row.querySelectorAll("input, select").forEach(function (el) {
-      if (el.classList.contains("row-mode")) { el.value = "blank"; }
-      else { el.value = ""; }
+      el.value = "";
     });
-    onModeChange(row.querySelector(".row-mode"));
+    onCategoryChange(row.querySelector(".cat-select"));
     recomputeTotal();
   };
 
@@ -184,35 +200,49 @@
       clone.setAttribute("data-idx", idx);
       clone.querySelectorAll("input, select").forEach(function (el) {
         if (el.name) el.name = el.name.replace(/rows\[\d+\]/, "rows[" + idx + "]");
-        if (el.classList.contains("row-mode")) { el.value = "owner_regular"; }
-        else { el.value = ""; }
+        el.value = "";
       });
-      // Clear injected preview / specific-charge UI.
       var prev = clone.querySelector(".lot-preview"); if (prev) prev.textContent = "";
       var spec = clone.querySelector(".lot-specific"); if (spec) { spec.innerHTML = ""; spec.style.display = "none"; }
       body.appendChild(clone);
-      onModeChange(clone.querySelector(".row-mode"));
+      onCategoryChange(clone.querySelector(".cat-select"));
     }
   };
 
-  window.onModeChange = function (sel) {
+  window.onCategoryChange = function (sel) {
     var row = sel.closest("tr");
-    var mode = sel.value;
-    row.querySelector(".row-details__owner").style.display = (mode === "owner_regular" || mode === "owner_specific") ? "" : "none";
-    row.querySelector(".row-details__other").style.display = (mode === "other") ? "" : "none";
+    var info = selectedBehavior(sel);
+    var ownerBlock = row.querySelector(".row-details__owner");
+    var otherBlock = row.querySelector(".row-details__other");
     var spec = row.querySelector(".lot-specific");
-    if (mode === "owner_specific") {
+    var idsField = row.querySelector(".assessment-ids");
+
+    if (info.behavior === "regular") {
+      ownerBlock.style.display = "";
+      otherBlock.style.display = "none";
+      spec.style.display = "none";
+      spec.innerHTML = "";
+      idsField.value = "";
+      refreshLotCharges(row, false);
+    } else if (info.behavior === "specific") {
+      ownerBlock.style.display = "";
+      otherBlock.style.display = "none";
       spec.style.display = "";
       refreshLotCharges(row, true);
     } else {
+      // other / blank
+      ownerBlock.style.display = "none";
+      otherBlock.style.display = "";
       spec.style.display = "none";
-      row.querySelector(".assessment-ids").value = "";
+      spec.innerHTML = "";
+      idsField.value = "";
     }
   };
 
   window.onLotChange = function (sel) {
     var row = sel.closest("tr");
-    refreshLotCharges(row, row.querySelector(".row-mode").value === "owner_specific");
+    var info = selectedBehavior(row.querySelector(".cat-select"));
+    refreshLotCharges(row, info.behavior === "specific");
   };
 
   function refreshLotCharges(row, showPicker) {
@@ -220,6 +250,7 @@
     var preview = row.querySelector(".lot-preview");
     var picker  = row.querySelector(".lot-specific");
     var idsField = row.querySelector(".assessment-ids");
+    var info = selectedBehavior(row.querySelector(".cat-select"));
     preview.textContent = "";
     picker.innerHTML = "";
     idsField.value = "";
@@ -228,28 +259,23 @@
     fetch("/api/lots/" + encodeURIComponent(lotId) + "/open-charges")
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        var charges = data.charges || [];
-        if (!charges.length) {
-          preview.textContent = "No open charges on this lot.";
+        var charges = (data.charges || []);
+        // Filter to the charge types this category drains (if any).
+        var relevant = info.chargeTypes.length
+          ? charges.filter(function (c) { return info.chargeTypes.indexOf(c.charge_type) !== -1; })
+          : charges;
+        if (!relevant.length) {
+          preview.textContent = info.chargeTypes.length
+            ? "No open " + info.chargeTypes.join(" / ") + " charges on this lot."
+            : "No open charges on this lot.";
           return;
         }
-        // Regular-mode preview: show what a regular payment will drain.
-        var regular = charges.filter(function (c) {
-          return c.charge_type === "DUES" || c.charge_type === "LATE_FEE";
-        });
-        if (regular.length) {
-          preview.textContent = "Will drain: " + regular.map(function (c) {
-            return c.charge_type + " " + c.due_date + " $" + c.outstanding;
-          }).join(" · ");
-        } else {
-          preview.textContent = "No regular charges open. Use Specific charges for resale/other.";
-        }
+        preview.textContent = "Will drain: " + relevant.map(function (c) {
+          return c.charge_type + " " + c.due_date + " $" + c.outstanding;
+        }).join(" · ");
 
         if (showPicker) {
-          // Pick-list for specific-charges mode.
-          var total = 0;
-          charges.forEach(function (c) {
-            var id = "chg-" + row.getAttribute("data-idx") + "-" + c.id;
+          relevant.forEach(function (c) {
             var wrap = document.createElement("label");
             wrap.style.cssText = "display:flex;gap:.4rem;align-items:center;font-size:11px;padding:.15rem 0;";
             wrap.innerHTML =
@@ -278,6 +304,15 @@
       .catch(function () { preview.textContent = "Could not load open charges."; });
   }
 
+  window.formatAmount = function (el) {
+    var raw = (el.value || "").replace(/[^0-9.\-]/g, "");
+    if (!raw) { el.value = ""; return; }
+    var n = parseFloat(raw);
+    if (isNaN(n)) { el.value = ""; return; }
+    el.value = n.toFixed(2);
+    recomputeTotal();
+  };
+
   window.recomputeTotal = function () {
     var total = 0;
     body.querySelectorAll(".amount-input").forEach(function (el) {
@@ -287,8 +322,8 @@
     document.getElementById("slip-total").textContent = total.toFixed(2);
   };
 
-  // Initial mode-sync for seed rows.
-  body.querySelectorAll(".row-mode").forEach(function (sel) { onModeChange(sel); });
+  // Initial sync for seed rows.
+  body.querySelectorAll(".cat-select").forEach(function (sel) { onCategoryChange(sel); });
 })();
 </script>
 

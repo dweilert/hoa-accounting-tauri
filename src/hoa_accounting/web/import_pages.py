@@ -40,18 +40,19 @@ from hoa_accounting.web.template_engine import render_template
 #   6-9 depend on earlier tables — must come after their prerequisites.
 
 TABLE_DEFS: dict[str, dict] = {
-    "accounts": {
-        "label": "Chart of Accounts",
-        "order": 1,
+    "categories": {
+        "label": "Categories",
+        "order": 0,
         "requires": [],
         "fields": [
-            {"name": "account_number",  "label": "Account Number",   "required": True,  "type": "text",    "key": True,  "note": "Must be unique, e.g. 4000"},
-            {"name": "account_name",    "label": "Account Name",     "required": True,  "type": "text"},
-            {"name": "account_type",    "label": "Account Type",     "required": True,  "type": "enum",    "values": ["Asset","Liability","Equity","Income","Expense"]},
-            {"name": "fund_code",       "label": "Fund Code",        "required": True,  "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"]},
-            {"name": "is_bank_account", "label": "Is Bank Account",  "required": False, "type": "boolean", "note": "Yes or No, default No"},
-            {"name": "active",          "label": "Active",           "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
-            {"name": "description",     "label": "Description",      "required": False, "type": "text"},
+            {"name": "code",          "label": "Code",          "required": True,  "type": "text",    "key": True,  "note": "Must be unique, e.g. DUES, LANDSCAPING"},
+            {"name": "name",          "label": "Name",          "required": True,  "type": "text"},
+            {"name": "category_type", "label": "Category Type", "required": True,  "type": "enum",    "values": ["INCOME","EXPENSE","TRANSFER"]},
+            {"name": "fund_code",     "label": "Fund Code",     "required": False, "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
+            {"name": "group_name",    "label": "Group",         "required": False, "type": "text"},
+            {"name": "sort_order",    "label": "Sort Order",    "required": False, "type": "integer", "note": "Lower numbers appear first; default 0"},
+            {"name": "active",        "label": "Active",        "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+            {"name": "description",   "label": "Description",   "required": False, "type": "text"},
         ],
     },
     "owners": {
@@ -122,13 +123,13 @@ TABLE_DEFS: dict[str, dict] = {
     "bank_accounts": {
         "label": "Bank Accounts",
         "order": 6,
-        "requires": ["Chart of Accounts"],
+        "requires": [],
         "fields": [
             {"name": "account_name",     "label": "Account Name",      "required": True,  "type": "text", "key": True,  "note": "Must be unique"},
             {"name": "institution_name", "label": "Bank / Institution", "required": True,  "type": "text"},
             {"name": "account_last4",    "label": "Last 4 Digits",      "required": False, "type": "text"},
             {"name": "account_type",     "label": "Account Type",       "required": True,  "type": "enum",    "values": ["CHECKING","SAVINGS","MONEY_MARKET","OTHER"]},
-            {"name": "gl_account_number","label": "Linked Account #",    "required": True,  "type": "text",    "note": "Must match an existing account number"},
+            {"name": "fund_code",        "label": "Fund Code",          "required": False, "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
             {"name": "active",           "label": "Active",             "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
         ],
     },
@@ -159,14 +160,80 @@ TABLE_DEFS: dict[str, dict] = {
             {"name": "notes",           "label": "Notes",          "required": False, "type": "text"},
         ],
     },
+    "board_members": {
+        "label": "Board Members",
+        "order": 8,
+        "requires": [],
+        "fields": [
+            {"name": "full_name",  "label": "Full Name",  "required": True,  "type": "text"},
+            {"name": "title",      "label": "Title",      "required": True,  "type": "text", "note": "e.g. President, Treasurer"},
+            {"name": "email",      "label": "Email",      "required": False, "type": "text"},
+            {"name": "phone",      "label": "Phone",      "required": False, "type": "text"},
+            {"name": "start_date", "label": "Start Date", "required": False, "type": "date"},
+            {"name": "end_date",   "label": "End Date",   "required": False, "type": "date"},
+            {"name": "active",     "label": "Active",     "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+            {"name": "notes",      "label": "Notes",      "required": False, "type": "text"},
+        ],
+    },
+    "assessment_rules": {
+        "label": "Assessment Rules",
+        "order": 10,
+        "requires": ["Categories"],
+        "fields": [
+            {"name": "rule_name",            "label": "Rule Name",         "required": True,  "type": "text", "key": True, "note": "Must be unique"},
+            {"name": "frequency",            "label": "Frequency",         "required": True,  "type": "enum",    "values": ["ANNUAL","SEMIANNUAL","QUARTERLY","MONTHLY","CUSTOM"]},
+            {"name": "default_amount",       "label": "Default Amount",    "required": True,  "type": "decimal"},
+            {"name": "category_code",        "label": "Category Code",     "required": False, "type": "text", "note": "Must match an existing category code (e.g. DUES). Defaults to DUES."},
+            {"name": "fund_code",            "label": "Fund Code",         "required": False, "type": "enum", "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
+            {"name": "effective_start_date", "label": "Effective Start",   "required": True,  "type": "date"},
+            {"name": "effective_end_date",   "label": "Effective End",     "required": False, "type": "date"},
+            {"name": "active",               "label": "Active",            "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+            {"name": "notes",                "label": "Notes",             "required": False, "type": "text"},
+        ],
+    },
+    "bank_transaction_rules": {
+        "label": "Bank Transaction Rules",
+        "order": 11,
+        "requires": ["Categories", "Bank Accounts", "Vendors", "Lots"],
+        "fields": [
+            {"name": "rule_name",            "label": "Rule Name",             "required": True,  "type": "text", "key": True, "note": "Must be unique"},
+            {"name": "action_type",          "label": "Action Type",           "required": True,  "type": "enum", "values": ["recurring_bill","dues_payment","fee_income","bank_charge","direct_expense","direct_income","homeowner_batch","vendor_bill_match"]},
+            {"name": "description_contains", "label": "Description Contains",   "required": False, "type": "text", "note": "Substring to match in bank description"},
+            {"name": "match_type",           "label": "Match Type",             "required": False, "type": "text"},
+            {"name": "match_memo",           "label": "Match Memo",             "required": False, "type": "text"},
+            {"name": "match_amount",         "label": "Match Amount",           "required": False, "type": "text"},
+            {"name": "category_code",        "label": "Category Code",          "required": False, "type": "text", "note": "Must match an existing category code"},
+            {"name": "vendor_name",          "label": "Vendor Name",            "required": False, "type": "text", "note": "Must match an existing vendor name"},
+            {"name": "lot_number",           "label": "Lot Number",             "required": False, "type": "text", "note": "Must match an existing lot"},
+            {"name": "bank_account_name",    "label": "Bank Account Name",      "required": False, "type": "text", "note": "Must match an existing bank account name"},
+            {"name": "default_memo",         "label": "Default Memo",           "required": False, "type": "text"},
+            {"name": "confidence_mode",      "label": "Confidence Mode",        "required": False, "type": "text", "note": "review_first or auto_post; default review_first"},
+            {"name": "auto_post_after_n",    "label": "Auto-Post After N",      "required": False, "type": "integer", "note": "Default 3"},
+            {"name": "active",               "label": "Active",                 "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+        ],
+    },
+    "opening_balances": {
+        "label": "Opening Balances",
+        "order": 12,
+        "requires": ["Bank Accounts", "Lots"],
+        "fields": [
+            {"name": "as_of_date",     "label": "As Of Date",     "required": True,  "type": "date", "key": True, "note": "YYYY-MM-DD"},
+            {"name": "entity_type",    "label": "Entity Type",    "required": True,  "type": "enum", "key": True,
+             "values": ["BANK_ACCOUNT", "LOT_DUES", "LOT_ASSESSMENT"],
+             "note": "BANK_ACCOUNT = cash on hand; LOT_DUES / LOT_ASSESSMENT = owner balance on a lot"},
+            {"name": "entity_key",     "label": "Entity Key",     "required": True,  "type": "text", "key": True,
+             "note": "Bank Account name for BANK_ACCOUNT; Lot # for LOT_DUES / LOT_ASSESSMENT"},
+            {"name": "amount",         "label": "Amount",         "required": True,  "type": "decimal"},
+        ],
+    },
     "budget_lines": {
         "label": "Budget Lines",
         "order": 9,
-        "requires": ["Budgets", "Chart of Accounts"],
+        "requires": ["Budgets", "Categories"],
         "fields": [
             {"name": "fiscal_year",    "label": "Fiscal Year",   "required": True, "type": "integer", "key": True,  "note": "Combined key"},
             {"name": "fund_code",      "label": "Fund Code",     "required": True, "type": "enum",    "key": True,  "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Combined key"},
-            {"name": "account_number", "label": "Account Number","required": True, "type": "text",    "key": True,  "note": "Combined key — must match an existing account"},
+            {"name": "category_code",  "label": "Category Code", "required": True, "type": "text",    "key": True,  "note": "Combined key — must match an existing category code"},
             {"name": "fiscal_period",  "label": "Fiscal Period", "required": True, "type": "integer", "key": True,  "note": "Combined key — 1–12"},
             {"name": "budget_amount",  "label": "Budget Amount", "required": True, "type": "decimal"},
         ],
@@ -550,31 +617,34 @@ class ImportPages:
 
     # ── Per-type insert methods ──────────────────────────────────────────
 
-    def _insert_accounts(self, row: dict) -> list[str]:
-        at_name = self._v(row, "account_type", "")
-        at_row  = self.conn.execute(
-            "SELECT id FROM account_types WHERE LOWER(name)=LOWER(?)", (at_name,)
-        ).fetchone()
-        if not at_row:
-            return [f"Account type \"{at_name}\" not found."]
-        acct_num = self._v(row, "account_number")
+    def _insert_categories(self, row: dict) -> list[str]:
+        code = self._v(row, "code", "").upper()
+        if not code:
+            return ["Code is required."]
         if self.conn.execute(
-            "SELECT 1 FROM accounts WHERE account_number=?", (acct_num,)
+            "SELECT 1 FROM categories WHERE code=?", (code,)
         ).fetchone():
-            return [f"Account number \"{acct_num}\" already exists."]
+            return [f"Category code \"{code}\" already exists."]
+        ct = self._v(row, "category_type", "").upper()
+        fund = self._v(row, "fund_code", "OPERATING").upper() or "OPERATING"
+        try:
+            sort_order = int(self._v(row, "sort_order", "0") or "0")
+        except ValueError:
+            sort_order = 0
         self.conn.execute(
-            """INSERT INTO accounts
-               (account_number, account_name, account_type_id, fund_code,
-                is_bank_account, is_active, description)
-               VALUES (?,?,?,?,?,?,?)""",
+            """INSERT INTO categories
+               (code, name, category_type, fund_code, group_name,
+                sort_order, active_flag, description)
+               VALUES (?,?,?,?,?,?,?,?)""",
             (
-                acct_num,
-                self._v(row, "account_name"),
-                at_row[0],
-                self._v(row, "fund_code", "").upper(),
-                self._bool(row, "is_bank_account", 0),
-                self._bool(row, "active",           1),
-                self._v(row,  "description"),
+                code,
+                self._v(row, "name"),
+                ct,
+                fund,
+                self._v(row, "group_name"),
+                sort_order,
+                self._bool(row, "active", 1),
+                self._v(row, "description"),
             ),
         )
         return []
@@ -676,28 +746,25 @@ class ImportPages:
         return []
 
     def _insert_bank_accounts(self, row: dict) -> list[str]:
-        gl_num = self._v(row, "gl_account_number")
-        gl_row = self.conn.execute(
-            "SELECT id FROM accounts WHERE account_number=?", (gl_num,)
-        ).fetchone()
-        if not gl_row:
-            return [f"Account \"{gl_num}\" not found in Chart of Accounts."]
         an = self._v(row, "account_name")
         if self.conn.execute(
             "SELECT 1 FROM bank_accounts WHERE account_name=?", (an,)
         ).fetchone():
-            return [f"Bank account \"{an}\" already exists."]
+            return [f'Bank account "{an}" already exists.']
+        fund = (self._v(row, "fund_code", "OPERATING") or "OPERATING").upper()
+        if fund not in ("OPERATING", "RESERVE", "SPECIAL"):
+            fund = "OPERATING"
         self.conn.execute(
             """INSERT INTO bank_accounts
                (account_name, institution_name, account_last4, account_type,
-                gl_account_id, active_flag)
+                fund_code, active_flag)
                VALUES (?,?,?,?,?,?)""",
             (
                 an,
                 self._v(row, "institution_name"),
                 self._v(row, "account_last4"),
                 self._v(row, "account_type", "").upper(),
-                gl_row[0],
+                fund,
                 self._bool(row, "active", 1),
             ),
         )
@@ -773,12 +840,12 @@ class ImportPages:
         if not budget_row:
             return [f"Budget {fy} / {fc} not found. Import Budgets first."]
 
-        acct_num = self._v(row, "account_number")
-        acct_row = self.conn.execute(
-            "SELECT id FROM accounts WHERE account_number=?", (acct_num,)
+        cat_code = self._v(row, "category_code", "").upper()
+        cat_row = self.conn.execute(
+            "SELECT id FROM categories WHERE UPPER(code)=?", (cat_code,)
         ).fetchone()
-        if not acct_row:
-            return [f"Account \"{acct_num}\" not found. Import Chart of Accounts first."]
+        if not cat_row:
+            return [f'Category "{cat_code}" not found. Import Categories first.']
 
         period = int(self._v(row, "fiscal_period", 0))
         if not 1 <= period <= 12:
@@ -786,19 +853,171 @@ class ImportPages:
 
         if self.conn.execute(
             "SELECT 1 FROM budget_lines "
-            "WHERE budget_id=? AND account_id=? AND fiscal_period=?",
-            (budget_row[0], acct_row[0], period),
+            "WHERE budget_id=? AND category_id=? AND fiscal_period=?",
+            (budget_row[0], cat_row[0], period),
         ).fetchone():
-            return ["This budget / account / period combination already exists."]
+            return ["This budget / category / period combination already exists."]
 
         self.conn.execute(
-            """INSERT INTO budget_lines (budget_id, account_id, fiscal_period, budget_amount)
+            """INSERT INTO budget_lines (budget_id, category_id, fiscal_period, budget_amount)
                VALUES (?,?,?,?)""",
             (
                 budget_row[0],
-                acct_row[0],
+                cat_row[0],
                 period,
                 float(self._v(row, "budget_amount", 0)),
             ),
+        )
+        return []
+
+    def _insert_board_members(self, row: dict) -> list[str]:
+        self.conn.execute(
+            """INSERT INTO board_members
+               (full_name, title, email, phone, start_date, end_date, is_active, notes)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (
+                self._v(row, "full_name"),
+                self._v(row, "title"),
+                self._v(row, "email"),
+                self._v(row, "phone"),
+                self._v(row, "start_date") or None,
+                self._v(row, "end_date") or None,
+                self._bool(row, "active", 1),
+                self._v(row, "notes"),
+            ),
+        )
+        return []
+
+    def _insert_assessment_rules(self, row: dict) -> list[str]:
+        rn = self._v(row, "rule_name")
+        if not rn:
+            return ["Rule Name is required."]
+        if self.conn.execute("SELECT 1 FROM assessment_rules WHERE rule_name=?", (rn,)).fetchone():
+            return [f'Rule "{rn}" already exists.']
+        cat_code = (self._v(row, "category_code", "DUES") or "DUES").upper()
+        cat_row = self.conn.execute(
+            "SELECT id FROM categories WHERE UPPER(code)=?", (cat_code,)
+        ).fetchone()
+        if not cat_row:
+            return [f'Category "{cat_code}" not found.']
+        try:
+            amt = float(self._v(row, "default_amount", "0"))
+        except ValueError:
+            return ["Default Amount must be a number."]
+        self.conn.execute(
+            """INSERT INTO assessment_rules
+               (rule_name, frequency, default_amount, category_id,
+                fund_code, effective_start_date, effective_end_date,
+                active_flag, notes)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (
+                rn,
+                self._v(row, "frequency", "").upper(),
+                amt,
+                cat_row[0],
+                (self._v(row, "fund_code", "OPERATING") or "OPERATING").upper(),
+                self._v(row, "effective_start_date"),
+                self._v(row, "effective_end_date") or None,
+                self._bool(row, "active", 1),
+                self._v(row, "notes"),
+            ),
+        )
+        return []
+
+    def _insert_bank_transaction_rules(self, row: dict) -> list[str]:
+        rn = self._v(row, "rule_name")
+        if not rn:
+            return ["Rule Name is required."]
+        if self.conn.execute("SELECT 1 FROM bank_transaction_rules WHERE rule_name=?", (rn,)).fetchone():
+            return [f"Rule \"{rn}\" already exists."]
+
+        def _lookup(table, col, val):
+            if not val:
+                return None
+            r = self.conn.execute(f"SELECT id FROM {table} WHERE {col}=?", (val,)).fetchone()
+            return r[0] if r else None
+
+        cat_code = self._v(row, "category_code", "")
+        cat_id = None
+        if cat_code:
+            r = self.conn.execute("SELECT id FROM categories WHERE UPPER(code)=UPPER(?)", (cat_code,)).fetchone()
+            if not r:
+                return [f"Category code \"{cat_code}\" not found."]
+            cat_id = r[0]
+        vname = self._v(row, "vendor_name", "")
+        vendor_id = _lookup("vendors", "vendor_name", vname)
+        if vname and vendor_id is None:
+            return [f"Vendor \"{vname}\" not found."]
+        lnum = self._v(row, "lot_number", "")
+        lot_id = _lookup("lots", "lot_number", lnum)
+        if lnum and lot_id is None:
+            return [f"Lot \"{lnum}\" not found."]
+        baname = self._v(row, "bank_account_name", "")
+        ba_id = _lookup("bank_accounts", "account_name", baname)
+        if baname and ba_id is None:
+            return [f"Bank account \"{baname}\" not found."]
+        try:
+            apan = int(self._v(row, "auto_post_after_n", "3") or "3")
+        except ValueError:
+            apan = 3
+        self.conn.execute(
+            """INSERT INTO bank_transaction_rules
+               (rule_name, action_type, description_contains, match_type,
+                match_memo, match_amount, category_id, vendor_id, lot_id,
+                bank_account_id, default_memo,
+                confidence_mode, auto_post_after_n, active_flag)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                rn,
+                self._v(row, "action_type", "").lower(),
+                self._v(row, "description_contains", ""),
+                self._v(row, "match_type", ""),
+                self._v(row, "match_memo", ""),
+                self._v(row, "match_amount", ""),
+                cat_id,
+                vendor_id,
+                lot_id,
+                ba_id,
+                self._v(row, "default_memo", ""),
+                self._v(row, "confidence_mode", "review_first") or "review_first",
+                apan,
+                self._bool(row, "active", 1),
+            ),
+        )
+        return []
+
+    def _insert_opening_balances(self, row: dict) -> list[str]:
+        et = self._v(row, "entity_type", "").upper()
+        if et not in ("BANK_ACCOUNT", "LOT_DUES", "LOT_ASSESSMENT"):
+            return ['Entity Type must be "BANK_ACCOUNT", "LOT_DUES", or "LOT_ASSESSMENT".']
+        key = self._v(row, "entity_key", "")
+        if et == "BANK_ACCOUNT":
+            r = self.conn.execute(
+                "SELECT id FROM bank_accounts WHERE account_name=?", (key,)
+            ).fetchone()
+            if not r:
+                return [f'Bank account "{key}" not found.']
+            entity_id = r[0]
+        else:
+            r = self.conn.execute(
+                "SELECT id FROM lots WHERE lot_number=?", (key,)
+            ).fetchone()
+            if not r:
+                return [f'Lot "{key}" not found.']
+            entity_id = r[0]
+        as_of = self._v(row, "as_of_date")
+        if self.conn.execute(
+            "SELECT 1 FROM opening_balances WHERE entity_type=? AND entity_id=?",
+            (et, entity_id),
+        ).fetchone():
+            return ["This entity already has an opening balance — delete it first to re-import."]
+        try:
+            amt = float(self._v(row, "amount", "0"))
+        except ValueError:
+            return ["Amount must be a number."]
+        self.conn.execute(
+            """INSERT INTO opening_balances (as_of_date, entity_type, entity_id, amount)
+               VALUES (?,?,?,?)""",
+            (as_of, et, entity_id, amt),
         )
         return []

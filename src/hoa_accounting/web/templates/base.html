@@ -212,18 +212,10 @@
           <li><a href="/lots" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'lots' %} sidebar__link--active{% endif %}">Properties</a></li>
           <li><a href="/bank-accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">Bank Accounts</a></li>
           <li><a href="/categories" class="sidebar__link{% if page_key == 'categories' %} sidebar__link--active{% endif %}">Categories</a></li>
+          <li><a href="/board-members" class="sidebar__link{% if page_key == 'board-members' %} sidebar__link--active{% endif %}">Board Members</a></li>
           <li><a href="/admin/transaction-rules" class="sidebar__link{% if page_key == 'transaction-rules' %} sidebar__link--active{% endif %}">Transaction Rules</a></li>
           <li><a href="/budgets" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'budgets' %} sidebar__link--active{% endif %}">Budget</a></li>
           <li><a href="/bill-templates" class="sidebar__link{% if page_key == 'bill-templates' %} sidebar__link--active{% endif %}">Bill Templates</a></li>
-          <li class="sidebar__subsection" data-subsection="setup-close">
-            <button type="button" class="sidebar__subsection-header" data-toggle-subsection="setup-close">
-              <span class="sidebar__subchevron" aria-hidden="true">▸</span>Close the Books
-            </button>
-            <ul class="sidebar__subnav">
-              <li><a href="/accounting-periods" class="sidebar__link{% if page_key == 'accounting-periods' %} sidebar__link--active{% endif %}">Lock the Month</a></li>
-              <li><a href="/year-end-close" class="sidebar__link{% if page_key == 'year-end-close' %} sidebar__link--active{% endif %}">Year-End Close</a></li>
-            </ul>
-          </li>
           <li><a href="/manage/edit-records" class="sidebar__link{% if page_key == 'edit-records' %} sidebar__link--active{% endif %}">Fix &amp; Edit</a></li>
         </ul>
       </div>
@@ -252,7 +244,6 @@
             </button>
             <ul class="sidebar__subnav">
               <li><a href="/admin/export" class="sidebar__link{% if page_key == 'export' %} sidebar__link--active{% endif %}">Export / Backup</a></li>
-              <li><a href="/admin/gl-import" class="sidebar__link{% if page_key == 'gl-import' %} sidebar__link--active{% endif %}">Import Transaction Data</a></li>
             </ul>
           </li>
           <li class="sidebar__subsection" data-subsection="admin-custom">

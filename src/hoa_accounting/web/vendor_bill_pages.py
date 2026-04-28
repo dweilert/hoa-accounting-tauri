@@ -351,6 +351,198 @@ class VendorBillPages:
 
         return ("/vendor-bills?saved=1", None)
 
+    # ── Split (GET + POST) ──────────────────────────────────────
+
+    SPLIT_TEMPLATE = "vendor_bill_split.html"
+
+    def render_split(
+        self,
+        vendor_bill_id: int,
+        *,
+        org: dict[str, object] | None,
+        theme: str,
+        form_values: dict[str, list[str]] | None = None,
+        error_message: str = "",
+    ) -> VendorBillFormResponse:
+        repo = VendorsRepository(self.conn)
+        bill = repo.get_vendor_bill(vendor_bill_id)
+        if bill is None:
+            return VendorBillFormResponse(
+                status_code=HTTPStatus.NOT_FOUND,
+                body_html=render_template("error.html", {
+                    "org": org or {}, "theme": theme,
+                    "heading": "Not Found",
+                    "message": f"Vendor bill #{vendor_bill_id} not found.",
+                    "page_key": "vendor-bills",
+                }),
+            )
+        bill_amount = f"{Decimal(str(bill['amount'])):.2f}"
+
+        if form_values and form_values.get("line_category_id"):
+            cats = form_values["line_category_id"]
+            amts = form_values.get("line_amount", [])
+            initial_lines = [
+                {"category_id": cats[i] if i < len(cats) else "",
+                 "amount": amts[i] if i < len(amts) else ""}
+                for i in range(max(len(cats), 1))
+            ]
+        else:
+            initial_lines = [
+                {"category_id": str(bill["category_id"] or ""), "amount": bill_amount},
+                {"category_id": "", "amount": ""},
+            ]
+
+        expense_categories = [
+            {"id": r["id"], "label": r["name"], "fund_code": r["fund_code"]}
+            for r in CategoriesRepository(self.conn).list_categories(
+                category_type="EXPENSE"
+            )
+        ]
+        ctx = {
+            "heading": f"Split Bill · {bill['vendor_name']} · {bill['invoice_number']}",
+            "org": org or {}, "theme": theme,
+            "active_nav": "transactions",
+            "page_key": "vendor-bills",
+            "breadcrumb": "Transactions · Vendor Bills · Split",
+            "bill": dict(bill),
+            "bill_amount": bill_amount,
+            "expense_categories": expense_categories,
+            "initial_lines": initial_lines,
+            "error_message": error_message,
+        }
+        status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
+        return VendorBillFormResponse(
+            status_code=status,
+            body_html=render_template(self.SPLIT_TEMPLATE, ctx),
+        )
+
+    def handle_split(
+        self,
+        vendor_bill_id: int,
+        *,
+        line_category_ids: list[str],
+        line_amounts: list[str],
+        org: dict[str, object] | None,
+        theme: str,
+    ) -> tuple[str | None, VendorBillFormResponse | None]:
+        repo = VendorsRepository(self.conn)
+        bill = repo.get_vendor_bill(vendor_bill_id)
+        if bill is None:
+            return ("/vendor-bills", None)
+        form_values = {"line_category_id": line_category_ids, "line_amount": line_amounts}
+        try:
+            if len(line_category_ids) != len(line_amounts) or not line_category_ids:
+                raise ValidationError("Provide at least one line.")
+            lines: list[tuple[int, Decimal]] = []
+            for cid_raw, amt_raw in zip(line_category_ids, line_amounts):
+                cid = _parse_int(cid_raw, "Category")
+                amt = _parse_positive_decimal(amt_raw, "Line amount")
+                lines.append((cid, amt))
+            total = sum((a for _, a in lines), Decimal("0"))
+            target = Decimal(str(bill["amount"]))
+            if abs(total - target) > Decimal("0.005"):
+                raise ValidationError(
+                    f"Lines sum to ${total:.2f} but bill total is ${target:.2f}."
+                )
+            if len(lines) < 2:
+                raise ValidationError("A split needs at least two lines.")
+
+            # Capture original payment details (assume one payment per bill —
+            # invariant for bills posted via this app).
+            pay_row = self.conn.execute(
+                """SELECT id, payment_date, bank_account_id, check_number, notes
+                     FROM bill_payments WHERE vendor_bill_id = ?
+                     ORDER BY id LIMIT 1""",
+                (vendor_bill_id,),
+            ).fetchone()
+            if pay_row is None:
+                raise ValidationError("Cannot split a bill with no payment recorded.")
+            old_payment_id = int(pay_row["id"])
+            payment_date = pay_row["payment_date"]
+            bank_account_id = int(pay_row["bank_account_id"])
+            check_number = pay_row["check_number"]
+            payment_notes = pay_row["notes"] or ""
+
+            base_inv = bill["invoice_number"]
+            new_payment_ids: list[int] = []
+            for idx, (cat_id, line_amt) in enumerate(lines, start=1):
+                new_inv = f"{base_inv}-S{idx}"
+                new_bill = self.factory.vendor_bill_service().post_vendor_bill(
+                    entry_date=bill["invoice_date"],
+                    vendor_id=int(bill["vendor_id"]),
+                    amount=str(line_amt),
+                    description=bill["description"] or "",
+                    invoice_number=new_inv,
+                    invoice_date=bill["invoice_date"],
+                    due_date=bill["due_date"] or None,
+                    fund_code=bill["fund_code"],
+                    category_id=int(cat_id),
+                )
+                new_payment = self.factory.vendor_payment_service().post_vendor_payment(
+                    entry_date=payment_date,
+                    vendor_bill_id=new_bill.vendor_bill_id,
+                    amount=str(line_amt),
+                    description=payment_notes,
+                    bank_account_id=bank_account_id,
+                    check_number=check_number,
+                )
+                new_payment_ids.append(int(new_payment.bill_payment_id))
+
+            # Re-point bank reconciliation links from the old payment to the
+            # new ones. matched_source_* points at the first new payment.
+            self.conn.execute(
+                """UPDATE bank_transactions
+                      SET matched_source_id = ?
+                    WHERE matched_source_type = 'BILL_PAYMENT'
+                      AND matched_source_id = ?""",
+                (new_payment_ids[0], old_payment_id),
+            )
+            bank_txn_rows = self.conn.execute(
+                """SELECT bank_transaction_id FROM bank_transaction_links
+                    WHERE ledger_source_type = 'BILL_PAYMENT'
+                      AND ledger_source_id = ?""",
+                (old_payment_id,),
+            ).fetchall()
+            self.conn.execute(
+                """DELETE FROM bank_transaction_links
+                    WHERE ledger_source_type = 'BILL_PAYMENT'
+                      AND ledger_source_id = ?""",
+                (old_payment_id,),
+            )
+            for btx in bank_txn_rows:
+                for pid in new_payment_ids:
+                    self.conn.execute(
+                        """INSERT OR IGNORE INTO bank_transaction_links
+                              (bank_transaction_id, ledger_source_type,
+                               ledger_source_id, link_source)
+                           VALUES (?, 'BILL_PAYMENT', ?, 'MANUAL')""",
+                        (int(btx["bank_transaction_id"]), pid),
+                    )
+
+            # Remove the original payment + bill.
+            self.conn.execute(
+                "DELETE FROM bill_payments WHERE id = ?", (old_payment_id,)
+            )
+            self.conn.execute(
+                "DELETE FROM vendor_bills WHERE id = ?", (vendor_bill_id,)
+            )
+            self.conn.commit()
+        except (ValidationError, NotFoundError, AccountingError) as exc:
+            resp = self.render_split(
+                vendor_bill_id, org=org, theme=theme,
+                form_values=form_values, error_message=str(exc),
+            )
+            return (None, resp)
+        except sqlite3.IntegrityError as exc:
+            resp = self.render_split(
+                vendor_bill_id, org=org, theme=theme,
+                form_values=form_values,
+                error_message=f"Database error: {exc}",
+            )
+            return (None, resp)
+
+        return (f"/vendor-bills?split={vendor_bill_id}", None)
+
     # ── Form submit (POST) ──────────────────────────────────────
 
     def handle_post(

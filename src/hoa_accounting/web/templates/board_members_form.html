@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}{{ heading }} · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+
+{% if error_message %}
+  <div class="alert alert--error" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ error_message }}</div>
+  </div>
+{% endif %}
+
+<form method="post"
+      action="{% if member.id %}/board-members/{{ member.id }}/edit{% else %}/board-members/add{% endif %}"
+      class="panel">
+  <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+        Full Name <span style="color:var(--danger);">*</span>
+      </label>
+      <input type="text" name="full_name" required value="{{ member.full_name or '' }}" style="width:100%;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">
+        Title <span style="color:var(--danger);">*</span>
+      </label>
+      <input type="text" name="title" required value="{{ member.title or '' }}"
+             placeholder="e.g. President" style="width:100%;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">Email</label>
+      <input type="email" name="email" value="{{ member.email or '' }}" style="width:100%;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">Phone</label>
+      <input type="text" name="phone" value="{{ member.phone or '' }}" style="width:100%;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">Start Date</label>
+      <input type="date" name="start_date" value="{{ member.start_date or '' }}" style="width:100%;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">End Date</label>
+      <input type="date" name="end_date" value="{{ member.end_date or '' }}" style="width:100%;">
+    </div>
+    <div>
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">Active</label>
+      <select name="is_active" style="width:100%;">
+        <option value="1" {% if member.is_active is not defined or member.is_active == 1 or member.is_active == '1' %}selected{% endif %}>Yes</option>
+        <option value="0" {% if member.is_active == 0 or member.is_active == '0' %}selected{% endif %}>No</option>
+      </select>
+    </div>
+    <div style="grid-column:1/-1;">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem;">Notes</label>
+      <textarea name="notes" rows="3" style="width:100%;">{{ member.notes or '' }}</textarea>
+    </div>
+  </div>
+  <div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:.75rem;">
+    <button type="submit" class="btn btn--primary">Save</button>
+    <a href="/board-members" class="btn btn--ghost">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

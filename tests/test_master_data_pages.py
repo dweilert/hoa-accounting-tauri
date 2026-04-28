@@ -71,16 +71,10 @@ def _seed_vendors(conn: sqlite3.Connection) -> None:
 
 
 def _seed_bank_accounts(conn: sqlite3.Connection) -> None:
-    # A new cash-type GL account (account_type_id 1 = ASSET).
-    conn.execute(
-        "INSERT INTO accounts (id, account_number, account_name, account_type_id, "
-        "fund_code, is_bank_account, is_active) "
-        "VALUES (100, '1000', 'Cash - Operating', 1, 'OPERATING', 1, 1)"
-    )
     conn.execute(
         "INSERT INTO bank_accounts (id, account_name, institution_name, account_last4, "
-        "account_type, gl_account_id, active_flag) "
-        "VALUES (1, 'Operating Checking', 'Big Bank', '1234', 'CHECKING', 100, 1)"
+        "account_type, fund_code, active_flag) "
+        "VALUES (1, 'Operating Checking', 'Big Bank', '1234', 'CHECKING', 'OPERATING', 1)"
     )
     conn.commit()
 
@@ -119,27 +113,14 @@ def test_vendors_repo_lists_active(conn: sqlite3.Connection) -> None:
     assert any(r["vendor_name"] == "Green Yard Services" for r in rows)
 
 
-def test_bank_accounts_repo_joins_gl_account(conn: sqlite3.Connection) -> None:
+def test_bank_accounts_repo_carries_fund(conn: sqlite3.Connection) -> None:
     _seed_bank_accounts(conn)
     rows = BankAccountsRepository(conn).list_bank_accounts()
-    assert rows[0]["gl_account_number"] == "1000"
-    assert rows[0]["gl_account_name"] == "Cash - Operating"
+    assert rows[0]["account_name"] == "Operating Checking"
+    assert rows[0]["fund_code"] == "OPERATING"
 
 
 # ── Page render ────────────────────────────────────────────────────────
-
-
-def test_render_accounts_page_shows_seeded_chart(conn: sqlite3.Connection) -> None:
-    svc = MasterDataListService(conn)
-    resp = svc.render_accounts(org=_ORG, theme="warm")
-    assert resp.status_code == 200
-    # The migration seeds these — each must appear in the chart. 'Mow & Blow'
-    # is skipped here because the ampersand is HTML-escaped on render; we
-    # match unambiguous names instead.
-    for name in ["Sprinkler System", "Utilities", "Firewise"]:
-        assert name in resp.body_html
-    # Group label shown on every expense row.
-    assert "LANDSCAPE" in resp.body_html
 
 
 def test_render_owners_page(conn: sqlite3.Connection) -> None:

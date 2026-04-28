@@ -37,38 +37,94 @@
   <div style="padding:.75rem 1rem;border-top:1px solid var(--border);
               display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <span style="font-size:.8rem;color:var(--text-muted);">Filter:</span>
-    <a href="/bank-transactions/pending"
+    {% set si = '&show_ignored=1' if show_ignored else '' %}
+    <a href="/bank-transactions/pending{% if show_ignored %}?show_ignored=1{% endif %}"
        class="btn btn--sm {% if not selected_bank_account_id %}btn--primary{% else %}btn--ghost{% endif %}">
       All accounts ({{ total_pending }})
     </a>
     {% for a in accounts %}
       {% set n = count_by_account.get(a.id, 0) %}
-      {% if n > 0 or selected_bank_account_id == a.id %}
-        <a href="/bank-transactions/pending?bank_account_id={{ a.id }}"
+      {% if n > 0 or selected_bank_account_id == a.id or show_ignored %}
+        <a href="/bank-transactions/pending?bank_account_id={{ a.id }}{{ si }}"
            class="btn btn--sm {% if selected_bank_account_id == a.id %}btn--primary{% else %}btn--ghost{% endif %}">
           {{ a.account_name }}{% if a.account_last4 %} ···{{ a.account_last4 }}{% endif %}
           ({{ n }})
         </a>
       {% endif %}
     {% endfor %}
+    <span style="margin-left:auto;display:flex;gap:.4rem;align-items:center;">
+      {% if ignored_count and ignored_count > 0 %}
+        <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text-muted);cursor:pointer;">
+          <input type="checkbox" id="show-ignored-toggle"
+                 {% if show_ignored %}checked{% endif %}
+                 onchange="
+                   var s = location.search.replace(/[?&]show_ignored=[^&]*/g, '');
+                   if (this.checked) { s = s ? s + '&show_ignored=1' : '?show_ignored=1'; }
+                   if (s && s.charAt(0) !== '?') s = '?' + s.replace(/^&/, '');
+                   location.href = location.pathname + s;" />
+          Show ignored ({{ ignored_count }})
+        </label>
+      {% endif %}
+      {% if acceptable_count and acceptable_count > 0 %}
+        <a href="/bank-transactions/dry-run{% if selected_bank_account_id %}?bank_account_id={{ selected_bank_account_id }}{% endif %}"
+           class="btn btn--sm btn--ghost">
+          Dry Run ({{ acceptable_count }})
+        </a>
+        <form method="post" action="/bank-transactions/accept-all" style="display:inline;"
+              data-confirm="Post {{ acceptable_count }} ledger record(s) for the matched bank transactions? UNMATCHED rows will be skipped."
+              data-confirm-title="Accept All Matched Transactions"
+              data-confirm-label="Accept All"
+              data-confirm-danger="false">
+          {% if selected_bank_account_id %}
+            <input type="hidden" name="bank_account_id" value="{{ selected_bank_account_id }}" />
+          {% endif %}
+          <button type="submit" class="btn btn--sm btn--primary">
+            ✓ Accept All ({{ acceptable_count }})
+          </button>
+        </form>
+      {% endif %}
+      <form method="post" action="/bank-transactions/revalidate" style="display:inline;">
+        {% if selected_bank_account_id %}
+          <input type="hidden" name="bank_account_id" value="{{ selected_bank_account_id }}" />
+        {% endif %}
+        <button type="submit" class="btn btn--sm btn--ghost"
+                title="Re-run rule + source + batch matching against all unvalidated rows">
+          ↻ Re-validate
+        </button>
+      </form>
+    </span>
   </div>
 </div>
 
 {% if rows %}
+<style>
+  #pending-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface, #fff);
+    box-shadow: inset 0 -1px 0 var(--border, #ddd);
+    cursor: pointer;
+    user-select: none;
+  }
+  #pending-table thead th[data-sort] .si { color: var(--text-muted); margin-left: 4px; }
+  #pending-table thead th[data-sort].sort-asc .si::after  { content: " ↑"; }
+  #pending-table thead th[data-sort].sort-desc .si::after { content: " ↓"; }
+</style>
 <div class="panel">
-  <div class="table-wrap">
-    <table>
+  <div class="table-wrap" style="max-height:70vh;overflow:auto;">
+    <table id="pending-table">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Account</th>
-          <th>Description</th>
-          <th style="text-align:right;">Amount</th>
-          <th>Proposed Match</th>
-          <th style="text-align:right;white-space:nowrap;">Actions</th>
+          <th data-sort="date"   data-col="0">Date<span class="si">↕</span></th>
+          <th data-sort="text"   data-col="1">Account<span class="si">↕</span></th>
+          <th data-sort="text"   data-col="2">Description<span class="si">↕</span></th>
+          <th data-sort="number" data-col="3" style="text-align:right;">Amount<span class="si">↕</span></th>
+          <th data-sort="text"   data-col="4">Proposed Match<span class="si">↕</span></th>
+          <th style="text-align:right;white-space:nowrap;cursor:default;">Actions</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="pending-tbody">
         {% for r in rows %}
         <tr>
           <td style="white-space:nowrap;font-size:13px;">{{ r.transaction_date }}</td>
@@ -110,23 +166,68 @@
             {% endif %}
           </td>
           <td style="text-align:right;white-space:nowrap;">
-            {% if r.match_type == 'RULE' %}
+            <button type="button" class="btn btn--sm btn--ghost js-toggle-details"
+                    data-target="det-{{ r.id }}"
+                    onclick="(function(b){var e=document.getElementById(b.getAttribute('data-target'));if(e){var hidden=getComputedStyle(e).display==='none';e.style.display=hidden?'table-row':'none';}})(this);return false;"
+                    title="Show / hide raw OFX fields">ⓘ</button>
+            {% if r.validation_status == 'IGNORED' %}
+              <span class="pill" style="background:#e5e7eb;color:#4b5563;border:none;">Ignored</span>
               <form method="post"
-                    action="/bank-transactions/{{ r.id }}/accept"
+                    action="/bank-transactions/{{ r.id }}/unignore"
                     style="display:inline;">
-                <button type="submit" class="btn btn--sm btn--primary">Accept</button>
+                <button type="submit" class="btn btn--sm btn--primary"
+                        title="Reset to pending so it re-enters the validation queue">Un-ignore</button>
+              </form>
+            {% else %}
+              {% if r.match_type in ('RULE', 'SOURCE', 'BATCH') %}
+                <form method="post"
+                      action="/bank-transactions/{{ r.id }}/accept"
+                      style="display:inline;">
+                  <button type="submit" class="btn btn--sm btn--primary">Accept</button>
+                </form>
+              {% endif %}
+              <a href="/bank-transactions/{{ r.id }}/classify"
+                 class="btn btn--sm btn--ghost">Classify…</a>
+              <form method="post"
+                    action="/bank-transactions/{{ r.id }}/ignore"
+                    style="display:inline;"
+                    data-confirm="Ignore this transaction? It won't be posted to the ledger."
+                    data-confirm-title="Ignore Transaction"
+                    data-confirm-label="Ignore">
+                <button type="submit" class="btn btn--sm btn--ghost">Ignore</button>
               </form>
             {% endif %}
-            <a href="/bank-transactions/{{ r.id }}/classify"
-               class="btn btn--sm btn--ghost">Classify…</a>
-            <form method="post"
-                  action="/bank-transactions/{{ r.id }}/ignore"
-                  style="display:inline;"
-                  data-confirm="Ignore this transaction? It won't be posted to the ledger."
-                  data-confirm-title="Ignore Transaction"
-                  data-confirm-label="Ignore">
-              <button type="submit" class="btn btn--sm btn--ghost">Ignore</button>
-            </form>
+          </td>
+        </tr>
+        <tr id="det-{{ r.id }}" style="display:none;background:#fafafa;">
+          <td colspan="6" style="padding:.6rem 1rem;font-size:12px;
+                                 border-bottom:1px solid var(--border, #e0e0e0);position:relative;">
+            <button type="button"
+                    onclick="document.getElementById('det-{{ r.id }}').style.display='none';return false;"
+                    style="position:absolute;top:.4rem;right:.6rem;
+                           background:transparent;border:0;font-size:18px;
+                           line-height:1;cursor:pointer;color:var(--text-muted);"
+                    title="Close">×</button>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem 1.25rem;">
+              <div><strong>txn id:</strong> {{ r.id }}</div>
+              <div><strong>date:</strong> {{ r.transaction_date }}</div>
+              <div><strong>amount:</strong> {{ '%.2f' | format(r.amount | float) }}</div>
+              <div><strong>txn type:</strong> {{ r.transaction_type or '' }}</div>
+              <div style="grid-column:1/-1;"><strong>description:</strong>
+                <code>{{ r.description or '' }}</code></div>
+              <div style="grid-column:1/-1;"><strong>memo:</strong>
+                <code>{{ r.memo or '' }}</code></div>
+              <div><strong>FITID:</strong>
+                <code style="font-size:11px;">{{ r.external_reference or '' }}</code></div>
+              <div><strong>imported:</strong> {{ r.created_at or '' }}</div>
+              <div style="grid-column:1/-1;color:var(--text-muted);">
+                Use these values to craft a rule —
+                <em>description_contains</em> matches against
+                <code>description</code>, <em>match_memo</em> against
+                <code>memo</code>, and <em>match_type</em> against
+                <code>transaction_type</code> (case-insensitive substring).
+              </div>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -145,6 +246,67 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+function _bindToggleDetails() {
+  document.querySelectorAll(".js-toggle-details").forEach(function (btn) {
+    if (btn.dataset.boundDetails === "1") return;
+    btn.dataset.boundDetails = "1";
+    btn.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var el = document.getElementById(btn.getAttribute("data-target"));
+      if (!el) { console.warn("toggle target missing:", btn.getAttribute("data-target")); return; }
+      var hidden = el.style.display === "none" || !el.style.display;
+      el.style.display = hidden ? "" : "none";
+    });
+  });
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", _bindToggleDetails);
+} else {
+  _bindToggleDetails();
+}
+(function () {
+  var table = document.getElementById("pending-table");
+  if (!table) return;
+  var tbody = document.getElementById("pending-tbody");
+  var headers = table.querySelectorAll("thead th[data-sort]");
+  var dir = {};
+  headers.forEach(function (th) {
+    th.addEventListener("click", function () {
+      var col = parseInt(th.getAttribute("data-col"), 10);
+      var kind = th.getAttribute("data-sort");
+      var asc = !dir[col];
+      dir = {}; dir[col] = asc;
+      headers.forEach(function (h) { h.classList.remove("sort-asc","sort-desc"); });
+      th.classList.add(asc ? "sort-asc" : "sort-desc");
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      rows.sort(function (a, b) {
+        var av = (a.children[col].textContent || "").trim();
+        var bv = (b.children[col].textContent || "").trim();
+        if (kind === "number") {
+          var an = parseFloat(av.replace(/[^0-9.\-]/g, ""));
+          var bn = parseFloat(bv.replace(/[^0-9.\-]/g, ""));
+          if (isNaN(an)) an = 0; if (isNaN(bn)) bn = 0;
+          return asc ? an - bn : bn - an;
+        }
+        if (kind === "date") {
+          // ISO YYYY-MM-DD sorts lexicographically.
+          if (av < bv) return asc ? -1 : 1;
+          if (av > bv) return asc ?  1 : -1;
+          return 0;
+        }
+        var al = av.toLowerCase(), bl = bv.toLowerCase();
+        if (al < bl) return asc ? -1 : 1;
+        if (al > bl) return asc ?  1 : -1;
+        return 0;
+      });
+      rows.forEach(function (r) { tbody.appendChild(r); });
+    });
+  });
+})();
+</script>
 {% endif %}
 
 {% endblock %}

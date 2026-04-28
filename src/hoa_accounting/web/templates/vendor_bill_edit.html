@@ -111,6 +111,14 @@
       <div class="form__row--full row">
         <button type="submit" class="btn btn--primary">Save Changes</button>
         <a href="/vendor-bills" class="btn btn--ghost">Cancel</a>
+        {% if has_payment %}
+          <a href="/vendor-bills/{{ bill.id }}/split"
+             class="btn btn--ghost"
+             style="margin-left:auto;"
+             title="Replace this bill with two or more category-specific lines that sum to the same total.">
+            Split Across Categories…
+          </a>
+        {% endif %}
       </div>
     </form>
   </div>

@@ -142,7 +142,7 @@
                onchange="onDueDateChange()"
                onblur="validateDueDate()" />
         <span class="field__hint" id="due-date-hint">
-          Defaults based on the billing cycle; cannot be before today.
+          Defaults based on the billing cycle; must be on or after the posting date.
         </span>
       </label>
 
@@ -158,9 +158,19 @@
 
     </div>
 
+    {# ── Period mismatch warning ────────────────────────────────────── #}
+    <div id="period-warning"
+         style="display:none;margin-bottom:1rem;padding:.6rem .85rem;
+                background:#fef3c7;border:1px solid #f59e0b;color:#78350f;
+                border-radius:6px;font-size:13px;">
+      <strong>Heads-up:</strong>
+      <span id="period-warning-text"></span>
+    </div>
+
     {# ── Submit ──────────────────────────────────────────────────────── #}
     <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:1.5rem;">
       <button type="submit" class="btn btn--primary">Post Bills</button>
+      <a href="/" class="btn btn--ghost">← Back to Dashboard</a>
       <span style="font-size:12px;color:var(--text-muted);">
         Posts a dues bill for each active lot-owner in the selected period.
       </span>
@@ -302,13 +312,13 @@
       hint.style.color = "var(--danger)";
       return;
     }
-    if (dueInput.value < todayISO()) {
-      hint.textContent = "Delinquent date cannot be before today.";
+    var entry = document.getElementById("entry-date").value || todayISO();
+    if (dueInput.value < entry) {
+      hint.textContent = "Delinquent date cannot be before the posting date.";
       hint.style.color = "var(--danger)";
       return;
     }
     // Soft warning when the gap from Posting Date is out of the norm.
-    var entry = document.getElementById("entry-date").value || todayISO();
     var cycleRadio = document.querySelector('[name="cycle_type"]:checked');
     var grace = cycleRadio ? (GRACE_DAYS[cycleRadio.value] || 15) : 15;
     var diffDays = Math.round((new Date(dueInput.value) - new Date(entry)) / 86400000);
@@ -320,16 +330,87 @@
                         (cycleRadio ? cycleRadio.value.toLowerCase() : "") + " cycle.";
       hint.style.color = "#b45309";
     } else {
-      hint.textContent = "Defaults based on the billing cycle; cannot be before today.";
+      hint.textContent = "Defaults based on the billing cycle; must be on or after the posting date.";
       hint.style.color = "";
     }
   }
+
+  // ── Period-mismatch warning ─────────────────────────────────────────
+  // Compute the date range a (cycle, year, sequence) tuple covers, then
+  // compare entry_date / due_date against it. Surfaces a yellow banner
+  // when either date falls outside the selected period.
+  function periodRange(cycle, year, seq) {
+    function lastDay(y, m) { return new Date(y, m, 0).getDate(); }
+    var y = parseInt(year, 10);
+    var s = parseInt(seq, 10);
+    if (!y || !s) return null;
+    if (cycle === "MONTHLY") {
+      return { start: y + "-" + pad(s) + "-01",
+               end:   y + "-" + pad(s) + "-" + pad(lastDay(y, s)) };
+    }
+    if (cycle === "QUARTERLY") {
+      var qStart = (s - 1) * 3 + 1;
+      var qEnd = qStart + 2;
+      return { start: y + "-" + pad(qStart) + "-01",
+               end:   y + "-" + pad(qEnd) + "-" + pad(lastDay(y, qEnd)) };
+    }
+    if (cycle === "SEMIANNUAL") {
+      return s === 1
+        ? { start: y + "-01-01", end: y + "-06-30" }
+        : { start: y + "-07-01", end: y + "-12-31" };
+    }
+    // ANNUAL
+    return { start: y + "-01-01", end: y + "-12-31" };
+  }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function checkPeriodAlignment() {
+    var box = document.getElementById("period-warning");
+    var text = document.getElementById("period-warning-text");
+    if (!box || !text) return;
+    var cycleRadio = document.querySelector('[name="cycle_type"]:checked');
+    var year = document.getElementById("period_year").value;
+    var seq = document.getElementById("period_sequence").value;
+    var entry = document.querySelector('[name="entry_date"]').value;
+    var due   = document.querySelector('[name="due_date"]').value;
+    if (!cycleRadio || !year || !seq) { box.style.display = "none"; return; }
+    var range = periodRange(cycleRadio.value, year, seq);
+    if (!range) { box.style.display = "none"; return; }
+
+    var msgs = [];
+    if (entry && (entry < range.start || entry > range.end)) {
+      msgs.push("Posting date " + entry + " is outside the selected period (" +
+                range.start + " to " + range.end + ").");
+    }
+    if (due && (due < range.start || due > range.end)) {
+      msgs.push("Due date " + due + " is outside the selected period (" +
+                range.start + " to " + range.end + ").");
+    }
+    if (msgs.length) {
+      text.textContent = msgs.join(" ") +
+        " Confirm the cycle, year, and sequence match the dates you intend.";
+      box.style.display = "";
+    } else {
+      box.style.display = "none";
+    }
+  }
+  ['cycle_type','period_year','period_sequence','entry_date','due_date'].forEach(function (n) {
+    document.querySelectorAll('[name="' + n + '"]').forEach(function (el) {
+      el.addEventListener("change", checkPeriodAlignment);
+      el.addEventListener("input", checkPeriodAlignment);
+    });
+  });
 
   // Initialise on page load using the server-side defaults.
   (function init() {
     var defaultSeq = {{ default_sequence }};
     populatePeriods(defaultSeq);
     validateDueDate();
+    // Don't run the period-mismatch check on initial load. The defaults
+    // (next period after the last billing, today's posting date) often
+    // land outside the upcoming period, which would nag every visit.
+    // The check only fires when the user actually edits cycle / year /
+    // sequence / posting date / due date.
   })();
   </script>
 

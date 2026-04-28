@@ -28,39 +28,6 @@ class ReportDefinition:
 
 REPORT_DEFINITIONS: list[ReportDefinition] = [
     ReportDefinition(
-        name="balance-sheet",
-        title="Balance Sheet",
-        description=(
-            "Cash-basis balance sheet as of a date. Assets are bank account "
-            "balances; equity is opening balance plus year-to-date net income."
-        ),
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-12-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
-        name="trial-balance",
-        title="Trial Balance",
-        description=(
-            "Cash-basis trial balance that foots debits to credits. Shows "
-            "bank balances and YTD expenses on the debit side; opening equity "
-            "and YTD income on the credit side."
-        ),
-        fields=[
-            ReportField(
-                name="as_of_date",
-                label="As Of Date",
-                placeholder="2026-12-31",
-                required=True,
-            ),
-        ],
-    ),
-    ReportDefinition(
         name="ytd-expense-summary",
         title="Expense Summary",
         description=(
@@ -87,6 +54,62 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
         name="income-by-date",
         title="Income Summary",
         description="All income (dues, assessments, non-dues) in chronological order for a date range.",
+        fields=[
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="categories",
+        title="Categories",
+        description=(
+            "Full listing of income, expense, and transfer categories with "
+            "their group, fund, sort order, and active status."
+        ),
+        fields=[],
+    ),
+    ReportDefinition(
+        name="bank-transactions",
+        title="All Bank Transactions",
+        description=(
+            "Every imported bank line in a date range — validated, "
+            "unvalidated, and ignored. Filter by bank account if you "
+            "want to limit scope. Suitable for printing as an audit "
+            "record of what hit the bank."
+        ),
+        fields=[
+            ReportField(
+                name="from_date",
+                label="From Date",
+                placeholder="2026-01-01",
+                required=True,
+            ),
+            ReportField(
+                name="to_date",
+                label="To Date",
+                placeholder="2026-12-31",
+                required=True,
+            ),
+        ],
+    ),
+    ReportDefinition(
+        name="deposits",
+        title="Deposits",
+        description=(
+            "List of deposit batches (slips taken to the bank) in a date range, "
+            "with totals, journal entry numbers, and the count of owner-payment "
+            "and other-source lines that posted under each batch."
+        ),
         fields=[
             ReportField(
                 name="from_date",

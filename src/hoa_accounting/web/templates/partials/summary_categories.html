@@ -1,0 +1,63 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total categories</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.total_count }}</span>
+  </div>
+</div>
+
+<p class="no-print" style="font-size:.8rem;color:var(--color-text-muted,#888);margin:.5rem 0;">
+  Click a column header to sort. Click again to reverse.
+</p>
+
+{% for grp in summary.groups %}
+  <h3 style="margin-top:1.5rem;">{{ grp.category_type }}</h3>
+  <div class="table-wrap">
+    <table class="cat-report-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-col="0" style="cursor:pointer;">Code <span class="si">↕</span></th>
+          <th class="sortable" data-col="1" style="cursor:pointer;">Name <span class="si">↕</span></th>
+          <th class="sortable" data-col="2" style="cursor:pointer;">Group <span class="si">↕</span></th>
+          <th class="sortable" data-col="3" style="cursor:pointer;">Fund <span class="si">↕</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in grp.rows %}
+        <tr>
+          <td class="mono">{{ row.code }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.group_name }}</td>
+          <td>{{ row.fund_code }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endfor %}
+
+<script>
+(function () {
+  document.querySelectorAll(".cat-report-table").forEach(function (tbl) {
+    var dir = {};
+    tbl.querySelectorAll("th.sortable").forEach(function (th) {
+      th.addEventListener("click", function () {
+        var col = parseInt(th.getAttribute("data-col"), 10);
+        var asc = !dir[col];
+        dir = {}; dir[col] = asc;
+        var tbody = tbl.querySelector("tbody");
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+        rows.sort(function (a, b) {
+          var av = (a.children[col].textContent || "").trim().toLowerCase();
+          var bv = (b.children[col].textContent || "").trim().toLowerCase();
+          if (av < bv) return asc ? -1 : 1;
+          if (av > bv) return asc ? 1 : -1;
+          return 0;
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
+        tbl.querySelectorAll("th.sortable .si").forEach(function (el) { el.textContent = "↕"; });
+        th.querySelector(".si").textContent = asc ? "↑" : "↓";
+      });
+    });
+  });
+})();
+</script>

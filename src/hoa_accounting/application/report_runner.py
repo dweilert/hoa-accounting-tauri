@@ -15,16 +15,15 @@ from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.reporting.ar_aging import ARAgingReportService
 from hoa_accounting.reporting.budget_summary import BudgetSummaryReportService
-from hoa_accounting.reporting.balance_sheet import BalanceSheetReportService
+from hoa_accounting.reporting.bank_transactions import BankTransactionsReportService
+from hoa_accounting.reporting.categories import CategoriesReportService
+from hoa_accounting.reporting.deposits import DepositsReportService
 from hoa_accounting.reporting.expenses_by_date import ExpensesByDateReportService
 from hoa_accounting.reporting.expenses_vs_budget import ExpenseVsBudgetReportService
 from hoa_accounting.reporting.homeowner_contact_list import HomeownerContactListReportService
 from hoa_accounting.reporting.income_by_date import IncomeByDateReportService
-from hoa_accounting.reporting.income_statement import IncomeStatementReportService
 from hoa_accounting.reporting.lot_statement import LotStatementReportService
-from hoa_accounting.reporting.owner_ledger import OwnerLedgerReportService
 from hoa_accounting.reporting.serializers import to_plain_data
-from hoa_accounting.reporting.trial_balance import TrialBalanceReportService
 from hoa_accounting.reporting.vendor_expenses import VendorExpensesReportService
 from hoa_accounting.reporting.ytd_expense_summary import YtdExpenseSummaryReportService
 
@@ -73,10 +72,6 @@ class ReportRunner:
         report_name: str,
         params: dict[str, Any],
     ) -> Any:
-        if report_name == "trial-balance":
-            as_of_date = self._require_param(params, "as_of_date")
-            return TrialBalanceReportService(conn).generate(as_of_date=as_of_date)
-
         if report_name == "owner-ledger":
             lot_id = self._require_int_param(params, "lot_id")
             year_str = str(params.get("year", "")).strip()
@@ -89,18 +84,6 @@ class ReportRunner:
         if report_name == "ar-aging":
             as_of_date = self._require_param(params, "as_of_date")
             return ARAgingReportService(conn).generate(as_of_date=as_of_date)
-
-        if report_name == "balance-sheet":
-            as_of_date = self._require_param(params, "as_of_date")
-            return BalanceSheetReportService(conn).generate(as_of_date=as_of_date)
-
-        if report_name == "income-statement":
-            from_date = self._require_param(params, "from_date")
-            to_date = self._require_param(params, "to_date")
-            return IncomeStatementReportService(conn).generate(
-                from_date=from_date,
-                to_date=to_date,
-            )
 
         if report_name == "ytd-expense-summary":
             from_date = self._require_param(params, "from_date")
@@ -122,6 +105,26 @@ class ReportRunner:
             from_date = self._require_param(params, "from_date")
             to_date = self._require_param(params, "to_date")
             return IncomeByDateReportService(conn).generate(
+                from_date=from_date,
+                to_date=to_date,
+            )
+
+        if report_name == "categories":
+            return CategoriesReportService(conn).generate()
+
+        if report_name == "bank-transactions":
+            from_date = self._require_param(params, "from_date")
+            to_date = self._require_param(params, "to_date")
+            ba_str = str(params.get("bank_account_id", "")).strip()
+            ba_id = int(ba_str) if ba_str else None
+            return BankTransactionsReportService(conn).generate(
+                from_date=from_date, to_date=to_date, bank_account_id=ba_id,
+            )
+
+        if report_name == "deposits":
+            from_date = self._require_param(params, "from_date")
+            to_date = self._require_param(params, "to_date")
+            return DepositsReportService(conn).generate(
                 from_date=from_date,
                 to_date=to_date,
             )

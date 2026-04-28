@@ -449,3 +449,91 @@ class BudgetSummaryReport:
     groups: list[BudgetSummaryGroup]
     total_amounts: list[Decimal]
     total_pct_changes: list[str]
+
+
+# ── Deposits ──────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class DepositsReportLine:
+    """One line item inside a deposit batch."""
+    line_type: str        # "OWNER" | "OTHER"
+    description: str      # owner name + lot for OWNER; category name for OTHER
+    detail: str           # charge types applied (OWNER) or memo (OTHER)
+    reference: str        # check # or reference
+    amount: Decimal
+
+
+@dataclass(frozen=True)
+class DepositsReportRow:
+    """One deposit batch — what the treasurer took to the bank."""
+    batch_id: int
+    deposit_date: str
+    bank_account: str
+    bank_account_last4: str
+    total_amount: Decimal
+    journal_entry: str
+    memo: str
+    owner_payment_count: int
+    owner_payment_total: Decimal
+    other_source_count: int
+    other_source_total: Decimal
+    lines: list[DepositsReportLine]
+
+
+@dataclass(frozen=True)
+class DepositsReport:
+    """All deposit batches in a date range, with line detail."""
+    from_date: str
+    to_date: str
+    rows: list[DepositsReportRow]
+    grand_total: Decimal
+
+
+# ── Categories ────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class CategoriesReportRow:
+    """One category row for the Categories listing."""
+    code: str
+    name: str
+    category_type: str  # INCOME | EXPENSE | TRANSFER
+    group_name: str
+    fund_code: str
+    sort_order: int
+    active: str         # "Yes" | "No"
+    description: str
+
+
+@dataclass(frozen=True)
+class CategoriesReport:
+    """All categories grouped by category_type."""
+    rows: list[CategoriesReportRow]
+
+
+# ── All Bank Transactions ────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class BankTransactionsReportRow:
+    """One bank-line row for the All Transactions report."""
+    transaction_date: str
+    bank_account: str
+    description: str
+    memo: str
+    amount: Decimal
+    transaction_type: str
+    match_type: str
+    matched_source_type: str
+    matched_source_id: str
+    validation_status: str
+    rule_name: str
+
+
+@dataclass(frozen=True)
+class BankTransactionsReport:
+    """All bank_transactions in a date range, optionally filtered by account."""
+    from_date: str
+    to_date: str
+    bank_account_name: str | None
+    rows: list[BankTransactionsReportRow]
+    total_in: Decimal
+    total_out: Decimal

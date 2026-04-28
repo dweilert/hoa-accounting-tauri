@@ -65,11 +65,7 @@ class BankStatementPages:
         """
         rows = self._conn.execute(
             """
-            WITH ba AS (
-                SELECT id AS bank_account_id, gl_account_id
-                FROM bank_accounts WHERE id = ?
-            ),
-            matched AS (
+            WITH matched AS (
                 SELECT bt.matched_source_type AS source_type,
                        bt.matched_source_id   AS source_id
                 FROM bank_transactions bt
@@ -80,8 +76,8 @@ class BankStatementPages:
                    p.payment_date AS item_date,
                    CAST(p.amount AS REAL) AS amount,
                    COALESCE(p.notes, '') AS description
-            FROM payments p, ba
-            WHERE p.bank_account_id = ba.bank_account_id
+            FROM payments p
+            WHERE p.bank_account_id = ?
               AND p.deposit_batch_id IS NULL
               AND NOT EXISTS (
                   SELECT 1 FROM matched m
@@ -92,8 +88,8 @@ class BankStatementPages:
                    ib.posting_date,
                    CAST(ib.total_amount AS REAL),
                    COALESCE(ib.income_description, '')
-            FROM income_batches ib, ba
-            WHERE ib.bank_account_id = ba.bank_account_id
+            FROM income_batches ib
+            WHERE ib.bank_account_id = ?
               AND NOT EXISTS (
                   SELECT 1 FROM matched m
                   WHERE m.source_type = 'INCOME_BATCH' AND m.source_id = ib.id
@@ -103,8 +99,8 @@ class BankStatementPages:
                    bp.payment_date,
                    -CAST(bp.amount AS REAL),
                    COALESCE(bp.notes, '')
-            FROM bill_payments bp, ba
-            WHERE bp.bank_account_id = ba.bank_account_id
+            FROM bill_payments bp
+            WHERE bp.bank_account_id = ?
               AND NOT EXISTS (
                   SELECT 1 FROM matched m
                   WHERE m.source_type = 'BILL_PAYMENT' AND m.source_id = bp.id
@@ -112,20 +108,20 @@ class BankStatementPages:
             UNION ALL
             SELECT 'RESERVE_TRANSFER', rt.id,
                    rt.transfer_date,
-                   CASE WHEN rt.to_account_id = ba.gl_account_id
+                   CASE WHEN rt.to_bank_account_id = ?
                         THEN  CAST(rt.amount AS REAL)
                         ELSE -CAST(rt.amount AS REAL) END,
                    COALESCE(rt.notes, '')
-            FROM reserve_transfers rt, ba
-            WHERE (rt.from_account_id = ba.gl_account_id
-                   OR rt.to_account_id = ba.gl_account_id)
+            FROM reserve_transfers rt
+            WHERE (rt.from_bank_account_id = ? OR rt.to_bank_account_id = ?)
               AND NOT EXISTS (
                   SELECT 1 FROM matched m
                   WHERE m.source_type = 'RESERVE_TRANSFER' AND m.source_id = rt.id
               )
             ORDER BY item_date ASC
             """,
-            (bank_account_id,),
+            (bank_account_id, bank_account_id, bank_account_id,
+             bank_account_id, bank_account_id, bank_account_id),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -245,6 +241,23 @@ class BankStatementPages:
             ).fetchone()
             if not owner_row:
                 return None
+
+            # Create a single-item deposit_batches row so ACH payments
+            # appear in the Deposits report alongside physical-check
+            # batches. The bank line is the deposit, conceptually.
+            batch_cur = self._conn.execute(
+                """INSERT INTO deposit_batches
+                   (deposit_date, bank_account_id, total_amount, notes)
+                   VALUES (?, ?, ?, ?)""",
+                (
+                    txn_date,
+                    bank_account_id,
+                    str(amount),
+                    f"ACH dues — {description}" if description else "ACH dues",
+                ),
+            )
+            deposit_batch_id = int(batch_cur.lastrowid)
+
             receipt_number = self._next_receipt_number(txn_date)
             result = factory.payment_service().post_payment(
                 entry_date=txn_date,
@@ -256,11 +269,11 @@ class BankStatementPages:
                 receipt_number=receipt_number,
                 apply_to_assessment_ids=self._open_assessments_for_lot(int(lot_id)),
             )
-            if category_id_int is not None:
-                self._conn.execute(
-                    "UPDATE payments SET category_id = ? WHERE id = ?",
-                    (category_id_int, result.payment_id),
-                )
+            # Attach the payment to the synthetic deposit batch.
+            self._conn.execute(
+                "UPDATE payments SET deposit_batch_id = ? WHERE id = ?",
+                (deposit_batch_id, result.payment_id),
+            )
             return ("PAYMENT", result.payment_id)
 
         # Incoming non-owner income (fees, interest, misc).
@@ -301,15 +314,59 @@ class BankStatementPages:
                 description=description,
                 bank_account_id=bank_account_id,
             )
-            if category_id_int is not None:
-                self._conn.execute(
-                    "UPDATE bill_payments SET category_id = ? WHERE id = ?",
-                    (category_id_int, payment.bill_payment_id),
-                )
             return ("BILL_PAYMENT", payment.bill_payment_id)
 
-        # homeowner_batch and vendor_bill_match don't post records — they
-        # match transactions to existing single-entry rows via other paths.
+        # vendor_bill_match: try to link to an existing OPEN vendor bill
+        # for the rule's vendor, matching the OFX amount within $0.01.
+        # If none found, fall back to creating a new bill + bill_payment
+        # (same path as recurring_bill) so the ledger always has a record.
+        if action == "vendor_bill_match":
+            if amount >= 0:
+                return None
+            vendor_id = rule.get("vendor_id")
+            if not vendor_id:
+                return None
+            amt = abs(amount)
+            existing = self._conn.execute(
+                """SELECT id FROM vendor_bills
+                   WHERE vendor_id = ?
+                     AND status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
+                     AND ABS(CAST(amount AS REAL) - ?) < 0.01
+                   ORDER BY invoice_date ASC, id ASC LIMIT 1""",
+                (int(vendor_id), float(amt)),
+            ).fetchone()
+            if existing:
+                payment = factory.vendor_payment_service().post_vendor_payment(
+                    entry_date=txn_date,
+                    vendor_bill_id=int(existing["id"]),
+                    amount=str(amt),
+                    description=description,
+                    bank_account_id=bank_account_id,
+                )
+                return ("BILL_PAYMENT", payment.bill_payment_id)
+            # No matching bill — create one and pay it, same as recurring_bill.
+            if category_id_int is None:
+                return None
+            invoice_number = f"BR-{txn_date.replace('-', '')}-{int(txn_row['id']):06d}"
+            bill = factory.vendor_bill_service().post_vendor_bill(
+                entry_date=txn_date,
+                vendor_id=int(vendor_id),
+                amount=str(amt),
+                description=description,
+                invoice_number=invoice_number,
+                invoice_date=txn_date,
+                category_id=category_id_int,
+            )
+            payment = factory.vendor_payment_service().post_vendor_payment(
+                entry_date=txn_date,
+                vendor_bill_id=bill.vendor_bill_id,
+                amount=str(amt),
+                description=description,
+                bank_account_id=bank_account_id,
+            )
+            return ("BILL_PAYMENT", payment.bill_payment_id)
+
+        # homeowner_batch — match-only, no record posted.
         return None
 
     def _period_for_date(self, date_str: str) -> int | None:
@@ -583,7 +640,7 @@ class BankStatementPages:
 
     def _get_bank_account(self, bank_account_id: int) -> sqlite3.Row | None:
         return self._conn.execute(
-            "SELECT id, account_name, account_last4, institution_name, gl_account_id FROM bank_accounts WHERE id = ?",
+            "SELECT id, account_name, account_last4, institution_name, fund_code FROM bank_accounts WHERE id = ?",
             (bank_account_id,),
         ).fetchone()
 
@@ -951,21 +1008,19 @@ class BankStatementPages:
         txn_rows = self._conn.execute(
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo, bt.amount,
-                   bt.transaction_type, bt.matched_line_id, bt.match_type,
+                   bt.transaction_type, bt.match_type,
                    bt.batch_match_ids, bt.rule_id,
                    r.rule_name, r.action_type, r.default_memo,
-                   COALESCE(rc.name, ra.account_name) AS rule_category_name,
-                   je.entry_date     AS gl_entry_date,
-                   je.memo           AS gl_memo,
-                   jel.description   AS gl_line_desc,
-                   CAST(jel.debit_amount  AS REAL) AS gl_debit,
-                   CAST(jel.credit_amount AS REAL) AS gl_credit
+                   rc.name AS rule_category_name,
+                   NULL AS gl_entry_date,
+                   NULL AS gl_memo,
+                   NULL AS gl_line_desc,
+                   NULL AS gl_debit,
+                   NULL AS gl_credit,
+                   NULL AS matched_line_id
             FROM bank_transactions bt
             LEFT JOIN bank_transaction_rules r  ON r.id  = bt.rule_id
             LEFT JOIN categories rc             ON rc.id = r.category_id
-            LEFT JOIN accounts ra               ON ra.id = r.gl_account_id
-            LEFT JOIN journal_entry_lines jel   ON jel.id = bt.matched_line_id
-            LEFT JOIN journal_entries je        ON je.id  = jel.journal_entry_id
             WHERE bt.import_batch_id = ?
             ORDER BY bt.transaction_date ASC, bt.id ASC
             """,

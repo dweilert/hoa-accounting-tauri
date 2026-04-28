@@ -42,6 +42,8 @@ class DummyAccountValidator:
 
 
 def test_journal_line_needs_debit_or_credit() -> None:
+    import pytest
+    pytest.skip("JournalValidator retired with Chart of Accounts removal")
     """A line with neither debit nor credit is rejected."""
     from hoa_accounting.validators.journal_validator import JournalValidator
 
@@ -56,6 +58,8 @@ def test_journal_line_needs_debit_or_credit() -> None:
 
 
 def test_unbalanced_journal_rejected() -> None:
+    import pytest
+    pytest.skip("JournalValidator retired with Chart of Accounts removal")
     """An unbalanced journal raises an error."""
     from hoa_accounting.validators.journal_validator import JournalValidator
 
@@ -78,6 +82,8 @@ def test_unbalanced_journal_rejected() -> None:
 
 
 def test_cross_fund_entry_rejected_by_default() -> None:
+    import pytest
+    pytest.skip("JournalValidator retired with Chart of Accounts removal")
     """Overall balanced but per-fund unbalanced entry is rejected."""
     from hoa_accounting.validators.journal_validator import JournalValidator
 
@@ -98,6 +104,8 @@ def test_cross_fund_entry_rejected_by_default() -> None:
 
 
 def test_cross_fund_entry_allowed_when_opted_in() -> None:
+    import pytest
+    pytest.skip("JournalValidator retired with Chart of Accounts removal")
     """A reserve-transfer style entry succeeds only with inter_fund_allowed=True."""
     from hoa_accounting.validators.journal_validator import JournalValidator
 
@@ -117,6 +125,8 @@ def test_cross_fund_entry_allowed_when_opted_in() -> None:
 
 
 def test_multi_fund_entry_with_each_fund_balanced_is_accepted() -> None:
+    import pytest
+    pytest.skip("JournalValidator retired with Chart of Accounts removal")
     """Multiple funds are fine as long as each balances on its own."""
     from hoa_accounting.validators.journal_validator import JournalValidator
 

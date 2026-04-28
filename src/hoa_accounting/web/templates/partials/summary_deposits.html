@@ -1,0 +1,80 @@
+<div class="summary-totals">
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Period</span>
+    <span class="summary-totals__value summary-totals__value--neutral">
+      {{ summary.from_date }} – {{ summary.to_date }}
+    </span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Total Deposited</span>
+    <span class="summary-totals__value summary-totals__value--accent">{{ summary.grand_total }}</span>
+  </div>
+  <div class="summary-totals__item">
+    <span class="summary-totals__label">Deposits</span>
+    <span class="summary-totals__value summary-totals__value--neutral">{{ summary.rows | length }}</span>
+  </div>
+</div>
+
+{% if summary.rows %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Batch #</th>
+          <th>Bank Account</th>
+          <th>Description / Detail</th>
+          <th>Reference</th>
+          <th class="num">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary.rows %}
+        <tr style="background:var(--surface-muted, #f6f6f6);font-weight:600;">
+          <td>{{ row.deposit_date }}</td>
+          <td>{{ row.batch_id }}</td>
+          <td>
+            {{ row.bank_account }}{% if row.bank_account_last4 %} ···{{ row.bank_account_last4 }}{% endif %}
+          </td>
+          <td>{{ row.memo }}</td>
+          <td></td>
+          <td></td>
+        </tr>
+        {% for line in row.lines %}
+        <tr>
+          <td></td>
+          <td></td>
+          <td style="text-align:right;color:var(--text-muted);">
+            {% if line.line_type == 'OWNER' %}Owner pmt{% else %}Other income{% endif %}
+          </td>
+          <td>
+            <span style="font-weight:500;">{{ line.description }}</span>
+            {% if line.detail %}<span style="color:var(--text-muted);"> · {{ line.detail }}</span>{% endif %}
+          </td>
+          <td>{{ line.reference }}</td>
+          <td class="num">{{ line.amount }}</td>
+        </tr>
+        {% endfor %}
+        <tr style="border-top:1px solid var(--border, #d0d0d0);">
+          <td colspan="5" style="text-align:right;font-weight:600;color:var(--text-muted);">
+            Deposit total ({{ row.deposit_date }})
+          </td>
+          <td class="num" style="font-weight:600;">{{ row.total_amount }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" style="text-align:right;font-weight:700;border-top:2px solid var(--border, #888);">
+            Grand total
+          </td>
+          <td class="num" style="font-weight:700;border-top:2px solid var(--border, #888);">
+            {{ summary.grand_total }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% else %}
+  <p>No deposits found in this date range.</p>
+{% endif %}

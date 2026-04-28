@@ -71,7 +71,6 @@ class DatabaseInitializer:
                 admin_password=admin_password,
             )
             self._seed_periods(conn, fiscal_year=seed_fiscal_year)
-            self._seed_chart_of_accounts(conn)
             self._seed_bank_accounts(
                 conn,
                 operating_bank_name=operating_bank_name,
@@ -160,42 +159,6 @@ class DatabaseInitializer:
                 (month, period_name, start_date, end_date, fiscal_year, month),
             )
 
-    def _seed_chart_of_accounts(self, conn: sqlite3.Connection) -> None:
-        rows = [
-            (1000, '1000', 'Cash - Operating', 1, 'OPERATING', 1, 1, 'Primary operating bank balance'),
-            (1010, '1010', 'Cash - Reserve', 1, 'RESERVE', 1, 1, 'Reserve bank balance'),
-            (1100, '1100', 'Accounts Receivable - Owners', 1, 'OPERATING', 0, 1, 'Amounts owed by owners'),
-            (1110, '1110', 'Prepaid Assessments', 1, 'OPERATING', 0, 1, 'Owner prepayments'),
-            (1200, '1200', 'Undeposited Funds', 1, 'OPERATING', 0, 1, 'Payments received but not yet deposited'),
-            (2000, '2000', 'Accounts Payable', 2, 'OPERATING', 0, 1, 'Vendor invoices not yet paid'),
-            (2100, '2100', 'Accrued Expenses', 2, 'OPERATING', 0, 1, 'Accrued obligations'),
-            (2200, '2200', 'Owner Credits', 2, 'OPERATING', 0, 1, 'Credit balances for owners'),
-            (3000, '3000', 'Fund Balance - Operating', 3, 'OPERATING', 0, 1, 'Operating fund equity'),
-            (3010, '3010', 'Fund Balance - Reserve', 3, 'RESERVE', 0, 1, 'Reserve fund equity'),
-            (3100, '3100', 'Retained Earnings / Prior Years', 3, 'OPERATING', 0, 1, 'Accumulated prior year balance'),
-            (4000, '4000', 'Assessment Income', 4, 'OPERATING', 0, 1, 'Regular owner assessments'),
-            (4010, '4010', 'Late Fee Income', 4, 'OPERATING', 0, 1, 'Late charges billed to owners'),
-            (4020, '4020', 'Special Assessment Income', 4, 'SPECIAL', 0, 1, 'Special assessments'),
-            (4100, '4100', 'Reserve Contribution Income', 4, 'RESERVE', 0, 1, 'Reserve-related assessments'),
-            (4200, '4200', 'Interest Income', 4, 'OPERATING', 0, 1, 'Bank or investment interest'),
-            (6000, '6000', 'Landscaping Expense', 5, 'OPERATING', 0, 1, 'Landscaping and grounds care'),
-            (6010, '6010', 'Utilities Expense', 5, 'OPERATING', 0, 1, 'Utilities for common areas'),
-            (6020, '6020', 'Insurance Expense', 5, 'OPERATING', 0, 1, 'Property and liability insurance'),
-            (6030, '6030', 'Legal and Professional Fees', 5, 'OPERATING', 0, 1, 'Attorney, CPA, and similar fees'),
-            (6040, '6040', 'Repairs and Maintenance', 5, 'OPERATING', 0, 1, 'Routine repairs'),
-            (6050, '6050', 'Office and Admin Expense', 5, 'OPERATING', 0, 1, 'Postage, supplies, software'),
-            (6100, '6100', 'Reserve Expense', 5, 'RESERVE', 0, 1, 'Reserve-funded projects'),
-        ]
-        conn.executemany(
-            """
-            INSERT INTO accounts (
-                id, account_number, account_name, account_type_id, fund_code,
-                is_bank_account, is_active, description
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            rows,
-        )
-
     def _seed_bank_accounts(
         self,
         conn: sqlite3.Connection,
@@ -208,12 +171,12 @@ class DatabaseInitializer:
         conn.executemany(
             """
             INSERT INTO bank_accounts (
-                id, account_name, institution_name, account_last4, account_type, gl_account_id, active_flag
+                id, account_name, institution_name, account_last4, account_type, fund_code, active_flag
             ) VALUES (?, ?, ?, ?, ?, ?, 1)
             """,
             [
-                (1, 'Operating Checking', operating_bank_name, operating_last4, 'CHECKING', 1000),
-                (2, 'Reserve Savings', reserve_bank_name, reserve_last4, 'SAVINGS', 1010),
+                (1, 'Operating Checking', operating_bank_name, operating_last4, 'CHECKING', 'OPERATING'),
+                (2, 'Reserve Savings', reserve_bank_name, reserve_last4, 'SAVINGS', 'RESERVE'),
             ],
         )
 
@@ -223,35 +186,24 @@ class DatabaseInitializer:
         *,
         annual_assessment_amount: str,
     ) -> None:
+        # category_id is resolved by code = 'DUES' if seeded; otherwise NULL.
+        cat_row = conn.execute(
+            "SELECT id FROM categories WHERE code = 'DUES' LIMIT 1"
+        ).fetchone()
+        cat_id = int(cat_row[0]) if cat_row else None
         conn.execute(
             """
             INSERT INTO assessment_rules (
-                id,
-                rule_name,
-                frequency,
-                default_amount,
-                income_account_id,
-                receivable_account_id,
-                effective_start_date,
-                effective_end_date,
-                fund_code,
-                active_flag,
-                notes
+                id, rule_name, frequency, default_amount, category_id,
+                effective_start_date, effective_end_date, fund_code,
+                active_flag, notes
             ) VALUES (
-                1,
-                'Annual Regular Assessment',
-                'ANNUAL',
-                ?,
-                4000,
-                1100,
-                '2026-01-01',
-                NULL,
-                'OPERATING',
-                1,
+                1, 'Annual Regular Assessment', 'ANNUAL', ?, ?,
+                '2026-01-01', NULL, 'OPERATING', 1,
                 'Starter annual dues assessment rule'
             )
             """,
-            (annual_assessment_amount,),
+            (annual_assessment_amount, cat_id),
         )
 
     def _seed_demo_master_data(self, conn: sqlite3.Connection) -> None:

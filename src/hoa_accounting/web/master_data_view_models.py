@@ -246,7 +246,6 @@ def build_bank_accounts_list_context(
         ListColumnVM(key="institution_name", label="Institution"),
         ListColumnVM(key="account_type", label="Type"),
         ListColumnVM(key="last4", label="Last 4", mono=True),
-        ListColumnVM(key="gl", label="Linked Account"),
         ListColumnVM(key="fund", label="Fund"),
     ]
     vm_rows: list[dict[str, object]] = []
@@ -256,8 +255,7 @@ def build_bank_accounts_list_context(
             "institution_name": r["institution_name"],
             "account_type": r["account_type"],
             "last4": r["account_last4"] or "",
-            "gl": f"{r['gl_account_number']} · {r['gl_account_name']}",
-            "fund": r["gl_fund_code"],
+            "fund": r["fund_code"],
         })
     return ListPageContext(
         page_key="bank-accounts",

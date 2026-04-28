@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Board Members · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/board-members/add" class="btn btn--primary">+ Add Board Member</a>
+{% endblock %}
+
+{% block content %}
+
+{% if flash_message %}
+  <div class="alert alert--success" style="margin-bottom:1rem;">
+    <div class="alert__content">{{ flash_message }}</div>
+    <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+  </div>
+{% endif %}
+
+<div class="panel">
+  {% if members %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Active</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in members %}
+          <tr>
+            <td>{{ m.title }}</td>
+            <td>{{ m.full_name }}</td>
+            <td>{{ m.email or '' }}</td>
+            <td>{{ m.phone or '' }}</td>
+            <td>{{ m.start_date or '' }}</td>
+            <td>{{ m.end_date or '' }}</td>
+            <td>{% if m.is_active %}Yes{% else %}No{% endif %}</td>
+            <td style="text-align:right;">
+              <a href="/board-members/{{ m.id }}/edit" class="btn btn--ghost btn--sm">Edit</a>
+              <form method="post" action="/board-members/{{ m.id }}/delete" style="display:inline;"
+                    onsubmit="return confirm('Delete this board member?');">
+                <button type="submit" class="btn btn--ghost btn--sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="panel__header">
+      <div class="panel__description">No board members yet. Click "Add Board Member" to start.</div>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

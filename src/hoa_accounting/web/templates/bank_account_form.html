@@ -66,19 +66,15 @@
     </label>
 
     <label class="field">
-      <span class="field__label">Linked Account *</span>
-      <select name="gl_account_id" required>
-        <option value="">— Select an account —</option>
-        {% for gl in gl_options %}
-          <option value="{{ gl.id }}"
-            {% if values.gl_account_id|string == gl.id|string %} selected{% endif %}>
-            {{ gl.account_number }} · {{ gl.account_name }} ({{ gl.fund_code }})
-          </option>
+      <span class="field__label">Fund *</span>
+      <select name="fund_code" required>
+        {% for fc in fund_codes %}
+          <option value="{{ fc }}"{% if values.fund_code == fc %} selected{% endif %}>{{ fc | capitalize }}</option>
         {% endfor %}
       </select>
       <span class="field__hint">
-        Must be a bank-type account not already linked to another bank account.
-        To set the opening cash balance for this account, use
+        Operating for the day-to-day account, Reserve for the reserve fund.
+        To set the opening cash balance, use
         <a href="/opening-balances">Opening Balances</a>.
       </span>
     </label>

@@ -32,12 +32,11 @@ class VendorsRepository(BaseRepository):
                     vb.status,
                     vb.description,
                     vb.category_id,
-                    vb.journal_entry_id,
+                    NULL AS journal_entry_id,
                     v.vendor_name,
-                    je.entry_number
+                    NULL AS entry_number
                 FROM vendor_bills vb
                 JOIN vendors v ON v.id = vb.vendor_id
-                LEFT JOIN journal_entries je ON je.id = vb.journal_entry_id
                 ORDER BY vb.invoice_date DESC, vb.id DESC
                 LIMIT ?
                 """,

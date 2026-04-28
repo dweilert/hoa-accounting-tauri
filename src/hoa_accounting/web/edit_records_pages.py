@@ -313,6 +313,185 @@ class EditRecordsPages:
             return (None, resp)
         return ("/manage/edit-records/non-dues-income?msg=Saved", None)
 
+    # ── Income batch split ──────────────────────────────────────
+
+    INCOME_SPLIT_TEMPLATE = "income_batch_split.html"
+
+    def render_income_split(
+        self,
+        income_batch_id: int,
+        *,
+        org: dict | None,
+        theme: str,
+        form_values: dict[str, list[str]] | None = None,
+        error_message: str = "",
+    ) -> EditRecordsResponse:
+        repo = IncomeBatchesRepository(self.conn)
+        row = repo.get_income_batch(income_batch_id)
+        if row is None:
+            return EditRecordsResponse(
+                status_code=HTTPStatus.NOT_FOUND,
+                body_html=render_template("error.html", {
+                    "org": org or {}, "theme": theme,
+                    "heading": "Not Found",
+                    "message": f"Income batch #{income_batch_id} not found.",
+                    "page_key": "edit-records-income",
+                }),
+            )
+        batch_amount = f"{Decimal(str(row['total_amount'])):.2f}"
+
+        if form_values and form_values.get("line_category_id"):
+            cats = form_values["line_category_id"]
+            amts = form_values.get("line_amount", [])
+            initial_lines = [
+                {"category_id": cats[i] if i < len(cats) else "",
+                 "amount": amts[i] if i < len(amts) else ""}
+                for i in range(max(len(cats), 1))
+            ]
+        else:
+            initial_lines = [
+                {"category_id": str(row["category_id"] or ""), "amount": batch_amount},
+                {"category_id": "", "amount": ""},
+            ]
+
+        income_categories = [
+            {"id": c["id"], "label": c["name"]}
+            for c in CategoriesRepository(self.conn).list_categories(
+                category_type="INCOME"
+            )
+        ]
+        ctx = {
+            "heading": f"Split Income Batch · {row['income_description']}",
+            "org": org or {}, "theme": theme,
+            "active_nav": "master-data",
+            "page_key": "edit-records-income",
+            "breadcrumb": "Manage · Edit Records · Split",
+            "batch": dict(row),
+            "batch_amount": batch_amount,
+            "income_categories": income_categories,
+            "initial_lines": initial_lines,
+            "error_message": error_message,
+        }
+        status = HTTPStatus.BAD_REQUEST if error_message else HTTPStatus.OK
+        return EditRecordsResponse(
+            status_code=status,
+            body_html=render_template(self.INCOME_SPLIT_TEMPLATE, ctx),
+        )
+
+    def handle_income_split(
+        self,
+        income_batch_id: int,
+        *,
+        line_category_ids: list[str],
+        line_amounts: list[str],
+        org: dict | None,
+        theme: str,
+    ) -> tuple[str | None, EditRecordsResponse | None]:
+        from hoa_accounting.services.factory import ServiceFactory
+        from hoa_accounting.services.non_dues_income_service import IncomeRow
+
+        repo = IncomeBatchesRepository(self.conn)
+        row = repo.get_income_batch(income_batch_id)
+        if row is None:
+            return ("/manage/edit-records/non-dues-income", None)
+        form_values = {"line_category_id": line_category_ids, "line_amount": line_amounts}
+        try:
+            if len(line_category_ids) != len(line_amounts) or not line_category_ids:
+                raise ValidationError("Provide at least one line.")
+            lines: list[tuple[int, Decimal]] = []
+            for cid_raw, amt_raw in zip(line_category_ids, line_amounts):
+                cid = _parse_int(cid_raw, "Category")
+                amt = _parse_positive_decimal(amt_raw, "Line amount")
+                lines.append((cid, amt))
+            total = sum((a for _, a in lines), Decimal("0"))
+            target = Decimal(str(row["total_amount"]))
+            if abs(total - target) > Decimal("0.005"):
+                raise ValidationError(
+                    f"Lines sum to ${total:.2f} but batch total is ${target:.2f}."
+                )
+            if len(lines) < 2:
+                raise ValidationError("A split needs at least two lines.")
+
+            # Look up the original deposit_batch_id so we can link new lines
+            # to the same physical deposit slip.
+            deposit_batch_id = self.conn.execute(
+                "SELECT deposit_batch_id FROM income_batches WHERE id = ?",
+                (income_batch_id,),
+            ).fetchone()
+            deposit_batch_id = (
+                int(deposit_batch_id[0]) if deposit_batch_id and deposit_batch_id[0] is not None
+                else None
+            )
+
+            posting_date = row["posting_date"]
+            bank_account_id = int(row["bank_account_id"])
+            description = row["income_description"]
+            notes = row["notes"]
+
+            factory = ServiceFactory(self.conn)
+            new_batch_ids: list[int] = []
+            for cat_id, line_amt in lines:
+                result = factory.non_dues_income_service().post_batch(
+                    posting_date=posting_date,
+                    bank_account_id=bank_account_id,
+                    income_description=description,
+                    rows=[IncomeRow(amount=str(line_amt), other_source="BANK")],
+                    notes=notes,
+                    category_id=int(cat_id),
+                    deposit_batch_id=deposit_batch_id,
+                )
+                new_batch_ids.append(int(result.income_batch_id))
+
+            # Re-point reconciliation links from old batch to new ones.
+            self.conn.execute(
+                """UPDATE bank_transactions
+                      SET matched_source_id = ?
+                    WHERE matched_source_type = 'INCOME_BATCH'
+                      AND matched_source_id = ?""",
+                (new_batch_ids[0], income_batch_id),
+            )
+            bank_txn_rows = self.conn.execute(
+                """SELECT bank_transaction_id FROM bank_transaction_links
+                    WHERE ledger_source_type = 'INCOME_BATCH'
+                      AND ledger_source_id = ?""",
+                (income_batch_id,),
+            ).fetchall()
+            self.conn.execute(
+                """DELETE FROM bank_transaction_links
+                    WHERE ledger_source_type = 'INCOME_BATCH'
+                      AND ledger_source_id = ?""",
+                (income_batch_id,),
+            )
+            for btx in bank_txn_rows:
+                for nid in new_batch_ids:
+                    self.conn.execute(
+                        """INSERT OR IGNORE INTO bank_transaction_links
+                              (bank_transaction_id, ledger_source_type,
+                               ledger_source_id, link_source)
+                           VALUES (?, 'INCOME_BATCH', ?, 'MANUAL')""",
+                        (int(btx["bank_transaction_id"]), nid),
+                    )
+
+            self.conn.execute(
+                "DELETE FROM income_batches WHERE id = ?", (income_batch_id,)
+            )
+            self.conn.commit()
+        except (ValidationError, NotFoundError, AccountingError) as exc:
+            resp = self.render_income_split(
+                income_batch_id, org=org, theme=theme,
+                form_values=form_values, error_message=str(exc),
+            )
+            return (None, resp)
+        except sqlite3.IntegrityError as exc:
+            resp = self.render_income_split(
+                income_batch_id, org=org, theme=theme,
+                form_values=form_values,
+                error_message=f"Database error: {exc}",
+            )
+            return (None, resp)
+
+        return ("/manage/edit-records/non-dues-income?msg=Split", None)
+
     # ── Assessments / Charges ledger ────────────────────────────
 
     ASSESS_TEMPLATE = "edit_records_assessments.html"

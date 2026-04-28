@@ -23,7 +23,6 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
@@ -53,19 +52,19 @@ class ResaleFeePages:
 
     # ── helpers ─────────────────────────────────────────────────────────
 
-    def _resolve_income_account(self, account_number: str) -> tuple[int | None, str]:
-        row = AccountsRepository(self.conn).get_by_number(account_number)
+    def _resolve_income_account(self, account_number: str) -> tuple[int | None, str]:  # noqa: ARG002
+        """Return (category_id, label) for the RESALE_FEE category."""
+        row = self.conn.execute(
+            "SELECT id, code, name, active_flag FROM categories WHERE code = 'RESALE_FEE'"
+        ).fetchone()
         if row is None:
-            return None, f"Resale Fee Income account '{account_number}' not found — run migrations."
-        if not int(row["is_active"]):
-            return None, f"Resale Fee Income account '{account_number}' is inactive."
-        return int(row["id"]), f"{row['account_number']} · {row['account_name']}"
+            return None, "RESALE_FEE category not found. Add it on the Categories page."
+        if not int(row["active_flag"]):
+            return None, "RESALE_FEE category is inactive."
+        return int(row["id"]), f"{row['code']} · {row['name']}"
 
-    def _resolve_ar_account(self, account_number: str) -> tuple[int | None, str]:
-        row = AccountsRepository(self.conn).get_by_number(account_number)
-        if row is None:
-            return None, f"AR account '{account_number}' not found."
-        return int(row["id"]), f"{row['account_number']} · {row['account_name']}"
+    def _resolve_ar_account(self, account_number: str) -> tuple[int | None, str]:  # noqa: ARG002
+        return None, ""  # Chart of Accounts retired — AR is implicit.
 
     def _lot_options(self) -> list[dict]:
         lots = LotsRepository(self.conn).list_lots(active_only=True)
@@ -81,7 +80,6 @@ class ResaleFeePages:
         return [
             {
                 "id": r["id"],
-                "gl_account_id": r["gl_account_id"],
                 "label": f"{r['account_name']} (…{r['account_last4'] or '????'})",
             }
             for r in rows
@@ -231,13 +229,9 @@ class ResaleFeePages:
         due_date = (form_data.get("due_date") or "").strip() or assessment_date
         description = (form_data.get("description") or "Resale Certificate Fee").strip()
 
-        income_account_id, income_err = self._resolve_income_account(income_account_number)
-        if income_account_id is None:
-            return _err(income_err)
-
-        ar_row = AccountsRepository(self.conn).get_by_number(ar_num)
-        if ar_row is None:
-            return _err(f"AR account '{ar_num}' not found.")
+        category_id, cat_err = self._resolve_income_account(income_account_number)
+        if category_id is None:
+            return _err(cat_err)
 
         lot = LotsRepository(self.conn).get_lot_with_owner(lot_id)
         if lot is None:
@@ -254,8 +248,7 @@ class ResaleFeePages:
                 owner_id=owner_id,
                 amount=amount,
                 description=description,
-                receivable_account_id=int(ar_row["id"]),
-                income_account_id=income_account_id,
+                category_id=category_id,
                 charge_type=_CHARGE_TYPE,
                 due_date=due_date,
             )
@@ -330,15 +323,9 @@ class ResaleFeePages:
         if owner_id is None:
             return _err("No current owner found for this lot.")
 
-        # Resolve bank account → GL cash account.
         bank_row = BankAccountsRepository(self.conn).get_bank_account(bank_account_id)
         if bank_row is None:
             return _err("Bank account not found.")
-        cash_account_id = int(bank_row["gl_account_id"])
-
-        ar_row = AccountsRepository(self.conn).get_by_number(ar_num)
-        if ar_row is None:
-            return _err(f"AR account '{ar_num}' not found.")
 
         try:
             svc = self.factory.payment_service()
@@ -347,8 +334,6 @@ class ResaleFeePages:
                 owner_id=owner_id,
                 amount=amount,
                 description=f"Resale certificate fee payment — check {check_number or receipt_number}",
-                cash_account_id=cash_account_id,
-                receivable_account_id=int(ar_row["id"]),
                 bank_account_id=bank_account_id,
                 payment_method="CHECK",
                 receipt_number=receipt_number,

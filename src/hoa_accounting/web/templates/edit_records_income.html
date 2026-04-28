@@ -103,6 +103,9 @@
                     <div style="grid-column:span 4;display:flex;gap:.5rem;">
                       <button type="submit" class="btn btn--primary btn--sm">Save</button>
                       <button type="button" class="btn btn--ghost btn--sm" onclick="toggleEdit({{ b.id }})">Cancel</button>
+                      <a href="/manage/edit-records/non-dues-income/{{ b.id }}/split"
+                         class="btn btn--ghost btn--sm" style="margin-left:auto;"
+                         title="Split this batch across multiple income categories.">Split…</a>
                     </div>
                   </form>
                 </td>

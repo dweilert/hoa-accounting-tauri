@@ -97,7 +97,6 @@ class CategoriesRepository(BaseRepository):
         "assessments",
         "bank_transaction_rules",
         "bank_transactions",
-        "bill_payments",
         "budget_lines",
         "deposit_batches",
         "income_batches",
@@ -183,8 +182,23 @@ class CategoriesRepository(BaseRepository):
                 FROM reserve_transfers rt
                 WHERE rt.category_id = ?
 
+                UNION ALL
+
+                SELECT 'Bill Payment' AS txn_type,
+                       bp.payment_date AS txn_date,
+                       bp.check_number AS ref,
+                       v.vendor_name AS party,
+                       bp.amount,
+                       COALESCE(bp.notes, vb.description) AS memo,
+                       NULL AS status,
+                       NULL AS entry_number
+                FROM bill_payments bp
+                JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
+                LEFT JOIN vendors v ON v.id = vb.vendor_id
+                WHERE vb.category_id = ?
+
                 ORDER BY txn_date DESC
                 """,
-                (category_id, category_id, category_id, category_id),
+                (category_id, category_id, category_id, category_id, category_id),
             ).fetchall()
         )

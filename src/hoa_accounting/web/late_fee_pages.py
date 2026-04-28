@@ -25,7 +25,6 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.repositories.accounts_repo import AccountsRepository
 from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
@@ -76,13 +75,15 @@ class LateFeePages:
     # ── helpers ─────────────────────────────────────────────────────────
 
     def _resolve_late_fee_account(self) -> tuple[int | None, str]:
-        """Return (account_id, label) for 4050, or (None, error)."""
-        row = AccountsRepository(self.conn).get_by_number(_LATE_FEE_ACCOUNT)
+        """Return (category_id, label) for the LATE_FEE category, or (None, error)."""
+        row = self.conn.execute(
+            "SELECT id, code, name, active_flag FROM categories WHERE code = 'LATE_FEE'"
+        ).fetchone()
         if row is None:
-            return None, f"Late Fee Income account '{_LATE_FEE_ACCOUNT}' not found — run migrations."
-        if not int(row["is_active"]):
-            return None, f"Late Fee Income account '{_LATE_FEE_ACCOUNT}' is inactive."
-        return int(row["id"]), f"{row['account_number']} · {row['account_name']}"
+            return None, "LATE_FEE category not found. Add it on the Categories page."
+        if not int(row["active_flag"]):
+            return None, "LATE_FEE category is inactive."
+        return int(row["id"]), f"{row['code']} · {row['name']}"
 
     def _lot_options(self) -> list[dict]:
         # One row per lot. When a lot has multiple current owners we show
@@ -280,15 +281,10 @@ class LateFeePages:
 
         entry_date = (form_data.get("entry_date") or "").strip() or _today()
 
-        # ── Resolve accounts ──
-        lf_account_id, lf_err = self._resolve_late_fee_account()
-        if lf_account_id is None:
+        # ── Resolve LATE_FEE category ──
+        lf_category_id, lf_err = self._resolve_late_fee_account()
+        if lf_category_id is None:
             return _err(lf_err)
-
-        ar_num = str(org.get("dues_receivable_account_number") or _AR_DEFAULT)
-        ar_row = AccountsRepository(self.conn).get_by_number(ar_num)
-        if ar_row is None:
-            return _err(f"AR account '{ar_num}' not found.")
 
         # ── Collect selected rows ──
         lot = LotsRepository(self.conn).get_lot_with_owner(lot_id)
@@ -356,8 +352,7 @@ class LateFeePages:
                     owner_id=owner_id,
                     amount=row["interest"],
                     description=desc,
-                    receivable_account_id=int(ar_row["id"]),
-                    income_account_id=lf_account_id,
+                    category_id=lf_category_id,
                     charge_type="LATE_FEE",
                     due_date=entry_date,
                 )
