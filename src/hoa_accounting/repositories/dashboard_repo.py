@@ -105,18 +105,38 @@ class DashboardRepository:
 
     def get_bank_tiles(self) -> list[BankTile]:
         # Cash basis: each bank's balance is its opening balance plus money in
-        # (payments + non-dues income deposited to that account) minus money
-        # out (bill payments paid from that account).
+        # (payments + non-dues income + reserve transfers in) minus money out
+        # (bill payments + reserve transfers out).
+        #
+        # The authoritative opening balance lives in ``opening_balances``
+        # (entered via the Starting Balances UI). ``bank_accounts.opening_balance``
+        # is a legacy column that often lags behind — fall back to it only
+        # when no Starting-Balances row exists for the account yet.
         rows = self._conn.execute(
             """
             SELECT
                 ba.account_name,
                 ba.account_type,
                 ba.fund_code,
-                ba.opening_balance
-                  + COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.bank_account_id = ba.id), 0)
-                  + COALESCE((SELECT SUM(ib.total_amount) FROM income_batches ib WHERE ib.bank_account_id = ba.id), 0)
-                  - COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp WHERE bp.bank_account_id = ba.id), 0)
+                COALESCE(
+                    (SELECT ob.amount
+                       FROM opening_balances ob
+                      WHERE ob.entity_type = 'BANK_ACCOUNT'
+                        AND ob.entity_id   = ba.id
+                      LIMIT 1),
+                    ba.opening_balance,
+                    0
+                )
+                  + COALESCE((SELECT SUM(p.amount)        FROM payments p
+                                WHERE p.bank_account_id = ba.id), 0)
+                  + COALESCE((SELECT SUM(ib.total_amount) FROM income_batches ib
+                                WHERE ib.bank_account_id = ba.id), 0)
+                  - COALESCE((SELECT SUM(bp.amount)       FROM bill_payments bp
+                                WHERE bp.bank_account_id = ba.id), 0)
+                  + COALESCE((SELECT SUM(rt.amount)       FROM reserve_transfers rt
+                                WHERE rt.to_bank_account_id   = ba.id), 0)
+                  - COALESCE((SELECT SUM(rt.amount)       FROM reserve_transfers rt
+                                WHERE rt.from_bank_account_id = ba.id), 0)
                   AS balance
             FROM bank_accounts ba
             WHERE ba.active_flag = 1
