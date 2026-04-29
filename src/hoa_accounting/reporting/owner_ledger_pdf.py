@@ -419,9 +419,9 @@ def _build_transactions_table(
     )
 
     col_widths = [
-        0.65 * inch,  # Date
-        0.85 * inch,  # Type  (wider so "Payment" pill doesn't wrap)
-        3.90 * inch,  # Description
+        0.85 * inch,  # Date    (wide enough for "2026-02-04" on one line)
+        0.85 * inch,  # Type    (wide enough for "Payment" pill)
+        3.70 * inch,  # Description
         0.55 * inch,  # Charge
         0.60 * inch,  # Payment
         0.65 * inch,  # Balance
