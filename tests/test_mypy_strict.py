@@ -35,9 +35,25 @@ _SRC_ROOT = _REPO_ROOT / "src" / "hoa_accounting"
 
 
 # Error codes whose mypy reports have historically been actionable
-# rather than noise. Add codes here only after confirming they catch
-# real bugs in this codebase.
-WATCHED_CODES = ("name-defined", "call-overload")
+# rather than noise. The first two each caught real bugs in this
+# codebase; the rest were added once the wider --strict-optional
+# pass landed at zero errors (commit 16c170d), so any regression in
+# any of these categories surfaces immediately.
+WATCHED_CODES = (
+    "name-defined",
+    "call-overload",
+    "union-attr",
+    "assignment",
+    "arg-type",
+    "attr-defined",
+    "no-any-return",
+    "no-untyped-def",
+    "type-arg",
+    "var-annotated",
+    "valid-type",
+    "return-value",
+    "misc",
+)
 
 
 # Pre-existing errors accepted as not-a-bug. Each entry is a
@@ -47,14 +63,7 @@ WATCHED_CODES = ("name-defined", "call-overload")
 # To remove an entry: fix the underlying issue in the source.
 # To add an entry: confirm it's truly noise (e.g., a loose
 # ``int(form_data.get(...))`` whose runtime value is always a string).
-BASELINE: set[tuple[str, int, str]] = {
-    ("web/summary_view_models.py", 466, "call-overload"),
-    ("web/summary_view_models.py", 497, "call-overload"),
-    ("web/summary_view_models.py", 499, "call-overload"),
-    ("web/summary_view_models.py", 508, "call-overload"),
-    ("web/summary_view_models.py", 514, "call-overload"),
-    ("web/assessment_billing_pages.py", 59, "call-overload"),
-}
+BASELINE: set[tuple[str, int, str]] = set()
 
 
 _LINE_RE = re.compile(
