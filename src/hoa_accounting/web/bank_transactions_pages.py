@@ -9,6 +9,7 @@ ignore the line.
 from __future__ import annotations
 
 import sqlite3
+from hoa_accounting.db.transaction import transaction
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
@@ -517,151 +518,156 @@ class BankTransactionsPages:
         description = (memo or txn["description"] or "").strip()
         factory = ServiceFactory(self._conn)
 
-        OWNER_PAYMENT_CODES = {"DUES", "LATE_FEE", "RESALE_FEE"}
-        first_cat_id = int(lines[0][0])
-        first_cat_row = self._conn.execute(
-            "SELECT code FROM categories WHERE id = ?", (first_cat_id,)
-        ).fetchone()
-        first_code = (first_cat_row["code"] if first_cat_row else "").upper()
-
-        # Owner payments are intrinsically single-line; the JS prevents
-        # adding more, but enforce here too.
-        if amount > 0 and first_code in OWNER_PAYMENT_CODES:
-            if len(lines) != 1:
-                return back, "Owner-payment categories (HOA Dues / Late Fees / Resale Fees) cannot be split."
-            if not lot_id:
-                return back, "Lot is required when the category is an owner charge."
-            owner = self._conn.execute(
-                """SELECT owner_id FROM lot_ownership
-                   WHERE lot_id = ? AND end_date IS NULL
-                   ORDER BY start_date DESC LIMIT 1""",
-                (int(lot_id),),
+        # Classify is one logical operation: writing the ledger row(s),
+        # marking the bank line VALIDATED, and inserting bank_transaction_links
+        # all need to land or none of them do. Each service uses its own
+        # ``with transaction(...)`` internally — those become SAVEPOINTs
+        # when nested inside this outer block.
+        with transaction(self._conn):
+            OWNER_PAYMENT_CODES = {"DUES", "LATE_FEE", "RESALE_FEE"}
+            first_cat_id = int(lines[0][0])
+            first_cat_row = self._conn.execute(
+                "SELECT code FROM categories WHERE id = ?", (first_cat_id,)
             ).fetchone()
-            if not owner:
-                return back, "Selected lot has no current owner on record."
+            first_code = (first_cat_row["code"] if first_cat_row else "").upper()
 
-            batch_cur = self._conn.execute(
-                """INSERT INTO deposit_batches
-                   (deposit_date, bank_account_id, total_amount, notes)
-                   VALUES (?, ?, ?, ?)""",
-                (
-                    txn["transaction_date"],
-                    int(txn["bank_account_id"]),
-                    str(amount),
-                    f"ACH dues — {description}" if description else "ACH dues",
-                ),
-            )
-            deposit_batch_id = int(batch_cur.lastrowid)
+            # Owner payments are intrinsically single-line; the JS prevents
+            # adding more, but enforce here too.
+            if amount > 0 and first_code in OWNER_PAYMENT_CODES:
+                if len(lines) != 1:
+                    return back, "Owner-payment categories (HOA Dues / Late Fees / Resale Fees) cannot be split."
+                if not lot_id:
+                    return back, "Lot is required when the category is an owner charge."
+                owner = self._conn.execute(
+                    """SELECT owner_id FROM lot_ownership
+                       WHERE lot_id = ? AND end_date IS NULL
+                       ORDER BY start_date DESC LIMIT 1""",
+                    (int(lot_id),),
+                ).fetchone()
+                if not owner:
+                    return back, "Selected lot has no current owner on record."
 
-            charge_filter = ("RESALE_FEE",) if first_code == "RESALE_FEE" else ("DUES", "LATE_FEE")
-            open_assess = [
-                int(r[0]) for r in self._conn.execute(
-                    """SELECT a.id FROM assessments a
-                       WHERE a.lot_id = ?
-                         AND a.charge_type IN ({}) AND a.status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
-                       ORDER BY a.due_date ASC, a.id ASC""".format(
-                        ",".join("?" * len(charge_filter))
+                batch_cur = self._conn.execute(
+                    """INSERT INTO deposit_batches
+                       (deposit_date, bank_account_id, total_amount, notes)
+                       VALUES (?, ?, ?, ?)""",
+                    (
+                        txn["transaction_date"],
+                        int(txn["bank_account_id"]),
+                        str(amount),
+                        f"ACH dues — {description}" if description else "ACH dues",
                     ),
-                    (int(lot_id), *charge_filter),
-                ).fetchall()
-            ]
-            payment = factory.payment_service().post_payment(
-                entry_date=txn["transaction_date"],
-                owner_id=int(owner["owner_id"]),
-                amount=str(amount),
-                description=description or "Owner payment (manual classify)",
-                bank_account_id=int(txn["bank_account_id"]),
-                payment_method="ACH",
-                receipt_number=self._bsp._next_receipt_number(txn["transaction_date"]),
-                apply_to_assessment_ids=open_assess,
-            )
-            self._conn.execute(
-                "UPDATE payments SET deposit_batch_id = ? WHERE id = ?",
-                (deposit_batch_id, payment.payment_id),
-            )
-            primary = ("PAYMENT", int(payment.payment_id))
-            extra: list[tuple[str, int]] = []
-        elif amount > 0:
-            # Non-owner income — N lines, all on one deposit_batch so the
-            # Deposits report sees the slip total.
-            batch_cur = self._conn.execute(
-                """INSERT INTO deposit_batches
-                   (deposit_date, bank_account_id, total_amount, notes)
-                   VALUES (?, ?, ?, ?)""",
-                (
-                    txn["transaction_date"],
-                    int(txn["bank_account_id"]),
-                    str(amount),
-                    description or None,
-                ),
-            )
-            deposit_batch_id = int(batch_cur.lastrowid)
-            posted: list[tuple[str, int]] = []
-            for cat_id, line_amt in lines:
-                result = factory.non_dues_income_service().post_batch(
-                    posting_date=txn["transaction_date"],
-                    bank_account_id=int(txn["bank_account_id"]),
-                    income_description=description or "Bank import",
-                    rows=[IncomeRow(amount=str(line_amt), other_source="BANK")],
-                    category_id=int(cat_id),
-                    deposit_batch_id=deposit_batch_id,
                 )
-                posted.append(("INCOME_BATCH", int(result.income_batch_id)))
-            primary = posted[0]
-            extra = posted[1:]
-        else:
-            if not vendor_id:
-                return back, "Vendor is required for expense transactions."
-            posted = []
-            for idx, (cat_id, line_amt) in enumerate(lines, start=1):
-                invoice_number = (
-                    f"BR-{str(txn['transaction_date']).replace('-', '')}"
-                    f"-{int(bank_txn_id):06d}"
-                    + (f"-L{idx}" if len(lines) > 1 else "")
-                )
-                bill = factory.vendor_bill_service().post_vendor_bill(
-                    entry_date=txn["transaction_date"],
-                    vendor_id=int(vendor_id),
-                    amount=str(line_amt),
-                    description=description,
-                    invoice_number=invoice_number,
-                    invoice_date=txn["transaction_date"],
-                    category_id=int(cat_id),
-                )
-                vendor_payment = factory.vendor_payment_service().post_vendor_payment(
-                    entry_date=txn["transaction_date"],
-                    vendor_bill_id=bill.vendor_bill_id,
-                    amount=str(line_amt),
-                    description=description,
-                    bank_account_id=int(txn["bank_account_id"]),
-                )
-                posted.append(("BILL_PAYMENT", int(vendor_payment.bill_payment_id)))
-            primary = posted[0]
-            extra = posted[1:]
+                deposit_batch_id = int(batch_cur.lastrowid)
 
-        # Mark the bank line validated; primary record powers existing
-        # views, extras live in bank_transaction_links so the full split
-        # is auditable.
-        self._conn.execute(
-            """
-            UPDATE bank_transactions
-               SET matched_source_type = ?, matched_source_id = ?,
-                   validation_status = 'VALIDATED'
-             WHERE id = ?
-            """,
-            (primary[0], primary[1], bank_txn_id),
-        )
-        for st, sid in [primary, *extra]:
+                charge_filter = ("RESALE_FEE",) if first_code == "RESALE_FEE" else ("DUES", "LATE_FEE")
+                open_assess = [
+                    int(r[0]) for r in self._conn.execute(
+                        """SELECT a.id FROM assessments a
+                           WHERE a.lot_id = ?
+                             AND a.charge_type IN ({}) AND a.status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
+                           ORDER BY a.due_date ASC, a.id ASC""".format(
+                            ",".join("?" * len(charge_filter))
+                        ),
+                        (int(lot_id), *charge_filter),
+                    ).fetchall()
+                ]
+                payment = factory.payment_service().post_payment(
+                    entry_date=txn["transaction_date"],
+                    owner_id=int(owner["owner_id"]),
+                    amount=str(amount),
+                    description=description or "Owner payment (manual classify)",
+                    bank_account_id=int(txn["bank_account_id"]),
+                    payment_method="ACH",
+                    receipt_number=self._bsp._next_receipt_number(txn["transaction_date"]),
+                    apply_to_assessment_ids=open_assess,
+                )
+                self._conn.execute(
+                    "UPDATE payments SET deposit_batch_id = ? WHERE id = ?",
+                    (deposit_batch_id, payment.payment_id),
+                )
+                primary = ("PAYMENT", int(payment.payment_id))
+                extra: list[tuple[str, int]] = []
+            elif amount > 0:
+                # Non-owner income — N lines, all on one deposit_batch so the
+                # Deposits report sees the slip total.
+                batch_cur = self._conn.execute(
+                    """INSERT INTO deposit_batches
+                       (deposit_date, bank_account_id, total_amount, notes)
+                       VALUES (?, ?, ?, ?)""",
+                    (
+                        txn["transaction_date"],
+                        int(txn["bank_account_id"]),
+                        str(amount),
+                        description or None,
+                    ),
+                )
+                deposit_batch_id = int(batch_cur.lastrowid)
+                posted: list[tuple[str, int]] = []
+                for cat_id, line_amt in lines:
+                    result = factory.non_dues_income_service().post_batch(
+                        posting_date=txn["transaction_date"],
+                        bank_account_id=int(txn["bank_account_id"]),
+                        income_description=description or "Bank import",
+                        rows=[IncomeRow(amount=str(line_amt), other_source="BANK")],
+                        category_id=int(cat_id),
+                        deposit_batch_id=deposit_batch_id,
+                    )
+                    posted.append(("INCOME_BATCH", int(result.income_batch_id)))
+                primary = posted[0]
+                extra = posted[1:]
+            else:
+                if not vendor_id:
+                    return back, "Vendor is required for expense transactions."
+                posted = []
+                for idx, (cat_id, line_amt) in enumerate(lines, start=1):
+                    invoice_number = (
+                        f"BR-{str(txn['transaction_date']).replace('-', '')}"
+                        f"-{int(bank_txn_id):06d}"
+                        + (f"-L{idx}" if len(lines) > 1 else "")
+                    )
+                    bill = factory.vendor_bill_service().post_vendor_bill(
+                        entry_date=txn["transaction_date"],
+                        vendor_id=int(vendor_id),
+                        amount=str(line_amt),
+                        description=description,
+                        invoice_number=invoice_number,
+                        invoice_date=txn["transaction_date"],
+                        category_id=int(cat_id),
+                    )
+                    vendor_payment = factory.vendor_payment_service().post_vendor_payment(
+                        entry_date=txn["transaction_date"],
+                        vendor_bill_id=bill.vendor_bill_id,
+                        amount=str(line_amt),
+                        description=description,
+                        bank_account_id=int(txn["bank_account_id"]),
+                    )
+                    posted.append(("BILL_PAYMENT", int(vendor_payment.bill_payment_id)))
+                primary = posted[0]
+                extra = posted[1:]
+
+            # Mark the bank line validated; primary record powers existing
+            # views, extras live in bank_transaction_links so the full split
+            # is auditable.
             self._conn.execute(
                 """
-                INSERT OR IGNORE INTO bank_transaction_links
-                    (bank_transaction_id, ledger_source_type, ledger_source_id,
-                     link_source)
-                VALUES (?, ?, ?, 'MANUAL')
+                UPDATE bank_transactions
+                   SET matched_source_type = ?, matched_source_id = ?,
+                       validation_status = 'VALIDATED'
+                 WHERE id = ?
                 """,
-                (bank_txn_id, st, sid),
+                (primary[0], primary[1], bank_txn_id),
             )
-        self._conn.commit()
+            for st, sid in [primary, *extra]:
+                self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO bank_transaction_links
+                        (bank_transaction_id, ledger_source_type, ledger_source_id,
+                         link_source)
+                    VALUES (?, ?, ?, 'MANUAL')
+                    """,
+                    (bank_txn_id, st, sid),
+                )
         n = len(lines)
         return "/bank-transactions/pending", (
             f"Posted {primary[0].lower()} #{primary[1]}"

@@ -10,6 +10,7 @@ import itertools
 import json
 import re
 import sqlite3
+from hoa_accounting.db.transaction import transaction
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -608,32 +609,37 @@ class BankStatementPages:
         ).fetchone()
         if row is None:
             return False
-        result = self._apply_rule(dict(row), dict(rule), bank_account_id=bank_account_id)
-        if result is None:
-            return False
-        source_type, source_id = result
-        self._conn.execute(
-            """
-            UPDATE bank_transactions
-               SET matched_source_type = ?, matched_source_id = ?,
-                   validation_status = 'VALIDATED'
-             WHERE id = ?
-            """,
-            (source_type, int(source_id), int(row["id"])),
-        )
-        self._conn.execute(
-            """
-            INSERT OR IGNORE INTO bank_transaction_links
-                (bank_transaction_id, ledger_source_type, ledger_source_id,
-                 link_source, rule_id)
-            VALUES (?, ?, ?, 'RULE', ?)
-            """,
-            (int(row["id"]), source_type, int(source_id), int(rule["id"])),
-        )
-        self._conn.execute(
-            "UPDATE bank_transaction_rules SET confirmed_matches = confirmed_matches + 1 WHERE id = ?",
-            (int(rule["id"]),),
-        )
+        # Auto-post is one logical operation: posting the ledger record
+        # via _apply_rule, marking the bank line VALIDATED, inserting the
+        # bank_transaction_links audit row, and bumping the rule's match
+        # counter all need to land or none of them do.
+        with transaction(self._conn):
+            result = self._apply_rule(dict(row), dict(rule), bank_account_id=bank_account_id)
+            if result is None:
+                return False
+            source_type, source_id = result
+            self._conn.execute(
+                """
+                UPDATE bank_transactions
+                   SET matched_source_type = ?, matched_source_id = ?,
+                       validation_status = 'VALIDATED'
+                 WHERE id = ?
+                """,
+                (source_type, int(source_id), int(row["id"])),
+            )
+            self._conn.execute(
+                """
+                INSERT OR IGNORE INTO bank_transaction_links
+                    (bank_transaction_id, ledger_source_type, ledger_source_id,
+                     link_source, rule_id)
+                VALUES (?, ?, ?, 'RULE', ?)
+                """,
+                (int(row["id"]), source_type, int(source_id), int(rule["id"])),
+            )
+            self._conn.execute(
+                "UPDATE bank_transaction_rules SET confirmed_matches = confirmed_matches + 1 WHERE id = ?",
+                (int(rule["id"]),),
+            )
         return True
 
     # ── Standalone import (no reconciliation) ────────────────────────────────
