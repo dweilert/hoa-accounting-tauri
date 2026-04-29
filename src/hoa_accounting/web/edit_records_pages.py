@@ -10,6 +10,7 @@ are stubbed as "coming soon".
 from __future__ import annotations
 
 import sqlite3
+from hoa_accounting.db.transaction import transaction
 from dataclasses import dataclass
 from datetime import date as _date
 from decimal import Decimal, InvalidOperation
@@ -407,53 +408,55 @@ class EditRecordsPages:
             notes = row["notes"]
 
             factory = ServiceFactory(self.conn)
-            new_batch_ids: list[int] = []
-            for cat_id, line_amt in lines:
-                result = factory.non_dues_income_service().post_batch(
-                    posting_date=posting_date,
-                    bank_account_id=bank_account_id,
-                    income_description=description,
-                    rows=[IncomeRow(amount=str(line_amt), other_source="BANK")],
-                    notes=notes,
-                    category_id=int(cat_id),
-                    deposit_batch_id=deposit_batch_id,
-                )
-                new_batch_ids.append(int(result.income_batch_id))
-
-            # Re-point reconciliation links from old batch to new ones.
-            self.conn.execute(
-                """UPDATE bank_transactions
-                      SET matched_source_id = ?
-                    WHERE matched_source_type = 'INCOME_BATCH'
-                      AND matched_source_id = ?""",
-                (new_batch_ids[0], income_batch_id),
-            )
-            bank_txn_rows = self.conn.execute(
-                """SELECT bank_transaction_id FROM bank_transaction_links
-                    WHERE ledger_source_type = 'INCOME_BATCH'
-                      AND ledger_source_id = ?""",
-                (income_batch_id,),
-            ).fetchall()
-            self.conn.execute(
-                """DELETE FROM bank_transaction_links
-                    WHERE ledger_source_type = 'INCOME_BATCH'
-                      AND ledger_source_id = ?""",
-                (income_batch_id,),
-            )
-            for btx in bank_txn_rows:
-                for nid in new_batch_ids:
-                    self.conn.execute(
-                        """INSERT OR IGNORE INTO bank_transaction_links
-                              (bank_transaction_id, ledger_source_type,
-                               ledger_source_id, link_source)
-                           VALUES (?, 'INCOME_BATCH', ?, 'MANUAL')""",
-                        (int(btx["bank_transaction_id"]), nid),
+            # Splitting an income batch is one logical operation: create N
+            # new batches, re-point bank-recon links, and delete the original.
+            with transaction(self.conn):
+                new_batch_ids: list[int] = []
+                for cat_id, line_amt in lines:
+                    result = factory.non_dues_income_service().post_batch(
+                        posting_date=posting_date,
+                        bank_account_id=bank_account_id,
+                        income_description=description,
+                        rows=[IncomeRow(amount=str(line_amt), other_source="BANK")],
+                        notes=notes,
+                        category_id=int(cat_id),
+                        deposit_batch_id=deposit_batch_id,
                     )
+                    new_batch_ids.append(int(result.income_batch_id))
 
-            self.conn.execute(
-                "DELETE FROM income_batches WHERE id = ?", (income_batch_id,)
-            )
-            self.conn.commit()
+                # Re-point reconciliation links from old batch to new ones.
+                self.conn.execute(
+                    """UPDATE bank_transactions
+                          SET matched_source_id = ?
+                        WHERE matched_source_type = 'INCOME_BATCH'
+                          AND matched_source_id = ?""",
+                    (new_batch_ids[0], income_batch_id),
+                )
+                bank_txn_rows = self.conn.execute(
+                    """SELECT bank_transaction_id FROM bank_transaction_links
+                        WHERE ledger_source_type = 'INCOME_BATCH'
+                          AND ledger_source_id = ?""",
+                    (income_batch_id,),
+                ).fetchall()
+                self.conn.execute(
+                    """DELETE FROM bank_transaction_links
+                        WHERE ledger_source_type = 'INCOME_BATCH'
+                          AND ledger_source_id = ?""",
+                    (income_batch_id,),
+                )
+                for btx in bank_txn_rows:
+                    for nid in new_batch_ids:
+                        self.conn.execute(
+                            """INSERT OR IGNORE INTO bank_transaction_links
+                                  (bank_transaction_id, ledger_source_type,
+                                   ledger_source_id, link_source)
+                               VALUES (?, 'INCOME_BATCH', ?, 'MANUAL')""",
+                            (int(btx["bank_transaction_id"]), nid),
+                        )
+
+                self.conn.execute(
+                    "DELETE FROM income_batches WHERE id = ?", (income_batch_id,)
+                )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_income_split(
                 income_batch_id, org=org, theme=theme,

@@ -200,72 +200,72 @@ class BankTransactionsPages:
             ).fetchone()
             if not current or not current["matched_source_type"]:
                 return back, "Match metadata is missing — re-run validation first."
-            self._conn.execute(
-                "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
-                (bank_txn_id,),
-            )
-            self._conn.execute(
-                """
-                INSERT OR IGNORE INTO bank_transaction_links
-                    (bank_transaction_id, ledger_source_type, ledger_source_id, link_source)
-                VALUES (?, ?, ?, ?)
-                """,
-                (bank_txn_id, current["matched_source_type"],
-                 int(current["matched_source_id"]), match_type),
-            )
-            self._conn.commit()
+            with transaction(self._conn):
+                self._conn.execute(
+                    "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
+                    (bank_txn_id,),
+                )
+                self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO bank_transaction_links
+                        (bank_transaction_id, ledger_source_type, ledger_source_id, link_source)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (bank_txn_id, current["matched_source_type"],
+                     int(current["matched_source_id"]), match_type),
+                )
             return back, f"Accepted — linked to {current['matched_source_type'].lower()} #{current['matched_source_id']}."
 
         if match_type != "RULE" or not row["rule_id"]:
             return back, "No rule match on this transaction. Pick a category or link an existing ledger record."
 
-        result = self._bsp._apply_rule(
-            dict(row),
-            dict(row),
-            bank_account_id=int(row["bank_account_id"]),
-        )
-        if result is None:
-            return back, (
-                "Rule could not be applied — check that the rule has the "
-                "required vendor, category, or lot and that the amount sign "
-                "matches the action type."
+        with transaction(self._conn):
+            result = self._bsp._apply_rule(
+                dict(row),
+                dict(row),
+                bank_account_id=int(row["bank_account_id"]),
             )
+            if result is None:
+                return back, (
+                    "Rule could not be applied — check that the rule has the "
+                    "required vendor, category, or lot and that the amount sign "
+                    "matches the action type."
+                )
 
-        source_type, source_id = result
-        self._conn.execute(
-            """
-            UPDATE bank_transactions
-               SET matched_source_type = ?, matched_source_id = ?,
-                   validation_status = 'VALIDATED'
-             WHERE id = ?
-            """,
-            (source_type, int(source_id), bank_txn_id),
-        )
-        self._conn.execute(
-            """
-            INSERT OR IGNORE INTO bank_transaction_links
-                (bank_transaction_id, ledger_source_type, ledger_source_id,
-                 link_source, rule_id)
-            VALUES (?, ?, ?, 'RULE', ?)
-            """,
-            (bank_txn_id, source_type, int(source_id), int(row["rule_id"])),
-        )
-        # Bump the rule's confirmed-matches counter; promote to auto_post
-        # once the user has signed off on enough of its matches.
-        self._conn.execute(
-            """
-            UPDATE bank_transaction_rules
-               SET confirmed_matches = confirmed_matches + 1,
-                   confidence_mode = CASE
-                       WHEN confirmed_matches + 1 >= auto_post_after_n
-                           THEN 'auto_post'
-                       ELSE confidence_mode
-                   END
-             WHERE id = ?
-            """,
-            (int(row["rule_id"]),),
-        )
-        self._conn.commit()
+            source_type, source_id = result
+            self._conn.execute(
+                """
+                UPDATE bank_transactions
+                   SET matched_source_type = ?, matched_source_id = ?,
+                       validation_status = 'VALIDATED'
+                 WHERE id = ?
+                """,
+                (source_type, int(source_id), bank_txn_id),
+            )
+            self._conn.execute(
+                """
+                INSERT OR IGNORE INTO bank_transaction_links
+                    (bank_transaction_id, ledger_source_type, ledger_source_id,
+                     link_source, rule_id)
+                VALUES (?, ?, ?, 'RULE', ?)
+                """,
+                (bank_txn_id, source_type, int(source_id), int(row["rule_id"])),
+            )
+            # Bump the rule's confirmed-matches counter; promote to auto_post
+            # once the user has signed off on enough of its matches.
+            self._conn.execute(
+                """
+                UPDATE bank_transaction_rules
+                   SET confirmed_matches = confirmed_matches + 1,
+                       confidence_mode = CASE
+                           WHEN confirmed_matches + 1 >= auto_post_after_n
+                               THEN 'auto_post'
+                           ELSE confidence_mode
+                       END
+                 WHERE id = ?
+                """,
+                (int(row["rule_id"]),),
+            )
         return back, f"Accepted — posted {source_type.lower()} #{source_id}."
 
     # ── Classify screen (Pick Category / Link Existing) ─────────────────
@@ -710,27 +710,27 @@ class BankTransactionsPages:
         if not ledger or int(ledger["bank_account_id"]) != int(txn["bank_account_id"]):
             return back, "Selected record not found for this bank account."
 
-        self._conn.execute(
-            """
-            UPDATE bank_transactions
-               SET match_type = 'SOURCE',
-                   matched_source_type = ?, matched_source_id = ?,
-                   reconciliation_status = 'MATCHED',
-                   validation_status = 'VALIDATED'
-             WHERE id = ?
-            """,
-            (source_type, int(source_id), bank_txn_id),
-        )
-        self._conn.execute(
-            """
-            INSERT OR IGNORE INTO bank_transaction_links
-                (bank_transaction_id, ledger_source_type, ledger_source_id,
-                 link_source)
-            VALUES (?, ?, ?, 'MANUAL')
-            """,
-            (bank_txn_id, source_type, int(source_id)),
-        )
-        self._conn.commit()
+        with transaction(self._conn):
+            self._conn.execute(
+                """
+                UPDATE bank_transactions
+                   SET match_type = 'SOURCE',
+                       matched_source_type = ?, matched_source_id = ?,
+                       reconciliation_status = 'MATCHED',
+                       validation_status = 'VALIDATED'
+                 WHERE id = ?
+                """,
+                (source_type, int(source_id), bank_txn_id),
+            )
+            self._conn.execute(
+                """
+                INSERT OR IGNORE INTO bank_transaction_links
+                    (bank_transaction_id, ledger_source_type, ledger_source_id,
+                     link_source)
+                VALUES (?, ?, ?, 'MANUAL')
+                """,
+                (bank_txn_id, source_type, int(source_id)),
+            )
         return "/bank-transactions/pending", f"Linked to {source_type.lower()} #{source_id}."
 
     # ── Manual entry (grid) ──────────────────────────────────────────────
@@ -904,83 +904,86 @@ class BankTransactionsPages:
         # Without this, a batch already claimed by one of the txns being
         # revalidated would be excluded from the candidate list and the
         # match would be destroyed instead of refreshed.
-        ids_to_revalidate = [int(r["id"]) for r in rows]
-        if ids_to_revalidate:
-            placeholders = ",".join("?" * len(ids_to_revalidate))
-            self._conn.execute(
-                f"UPDATE bank_transactions "
-                f"SET match_type = 'UNMATCHED', rule_id = NULL, "
-                f"    matched_source_type = NULL, matched_source_id = NULL "
-                f"WHERE id IN ({placeholders})",
-                ids_to_revalidate,
-            )
-
-        rules = [dict(r) for r in self._conn.execute(
-            "SELECT * FROM bank_transaction_rules WHERE active_flag = 1"
-        ).fetchall()]
-
-        updated = 0
-        for ba_id, batch_rows in by_ba.items():
-            txns = [
-                ParsedTransaction(
-                    transaction_date=datetime.strptime(str(r["transaction_date"]), "%Y-%m-%d").date(),
-                    amount=_D(str(r["amount"])),
-                    description=r["description"] or "",
-                    memo=r["memo"] or "",
-                    fitid=r["external_reference"] or "",
-                    transaction_type=r["transaction_type"] or "",
+        # Re-validate is one logical operation: clearing claims and
+        # re-applying matches must be atomic so a mid-flight failure
+        # doesn't leave half-cleared rows.
+        with transaction(self._conn):
+            ids_to_revalidate = [int(r["id"]) for r in rows]
+            if ids_to_revalidate:
+                placeholders = ",".join("?" * len(ids_to_revalidate))
+                self._conn.execute(
+                    f"UPDATE bank_transactions "
+                    f"SET match_type = 'UNMATCHED', rule_id = NULL, "
+                    f"    matched_source_type = NULL, matched_source_id = NULL "
+                    f"WHERE id IN ({placeholders})",
+                    ids_to_revalidate,
                 )
-                for r in batch_rows
-            ]
-            items = self._bsp._get_unmatched_items(ba_id)
-            batches = self._bsp._get_unmatched_batches(ba_id)
 
-            rule_m = apply_rules(txns, rules, bank_account_id=ba_id)
-            source_m = match_transactions(txns, items, skip_indices=set(rule_m.keys()))
-            batch_m = find_batch_matches(
-                txns, batches,
-                skip_indices=set(rule_m.keys()) | set(source_m.keys()),
-            )
+            rules = [dict(r) for r in self._conn.execute(
+                "SELECT * FROM bank_transaction_rules WHERE active_flag = 1"
+            ).fetchall()]
 
-            for idx, r in enumerate(batch_rows):
-                if idx in rule_m:
-                    rid = int(rule_m[idx]["id"])
-                    self._conn.execute(
-                        "UPDATE bank_transactions "
-                        "SET match_type='RULE', rule_id=?, "
-                        "    matched_source_type=NULL, matched_source_id=NULL "
-                        "WHERE id=?",
-                        (rid, int(r["id"])),
+            updated = 0
+            for ba_id, batch_rows in by_ba.items():
+                txns = [
+                    ParsedTransaction(
+                        transaction_date=datetime.strptime(str(r["transaction_date"]), "%Y-%m-%d").date(),
+                        amount=_D(str(r["amount"])),
+                        description=r["description"] or "",
+                        memo=r["memo"] or "",
+                        fitid=r["external_reference"] or "",
+                        transaction_type=r["transaction_type"] or "",
                     )
-                    updated += 1
-                elif idx in source_m:
-                    st, sid = source_m[idx]
-                    self._conn.execute(
-                        "UPDATE bank_transactions "
-                        "SET match_type='SOURCE', rule_id=NULL, "
-                        "    matched_source_type=?, matched_source_id=? "
-                        "WHERE id=?",
-                        (st, int(sid), int(r["id"])),
-                    )
-                    updated += 1
-                elif idx in batch_m:
-                    self._conn.execute(
-                        "UPDATE bank_transactions "
-                        "SET match_type='BATCH', rule_id=NULL, "
-                        "    matched_source_type='DEPOSIT_BATCH', matched_source_id=? "
-                        "WHERE id=?",
-                        (int(batch_m[idx]), int(r["id"])),
-                    )
-                    updated += 1
-                else:
-                    self._conn.execute(
-                        "UPDATE bank_transactions "
-                        "SET match_type='UNMATCHED', rule_id=NULL, "
-                        "    matched_source_type=NULL, matched_source_id=NULL "
-                        "WHERE id=?",
-                        (int(r["id"]),),
-                    )
-        self._conn.commit()
+                    for r in batch_rows
+                ]
+                items = self._bsp._get_unmatched_items(ba_id)
+                batches = self._bsp._get_unmatched_batches(ba_id)
+
+                rule_m = apply_rules(txns, rules, bank_account_id=ba_id)
+                source_m = match_transactions(txns, items, skip_indices=set(rule_m.keys()))
+                batch_m = find_batch_matches(
+                    txns, batches,
+                    skip_indices=set(rule_m.keys()) | set(source_m.keys()),
+                )
+
+                for idx, r in enumerate(batch_rows):
+                    if idx in rule_m:
+                        rid = int(rule_m[idx]["id"])
+                        self._conn.execute(
+                            "UPDATE bank_transactions "
+                            "SET match_type='RULE', rule_id=?, "
+                            "    matched_source_type=NULL, matched_source_id=NULL "
+                            "WHERE id=?",
+                            (rid, int(r["id"])),
+                        )
+                        updated += 1
+                    elif idx in source_m:
+                        st, sid = source_m[idx]
+                        self._conn.execute(
+                            "UPDATE bank_transactions "
+                            "SET match_type='SOURCE', rule_id=NULL, "
+                            "    matched_source_type=?, matched_source_id=? "
+                            "WHERE id=?",
+                            (st, int(sid), int(r["id"])),
+                        )
+                        updated += 1
+                    elif idx in batch_m:
+                        self._conn.execute(
+                            "UPDATE bank_transactions "
+                            "SET match_type='BATCH', rule_id=NULL, "
+                            "    matched_source_type='DEPOSIT_BATCH', matched_source_id=? "
+                            "WHERE id=?",
+                            (int(batch_m[idx]), int(r["id"])),
+                        )
+                        updated += 1
+                    else:
+                        self._conn.execute(
+                            "UPDATE bank_transactions "
+                            "SET match_type='UNMATCHED', rule_id=NULL, "
+                            "    matched_source_type=NULL, matched_source_id=NULL "
+                            "WHERE id=?",
+                            (int(r["id"]),),
+                        )
         return back, f"Re-validated {len(rows)} transaction(s); {updated} now have a proposed match."
 
     # ── Dry Run (preview what Accept All would do) ─────────────────────

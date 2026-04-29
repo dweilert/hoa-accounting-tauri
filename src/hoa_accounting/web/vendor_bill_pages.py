@@ -429,69 +429,73 @@ class VendorBillPages:
             payment_notes = pay_row["notes"] or ""
 
             base_inv = bill["invoice_number"]
-            new_payment_ids: list[int] = []
-            for idx, (cat_id, line_amt) in enumerate(lines, start=1):
-                new_inv = f"{base_inv}-S{idx}"
-                new_bill = self.factory.vendor_bill_service().post_vendor_bill(
-                    entry_date=bill["invoice_date"],
-                    vendor_id=int(bill["vendor_id"]),
-                    amount=str(line_amt),
-                    description=bill["description"] or "",
-                    invoice_number=new_inv,
-                    invoice_date=bill["invoice_date"],
-                    due_date=bill["due_date"] or None,
-                    fund_code=bill["fund_code"],
-                    category_id=int(cat_id),
-                )
-                new_payment = self.factory.vendor_payment_service().post_vendor_payment(
-                    entry_date=payment_date,
-                    vendor_bill_id=new_bill.vendor_bill_id,
-                    amount=str(line_amt),
-                    description=payment_notes,
-                    bank_account_id=bank_account_id,
-                    check_number=check_number,
-                )
-                new_payment_ids.append(int(new_payment.bill_payment_id))
-
-            # Re-point bank reconciliation links from the old payment to the
-            # new ones. matched_source_* points at the first new payment.
-            self.conn.execute(
-                """UPDATE bank_transactions
-                      SET matched_source_id = ?
-                    WHERE matched_source_type = 'BILL_PAYMENT'
-                      AND matched_source_id = ?""",
-                (new_payment_ids[0], old_payment_id),
-            )
-            bank_txn_rows = self.conn.execute(
-                """SELECT bank_transaction_id FROM bank_transaction_links
-                    WHERE ledger_source_type = 'BILL_PAYMENT'
-                      AND ledger_source_id = ?""",
-                (old_payment_id,),
-            ).fetchall()
-            self.conn.execute(
-                """DELETE FROM bank_transaction_links
-                    WHERE ledger_source_type = 'BILL_PAYMENT'
-                      AND ledger_source_id = ?""",
-                (old_payment_id,),
-            )
-            for btx in bank_txn_rows:
-                for pid in new_payment_ids:
-                    self.conn.execute(
-                        """INSERT OR IGNORE INTO bank_transaction_links
-                              (bank_transaction_id, ledger_source_type,
-                               ledger_source_id, link_source)
-                           VALUES (?, 'BILL_PAYMENT', ?, 'MANUAL')""",
-                        (int(btx["bank_transaction_id"]), pid),
+            # Splitting a bill is one logical operation: create N new
+            # bill+payment pairs, re-point bank-recon links, and delete
+            # the original bill+payment. A mid-flight failure must roll
+            # back the new rows AND keep the original intact.
+            with transaction(self.conn):
+                new_payment_ids: list[int] = []
+                for idx, (cat_id, line_amt) in enumerate(lines, start=1):
+                    new_inv = f"{base_inv}-S{idx}"
+                    new_bill = self.factory.vendor_bill_service().post_vendor_bill(
+                        entry_date=bill["invoice_date"],
+                        vendor_id=int(bill["vendor_id"]),
+                        amount=str(line_amt),
+                        description=bill["description"] or "",
+                        invoice_number=new_inv,
+                        invoice_date=bill["invoice_date"],
+                        due_date=bill["due_date"] or None,
+                        fund_code=bill["fund_code"],
+                        category_id=int(cat_id),
                     )
+                    new_payment = self.factory.vendor_payment_service().post_vendor_payment(
+                        entry_date=payment_date,
+                        vendor_bill_id=new_bill.vendor_bill_id,
+                        amount=str(line_amt),
+                        description=payment_notes,
+                        bank_account_id=bank_account_id,
+                        check_number=check_number,
+                    )
+                    new_payment_ids.append(int(new_payment.bill_payment_id))
 
-            # Remove the original payment + bill.
-            self.conn.execute(
-                "DELETE FROM bill_payments WHERE id = ?", (old_payment_id,)
-            )
-            self.conn.execute(
-                "DELETE FROM vendor_bills WHERE id = ?", (vendor_bill_id,)
-            )
-            self.conn.commit()
+                # Re-point bank reconciliation links from the old payment to the
+                # new ones. matched_source_* points at the first new payment.
+                self.conn.execute(
+                    """UPDATE bank_transactions
+                          SET matched_source_id = ?
+                        WHERE matched_source_type = 'BILL_PAYMENT'
+                          AND matched_source_id = ?""",
+                    (new_payment_ids[0], old_payment_id),
+                )
+                bank_txn_rows = self.conn.execute(
+                    """SELECT bank_transaction_id FROM bank_transaction_links
+                        WHERE ledger_source_type = 'BILL_PAYMENT'
+                          AND ledger_source_id = ?""",
+                    (old_payment_id,),
+                ).fetchall()
+                self.conn.execute(
+                    """DELETE FROM bank_transaction_links
+                        WHERE ledger_source_type = 'BILL_PAYMENT'
+                          AND ledger_source_id = ?""",
+                    (old_payment_id,),
+                )
+                for btx in bank_txn_rows:
+                    for pid in new_payment_ids:
+                        self.conn.execute(
+                            """INSERT OR IGNORE INTO bank_transaction_links
+                                  (bank_transaction_id, ledger_source_type,
+                                   ledger_source_id, link_source)
+                               VALUES (?, 'BILL_PAYMENT', ?, 'MANUAL')""",
+                            (int(btx["bank_transaction_id"]), pid),
+                        )
+
+                # Remove the original payment + bill.
+                self.conn.execute(
+                    "DELETE FROM bill_payments WHERE id = ?", (old_payment_id,)
+                )
+                self.conn.execute(
+                    "DELETE FROM vendor_bills WHERE id = ?", (vendor_bill_id,)
+                )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_split(
                 vendor_bill_id, org=org, theme=theme,
