@@ -23,8 +23,8 @@ from typing import Any
 
 from hoa_accounting.reporting.dto import LotStatementReport
 from hoa_accounting.reporting.lot_statement import LotStatementReportService
+from hoa_accounting.reporting.owner_ledger_pdf import render_owner_ledger_pdf
 from hoa_accounting.storage.backend import StorageBackend
-from hoa_accounting.web.template_engine import render_template
 
 
 @dataclass
@@ -116,8 +116,6 @@ class BatchPdfService:
         return [int(r["id"]) for r in rows]
 
     def run(self, year: int) -> list[PdfResult]:
-        from weasyprint import HTML
-
         lot_ids = self._active_lot_ids()
         svc = LotStatementReportService(self._conn)
         results: list[PdfResult] = []
@@ -131,10 +129,7 @@ class BatchPdfService:
 
                 context = _report_to_template_context(report)
                 context["generated_at"] = generated_at
-                html_str = render_template(
-                    "pdf_owner_ledger.html", {"summary": context}
-                )
-                pdf_bytes: bytes = HTML(string=html_str).write_pdf()
+                pdf_bytes: bytes = render_owner_ledger_pdf(context)
 
                 filename = _build_filename(report)
                 s3_key = _build_s3_key(report)
