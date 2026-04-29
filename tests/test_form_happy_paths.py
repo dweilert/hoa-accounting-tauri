@@ -45,32 +45,35 @@ def app_db():
     conn = sqlite3.connect(cfg.database.path)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
-        # Order matters: bills/payments before vendors, etc.
+        # FK-aware order: leaf rows first, then parents.
         for sql in [
+            # ── Leaf / dependent rows ────────────────────────────────
             "DELETE FROM bank_transaction_rules WHERE rule_name LIKE ?",
             "DELETE FROM bank_transaction_links WHERE source_type='BILL_PAYMENT' "
             "  AND source_id IN (SELECT id FROM bill_payments WHERE check_number LIKE ?)",
             "DELETE FROM bill_payments WHERE check_number LIKE ?",
             "DELETE FROM vendor_bills WHERE invoice_number LIKE ?",
-            "DELETE FROM budgets WHERE notes LIKE ?",
-            # Lot numbers use the trailing-6-hex tail of MARKER (HP-XXXXXX),
-            # not the full MARKER, but street_address_1 contains the full one.
+            "DELETE FROM income_batches WHERE income_description LIKE ?",
+            "DELETE FROM deposit_batches WHERE notes LIKE ?",
+            "DELETE FROM reserve_transfers WHERE notes LIKE ?",
+            # 2099-dated reconciliations (no string column to tag).
+            "DELETE FROM bank_reconciliations WHERE statement_ending_date >= '2099-01-01'",
+            "DELETE FROM lot_renters WHERE display_name LIKE ?",
+            "DELETE FROM lot_ownership WHERE start_date='2026-01-01' AND lot_id IN "
+            "  (SELECT id FROM lots WHERE street_address_1 LIKE ?)",
+            # ── Parent entities ──────────────────────────────────────
             "DELETE FROM lots WHERE street_address_1 LIKE ?",
             "DELETE FROM owners WHERE display_name LIKE ?",
             "DELETE FROM vendors WHERE vendor_name LIKE ?",
             "DELETE FROM bank_accounts WHERE account_name LIKE ?",
             "DELETE FROM categories WHERE code LIKE ? OR name LIKE ?",
+            "DELETE FROM budgets WHERE notes LIKE ?",
             "DELETE FROM accounting_periods WHERE period_name LIKE ?",
-            # Reconciliations have no string column for MARKER; the test
-            # uses a 2099 date so we scope cleanup to that future range.
-            "DELETE FROM bank_reconciliations WHERE statement_ending_date >= '2099-01-01'",
-            "DELETE FROM lot_renters WHERE display_name LIKE ?",
+            "DELETE FROM accounting_periods WHERE fiscal_year < 2099 AND fiscal_year >= 2050",
             "DELETE FROM board_members WHERE full_name LIKE ?",
-            "DELETE FROM income_batches WHERE income_description LIKE ?",
-            "DELETE FROM deposit_batches WHERE notes LIKE ?",
             "DELETE FROM reserve_assets WHERE component LIKE ?",
             "DELETE FROM reserve_study_scenarios WHERE scenario_name LIKE ?",
-            "DELETE FROM reserve_transfers WHERE notes LIKE ?",
+            "DELETE FROM dashboard_cards WHERE title LIKE ?",
         ]:
             try:
                 params = (f"%{MARKER}%",) * sql.count("?")
@@ -891,3 +894,135 @@ def test_reserve_study_scenario_new(client, csrf, conn):
         "SELECT id FROM reserve_study_scenarios WHERE scenario_name = ?", (name,),
     ).fetchone()
     assert row is not None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Batch 4: 10 more — admin / multi-step / config.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+# ── 31. Accounting period generate-year ────────────────────────────────
+def test_accounting_periods_generate(client, csrf, conn):
+    # Pick a fiscal year with no existing periods.
+    year = 2098
+    while conn.execute(
+        "SELECT 1 FROM accounting_periods WHERE fiscal_year=?", (year,),
+    ).fetchone():
+        year -= 1
+        if year < 2050:
+            pytest.skip("No free fiscal year available.")
+    resp = _post(client, csrf, "/accounting-periods/generate", {
+        "fiscal_year": str(year),
+    })
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    rows = conn.execute(
+        "SELECT COUNT(*) FROM accounting_periods WHERE fiscal_year=?", (year,),
+    ).fetchone()
+    assert rows[0] == 12, f"Expected 12 periods for {year}, got {rows[0]}"
+
+
+# ── 32. Lot owner link ─────────────────────────────────────────────────
+def test_lots_owners_link(client, csrf, conn):
+    lot_no = f"HP-{MARKER[-6:]}"
+    lot = conn.execute(
+        "SELECT id FROM lots WHERE lot_number=? LIMIT 1", (lot_no,),
+    ).fetchone()
+    owner = conn.execute(
+        "SELECT id FROM owners WHERE display_name LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
+    ).fetchone()
+    if not (lot and owner):
+        pytest.skip("Need HP-tagged lot + owner.")
+    resp = _post(client, csrf, f"/lots/{int(lot[0])}/owners/link", {
+        "owner_id": str(owner[0]),
+        "start_date": "2026-01-01",
+    })
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    row = conn.execute(
+        "SELECT id FROM lot_ownership WHERE lot_id=? AND owner_id=? AND start_date='2026-01-01'",
+        (int(lot[0]), int(owner[0])),
+    ).fetchone()
+    assert row is not None
+
+
+# ── 33. System settings save ───────────────────────────────────────────
+def test_system_settings_save(client, csrf, conn):
+    # Read current values, post them back, assert redirect.
+    cur = conn.execute(
+        "SELECT legal_name, display_name, theme, default_assessment_amount, "
+        "       default_billing_frequency FROM hoa_profile LIMIT 1"
+    ).fetchone()
+    if not cur:
+        pytest.skip("No hoa_profile row.")
+    resp = _post(client, csrf, "/system-settings/save", {
+        "legal_name": cur[0],
+        "display_name": cur[1],
+        "theme": cur[2] or "sage",
+        "default_assessment_amount": str(cur[3] or "0.00"),
+        "default_billing_frequency": cur[4] or "annual",
+    })
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+
+
+# ── 34. Dashboard-config save card ─────────────────────────────────────
+def test_dashboard_config_save_card(client, csrf, conn):
+    title = f"HP Card {MARKER}"
+    resp = _post(client, csrf, "/dashboard-config/save-card", {
+        "card_id": "",
+        "title": title,
+        "description": "Happy-path test card",
+        "card_type": "NAV",
+        "target_url": "/",
+        "report_name": "",
+        "color": "#4a5462",
+    })
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    row = conn.execute(
+        "SELECT id FROM dashboard_cards WHERE title=?", (title,),
+    ).fetchone()
+    assert row is not None
+
+
+# ── 35. Dashboard-config save layout ───────────────────────────────────
+def test_dashboard_config_save_layout(client, csrf, conn):
+    # Submit current layout back unchanged.
+    ids = [str(r[0]) for r in conn.execute(
+        "SELECT id FROM dashboard_cards ORDER BY id"
+    ).fetchall()]
+    resp = _post(client, csrf, "/dashboard-config/save-layout", {
+        "layout_order": ",".join(ids),
+    })
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+
+
+# ── 36. Dashboard-config save alert settings ───────────────────────────
+def test_dashboard_config_save_alert_settings(client, csrf, conn):
+    resp = _post(client, csrf, "/dashboard-config/save-alert-settings", {
+        # No enabled_alerts checkboxes — equivalent to "all off".
+    })
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+
+
+# ── 37. DB admin: integrity check ──────────────────────────────────────
+def test_admin_database_check(client, csrf):
+    resp = _post(client, csrf, "/admin/database/check", {})
+    # /check renders results in-page (no redirect).
+    assert resp.status_code == 200, f"Got {resp.status_code}: {resp.data[:200]!r}"
+
+
+# ── 38. DB admin: reindex ──────────────────────────────────────────────
+def test_admin_database_reindex(client, csrf):
+    resp = _post(client, csrf, "/admin/database/reindex", {})
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:200]!r}"
+
+
+# ── 39. DB admin: vacuum ───────────────────────────────────────────────
+def test_admin_database_vacuum(client, csrf):
+    resp = _post(client, csrf, "/admin/database/vacuum", {})
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:200]!r}"
+
+
+# ── 40. DB admin: WAL checkpoint ───────────────────────────────────────
+def test_admin_database_wal_checkpoint(client, csrf):
+    resp = _post(client, csrf, "/admin/database/wal-checkpoint", {})
+    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:200]!r}"
