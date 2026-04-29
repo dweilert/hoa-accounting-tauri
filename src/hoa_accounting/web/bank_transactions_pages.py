@@ -9,7 +9,6 @@ ignore the line.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -30,10 +29,9 @@ _LINK_DATE_WINDOW_DAYS = 14
 _LINKABLE_SOURCE_TYPES = {"PAYMENT", "INCOME_BATCH", "BILL_PAYMENT"}
 
 
-@dataclass(frozen=True)
-class PageResponse:
-    status_code: int
-    body_html: str
+from hoa_accounting.web.page_response import PageResponse  # noqa: E402
+
+__all__ = ["BankTransactionsPages", "PageResponse"]
 
 
 class BankTransactionsPages:

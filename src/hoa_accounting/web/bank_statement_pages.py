@@ -10,7 +10,6 @@ import itertools
 import json
 import re
 import sqlite3
-from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -28,13 +27,12 @@ from hoa_accounting.web.bank_statement_import import (
     parse_csv,
     parse_ofx_by_account,
 )
+from hoa_accounting.web.page_response import PageResponse  # noqa: E402
 from hoa_accounting.web.template_engine import render_template
 
-
-@dataclass(frozen=True)
-class PageResponse:
-    status_code: int
-    body_html: str
+# Re-export so existing ``from bank_statement_pages import PageResponse``
+# callers keep working.
+__all__ = ["BankStatementPages", "PageResponse"]
 
 
 class BankStatementPages:
