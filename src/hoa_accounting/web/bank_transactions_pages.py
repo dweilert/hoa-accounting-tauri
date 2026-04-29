@@ -9,7 +9,7 @@ ignore the line.
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -18,11 +18,6 @@ from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.bank_statement_pages import BankStatementPages
 from hoa_accounting.web.template_engine import render_template
-
-# Candidate search window for "Link to existing" — wide enough to catch a
-# deposit recorded a few days before the bank cleared it, narrow enough to
-# not drown the user in unrelated rows.
-_LINK_DATE_WINDOW_DAYS = 14
 
 # Valid ledger_source_type values for manual linking. Matches the
 # polymorphic vocabulary in reconciliation_clears.
@@ -284,138 +279,23 @@ class BankTransactionsPages:
 
     # ── Classify screen (Pick Category / Link Existing) ─────────────────
 
+    # Thin shims over web.bank_txn_link_candidates so existing callers
+    # (handle_link_existing, render_classify) can keep using
+    # self._link_candidates(...) / self._get_txn(...) style.
     def _get_txn(self, bank_txn_id: int) -> dict[str, Any] | None:
-        row = self._conn.execute(
-            """
-            SELECT bt.*, ba.account_name, ba.account_last4
-            FROM bank_transactions bt
-            JOIN bank_accounts ba ON ba.id = bt.bank_account_id
-            WHERE bt.id = ?
-            """,
-            (bank_txn_id,),
-        ).fetchone()
-        return dict(row) if row else None
+        from hoa_accounting.web import bank_txn_link_candidates as lc
+
+        return lc.get_txn(self._conn, bank_txn_id)
 
     def _linked_source_ids(self, source_type: str) -> set[int]:
-        """Source ids already linked to some bank transaction — hide them
-        from the candidate list so two bank lines don't claim one ledger
-        record."""
-        rows = self._conn.execute(
-            "SELECT ledger_source_id FROM bank_transaction_links WHERE ledger_source_type = ?",
-            (source_type,),
-        ).fetchall()
-        return {int(r["ledger_source_id"]) for r in rows}
+        from hoa_accounting.web import bank_txn_link_candidates as lc
+
+        return lc.linked_source_ids(self._conn, source_type)
 
     def _link_candidates(self, txn: dict[str, Any]) -> list[dict[str, Any]]:
-        """Return ledger records that plausibly correspond to ``txn``.
+        from hoa_accounting.web import bank_txn_link_candidates as lc
 
-        Match rule: same bank account, same absolute amount, posting date
-        within ±_LINK_DATE_WINDOW_DAYS. Sign decides which tables to search
-        (deposits → PAYMENT / INCOME_BATCH; debits → BILL_PAYMENT).
-        """
-        from hoa_accounting.validators.common import q2_str
-
-        amount = Decimal(str(txn["amount"]))
-        # Compare via printf('%.2f', col) = ? against the quantized
-        # string — drift-free vs the old CAST AS REAL comparison.
-        abs_amt = q2_str(abs(amount))
-        bank_id = int(txn["bank_account_id"])
-        try:
-            txn_date = date.fromisoformat(str(txn["transaction_date"]))
-        except ValueError:
-            return []
-        lo = (txn_date - timedelta(days=_LINK_DATE_WINDOW_DAYS)).isoformat()
-        hi = (txn_date + timedelta(days=_LINK_DATE_WINDOW_DAYS)).isoformat()
-
-        candidates: list[dict[str, Any]] = []
-
-        if amount > 0:
-            linked_payments = self._linked_source_ids("PAYMENT")
-            for r in self._conn.execute(
-                """
-                SELECT p.id, p.payment_date AS dt, p.amount, p.receipt_number,
-                       o.first_name || ' ' || o.last_name AS owner_name
-                FROM payments p
-                LEFT JOIN owners o ON o.id = p.owner_id
-                WHERE p.bank_account_id = ?
-                  AND printf('%.2f', ABS(CAST(p.amount AS NUMERIC))) = ?
-                  AND p.payment_date BETWEEN ? AND ?
-                ORDER BY p.payment_date DESC
-                LIMIT 20
-                """,
-                (bank_id, abs_amt, lo, hi),
-            ).fetchall():
-                if int(r["id"]) in linked_payments:
-                    continue
-                candidates.append(
-                    {
-                        "source_type": "PAYMENT",
-                        "source_id": int(r["id"]),
-                        "date": r["dt"],
-                        "amount": r["amount"],
-                        "label": f"Payment #{r['receipt_number'] or r['id']}"
-                        + (f" — {r['owner_name']}" if r["owner_name"] else ""),
-                    }
-                )
-
-            linked_batches = self._linked_source_ids("INCOME_BATCH")
-            for r in self._conn.execute(
-                """
-                SELECT id, posting_date AS dt, total_amount AS amount,
-                       income_description
-                FROM income_batches
-                WHERE bank_account_id = ?
-                  AND printf('%.2f', ABS(CAST(total_amount AS NUMERIC))) = ?
-                  AND posting_date BETWEEN ? AND ?
-                ORDER BY posting_date DESC
-                LIMIT 20
-                """,
-                (bank_id, abs_amt, lo, hi),
-            ).fetchall():
-                if int(r["id"]) in linked_batches:
-                    continue
-                candidates.append(
-                    {
-                        "source_type": "INCOME_BATCH",
-                        "source_id": int(r["id"]),
-                        "date": r["dt"],
-                        "amount": r["amount"],
-                        "label": f"Income #{r['id']} — {r['income_description'] or ''}",
-                    }
-                )
-        else:
-            linked_bps = self._linked_source_ids("BILL_PAYMENT")
-            for r in self._conn.execute(
-                """
-                SELECT bp.id, bp.payment_date AS dt, bp.amount, bp.check_number,
-                       v.vendor_name
-                FROM bill_payments bp
-                LEFT JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
-                LEFT JOIN vendors v ON v.id = vb.vendor_id
-                WHERE bp.bank_account_id = ?
-                  AND printf('%.2f', ABS(CAST(bp.amount AS NUMERIC))) = ?
-                  AND bp.payment_date BETWEEN ? AND ?
-                ORDER BY bp.payment_date DESC
-                LIMIT 20
-                """,
-                (bank_id, abs_amt, lo, hi),
-            ).fetchall():
-                if int(r["id"]) in linked_bps:
-                    continue
-                candidates.append(
-                    {
-                        "source_type": "BILL_PAYMENT",
-                        "source_id": int(r["id"]),
-                        "date": r["dt"],
-                        "amount": r["amount"],
-                        "label": (
-                            f"Bill payment #{r['check_number'] or r['id']}"
-                            + (f" — {r['vendor_name']}" if r["vendor_name"] else "")
-                        ),
-                    }
-                )
-
-        return candidates
+        return lc.link_candidates(self._conn, txn)
 
     def render_classify(
         self,
