@@ -1,12 +1,12 @@
 """Page-service for bank reconciliation."""
 
 from __future__ import annotations
-from typing import Any
 
 import json
 import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from hoa_accounting.repositories.reconciliation_repo import ReconciliationRepository
 from hoa_accounting.validators.format import format_currency
@@ -284,7 +284,7 @@ class ReconciliationPages:
             reconciliation_id, str(summary["book_balance"])
         )
         return (
-            f"/reconciliations?msg=Reconciliation+completed+successfully.",
+            "/reconciliations?msg=Reconciliation+completed+successfully.",
             None,
         )
 

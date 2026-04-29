@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import sqlite3
-
 from typing import Any
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
-from hoa_accounting.web.route_context import RouteContext
-from hoa_accounting.web.ar_pages import ARPages
 from hoa_accounting.web.all_ledger_pages import AllLedgerPages
-from hoa_accounting.web.search_pages import SearchPages
+from hoa_accounting.web.ar_pages import ARPages
 from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS
+from hoa_accounting.web.route_context import RouteContext
+from hoa_accounting.web.search_pages import SearchPages
 from hoa_accounting.web.ui_server import UIResponse
 
 

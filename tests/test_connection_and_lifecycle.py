@@ -12,12 +12,9 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 import sqlite3
 from pathlib import Path
 
-from hoa_accounting.application.report_runner import ReportRunner
 from hoa_accounting.db.connection import connect_sqlite
 
 

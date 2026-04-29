@@ -11,7 +11,6 @@ import pytest
 
 from hoa_accounting.exceptions import NotFoundError, ValidationError
 from hoa_accounting.services.factory import ServiceFactory
-
 from tests._service_fixtures import build_seeded_conn
 
 

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from decimal import Decimal
-from typing import Sequence
 
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.exceptions import NotFoundError, ValidationError

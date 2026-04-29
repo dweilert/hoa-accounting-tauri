@@ -1,9 +1,9 @@
 """Repository for audit logging."""
 
 from __future__ import annotations
-from typing import Any
 
 import json
+from typing import Any
 
 from .base import BaseRepository
 

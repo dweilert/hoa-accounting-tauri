@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-
-import json
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
@@ -33,6 +32,7 @@ def get_template_env() -> Environment:
 def render_template(template_name: str, context: dict[str, Any] | None = None) -> str:
     """Render a named template with the provided context."""
     import secrets as _secrets
+
     from flask import g, session
 
     ctx = dict(context or {})

@@ -9,7 +9,7 @@ until first-time setup completes.
 
 from __future__ import annotations
 
-from flask import Blueprint, Response
+from flask import Blueprint
 from flask.typing import ResponseReturnValue
 
 from hoa_accounting.web.route_context import RouteContext

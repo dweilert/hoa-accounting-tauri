@@ -12,12 +12,12 @@ Routes handled:
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
+from typing import Any
 from urllib.parse import quote
 
 from hoa_accounting.repositories.budgets_repo import BudgetsRepository

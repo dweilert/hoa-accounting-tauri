@@ -1,10 +1,10 @@
 """Minimal read-only web UI for report execution."""
 
 from __future__ import annotations
-from typing import Any
 
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
+from typing import Any
 
 from hoa_accounting.api.report_api import ReportAPIService
 from hoa_accounting.web.summary_view_models import build_summary_view_model

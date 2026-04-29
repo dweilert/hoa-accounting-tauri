@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Mapping
 from typing import Any
-
-import sqlite3
 
 from hoa_accounting.web.template_engine import render_template
 

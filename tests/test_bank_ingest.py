@@ -22,7 +22,6 @@ from hoa_accounting.web.bank_statement_import import (
     parse_ofx,
     parse_ofx_by_account,
 )
-
 from tests._bank_fixtures import (
     EMPTY_OFX_BYTES,
     SAMPLE_CSV_DEBIT_CREDIT_BYTES,
@@ -115,6 +114,7 @@ def test_dispatch_routes_csv_below_confidence_threshold():
 import re
 import sqlite3
 from pathlib import Path
+
 import pytest
 
 from hoa_accounting.config.loader import load_config

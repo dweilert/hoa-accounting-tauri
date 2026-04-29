@@ -1,22 +1,21 @@
 """Generate a Reserve Fund Study Word document (.docx)."""
 
 from __future__ import annotations
-from typing import Any
 
 import io
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
+from typing import Any
 
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-
+import matplotlib.pyplot as plt
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor, Twips
+from docx.shared import Inches, Pt, RGBColor
 
 from hoa_accounting.repositories.reserve_study_repo import ReserveStudyRepository
 from hoa_accounting.web.reserve_study_pages import _compute_funding_plan, _q2

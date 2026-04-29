@@ -9,7 +9,6 @@ import pytest
 from hoa_accounting.exceptions import NotFoundError, ValidationError
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.non_dues_income_service import IncomeRow
-
 from tests._service_fixtures import build_seeded_conn
 
 

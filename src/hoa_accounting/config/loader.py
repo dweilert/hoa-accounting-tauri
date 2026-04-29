@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import fields
 from pathlib import Path
-from typing import TypeVar, Any
+from typing import Any, TypeVar
 
 import yaml  # type: ignore[import-untyped]
 

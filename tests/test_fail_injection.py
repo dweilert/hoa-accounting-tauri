@@ -29,13 +29,11 @@ from decimal import Decimal
 
 import pytest
 
-from hoa_accounting.exceptions import ValidationError
-from hoa_accounting.services.deposit_batch_service import DepositRow
-from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.assessment_billing_service import (
     IndividualAssessmentRow,
 )
-
+from hoa_accounting.services.deposit_batch_service import DepositRow
+from hoa_accounting.services.factory import ServiceFactory
 from tests._service_fixtures import build_seeded_conn
 
 # ── Deposit batch — confirm atomic rollback ───────────────────────────

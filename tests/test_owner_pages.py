@@ -26,7 +26,6 @@ import sqlite3
 import pytest
 
 from hoa_accounting.bootstrap.migrator import Migrator
-from hoa_accounting.repositories.lot_ownership_repo import LotOwnershipRepository
 from hoa_accounting.repositories.owners_repo import OwnersRepository
 from hoa_accounting.web.owner_pages import OwnerPages
 

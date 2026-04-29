@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
-from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.audit_log_pages import AuditLogPages
 from hoa_accounting.web.bank_statement_pages import BankStatementPages
 from hoa_accounting.web.database_admin_pages import DatabaseAdminPages
 from hoa_accounting.web.export_pages import ExportPages
 from hoa_accounting.web.import_pages import ImportPages
+from hoa_accounting.web.route_context import RouteContext
 
 
 def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
@@ -67,15 +66,15 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         """Persist a CSV → canonical-fields map, then replay the stashed
         upload through the normal ingest path so it produces canonical
         ``bank_transactions`` rows with the new mapping applied."""
-        from flask import redirect
+        import json as _json
         from urllib.parse import quote
+
         from hoa_accounting.web.bank_ingest import (
             consume_stash,
             fingerprint_csv_headers,
             read_csv_headers,
             save_csv_mapping,
         )
-        import json as _json
 
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
@@ -106,7 +105,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         # Replay ingest with the mapping now in place. The saved-mapping
         # lookup inside handle_agnostic_upload will find the new row and
         # parse silently.
-        from hoa_accounting.web.bank_statement_pages import BankStatementPages
 
         pages = BankStatementPages(conn)
         url, page_resp, _warnings = pages.handle_agnostic_upload(
@@ -133,7 +131,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/admin/import/run")
     def import_run_redirect() -> ResponseReturnValue:
-        from flask import redirect
 
         return redirect("/admin/import", code=303)
 
@@ -231,7 +228,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/setup/categories-interview")
     def categories_interview_submit() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
 
         conn = _open_db()
@@ -267,7 +263,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/database/reindex")
     def database_reindex() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -283,7 +278,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/database/vacuum")
     def database_vacuum() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -299,7 +293,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/database/wal-checkpoint")
     def database_wal_checkpoint() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -352,7 +345,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/admin/database/restore")
     def database_restore() -> ResponseReturnValue:
         import json as _json
-        from flask import redirect
 
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))

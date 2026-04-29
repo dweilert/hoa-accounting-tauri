@@ -14,8 +14,8 @@ from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.reporting.ar_aging import ARAgingReportService
-from hoa_accounting.reporting.budget_summary import BudgetSummaryReportService
 from hoa_accounting.reporting.bank_transactions import BankTransactionsReportService
+from hoa_accounting.reporting.budget_summary import BudgetSummaryReportService
 from hoa_accounting.reporting.categories import CategoriesReportService
 from hoa_accounting.reporting.deposits import DepositsReportService
 from hoa_accounting.reporting.expenses_by_date import ExpensesByDateReportService

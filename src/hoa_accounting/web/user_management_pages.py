@@ -1,11 +1,11 @@
 """User and role-override management routes — admin only."""
 
 from __future__ import annotations
+
 from typing import Any
 
 from flask import Flask, redirect, request
 
-from hoa_accounting.auth.local import hash_password
 from hoa_accounting.web.decorators import require_admin
 from hoa_accounting.web.template_engine import render_template
 

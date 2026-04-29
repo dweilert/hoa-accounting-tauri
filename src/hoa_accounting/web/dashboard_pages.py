@@ -1,10 +1,10 @@
 """Dashboard and System Settings page services."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
+from typing import Any
 
 from hoa_accounting.repositories.dashboard_repo import DashboardRepository
 from hoa_accounting.web.template_engine import render_template

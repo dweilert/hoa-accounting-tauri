@@ -1,10 +1,10 @@
 """Page service for managing bank transaction rules."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
+from typing import Any
 
 from hoa_accounting.web.template_engine import render_template
 

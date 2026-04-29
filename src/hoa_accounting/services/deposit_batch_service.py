@@ -8,9 +8,10 @@ payment rows — one per check — with FIFO application to open assessments.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Sequence, Any
+from typing import Any
 
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.exceptions import NotFoundError, ValidationError

@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
-from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.batch_pdf_pages import BatchPdfPages
+from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
 from hoa_accounting.web.vendor_pages import VendorPages
 
@@ -80,7 +79,6 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/vendor-bills/new")
     def submit_vendor_bill() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
@@ -110,7 +108,6 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/vendor-bills/<int:vendor_bill_id>/edit")
     def submit_vendor_bill_edit(vendor_bill_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
@@ -141,7 +138,6 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/vendor-bills/<int:vendor_bill_id>/split")
     def submit_vendor_bill_split(vendor_bill_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
@@ -188,7 +184,6 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/vendors/add")
     def submit_new_vendor() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
@@ -217,7 +212,6 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/vendors/<int:vendor_id>/edit")
     def submit_edit_vendor(vendor_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
@@ -241,7 +235,6 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/vendors/<int:vendor_id>/delete")
     def submit_delete_vendor(vendor_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))

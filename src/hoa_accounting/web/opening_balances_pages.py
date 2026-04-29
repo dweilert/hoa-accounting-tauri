@@ -1,11 +1,11 @@
 """Page-service for the consolidated Opening Balances screen."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.opening_balances_repo import OpeningBalancesRepository

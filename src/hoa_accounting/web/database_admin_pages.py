@@ -8,15 +8,15 @@ Panels
 """
 
 from __future__ import annotations
-from typing import Any
 
 import logging
 import os
 import sqlite3
 import tempfile
+from typing import Any
 
 _log = logging.getLogger(__name__)
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from pathlib import Path
@@ -497,7 +497,7 @@ class DatabaseAdminPages:
         *,
         org: dict[str, Any] | None,
         theme: str,
-    ) -> tuple[str | None, "DatabaseAdminPageResponse | None", str]:
+    ) -> tuple[str | None, DatabaseAdminPageResponse | None, str]:
         """Validate *file_bytes* and, if valid, atomically replace the live DB.
 
         Validation steps (in order):
@@ -513,7 +513,7 @@ class DatabaseAdminPages:
         """
         from urllib.parse import quote
 
-        def _err(msg: str) -> tuple[None, "DatabaseAdminPageResponse", str]:
+        def _err(msg: str) -> tuple[None, DatabaseAdminPageResponse, str]:
             return None, self.render_page(org=org, theme=theme, error_message=msg), msg
 
         # ── 1. Magic header ───────────────────────────────────────────────

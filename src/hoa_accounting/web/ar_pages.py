@@ -1,13 +1,13 @@
 """Accounts-receivable ledger — per-lot balance list and lot detail views."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from http import HTTPStatus
+from typing import Any
 
 from hoa_accounting.reporting.lot_statement import LotStatementReportService
 from hoa_accounting.validators.common import q2

@@ -9,12 +9,12 @@ Reads config from the 'backup' key in the app config dict:
 """
 
 from __future__ import annotations
-from typing import Any
 
 import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 log = logging.getLogger(__name__)
 

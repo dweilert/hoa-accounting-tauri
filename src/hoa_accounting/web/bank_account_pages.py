@@ -17,8 +17,9 @@ from http import HTTPStatus
 
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
+from hoa_accounting.validators.forms import opt as _opt
+from hoa_accounting.validators.forms import require as _require
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.forms import opt as _opt, require as _require
 
 
 @dataclass(frozen=True)

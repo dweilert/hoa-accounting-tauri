@@ -7,18 +7,18 @@ and default to the next logical period, preventing accidental skips.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from datetime import date as _date
 from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
+from typing import Any
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.validators.format import format_currency
 from hoa_accounting.repositories.dues_billing_repo import DuesBillingRepository
 from hoa_accounting.services.factory import ServiceFactory
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.web.template_engine import render_template
 
 _MONTH_NAMES = [

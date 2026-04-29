@@ -1,10 +1,10 @@
 """First-launch setup wizard — 4 steps, runs only when no local users exist."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
@@ -18,7 +18,7 @@ def _connect(db_path: str) -> sqlite3.Connection:
 from flask import Response, redirect, request, session
 from flask.typing import ResponseReturnValue
 
-from hoa_accounting.auth.local import LocalBackend, hash_password
+from hoa_accounting.auth.local import LocalBackend
 from hoa_accounting.web.auth_pages import _set_current_user
 from hoa_accounting.web.template_engine import render_template as _render
 

@@ -4,30 +4,28 @@ Transactions are stored immediately as PENDING on upload and survive navigation.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import hashlib
 import itertools
 import json
 import re
 import sqlite3
-from hoa_accounting.db.transaction import transaction
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
+from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.bank_statement_import import (
     ParsedTransaction,
     ParseError,
     apply_rules,
-    auto_detect_csv_columns,
     csv_map_is_usable,
     detect_format,
     find_batch_matches,
     match_transactions,
     parse_csv,
-    parse_ofx,
     parse_ofx_by_account,
 )
 from hoa_accounting.web.template_engine import render_template

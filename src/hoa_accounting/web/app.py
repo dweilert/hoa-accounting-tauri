@@ -18,7 +18,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, Response, g, redirect, request
+from flask import Flask, Response, g, request
 from flask.typing import ResponseReturnValue
 
 from hoa_accounting.api.report_api import ReportAPIService
@@ -28,11 +28,11 @@ from hoa_accounting.db.connection import connect_sqlite
 from hoa_accounting.web.csrf import install_csrf_guard
 from hoa_accounting.web.error_handlers import install_error_handler
 from hoa_accounting.web.org_context_loader import load_org_context
+from hoa_accounting.web.setup_pages import needs_setup
 from hoa_accounting.web.ui_server import (
     ReportConsolePageService,
     UIResponse,
 )
-from hoa_accounting.web.setup_pages import needs_setup
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -121,7 +121,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     if db_path:
         auth_manager = build_auth_manager(raw_config, str(db_path))
     else:
-        from hoa_accounting.auth.factory import AuthManager, AuthConfig
+        from hoa_accounting.auth.factory import AuthConfig, AuthManager
         from hoa_accounting.auth.local import LocalBackend
 
         auth_manager = AuthManager(AuthConfig(), LocalBackend(":memory:"))
@@ -146,8 +146,9 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # available when _forbidden() renders the 403 template.
     @app.before_request
     def _attach_org() -> None:
-        from hoa_accounting.web.auth_pages import _get_current_user
         from flask import session as _session
+
+        from hoa_accounting.web.auth_pages import _get_current_user
 
         g.org = org_context
         # In TESTING mode, auto-seat an admin session so test_client tests
@@ -183,17 +184,17 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         return None
 
     from hoa_accounting.web.route_context import RouteContext
-    from hoa_accounting.web.routes.setup import make_setup_blueprint
-    from hoa_accounting.web.routes.categories import make_categories_blueprint
-    from hoa_accounting.web.routes.periods import make_periods_blueprint
-    from hoa_accounting.web.routes.bank import make_bank_blueprint
-    from hoa_accounting.web.routes.vendors import make_vendors_blueprint
-    from hoa_accounting.web.routes.homeowners import make_homeowners_blueprint
-    from hoa_accounting.web.routes.budget import make_budget_blueprint
-    from hoa_accounting.web.routes.reports import make_reports_blueprint
     from hoa_accounting.web.routes.admin import make_admin_blueprint
-    from hoa_accounting.web.routes.dashboard import make_dashboard_blueprint
     from hoa_accounting.web.routes.api import make_api_blueprint
+    from hoa_accounting.web.routes.bank import make_bank_blueprint
+    from hoa_accounting.web.routes.budget import make_budget_blueprint
+    from hoa_accounting.web.routes.categories import make_categories_blueprint
+    from hoa_accounting.web.routes.dashboard import make_dashboard_blueprint
+    from hoa_accounting.web.routes.homeowners import make_homeowners_blueprint
+    from hoa_accounting.web.routes.periods import make_periods_blueprint
+    from hoa_accounting.web.routes.reports import make_reports_blueprint
+    from hoa_accounting.web.routes.setup import make_setup_blueprint
+    from hoa_accounting.web.routes.vendors import make_vendors_blueprint
 
     ctx = RouteContext(org_context=org_context, report_page_service=report_page_service)
     app.register_blueprint(make_setup_blueprint(ctx))

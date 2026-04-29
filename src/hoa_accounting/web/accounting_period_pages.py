@@ -15,13 +15,13 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.periods_repo import PeriodsRepository
-from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.forms import require as _require
+from hoa_accounting.web.template_engine import render_template
 
 _BASE_CTX = {
     "active_nav": "transactions",
@@ -37,7 +37,7 @@ class PeriodPageResponse:
 
 
 def _now_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class AccountingPeriodPages:

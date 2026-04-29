@@ -13,19 +13,20 @@ Routes handled:
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from datetime import date
 from http import HTTPStatus
+from typing import Any
 
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.lot_ownership_repo import LotOwnershipRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.repositories.owners_repo import OwnersRepository
+from hoa_accounting.validators.forms import opt as _opt
+from hoa_accounting.validators.forms import require as _require
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.forms import opt as _opt, require as _require
 
 
 @dataclass(frozen=True)

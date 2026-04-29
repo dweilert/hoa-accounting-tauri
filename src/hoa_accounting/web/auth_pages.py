@@ -1,6 +1,7 @@
 """Login / logout / Cognito callback routes."""
 
 from __future__ import annotations
+
 from typing import Any
 
 from flask import Blueprint, redirect, request, session, url_for

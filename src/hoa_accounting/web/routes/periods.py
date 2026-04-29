@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
-from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
+from hoa_accounting.web.route_context import RouteContext
 
 
 def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
@@ -44,7 +43,6 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/accounting-periods/add")
     def submit_new_period() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -73,7 +71,6 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/accounting-periods/generate")
     def submit_generate_year() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -93,7 +90,6 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/accounting-periods/<int:period_id>/close")
     def close_period(period_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -113,7 +109,6 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/accounting-periods/<int:period_id>/reopen")
     def reopen_period(period_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -133,7 +128,6 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/accounting-periods/<int:period_id>/delete")
     def delete_period(period_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))

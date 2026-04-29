@@ -15,14 +15,14 @@ Creation date/time is embedded inside the PDF itself, not the filename.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
-from hoa_accounting.reporting.lot_statement import LotStatementReportService
 from hoa_accounting.reporting.dto import LotStatementReport
+from hoa_accounting.reporting.lot_statement import LotStatementReportService
 from hoa_accounting.storage.backend import StorageBackend
 from hoa_accounting.web.template_engine import render_template
 

@@ -9,7 +9,6 @@ lot appears regardless of GL posting status.
 from __future__ import annotations
 
 import sqlite3
-from decimal import Decimal
 
 from hoa_accounting.exceptions import NotFoundError
 from hoa_accounting.reporting.dto import (

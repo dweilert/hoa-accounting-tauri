@@ -7,14 +7,14 @@ ignore the line.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
-from hoa_accounting.db.transaction import transaction
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
+from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.bank_statement_pages import BankStatementPages
@@ -835,6 +835,7 @@ class BankTransactionsPages:
         manual-entry path produces the same audit trail and validation
         queue entries as a file import."""
         from datetime import datetime
+
         from hoa_accounting.web.bank_ingest import (
             CANONICAL_TRN_TYPES,
             CanonicalBankTxn,
@@ -924,11 +925,12 @@ class BankTransactionsPages:
         """
         from datetime import datetime
         from decimal import Decimal as _D
+
         from hoa_accounting.web.bank_statement_import import (
             ParsedTransaction,
             apply_rules,
-            match_transactions,
             find_batch_matches,
+            match_transactions,
         )
 
         back = "/bank-transactions/pending"

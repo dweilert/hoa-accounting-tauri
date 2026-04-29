@@ -11,17 +11,18 @@ Routes handled:
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
-from decimal import Decimal
 from dataclasses import dataclass
+from decimal import Decimal
 from http import HTTPStatus
+from typing import Any
 
 from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.validators.format import format_currency
+from hoa_accounting.validators.forms import opt as _opt
+from hoa_accounting.validators.forms import require as _req
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.forms import opt as _opt, require as _req
 
 _FUND_CODES = ["OPERATING", "RESERVE", "SPECIAL"]
 _CATEGORY_TYPES = ["INCOME", "EXPENSE", "TRANSFER"]
@@ -120,7 +121,6 @@ class CategoriesPages:
     def handle_add(
         self, form: dict[str, Any], *, org: dict[str, Any], theme: str
     ) -> CategoriesPageResponse:
-        from flask import redirect
 
         try:
             code = _req(form.get("code"), "Code").upper()

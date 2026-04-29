@@ -1,14 +1,14 @@
 """Local SQLite authentication backend."""
 
 from __future__ import annotations
-from typing import Any
 
 import logging
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
-from hoa_accounting.auth.base import ROLE_ADMIN, ROLE_REPORTS, AuthUser
+from hoa_accounting.auth.base import AuthUser
 
 _log = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class LocalBackend:
             return None
         self._conn.execute(
             "UPDATE local_users SET last_login_at = ? WHERE id = ?",
-            (datetime.now(timezone.utc).isoformat(), row["id"]),
+            (datetime.now(UTC).isoformat(), row["id"]),
         )
         self._conn.commit()
         role = self._resolve_role(email, row["role"])

@@ -4,7 +4,6 @@ No third-party dependencies — uses stdlib only.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import base64
 import csv
@@ -13,6 +12,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 
 @dataclass

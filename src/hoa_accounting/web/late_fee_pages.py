@@ -17,19 +17,19 @@ Flow
 """
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from datetime import date as _date
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from http import HTTPStatus
+from typing import Any
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
-from hoa_accounting.validators.format import format_currency
 from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.web.template_engine import render_template
 
 _DEFAULT_RATE = Decimal("10.00")  # 10 % per annum per bylaws
@@ -328,7 +328,7 @@ class LateFeePages:
                 continue  # silently skip zero rows
 
             if not delinquent_date:
-                return _err(f"Delinquent date is required for each selected charge.")
+                return _err("Delinquent date is required for each selected charge.")
 
             rows_to_post.append(
                 {

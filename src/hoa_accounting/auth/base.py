@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable, Any
+from typing import Any, Protocol, runtime_checkable
 
 ROLE_ADMIN = "admin"
 ROLE_REPORTS = "reports"
@@ -35,7 +35,7 @@ class AuthUser:
         }
 
     @staticmethod
-    def from_session(data: dict[str, Any]) -> "AuthUser":
+    def from_session(data: dict[str, Any]) -> AuthUser:
         return AuthUser(
             email=data["email"],
             display_name=data.get("display_name", ""),

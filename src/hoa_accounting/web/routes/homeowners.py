@@ -1,15 +1,13 @@
 """Homeowner-side: lots, owners, renters, board, billing, fees."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
+from typing import Any
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
-from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
 from hoa_accounting.web.dues_billing_pages import DuesBillingPages
 from hoa_accounting.web.edit_records_pages import EditRecordsPages
@@ -18,6 +16,7 @@ from hoa_accounting.web.lot_pages import LotPages
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 from hoa_accounting.web.owner_pages import OwnerPages
 from hoa_accounting.web.resale_fee_pages import ResaleFeePages
+from hoa_accounting.web.route_context import RouteContext
 
 
 def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
@@ -64,7 +63,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/resale-fee/post-charge")
     def resale_fee_post_charge() -> ResponseReturnValue:
-        from flask import redirect, request as _req
+        from flask import request as _req
 
         pages = _open_resale_fee_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -87,13 +86,12 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     # model it's a specific-charges row on /deposit.
     @bp.get("/resale-fee/payments")
     def resale_fee_payments_page() -> ResponseReturnValue:
-        from flask import redirect
 
         return redirect("/deposit", code=303)
 
     @bp.post("/resale-fee/post-payment")
     def resale_fee_post_payment() -> ResponseReturnValue:
-        from flask import redirect, request as _req
+        from flask import request as _req
 
         pages = _open_resale_fee_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -130,7 +128,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/dues-billing/post")
     def submit_dues_billing() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(DuesBillingPages)
         theme = str(org_context.get("theme", "warm"))
@@ -169,7 +166,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/late-fees/post")
     def submit_late_fees() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LateFeePages)
         theme = str(org_context.get("theme", "warm"))
@@ -205,7 +201,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/assessments/bill-all")
     def submit_bill_all() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
@@ -226,7 +221,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/assessments/bill-individual")
     def submit_bill_individual() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
@@ -248,7 +242,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     # ── Edit Records hub + payments ledger ──────────────────────────
 
     def _open_edit_records_pages() -> Any:
-        from hoa_accounting.web.edit_records_pages import EditRecordsPages
 
         return EditRecordsPages(_open_db())
 
@@ -277,7 +270,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/manage/edit-records/payments/<int:payment_id>/edit")
     def edit_records_payments_submit(payment_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -317,7 +309,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/split")
     def edit_records_income_split_submit(income_batch_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -341,7 +332,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/edit")
     def edit_records_income_submit(income_batch_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -374,7 +364,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/manage/edit-records/assessments/<int:assessment_id>/edit")
     def edit_records_assessments_submit(assessment_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -418,7 +407,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/owners/add")
     def submit_new_owner() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
@@ -447,7 +435,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/owners/<int:owner_id>/edit")
     def submit_edit_owner(owner_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
@@ -468,7 +455,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/owners/<int:owner_id>/delete")
     def submit_delete_owner(owner_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
@@ -514,7 +500,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/board-members/add")
     def submit_new_board_member() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -541,7 +526,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/board-members/<int:member_id>/edit")
     def submit_edit_board_member(member_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -559,7 +543,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/board-members/<int:member_id>/delete")
     def delete_board_member(member_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_board_member_pages()
         url = pages.handle_delete(member_id)
@@ -590,7 +573,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/renters/add")
     def submit_new_renter() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
@@ -619,7 +601,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/renters/<int:renter_id>/edit")
     def submit_edit_renter(renter_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
@@ -640,7 +621,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/renters/<int:renter_id>/end")
     def submit_end_tenancy(renter_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
@@ -684,7 +664,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/lots/add")
     def submit_new_lot() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -720,7 +699,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/lots/<int:lot_id>/edit")
     def submit_edit_lot(lot_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -744,7 +722,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/lots/<int:lot_id>/delete")
     def submit_delete_lot(lot_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -764,7 +741,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/lots/<int:lot_id>/owners/link")
     def submit_link_owner(lot_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -785,7 +761,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/lots/<int:lot_id>/owners/<int:ownership_id>/end")
     def submit_end_ownership(lot_id: int, ownership_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -809,7 +784,6 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     def submit_edit_ownership_dates(
         lot_id: int, ownership_id: int
     ) -> ResponseReturnValue:
-        from flask import redirect
 
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))

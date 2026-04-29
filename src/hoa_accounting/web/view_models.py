@@ -1,11 +1,12 @@
 """UI-facing view-model builders for the web layer."""
 
 from __future__ import annotations
-from typing import Any
 
 import json
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from datetime import date as _date
+from typing import Any
 
 from hoa_accounting.web.report_catalog import (
     REPORT_DEFINITIONS,

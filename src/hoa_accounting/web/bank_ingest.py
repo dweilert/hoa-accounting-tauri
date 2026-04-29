@@ -18,7 +18,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Callable, Protocol, Any
+from typing import Any, Protocol
 
 from hoa_accounting.web.bank_statement_import import (
     ParsedTransaction,

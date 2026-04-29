@@ -1,11 +1,11 @@
 """Repository for dashboard data: financial summary, cards, layout, HOA profile."""
 
 from __future__ import annotations
-from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 
 @dataclass
@@ -219,7 +219,7 @@ class DashboardRepository:
 
     def get_budget_category_tile(
         self, fiscal_year: int, fy_start_month: int = 1
-    ) -> "BudgetCategoryTile | None":
+    ) -> BudgetCategoryTile | None:
         """Return per-category over/under budget counts for the fiscal year.
 
         Cash basis: actual spend = sum of bill_payments in the fiscal-year

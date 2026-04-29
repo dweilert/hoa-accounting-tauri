@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
 
@@ -24,7 +23,6 @@ def make_categories_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/categories", strict_slashes=False)
     def list_categories() -> ResponseReturnValue:
-        from flask import redirect
 
         theme = str(org_context.get("theme", "warm"))
         flash = (request.args.get("flash") or "").replace("+", " ")
@@ -47,7 +45,6 @@ def make_categories_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/categories/add")
     def submit_new_category() -> ResponseReturnValue:
-        from flask import redirect
 
         theme = str(org_context.get("theme", "warm"))
         resp = ctx.open_pages(CategoriesPages).handle_add(
@@ -71,7 +68,6 @@ def make_categories_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/categories/<int:category_id>/edit")
     def submit_edit_category(category_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         theme = str(org_context.get("theme", "warm"))
         resp = ctx.open_pages(CategoriesPages).handle_edit(
@@ -85,7 +81,6 @@ def make_categories_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/categories/<int:category_id>/delete")
     def delete_category(category_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         target = ctx.open_pages(CategoriesPages).handle_delete(category_id)
         return redirect(target, code=303)

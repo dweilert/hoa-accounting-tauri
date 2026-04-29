@@ -21,6 +21,7 @@ import sqlite3
 from decimal import Decimal
 
 from hoa_accounting.validators.format import format_money
+
 from .base import BaseRepository
 
 

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Blueprint, Response, g, redirect, request
-from flask.typing import ResponseReturnValue
+from flask import Blueprint, Response, redirect, request
 from flask import session as _session
+from flask.typing import ResponseReturnValue
 
-from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.dashboard_pages import DashboardPages
+from hoa_accounting.web.route_context import RouteContext
 
 
 def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
@@ -30,7 +30,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/")
     def home() -> ResponseReturnValue:
-        from flask import session as _session
 
         theme = str(org_context.get("theme", "warm"))
         pages = _open_dashboard()
@@ -50,7 +49,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/system-settings/save")
     def system_settings_save() -> ResponseReturnValue:
-        from flask import redirect
 
         theme = str(org_context.get("theme", "warm"))
         pages = _open_dashboard()
@@ -126,7 +124,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/add-card")
     def workflow_add_card() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_add_card(request.form)
@@ -134,7 +131,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/update-card")
     def workflow_update_card() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_update_card(request.form)
@@ -142,7 +138,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/move-card")
     def workflow_move_card() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_move_card(request.form)
@@ -159,7 +154,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/delete-card")
     def workflow_delete_card() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_delete_card(request.form)
@@ -167,7 +161,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/reorder-card")
     def workflow_reorder_card() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_reorder_card(request.form)
@@ -175,7 +168,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/add-section")
     def workflow_add_section() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_add_section(request.form)
@@ -183,7 +175,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/toggle-section")
     def workflow_toggle_section() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         section_id = int(request.form.get("section_id", 0))
@@ -193,7 +184,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/add-tab")
     def workflow_add_tab() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         url = WorkflowAdminPages(_open_db()).handle_add_tab(request.form)
@@ -201,7 +191,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/workflow-guide/toggle-tab")
     def workflow_toggle_tab() -> ResponseReturnValue:
-        from flask import redirect
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
         tab_id = int(request.form.get("tab_id", 1))
@@ -218,7 +207,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/dashboard-config/save-card")
     def dashboard_save_card() -> ResponseReturnValue:
-        from flask import redirect
 
         theme = str(org_context.get("theme", "warm"))
         pages = _open_dashboard()
@@ -234,7 +222,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/dashboard-config/delete-card/<int:card_id>")
     def dashboard_delete_card(card_id: int) -> ResponseReturnValue:
-        from flask import redirect
 
         theme = str(org_context.get("theme", "warm"))
         pages = _open_dashboard()
@@ -243,7 +230,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/dashboard-config/save-layout")
     def dashboard_save_layout() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_dashboard()
         redirect_url = pages.handle_save_layout(request.form)
@@ -251,7 +237,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/dashboard-config/reset-layout")
     def dashboard_reset_layout() -> ResponseReturnValue:
-        from flask import redirect
 
         pages = _open_dashboard()
         redirect_url = pages.handle_reset_layout()
@@ -268,7 +253,6 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/dashboard-config/save-alert-settings")
     def dashboard_save_alert_settings() -> ResponseReturnValue:
-        from flask import redirect
 
         enabled = set(request.form.getlist("enabled_alerts"))
         _open_dashboard()._repo.save_alert_settings(enabled)

@@ -17,9 +17,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date as _date
-from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
-from typing import Sequence
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
@@ -27,13 +25,17 @@ from hoa_accounting.repositories.deposit_batches_repo import DepositBatchesRepos
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.deposit_batch_service import DepositRow
 from hoa_accounting.services.factory import ServiceFactory
-from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.format import format_money
 from hoa_accounting.validators.forms import (
     parse_int as _parse_int,
+)
+from hoa_accounting.validators.forms import (
     parse_positive_decimal as _parse_positive_decimal,
+)
+from hoa_accounting.validators.forms import (
     require as _require,
 )
+from hoa_accounting.web.template_engine import render_template
 
 
 @dataclass(frozen=True)

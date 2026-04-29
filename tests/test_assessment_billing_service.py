@@ -22,7 +22,6 @@ from hoa_accounting.services.assessment_billing_service import (
     IndividualAssessmentRow,
 )
 from hoa_accounting.services.factory import ServiceFactory
-
 from tests._service_fixtures import build_seeded_conn
 
 

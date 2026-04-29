@@ -10,11 +10,11 @@ variables or IAM role automatically.
 """
 
 from __future__ import annotations
-from typing import Any
 
 import datetime
 import sqlite3
 from dataclasses import dataclass
+from typing import Any
 
 from hoa_accounting.reporting.batch_pdf import BatchPdfService, PdfResult
 from hoa_accounting.storage.backend import StorageBackend, default_s3_backend

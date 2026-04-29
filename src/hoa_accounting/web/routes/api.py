@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import Blueprint, Response, g, redirect, request
+from flask import Blueprint, Response
 from flask.typing import ResponseReturnValue
-from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
 
@@ -29,6 +28,7 @@ def make_api_blueprint(ctx: RouteContext) -> Blueprint:
         """
         import json
         from decimal import Decimal
+
         from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
         from hoa_accounting.repositories.lots_repo import LotsRepository
 

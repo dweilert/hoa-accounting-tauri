@@ -201,7 +201,7 @@ class VendorsRepository(BaseRepository):
         )
         return int(cur.lastrowid or 0)
 
-    def get_vendor_bill(self, vendor_bill_id: int) -> "sqlite3.Row | None":
+    def get_vendor_bill(self, vendor_bill_id: int) -> sqlite3.Row | None:
         return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT vb.id, vb.vendor_id, vb.invoice_number, vb.invoice_date,

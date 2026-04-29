@@ -86,9 +86,9 @@ class CognitoBackend:
     # ── Internal helpers ──────────────────────────────────────────────────
 
     def _exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any] | None:
-        import urllib.request
-        import json as _json
         import base64
+        import json as _json
+        import urllib.request
 
         token_url = f"{self._domain}/oauth2/token"
         credentials = base64.b64encode(
@@ -117,8 +117,8 @@ class CognitoBackend:
             return None
 
     def _get_jwks(self) -> dict[str, Any]:
-        import urllib.request
         import json as _json
+        import urllib.request
 
         now = time.monotonic()
         if now < self._jwks_expires and self._jwks_cache:

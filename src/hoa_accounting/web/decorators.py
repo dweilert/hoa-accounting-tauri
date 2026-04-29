@@ -1,13 +1,13 @@
 """Route protection decorators and before_request guard."""
 
 from __future__ import annotations
-from typing import Any
 
 import functools
+from typing import Any
 
-from flask import redirect, request, session
+from flask import redirect, request
 
-from hoa_accounting.auth.base import ROLE_ADMIN, AuthUser
+from hoa_accounting.auth.base import AuthUser
 from hoa_accounting.web.auth_pages import _get_current_user
 from hoa_accounting.web.template_engine import render_template
 

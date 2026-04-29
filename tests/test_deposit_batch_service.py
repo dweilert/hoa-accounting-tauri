@@ -6,10 +6,9 @@ from decimal import Decimal
 
 import pytest
 
-from hoa_accounting.exceptions import NotFoundError, ValidationError
+from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.services.deposit_batch_service import DepositRow
 from hoa_accounting.services.factory import ServiceFactory
-
 from tests._service_fixtures import build_seeded_conn
 
 

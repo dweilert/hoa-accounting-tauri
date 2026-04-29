@@ -17,16 +17,16 @@ Key decisions baked in:
 """
 
 from __future__ import annotations
-from typing import Any
 
 import json
 import logging
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
+from typing import Any
 from urllib import request as urlrequest
 from urllib.error import URLError
 
@@ -205,7 +205,7 @@ class OFXInboxPages:
         failure: dict[str, Any] | None,
         archived: set[str],
     ) -> dict[str, Any]:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
         # Heartbeat check — missing on fresh install (neutral), stale = red.
         if heartbeat is None:
@@ -218,7 +218,7 @@ class OFXInboxPages:
         else:
             hb_ts = _parse_ts(heartbeat.get("timestamp"))
             if hb_ts is not None:
-                age = (now - hb_ts.astimezone(timezone.utc)).total_seconds()
+                age = (now - hb_ts.astimezone(UTC)).total_seconds()
                 if age > _HEARTBEAT_STALE_SECONDS:
                     mins = int(age // 60)
                     return {
