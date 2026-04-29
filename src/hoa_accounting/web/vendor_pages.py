@@ -18,23 +18,13 @@ from http import HTTPStatus
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.forms import opt as _opt, require as _require
 
 
 @dataclass(frozen=True)
 class VendorPageResponse:
     status_code: int
     body_html: str
-
-
-def _require(raw: str, label: str) -> str:
-    value = (raw or "").strip()
-    if not value:
-        raise ValidationError(f"{label} is required.")
-    return value
-
-
-def _opt(raw: str) -> str | None:
-    return (raw or "").strip() or None
 
 
 _BASE_CTX = {

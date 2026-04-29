@@ -21,6 +21,7 @@ from http import HTTPStatus
 from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.periods_repo import PeriodsRepository
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.forms import require as _require
 
 _BASE_CTX = {
     "active_nav": "transactions",
@@ -33,13 +34,6 @@ _BASE_CTX = {
 class PeriodPageResponse:
     status_code: int
     body_html: str
-
-
-def _require(raw: str, label: str) -> str:
-    value = (raw or "").strip()
-    if not value:
-        raise ValidationError(f"{label} is required.")
-    return value
 
 
 def _now_utc() -> str:

@@ -20,6 +20,7 @@ from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.lot_renters_repo import LotRentersRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.forms import opt as _opt, parse_int as _parse_int, require as _require
 
 
 @dataclass(frozen=True)
@@ -30,24 +31,6 @@ class RenterPageResponse:
 
 def _today() -> str:
     return _date.today().isoformat()
-
-
-def _require(raw: str, label: str) -> str:
-    value = (raw or "").strip()
-    if not value:
-        raise ValidationError(f"{label} is required.")
-    return value
-
-
-def _parse_int(raw: str, label: str) -> int:
-    try:
-        return int((raw or "").strip())
-    except (TypeError, ValueError) as exc:
-        raise ValidationError(f"{label} is required.") from exc
-
-
-def _opt(raw: str) -> str | None:
-    return (raw or "").strip() or None
 
 
 _BASE_CTX = {

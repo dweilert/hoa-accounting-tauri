@@ -53,7 +53,7 @@ BASELINE: set[tuple[str, int, str]] = {
     ("web/summary_view_models.py", 499, "call-overload"),
     ("web/summary_view_models.py", 508, "call-overload"),
     ("web/summary_view_models.py", 514, "call-overload"),
-    ("web/assessment_billing_pages.py", 58, "call-overload"),
+    ("web/assessment_billing_pages.py", 59, "call-overload"),
 }
 
 

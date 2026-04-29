@@ -27,6 +27,7 @@ from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.assessment_billing_service import IndividualAssessmentRow
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
 
 
 @dataclass(frozen=True)
@@ -305,25 +306,3 @@ def _extract_individual_rows(form_data: dict[str, str]) -> list[dict[str, str]]:
     return [by_idx[i] for i in sorted(by_idx)]
 
 
-def _require(raw: str, label: str) -> str:
-    value = (raw or "").strip()
-    if not value:
-        raise ValidationError(f"{label} is required.")
-    return value
-
-
-def _parse_int(raw: str, label: str) -> int:
-    try:
-        return int((raw or "").strip())
-    except (TypeError, ValueError) as exc:
-        raise ValidationError(f"{label} is required.") from exc
-
-
-def _parse_positive_decimal(raw: str, label: str) -> Decimal:
-    try:
-        value = Decimal((raw or "").strip())
-    except (InvalidOperation, ValueError) as exc:
-        raise ValidationError(f"{label} must be a number.") from exc
-    if value <= Decimal("0"):
-        raise ValidationError(f"{label} must be greater than zero.")
-    return value

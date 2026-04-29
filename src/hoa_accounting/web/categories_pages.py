@@ -18,6 +18,7 @@ from http import HTTPStatus
 
 from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.forms import opt as _opt, require as _req
 
 _FUND_CODES = ["OPERATING", "RESERVE", "SPECIAL"]
 _CATEGORY_TYPES = ["INCOME", "EXPENSE", "TRANSFER"]
@@ -33,17 +34,6 @@ _BASE_CTX = {
 class CategoriesPageResponse:
     status_code: int
     body_html: str
-
-
-def _opt(raw: str | None) -> str | None:
-    return (raw or "").strip() or None
-
-
-def _req(raw: str | None, label: str) -> str:
-    v = (raw or "").strip()
-    if not v:
-        raise ValueError(f"{label} is required.")
-    return v
 
 
 class CategoriesPages:
