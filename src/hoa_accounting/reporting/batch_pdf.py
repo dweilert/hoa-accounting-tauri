@@ -115,6 +115,20 @@ class BatchPdfService:
         ).fetchall()
         return [int(r["id"]) for r in rows]
 
+    def _hoa_display_name(self) -> str:
+        """Abbreviated HOA name from the profile, used in PDF headers.
+
+        Falls back to '' if the table is empty — the PDF builder treats
+        an empty value as 'don't render the prefix'.
+        """
+        try:
+            row = self._conn.execute(
+                "SELECT display_name FROM hoa_profile LIMIT 1"
+            ).fetchone()
+            return str(row["display_name"]) if row and row["display_name"] else ""
+        except Exception:  # noqa: BLE001
+            return ""
+
     def run(self, year: int) -> list[PdfResult]:
         lot_ids = self._active_lot_ids()
         svc = LotStatementReportService(self._conn)
@@ -122,6 +136,7 @@ class BatchPdfService:
         now = datetime.now()
 
         generated_at = now.strftime("%-m/%-d/%Y %-I:%M:%S %p")
+        hoa_name = self._hoa_display_name()
 
         for lot_id in lot_ids:
             try:
@@ -129,6 +144,7 @@ class BatchPdfService:
 
                 context = _report_to_template_context(report)
                 context["generated_at"] = generated_at
+                context["hoa_name"] = hoa_name
                 pdf_bytes: bytes = render_owner_ledger_pdf(context)
 
                 filename = _build_filename(report)

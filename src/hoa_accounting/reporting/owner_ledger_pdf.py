@@ -174,7 +174,11 @@ def _build_header(
     summary: dict[str, Any], styles: dict[str, ParagraphStyle]
 ) -> list[Any]:
     address = summary.get("lot_address") or ""
-    meta_parts = [f"Lot {summary['lot_number']}"]
+    hoa_name = summary.get("hoa_name") or ""
+    meta_parts: list[str] = []
+    if hoa_name:
+        meta_parts.append(str(hoa_name))
+    meta_parts.append(f"Lot {summary['lot_number']}")
     if address:
         meta_parts.append(address)
     meta_parts.append(f"Year {summary['year']}")
