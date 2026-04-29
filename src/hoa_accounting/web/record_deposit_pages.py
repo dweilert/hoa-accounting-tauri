@@ -151,7 +151,7 @@ class RecordDepositPages:
             "parent_url": "/",
             "accounts": [dict(a) for a in accounts],
             "default_bank_id": default_bank_id,
-            "lots": [dict(l) for l in lots],
+            "lots": [dict(lot) for lot in lots],
             "categories": categories,
             "today": date.today().isoformat(),
             "error_message": error_message,
@@ -382,6 +382,6 @@ class RecordDepositPages:
         count = len(owner_rows) + len(other_rows)
         return (
             f"/deposit?msg=Saved+{count}+line(s)+on+deposit+batch"
-            f"{'+%d' % deposit_batch_id if deposit_batch_id else ''}.",
+            f"{f'+{deposit_batch_id}' if deposit_batch_id else ''}.",
             "",
         )

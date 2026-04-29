@@ -431,7 +431,7 @@ class VendorBillPages:
             if len(line_category_ids) != len(line_amounts) or not line_category_ids:
                 raise ValidationError("Provide at least one line.")
             lines: list[tuple[int, Decimal]] = []
-            for cid_raw, amt_raw in zip(line_category_ids, line_amounts):
+            for cid_raw, amt_raw in zip(line_category_ids, line_amounts, strict=True):
                 cid = _parse_int(cid_raw, "Category")
                 amt = _parse_positive_decimal(amt_raw, "Line amount")
                 lines.append((cid, amt))

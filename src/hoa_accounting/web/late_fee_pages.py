@@ -302,7 +302,7 @@ class LateFeePages:
             return _err("This lot has no current owner.")
 
         rows_to_post: list[dict[str, Any]] = []
-        for key, value in form_data.items():
+        for key in form_data:
             if not key.startswith("row_") or not key.endswith("_selected"):
                 continue
             try:

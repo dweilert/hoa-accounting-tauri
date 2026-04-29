@@ -57,7 +57,7 @@ def test_post_batch_rejects_empty_rows():
 def test_post_batch_rejects_unknown_bank():
     """Service relies on FK / validator to surface bad bank_account_id."""
     conn, ids = build_seeded_conn()
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         _factory(conn).deposit_batch_service().post_batch(
             deposit_date="2026-01-20",
             bank_account_id=9999,
@@ -67,7 +67,7 @@ def test_post_batch_rejects_unknown_bank():
 
 def test_post_batch_rejects_unknown_lot():
     conn, ids = build_seeded_conn()
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         _factory(conn).deposit_batch_service().post_batch(
             deposit_date="2026-01-20",
             bank_account_id=ids.bank_op_id,

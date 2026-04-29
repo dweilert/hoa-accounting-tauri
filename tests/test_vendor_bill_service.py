@@ -87,7 +87,7 @@ def test_post_vendor_bill_unique_invoice_per_vendor():
         invoice_date="2026-01-05",
         category_id=ids.cat_landscape_id,
     )
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         _svc(conn).post_vendor_bill(
             entry_date="2026-01-10",
             vendor_id=ids.vendor1_id,

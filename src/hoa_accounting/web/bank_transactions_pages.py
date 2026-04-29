@@ -499,7 +499,7 @@ class BankTransactionsPages:
             "is_income": is_income,
             "categories": [dict(c) for c in categories],
             "vendors": [dict(v) for v in vendors],
-            "lots": [dict(l) for l in lots],
+            "lots": [dict(lot) for lot in lots],
             "candidates": candidates,
             "error_message": error_message,
         }

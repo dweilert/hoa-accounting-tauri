@@ -44,15 +44,17 @@ target-version = "py311"
 exclude = [".venv", "build", "dist"]
 
 [tool.ruff.lint]
-select = [
-  "E",
-  "F",
-  "I",
-  "B",
-  "UP",
-  "SIM",
-]
-ignore = []
+# E/F: pycodestyle + pyflakes — real lint, keep.
+# I: import sorting — keep (auto-fixable via --fix).
+# B: bugbear — surfaces real bug shapes (B905 zip without strict, B017 broad raises).
+# UP: pyupgrade — modernise to current Python idioms.
+select = ["E", "F", "I", "B", "UP"]
+# E501 line-too-long: black already enforces line length where it can wrap.
+# Anything still over 88 is an unwrappable string (SQL, error messages,
+# encoded fixtures); not worth chasing.
+# E402 module-level import not at top: allowed because some imports
+# happen inside `create_app()` after config validation.
+ignore = ["E501", "E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

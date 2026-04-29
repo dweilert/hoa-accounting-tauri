@@ -72,15 +72,14 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
             )
             blocks.append(part[: end.start()] if end else part)
 
+    def _field(tag: str, block: str) -> str:
+        m = re.search(r"<" + tag + r">\s*([^\r\n<]+)", block, re.IGNORECASE)
+        return m.group(1).strip() if m else ""
+
     transactions: list[ParsedTransaction] = []
     for block in blocks:
-
-        def field(tag: str) -> str:
-            m = re.search(r"<" + tag + r">\s*([^\r\n<]+)", block, re.IGNORECASE)
-            return m.group(1).strip() if m else ""
-
-        dtposted = field("DTPOSTED")
-        trnamt = field("TRNAMT")
+        dtposted = _field("DTPOSTED", block)
+        trnamt = _field("TRNAMT", block)
         if not dtposted or not trnamt:
             continue
 
@@ -95,14 +94,14 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
         except InvalidOperation:
             continue
 
-        trntype = field("TRNTYPE")
+        trntype = _field("TRNTYPE", block)
         transactions.append(
             ParsedTransaction(
                 transaction_date=txn_date,
                 amount=amount,
-                description=field("NAME"),
-                memo=field("MEMO"),
-                fitid=field("FITID"),
+                description=_field("NAME", block),
+                memo=_field("MEMO", block),
+                fitid=_field("FITID", block),
                 transaction_type=trntype.upper() if trntype else "",
             )
         )

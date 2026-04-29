@@ -312,8 +312,8 @@ class LotPages:
                 raise ValidationError("Owner is required.")
             try:
                 owner_id = int(owner_id_str)
-            except ValueError:
-                raise ValidationError("Invalid owner selection.")
+            except ValueError as exc:
+                raise ValidationError("Invalid owner selection.") from exc
 
             start_date = _require(form_data.get("start_date", ""), "Start Date")
 

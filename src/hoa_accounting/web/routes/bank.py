@@ -660,7 +660,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                 code=303,
             )
         lines: list[tuple[int, _D]] = []
-        for c_raw, a_raw in zip(cat_list, amt_list):
+        for c_raw, a_raw in zip(cat_list, amt_list, strict=True):
             c = (c_raw or "").strip()
             a = (a_raw or "").strip().replace(",", "").replace("$", "")
             if not c.isdigit() or not a:

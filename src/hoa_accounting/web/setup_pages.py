@@ -137,8 +137,6 @@ class SetupPages:
         form = request.form
         legal_name = form.get("legal_name", "").strip()
         display_name = form.get("display_name", "").strip()
-        fiscal_month = form.get("fiscal_year_start_month", "1").strip()
-
         errors = []
         if not legal_name:
             errors.append("Full legal name is required.")

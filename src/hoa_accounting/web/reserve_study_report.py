@@ -819,7 +819,7 @@ def _h2(doc: Document, text: str) -> None:  # type: ignore[valid-type]
 
 def _header_row_2col(table: Any, col1: str, col2: str) -> None:
     row = table.rows[0]
-    for cell, label in zip(row.cells, [col1, col2]):
+    for cell, label in zip(row.cells, [col1, col2], strict=True):
         _shade_cell(cell, _HEAD_BG)
         p = cell.paragraphs[0]
         run = p.add_run(label)
