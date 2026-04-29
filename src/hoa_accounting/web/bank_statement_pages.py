@@ -5,7 +5,6 @@ Transactions are stored immediately as PENDING on upload and survive navigation.
 
 from __future__ import annotations
 
-import hashlib
 import itertools
 import json
 import re
@@ -59,54 +58,28 @@ class BankStatementPages:
 
         return q.get_unmatched_batches(self._conn, bank_account_id)
 
+    # Read-helpers — thin shims over web.bank_ingest_engine. Kept as
+    # instance methods because external callers (bank_transactions_pages,
+    # ofx_inbox_pages) reach into them through the Pages instance.
     def _batch_member_payment_ids(self, batch_id: int) -> list[int]:
-        rows = self._conn.execute(
-            "SELECT id FROM payments WHERE deposit_batch_id = ? ORDER BY id",
-            (batch_id,),
-        ).fetchall()
-        return [int(r["id"]) for r in rows]
+        from hoa_accounting.web import bank_ingest_engine as eng
+
+        return eng.batch_member_payment_ids(self._conn, batch_id)
 
     def _load_rules(self) -> list[dict[str, Any]]:
-        rows = self._conn.execute("""
-            SELECT r.id, r.rule_name, r.description_contains,
-                   r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
-                   r.action_type, r.category_id, r.vendor_id, r.lot_id,
-                   r.default_memo, r.active_flag,
-                   r.confidence_mode, r.auto_post_after_n, r.confirmed_matches,
-                   c.name AS category_name,
-                   v.vendor_name AS vendor_name
-            FROM bank_transaction_rules r
-            LEFT JOIN categories c ON c.id = r.category_id
-            LEFT JOIN vendors    v ON v.id = r.vendor_id
-            WHERE r.active_flag = 1
-            ORDER BY r.id
-            """).fetchall()
-        return [dict(r) for r in rows]
+        from hoa_accounting.web import bank_ingest_engine as eng
+
+        return eng.load_rules(self._conn)
 
     def _next_receipt_number(self, payment_date: str) -> str:
-        prefix = "RCT-" + payment_date.replace("-", "") + "-"
-        row = self._conn.execute(
-            "SELECT receipt_number FROM payments WHERE receipt_number LIKE ? ORDER BY receipt_number DESC LIMIT 1",
-            (prefix + "%",),
-        ).fetchone()
-        seq = int(row["receipt_number"].rsplit("-", 1)[1]) + 1 if row else 1
-        return f"{prefix}{seq:04d}"
+        from hoa_accounting.web import bank_ingest_engine as eng
+
+        return eng.next_receipt_number(self._conn, payment_date)
 
     def _open_assessments_for_lot(self, lot_id: int) -> list[int]:
-        """Return IDs of open/partial assessments for a lot, oldest due_date first."""
-        rows = self._conn.execute(
-            """
-            SELECT a.id
-            FROM assessments a
-            LEFT JOIN payment_applications pa ON pa.assessment_id = a.id
-            WHERE a.lot_id = ? AND a.status IN ('OPEN', 'PARTIAL')
-            GROUP BY a.id, a.amount, a.due_date
-            HAVING a.amount - COALESCE(SUM(pa.applied_amount), 0) > 0
-            ORDER BY a.due_date ASC
-            """,
-            (lot_id,),
-        ).fetchall()
-        return [int(r["id"]) for r in rows]
+        from hoa_accounting.web import bank_ingest_engine as eng
+
+        return eng.open_assessments_for_lot(self._conn, lot_id)
 
     def _apply_rule(
         self,
@@ -283,11 +256,9 @@ class BankStatementPages:
         return None
 
     def _period_for_date(self, date_str: str) -> int | None:
-        row = self._conn.execute(
-            "SELECT id FROM accounting_periods WHERE ? BETWEEN start_date AND end_date LIMIT 1",
-            (date_str,),
-        ).fetchone()
-        return int(row["id"]) if row else None
+        from hoa_accounting.web import bank_ingest_engine as eng
+
+        return eng.period_for_date(self._conn, date_str)
 
     def _compute_matches(
         self,
@@ -320,28 +291,9 @@ class BankStatementPages:
 
     @staticmethod
     def _dedup_key(txn: Any, bank_account_id: int) -> str:
-        """Per-account unique key. Prefers the canonical record's hash so
-        identity is bank-agnostic and FITID-independent; falls back to a
-        content-based key for legacy ``ParsedTransaction`` callers during
-        cutover."""
-        from hoa_accounting.web.bank_ingest import CanonicalBankTxn
+        from hoa_accounting.web import bank_ingest_engine as eng
 
-        if isinstance(txn, CanonicalBankTxn):
-            return txn.dedup_key(bank_account_id)
-        # Legacy ParsedTransaction — compute the same hash from its fields
-        # so mixed callers produce identical keys.
-        raw = "|".join(
-            [
-                str(bank_account_id),
-                txn.transaction_date.isoformat(),
-                str(txn.amount),
-                txn.description or "",
-                txn.memo or "",
-                (txn.transaction_type or "").upper(),
-                "",  # check_number not available on ParsedTransaction
-            ]
-        )
-        return "h:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        return eng.dedup_key(txn, bank_account_id)
 
     def _insert_bank_txn(
         self,
