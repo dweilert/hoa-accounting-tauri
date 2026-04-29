@@ -16,7 +16,7 @@ from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.format import format_money
+from hoa_accounting.validators.format import format_currency, format_money
 from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
 
 
@@ -407,7 +407,7 @@ class VendorBillPages:
             target = Decimal(str(bill["amount"]))
             if abs(total - target) > Decimal("0.005"):
                 raise ValidationError(
-                    f"Lines sum to ${total:.2f} but bill total is ${target:.2f}."
+                    f"Lines sum to {format_currency(total)} but bill total is {format_currency(target)}."
                 )
             if len(lines) < 2:
                 raise ValidationError("A split needs at least two lines.")

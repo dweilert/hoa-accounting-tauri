@@ -161,6 +161,9 @@ def test_categories_add(client, csrf, conn):
         "active_flag": "1",
     })
     assert resp.status_code in (302, 303), f"Expected redirect, got {resp.status_code}: {resp.data[:300]!r}"
+    # Verify redirect target — a 303 to the form URL with ?error=... would
+    # also be 303 but isn't success.
+    assert "/categories" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute("SELECT id FROM categories WHERE code = ?", (code,)).fetchone()
     assert row is not None, "Category row missing after POST"
 
@@ -181,6 +184,7 @@ def test_vendors_add(client, csrf, conn):
         "notes": "",
     })
     assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    assert "/vendors" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute("SELECT id FROM vendors WHERE vendor_name = ?", (name,)).fetchone()
     assert row is not None
 
@@ -218,6 +222,7 @@ def test_lots_add(client, csrf, conn):
         "active_flag": "1",
     })
     assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    assert "/lots" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute("SELECT id FROM lots WHERE lot_number = ?", (lot_no,)).fetchone()
     assert row is not None
 
@@ -315,6 +320,7 @@ def test_vendor_bills_new(client, csrf, conn):
         "check_number": MARKER,
     })
     assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    assert "/vendor-bills" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute(
         "SELECT id FROM vendor_bills WHERE invoice_number = ?", (invoice,),
     ).fetchone()
@@ -343,6 +349,7 @@ def test_budgets_new(client, csrf, conn):
         "notes": notes,
     })
     assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    assert "/budgets" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute(
         "SELECT id FROM budgets WHERE fiscal_year = ? AND fund_code='OPERATING'", (year,),
     ).fetchone()

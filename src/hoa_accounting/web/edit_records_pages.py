@@ -24,7 +24,7 @@ from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.format import format_money
+from hoa_accounting.validators.format import format_currency, format_money
 from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _req
 
 
@@ -386,7 +386,7 @@ class EditRecordsPages:
             target = Decimal(str(row["total_amount"]))
             if abs(total - target) > Decimal("0.005"):
                 raise ValidationError(
-                    f"Lines sum to ${total:.2f} but batch total is ${target:.2f}."
+                    f"Lines sum to {format_currency(total)} but batch total is {format_currency(target)}."
                 )
             if len(lines) < 2:
                 raise ValidationError("A split needs at least two lines.")

@@ -25,6 +25,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
@@ -364,6 +365,6 @@ class LateFeePages:
         total = sum(r["interest"] for r in rows_to_post)
         msg = (
             f"Posted {posted} late fee charge(s) totalling "
-            f"${total:,.2f} for Lot {lot['lot_number']}."
+            f"{format_currency(total)} for Lot {lot['lot_number']}."
         )
         return f"/late-fees?lot_id={lot_id}&msg={quote(msg)}", None

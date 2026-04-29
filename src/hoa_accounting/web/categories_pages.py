@@ -13,10 +13,12 @@ Routes handled:
 from __future__ import annotations
 
 import sqlite3
+from decimal import Decimal
 from dataclasses import dataclass
 from http import HTTPStatus
 
 from hoa_accounting.repositories.categories_repo import CategoriesRepository
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.forms import opt as _opt, require as _req
 
@@ -264,7 +266,13 @@ class CategoriesPages:
                 body_html="<h1>Category not found</h1>",
             )
         txns = [dict(r) for r in self.repo.ledger_for_category(category_id)]
-        total = sum(float(t["amount"] or 0) for t in txns)
+        # Sum as Decimal — float accumulation across dozens of transactions
+        # compounds rounding error and the displayed total ends up off by
+        # a cent from the visible per-row sum.
+        total = sum(
+            (Decimal(str(t["amount"] or "0")) for t in txns),
+            Decimal("0.00"),
+        )
         ctx = {
             **_BASE_CTX,
             "heading": f"Ledger: {row['name']}",
@@ -274,7 +282,7 @@ class CategoriesPages:
             "category": dict(row),
             "category_id": category_id,
             "transactions": txns,
-            "total": f"{total:,.2f}",
+            "total": format_currency(total),
         }
         return CategoriesPageResponse(
             status_code=HTTPStatus.OK,

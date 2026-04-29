@@ -83,8 +83,13 @@ class DatabaseAdminPages:
 
     # SQLite's PRAGMA syntax doesn't accept ``?`` placeholders for the
     # pragma name itself, so we have to interpolate. Whitelist the names
-    # we actually invoke so a future caller can't be tricked into running
-    # an arbitrary PRAGMA via this helper.
+    # we actually invoke as **stat queries** so a future caller can't be
+    # tricked into running an arbitrary PRAGMA via this helper.
+    #
+    # NOTE: action-form PRAGMAs that take an argument and return a tuple
+    # (e.g. ``PRAGMA wal_checkpoint(TRUNCATE)``) deliberately bypass this
+    # helper — they have different semantics and their full literal
+    # appears at the call site, which is auditable on its own.
     _PRAGMA_WHITELIST = frozenset({
         "journal_mode", "page_size", "page_count", "freelist_count",
         "wal_autocheckpoint",

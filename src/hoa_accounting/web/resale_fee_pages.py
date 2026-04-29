@@ -23,6 +23,7 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
@@ -250,7 +251,7 @@ class ResaleFeePages:
             return _err(str(exc))
 
         from urllib.parse import quote
-        msg = f"Resale certificate fee of ${amount:,.2f} posted for Lot {lot['lot_number']}."
+        msg = f"Resale certificate fee of {format_currency(amount)} posted for Lot {lot['lot_number']}."
         return f"/resale-fee?msg={quote(msg)}", None
 
     # ── POST: record payment ──────────────────────────────────────────────
@@ -337,7 +338,7 @@ class ResaleFeePages:
 
         from urllib.parse import quote
         msg = (
-            f"Payment of ${amount:,.2f} recorded for Lot {assessment['lot_number']} "
+            f"Payment of {format_currency(amount)} recorded for Lot {assessment['lot_number']} "
             f"(receipt {receipt_number})."
         )
         return f"/resale-fee/payments?msg={quote(msg)}", None

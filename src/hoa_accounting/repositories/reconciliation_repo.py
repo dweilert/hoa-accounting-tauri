@@ -20,6 +20,7 @@ from __future__ import annotations
 import sqlite3
 from decimal import Decimal
 
+from hoa_accounting.validators.format import format_money
 from .base import BaseRepository
 
 
@@ -350,7 +351,7 @@ class ReconciliationRepository(BaseRepository):
         difference = statement - cleared_balance
 
         def fmt(d: Decimal) -> str:
-            return f"{d:,.2f}"
+            return format_money(d)
 
         return {
             "book_balance": fmt(book_balance),

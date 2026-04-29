@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import AccountingError, NotFoundError, ValidationError
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.repositories.dues_billing_repo import DuesBillingRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
@@ -347,8 +348,8 @@ class DuesBillingPages:
             return _err(str(exc))
 
         msg = (
-            f"Billed {result.owner_count} homeowner(s) ${amount:,.2f} each "
-            f"for {label}. Total ${result.total_amount:,.2f}."
+            f"Billed {result.owner_count} homeowner(s) {format_currency(amount)} each "
+            f"for {label}. Total {format_currency(result.total_amount)}."
         )
         from urllib.parse import quote
         return f"/dues-billing?msg={quote(msg)}", None

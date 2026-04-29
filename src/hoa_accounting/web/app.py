@@ -323,18 +323,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         static_dir = Path(__file__).resolve().parent / "static"
         return send_from_directory(static_dir, "app.css")
 
-    # ── OFX-inbox proxy response summariser ──────────────────────────────
-    def _summarise_fetcher_response(status: int, body, *, mode: str) -> str:
-        """Turn the fetcher's JSON reply into a short user-facing message."""
-        if status == 202 and isinstance(body, dict):
-            job = body.get("job_id") or "?"
-            return f"Fetcher queued {mode} job {job}. This page will refresh when it completes."
-        if status == 503:
-            return "Fetcher daemon not reachable on 127.0.0.1:17866 — is it running?"
-        if isinstance(body, dict):
-            return f"Fetcher returned HTTP {status}: {body}"
-        return f"Fetcher returned HTTP {status}: {body}"
-
     # ── Audited DB connection helper ─────────────────────────────────────
     def _open_db() -> sqlite3.Connection:
         """Return the per-request shared DB connection, creating it on first call."""

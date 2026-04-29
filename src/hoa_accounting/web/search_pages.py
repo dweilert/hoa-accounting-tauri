@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from http import HTTPStatus
 
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.format import format_currency
 
 MAX_PER_GROUP = 8
 
@@ -261,7 +262,7 @@ class SearchPages:
         ).fetchone()
         hits = [
             SearchHit(
-                title=f"Payment ${r['amount']:,.2f} — {r['owner_name'] or 'Unknown'}",
+                title=f"Payment {format_currency(r['amount'])} — {r['owner_name'] or 'Unknown'}",
                 subtitle=" · ".join(filter(None, [
                     r["payment_date"],
                     f"Receipt {r['receipt_number']}" if r["receipt_number"] else "",
@@ -304,7 +305,7 @@ class SearchPages:
         ).fetchone()
         hits = [
             SearchHit(
-                title=f"${r['amount']:,.2f} — {r['description'] or r['charge_type']}",
+                title=f"{format_currency(r['amount'])} — {r['description'] or r['charge_type']}",
                 subtitle=" · ".join(filter(None, [
                     r["assessment_date"],
                     f"Lot {r['lot_number']}" if r["lot_number"] else "",

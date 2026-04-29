@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from hoa_accounting.repositories.reconciliation_repo import ReconciliationRepository
+from hoa_accounting.validators.format import format_currency
 from hoa_accounting.web.template_engine import render_template
 
 
@@ -193,8 +194,8 @@ class ReconciliationPages:
             actual = Decimal(str(stmt_beg))
             if actual != expected:
                 beginning_balance_warning = (
-                    f"Statement beginning balance ({actual:,.2f}) does not match "
-                    f"the expected {expected_label} ({expected:,.2f}). "
+                    f"Statement beginning balance ({format_currency(actual)}) does not match "
+                    f"the expected {expected_label} ({format_currency(expected)}). "
                     f"Please verify before completing."
                 )
 
