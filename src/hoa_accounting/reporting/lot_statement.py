@@ -247,7 +247,7 @@ class LotStatementReportService:
                     ''                    AS due_date,
                     0                     AS debit_amount,
                     SUM(pa.applied_amount) AS credit_amount,
-                    ''                    AS status,
+                    'POSTED'              AS status,
                     COALESCE(p.receipt_number, '') AS receipt_number,
                     p.payment_date || '1' || CAST(p.id AS TEXT) AS sort_key
                 FROM payments p
@@ -272,7 +272,7 @@ class LotStatementReportService:
                          THEN oa.amount ELSE 0 END AS debit_amount,
                     CASE WHEN oa.adjustment_type IN ('CREDIT_MEMO', 'WRITE_OFF')
                          THEN oa.amount ELSE 0 END AS credit_amount,
-                    ''                    AS status,
+                    'POSTED'              AS status,
                     ''                    AS receipt_number,
                     oa.adjustment_date || '2' || CAST(oa.id AS TEXT) AS sort_key
                 FROM owner_adjustments oa
