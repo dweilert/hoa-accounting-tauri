@@ -43,7 +43,8 @@
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;align-items:center;flex-wrap:wrap;">
     <a href="/budgets" class="btn btn--ghost btn--sm">← All Budgets</a>
     {% if is_draft %}
-      <form method="post" action="/budgets/{{ budget.id }}/approve" style="display:inline;">
+      <form method="post" action="/budgets/{{ budget.id }}/approve"
+            id="approve-budget-form" style="display:inline;">
         <button type="submit" class="btn btn--primary btn--sm">Approve Budget</button>
       </form>
       <form method="post" action="/budgets/{{ budget.id }}/delete" style="display:inline;"
@@ -82,7 +83,7 @@
       Col 14 — Row total           80 px  (scrollable)
     Total table width: 160 + 168 + 864 + 80 = 1272 px
   #}
-  <form method="post" action="/budgets/{{ budget.id }}/edit">
+  <form method="post" action="/budgets/{{ budget.id }}/edit" id="budget-edit-form">
     <div class="panel">
       <div class="panel__header" style="margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem;">
         <div>
@@ -486,6 +487,35 @@
     inp.addEventListener("blur", refreshSaveGate);
   });
   refreshSaveGate();
+
+  // ── Dirty tracking: warn before Approve when there are unsaved edits ─
+  var isDirty = false;
+  function markDirty() { isDirty = true; }
+  document.querySelectorAll(".budget-cell, .annual-input").forEach(function (inp) {
+    inp.addEventListener("input", markDirty);
+  });
+  var editForm = document.getElementById("budget-edit-form");
+  if (editForm) {
+    editForm.addEventListener("submit", function () { isDirty = false; });
+  }
+  var approveForm = document.getElementById("approve-budget-form");
+  if (approveForm) {
+    approveForm.addEventListener("submit", function (e) {
+      if (!isDirty || approveForm._appConfirmed) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.showConfirm({
+        title: "Unsaved Budget Changes",
+        message: "You have unsaved budget amounts. Approving now will discard those edits. Save the budget first, or continue to approve without saving.",
+        confirmLabel: "Approve Anyway",
+        isDanger: true,
+        onConfirm: function () {
+          approveForm._appConfirmed = true;
+          approveForm.submit();
+        }
+      });
+    });
+  }
 
   // Reset horizontal scroll to leftmost on load
   var scrollWrap = document.querySelector("#budget-grid")
