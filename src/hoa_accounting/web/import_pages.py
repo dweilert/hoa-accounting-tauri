@@ -19,8 +19,6 @@ Import rules:
 
 from __future__ import annotations
 
-import csv
-import io
 import json
 import sqlite3
 from dataclasses import dataclass
@@ -1076,37 +1074,12 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
 # ── CSV parsing ───────────────────────────────────────────────────────────────
 
 
-def _parse_csv(content: str) -> tuple[list[str], list[list[str]]]:
-    """
-    Parse CSV content, accepting both:
-      • Standard quoted CSV (Excel, Google Sheets, etc.)
-      • Our &#x2C;-encoded format (exported by this app)
-    Returns (headers, data_rows).
-    """
-    reader = csv.reader(io.StringIO(content.strip()))
-    all_rows = list(reader)
-    if not all_rows:
-        return [], []
-    headers = [h.strip().replace("&#x2C;", ",") for h in all_rows[0]]
-    data_rows = [
-        [cell.replace("&#x2C;", ",") for cell in row]
-        for row in all_rows[1:]
-        if any(cell.strip() for cell in row)  # skip blank lines
-    ]
-    return headers, data_rows
-
-
-# ── Value coercion helpers ────────────────────────────────────────────────────
-
-
-def _parse_bool(v: str, default: int = 1) -> int:
-    s = v.strip().lower()
-    if s in {"yes", "y", "true", "1"}:
-        return 1
-    if s in {"no", "n", "false", "0"}:
-        return 0
-    return default
-
+from hoa_accounting.web.import_parsing import (  # noqa: E402
+    parse_bool as _parse_bool,
+)
+from hoa_accounting.web.import_parsing import (
+    parse_csv as _parse_csv,
+)
 
 # ── Response types ────────────────────────────────────────────────────────────
 
