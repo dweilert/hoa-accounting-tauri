@@ -130,16 +130,6 @@ def test_handle_new_invalid_year(conn: sqlite3.Connection) -> None:
 
 # ── render_edit_form ───────────────────────────────────────────────
 
-@pytest.mark.skip(reason="pending single-entry rewrite (double-entry contract retired)")
-def test_edit_form_shows_accounts(conn: sqlite3.Connection) -> None:
-    bid = _make_budget(conn, 2025)
-    resp = BudgetPages(conn).render_edit_form(bid, org=_ORG, theme="warm")
-    assert resp.status_code == 200
-    assert "6100" in resp.body_html
-    assert "Mow" in resp.body_html
-    assert "6200" in resp.body_html
-
-
 def test_edit_form_404(conn: sqlite3.Connection) -> None:
     resp = BudgetPages(conn).render_edit_form(9999, org=_ORG, theme="warm")
     assert resp.status_code == 404
@@ -157,53 +147,6 @@ def test_edit_form_loads_saved_amounts(conn: sqlite3.Connection) -> None:
 
 
 # ── handle_save ───────────────────────────────────────────────────
-
-@pytest.mark.skip(reason="pending single-entry rewrite (double-entry contract retired)")
-def test_handle_save_upserts_lines(conn: sqlite3.Connection) -> None:
-    bid = _make_budget(conn, 2025)
-    redirect_url, form_resp = BudgetPages(conn).handle_save(
-        bid,
-        form_data={
-            "notes": "Annual budget",
-            "amt_6100_1": "300.00",
-            "amt_6100_2": "300.00",
-            "amt_6200_6": "150.00",
-        },
-        org=_ORG, theme="warm",
-    )
-    assert redirect_url is not None
-    assert form_resp is None
-
-    lines = conn.execute(
-        "SELECT account_id, fiscal_period, budget_amount FROM budget_lines WHERE budget_id = ?",
-        (bid,),
-    ).fetchall()
-    assert len(lines) == 3
-    amounts = {(r["account_id"], r["fiscal_period"]): str(r["budget_amount"]) for r in lines}
-    assert float(amounts[(6100, 1)]) == 300.0
-    assert float(amounts[(6200, 6)]) == 150.0
-
-
-@pytest.mark.skip(reason="pending single-entry rewrite (double-entry contract retired)")
-def test_handle_save_removes_zeros(conn: sqlite3.Connection) -> None:
-    bid = _make_budget(conn, 2025)
-    # Pre-seed a line then save with zero to remove it
-    conn.execute(
-        "INSERT INTO budget_lines (budget_id, account_id, fiscal_period, budget_amount) VALUES (?, ?, ?, ?)",
-        (bid, 6100, 1, "100.00"),
-    )
-    conn.commit()
-    BudgetPages(conn).handle_save(
-        bid,
-        form_data={"amt_6100_1": "0"},
-        org=_ORG, theme="warm",
-    )
-    lines = conn.execute(
-        "SELECT * FROM budget_lines WHERE budget_id = ?", (bid,)
-    ).fetchall()
-    assert len(lines) == 0
-
-
 # ── handle_approve / archive / delete ─────────────────────────────
 
 def test_handle_approve(conn: sqlite3.Connection) -> None:

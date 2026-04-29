@@ -268,11 +268,3 @@ def test_handle_delete_removes_empty_period(conn: sqlite3.Connection) -> None:
     assert PeriodsRepository(conn).get_period(pid) is None
 
 
-@pytest.mark.skip(
-    reason="journal_entries table retired (migration 0061); period delete now "
-    "blocks on transactional rows instead — covered separately."
-)
-def test_handle_delete_blocked_when_has_journal_entries(
-    conn: sqlite3.Connection,
-) -> None:
-    ...

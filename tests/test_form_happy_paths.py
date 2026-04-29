@@ -73,6 +73,7 @@ def app_db():
             "DELETE FROM board_members WHERE full_name LIKE ?",
             "DELETE FROM reserve_assets WHERE component LIKE ?",
             "DELETE FROM reserve_study_scenarios WHERE scenario_name LIKE ?",
+            "DELETE FROM reserve_study_assumptions WHERE notes LIKE ?",
             "DELETE FROM dashboard_cards WHERE title LIKE ?",
         ]:
             try:
@@ -1243,7 +1244,24 @@ def test_reserve_study_assumptions_edit(client, csrf, conn):
         "FROM reserve_study_assumptions WHERE is_active=1 LIMIT 1"
     ).fetchone()
     if not cur:
-        pytest.skip("No active assumptions row.")
+        # Seed a minimal active row so the form has something to edit.
+        # Tagged with the per-run MARKER in notes so module teardown
+        # picks it up via its existing reserve_assets/scenarios cleanup
+        # patterns; we add a parallel cleanup below.
+        conn.execute(
+            "INSERT INTO reserve_study_assumptions "
+            "(study_year, annual_contribution, contribution_growth_rate, "
+            " investment_return_rate, num_lots, projection_years, notes, "
+            " reserve_balance_override, is_active) "
+            "VALUES (2026, '50000', '0.03', '0.04', 100, 30, ?, '0', 1)",
+            (f"HP assumptions seed {MARKER}",),
+        )
+        cur = conn.execute(
+            "SELECT study_year, annual_contribution, contribution_growth_rate, "
+            "       investment_return_rate, num_lots, projection_years, notes, "
+            "       reserve_balance_override "
+            "FROM reserve_study_assumptions WHERE is_active=1 LIMIT 1"
+        ).fetchone()
     new_notes = f"HP assumptions edit {MARKER}"
     resp = _post(client, csrf, "/reserve-study/assumptions/edit", {
         "study_year": str(cur[0]),
