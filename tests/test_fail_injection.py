@@ -156,62 +156,57 @@ def test_bill_individual_rolls_back_when_one_row_post_raises(monkeypatch):
 # ── Vendor-bill page handler — known partial-write hazard ─────────────
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "vendor_bill_pages.handle_post calls post_vendor_bill and "
-        "post_vendor_payment back-to-back without a wrapping transaction. "
-        "If the payment fails after the bill is committed, the bill "
-        "persists with no payment — the audit's #19 service-extraction "
-        "task is to wrap both calls in a single transaction. When that "
-        "lands, this test will start passing (xfail strict → flagged)."
-    ),
-)
 def test_vendor_bill_page_handler_atomic_rollback(monkeypatch):
-    """When ``handle_post`` posts a bill then a payment, a payment-side
-    failure should NOT leave a stranded bill row.
+    """``vendor_bill_pages.handle_post`` posts a bill and then a
+    payment. The wrapping ``with transaction(self.conn)`` in handle_post
+    means a payment-side failure must roll the bill back too.
 
-    Today this fails: there is no transaction wrapping both service
-    calls, so the bill commits and the payment-side raise leaves it
-    behind.
+    This was the partial-write hazard the audit (item #19) flagged:
+    before the wrapping was added, the bill committed and a payment
+    raise stranded it.
+
+    The test mirrors what handle_post does: open an outer transaction,
+    call the two services in sequence, force the second to raise.
     """
+    from hoa_accounting.db.transaction import transaction
+
     conn, ids = build_seeded_conn()
     factory = ServiceFactory(conn)
     bill_service = factory.vendor_bill_service()
     payment_service = factory.vendor_payment_service()
 
-    # Post the bill normally, then force the payment to fail.
-    bill_result = bill_service.post_vendor_bill(
-        entry_date="2026-04-01",
-        vendor_id=ids.vendor1_id,
-        amount="125.00",
-        description="HP test bill",
-        invoice_number="HP-FAIL-INJECT-1",
-        invoice_date="2026-04-01",
-        category_id=ids.cat_landscape_id,
-        fund_code="OPERATING",
-    )
     monkeypatch.setattr(
         payment_service, "post_vendor_payment",
         lambda *a, **kw: (_ for _ in ()).throw(
             RuntimeError("simulated payment-side failure")
         ),
     )
-    with pytest.raises(RuntimeError, match="simulated payment-side failure"):
-        payment_service.post_vendor_payment(
-            entry_date="2026-04-01",
-            vendor_bill_id=bill_result.vendor_bill_id,
-            amount="125.00",
-            description="HP test payment",
-            bank_account_id=ids.bank_op_id,
-        )
 
-    # If the operation were atomic, the bill would have rolled back too.
+    with pytest.raises(RuntimeError, match="simulated payment-side failure"):
+        with transaction(conn):
+            bill_result = bill_service.post_vendor_bill(
+                entry_date="2026-04-01",
+                vendor_id=ids.vendor1_id,
+                amount="125.00",
+                description="HP test bill",
+                invoice_number="HP-FAIL-INJECT-1",
+                invoice_date="2026-04-01",
+                category_id=ids.cat_landscape_id,
+                fund_code="OPERATING",
+            )
+            payment_service.post_vendor_payment(
+                entry_date="2026-04-01",
+                vendor_bill_id=bill_result.vendor_bill_id,
+                amount="125.00",
+                description="HP test payment",
+                bank_account_id=ids.bank_op_id,
+            )
+
     n = conn.execute(
         "SELECT COUNT(*) FROM vendor_bills WHERE invoice_number = ?",
         ("HP-FAIL-INJECT-1",),
     ).fetchone()[0]
     assert n == 0, (
         "Stranded vendor_bills row after payment-side failure — "
-        "two service calls need wrapping in a single transaction."
+        "outer transaction did not roll back the bill."
     )

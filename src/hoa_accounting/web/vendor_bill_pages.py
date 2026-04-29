@@ -13,6 +13,7 @@ from hoa_accounting.models.enums import FundCode
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
+from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.format import format_money
@@ -538,25 +539,31 @@ class VendorBillPages:
             payment_date = payment_date_raw or entry_date
             check_number = (form_data.get("check_number") or "").strip() or None
 
-            result = self.factory.vendor_bill_service().post_vendor_bill(
-                entry_date=entry_date,
-                vendor_id=vendor_id,
-                amount=amount,
-                description=description,
-                invoice_number=invoice_number,
-                invoice_date=invoice_date,
-                due_date=due_date,
-                fund_code=fund_code,
-                category_id=category_id,
-            )
-            self.factory.vendor_payment_service().post_vendor_payment(
-                entry_date=payment_date,
-                vendor_bill_id=result.vendor_bill_id,
-                amount=amount,
-                description=description,
-                bank_account_id=bank_account_id,
-                check_number=check_number,
-            )
+            # Wrap the bill + payment in a single outer transaction so a
+            # payment-side failure rolls back the bill too. The two
+            # services use ``with transaction(self.conn)`` internally,
+            # which becomes savepoints when nested inside this outer
+            # block — see test_fail_injection.py.
+            with transaction(self.conn):
+                result = self.factory.vendor_bill_service().post_vendor_bill(
+                    entry_date=entry_date,
+                    vendor_id=vendor_id,
+                    amount=amount,
+                    description=description,
+                    invoice_number=invoice_number,
+                    invoice_date=invoice_date,
+                    due_date=due_date,
+                    fund_code=fund_code,
+                    category_id=category_id,
+                )
+                self.factory.vendor_payment_service().post_vendor_payment(
+                    entry_date=payment_date,
+                    vendor_bill_id=result.vendor_bill_id,
+                    amount=amount,
+                    description=description,
+                    bank_account_id=bank_account_id,
+                    check_number=check_number,
+                )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_form(
                 org=org,
