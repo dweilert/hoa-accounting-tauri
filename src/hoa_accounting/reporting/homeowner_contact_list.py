@@ -24,12 +24,20 @@ class HomeownerContactListReportService:
                 'OWNER'                           AS role,
                 COALESCE(o.first_name, '')        AS first_name,
                 COALESCE(o.last_name, '')         AS last_name,
-                COALESCE(o.mailing_address_1, '') AS address,
+                COALESCE(
+                    NULLIF(l.street_address_1, ''),
+                    NULLIF(o.mailing_address_1, ''),
+                    ''
+                )                                 AS address,
                 COALESCE(o.phone, '')             AS cell_phone,
                 COALESCE(o.home_phone, '')        AS home_phone,
                 COALESCE(o.email, '')             AS email,
                 o.last_name AS sort_name
             FROM owners o
+            LEFT JOIN lot_ownership lo
+                   ON lo.owner_id = o.id
+                  AND lo.end_date IS NULL
+            LEFT JOIN lots l ON l.id = lo.lot_id
             WHERE o.active_flag = 1
 
             UNION ALL
