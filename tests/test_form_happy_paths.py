@@ -40,53 +40,56 @@ def app_db():
         pytest.skip(f"DB missing: {cfg.database.path}")
     app = create_app(str(cfg_path))
     yield app, cfg.database.path
-    # ── Cleanup: nuke anything tagged with this run's marker ────────────
+    # ── Cleanup: nuke any HP-tagged row, not just this run's marker ─────
+    # Marker-scoped DELETEs miss orphans from prior sessions that crashed
+    # mid-cleanup or hit a transient FK conflict. Every HP test uses a
+    # stable prefix ("HP ", "HP-", "HappyPath ", "Renamed HP ") that real
+    # data won't collide with — sweep by prefix instead.
     conn = sqlite3.connect(cfg.database.path)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
         # FK-aware order: leaf rows first, then parents.
         for sql in [
             # ── Leaf / dependent rows ────────────────────────────────
-            "DELETE FROM bank_transaction_rules WHERE rule_name LIKE ?",
+            "DELETE FROM bank_transaction_rules WHERE rule_name LIKE 'HP rule %'",
             "DELETE FROM bank_transaction_links WHERE source_type='BILL_PAYMENT' "
-            "  AND source_id IN (SELECT id FROM bill_payments WHERE check_number LIKE ?)",
-            "DELETE FROM bill_payments WHERE check_number LIKE ?",
-            "DELETE FROM vendor_bills WHERE invoice_number LIKE ?",
-            "DELETE FROM income_batches WHERE income_description LIKE ?",
-            "DELETE FROM deposit_batches WHERE notes LIKE ?",
-            "DELETE FROM reserve_transfers WHERE notes LIKE ?",
+            "  AND source_id IN (SELECT id FROM bill_payments WHERE check_number LIKE 'HP-%')",
+            "DELETE FROM bill_payments WHERE check_number LIKE 'HP-%'",
+            "DELETE FROM vendor_bills WHERE invoice_number LIKE 'HP-%'",
+            "DELETE FROM income_batches WHERE income_description LIKE 'HP %'",
+            "DELETE FROM deposit_batches WHERE notes LIKE 'HP deposit %'",
+            "DELETE FROM reserve_transfers WHERE notes LIKE 'HP reserve transfer %'",
             # 2099-dated reconciliations (no string column to tag).
             "DELETE FROM bank_reconciliations WHERE statement_ending_date >= '2099-01-01'",
-            "DELETE FROM lot_renters WHERE display_name LIKE ?",
-            "DELETE FROM lot_ownership WHERE start_date='2026-01-01' AND lot_id IN "
-            "  (SELECT id FROM lots WHERE street_address_1 LIKE ?)",
+            "DELETE FROM lot_renters WHERE display_name LIKE 'HP Renter%'",
+            "DELETE FROM lot_ownership WHERE lot_id IN "
+            "  (SELECT id FROM lots WHERE street_address_1 LIKE '123 Happy Path %' "
+            "     OR street_address_1 LIKE '456 Updated Way %')",
             # ── Parent entities ──────────────────────────────────────
-            "DELETE FROM lots WHERE street_address_1 LIKE ?",
-            "DELETE FROM owners WHERE display_name LIKE ?",
-            "DELETE FROM vendors WHERE vendor_name LIKE ?",
-            "DELETE FROM bank_accounts WHERE account_name LIKE ?",
-            # Categories: sweep any HP-tagged rows from prior runs too —
-            # the marker-scoped DELETE only catches the current session.
-            "DELETE FROM categories WHERE code LIKE ? OR name LIKE ? "
-            "  OR code LIKE 'HP%' OR name LIKE 'HappyPath Category %' "
+            "DELETE FROM lots WHERE street_address_1 LIKE '123 Happy Path %' "
+            "  OR street_address_1 LIKE '456 Updated Way %'",
+            "DELETE FROM owners WHERE display_name LIKE 'HP Owner%'",
+            "DELETE FROM vendors WHERE vendor_name LIKE 'HP Vendor%'",
+            "DELETE FROM bank_accounts WHERE account_name LIKE 'HP Bank%'",
+            "DELETE FROM categories WHERE code LIKE 'HP%' "
+            "  OR name LIKE 'HappyPath Category %' "
             "  OR name LIKE 'Renamed HP Category %'",
-            "DELETE FROM budgets WHERE notes LIKE ?",
-            "DELETE FROM accounting_periods WHERE period_name LIKE ?",
+            "DELETE FROM budgets WHERE notes LIKE 'HP budget %' "
+            "  OR notes LIKE 'HP edited budget notes %'",
+            "DELETE FROM accounting_periods WHERE period_name LIKE 'HP Period %'",
             "DELETE FROM accounting_periods WHERE fiscal_year < 2099 AND fiscal_year >= 2050",
-            "DELETE FROM board_members WHERE full_name LIKE ?",
-            "DELETE FROM reserve_assets WHERE component LIKE ?",
-            "DELETE FROM reserve_study_scenarios WHERE scenario_name LIKE ?",
-            "DELETE FROM reserve_study_assumptions WHERE notes LIKE ?",
-            "DELETE FROM dashboard_cards WHERE title LIKE ?",
+            "DELETE FROM board_members WHERE full_name LIKE 'HP Board %'",
+            "DELETE FROM reserve_assets WHERE component LIKE 'HP Roof%'",
+            "DELETE FROM reserve_study_scenarios WHERE scenario_name LIKE 'HP Scenario%'",
+            "DELETE FROM reserve_study_assumptions WHERE notes LIKE 'HP assumptions %'",
+            "DELETE FROM dashboard_cards WHERE title LIKE 'HP %'",
         ]:
             try:
-                params = (f"%{MARKER}%",) * sql.count("?")
-                conn.execute(sql, params)
+                conn.execute(sql)
             except (sqlite3.OperationalError, sqlite3.IntegrityError):
                 # Some HP rows accumulate FK references that are hard to
-                # untangle in a DELETE chain (e.g., a budget with line
-                # items, a bank account referenced by an old recon).
-                # Leave them — the next session will retry.
+                # untangle in a DELETE chain. Leave them — the next
+                # session will retry.
                 pass
         conn.commit()
     finally:
