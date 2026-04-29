@@ -30,8 +30,14 @@ class RouteContext:
     matches the legacy ``_open_db()`` closure exactly.
     """
 
-    def __init__(self, *, org_context: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        *,
+        org_context: dict[str, Any],
+        report_page_service: Any | None = None,
+    ) -> None:
         self.org_context = org_context
+        self.report_page_service = report_page_service
 
     @property
     def theme(self) -> str:
