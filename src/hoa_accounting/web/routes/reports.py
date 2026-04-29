@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from typing import Any
 
 from flask import Blueprint, Response, g, redirect, request
@@ -45,7 +47,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
     )
     report_page_service = ctx.report_page_service
 
-    def _open_db():
+    def _open_db() -> sqlite3.Connection:
         return ctx.open_db()
 
     # ── Global search ─────────────────────────────────────────────────────

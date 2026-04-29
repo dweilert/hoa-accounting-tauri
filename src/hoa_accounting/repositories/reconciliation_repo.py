@@ -56,7 +56,7 @@ class ReconciliationRepository(BaseRepository):
 
     def get_reconciliation(self, reconciliation_id: int) -> sqlite3.Row | None:
         """Return one reconciliation with bank-account details, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT
                 br.id,

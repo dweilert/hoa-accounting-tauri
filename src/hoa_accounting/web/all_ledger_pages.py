@@ -224,5 +224,5 @@ class AllLedgerPages:
         )
 
     # kept for any route that still calls render_by_account
-    def render_by_account(self, **kwargs) -> LedgerResponse:
+    def render_by_account(self, **kwargs: Any) -> LedgerResponse:
         return self.render_all_transactions(**kwargs)

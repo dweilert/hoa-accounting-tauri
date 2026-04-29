@@ -63,7 +63,7 @@ class ReserveTransfersRepository(BaseRepository):
 
     def get_transfer(self, transfer_id: int) -> sqlite3.Row | None:
         """Return one transfer with full details, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT
                 rt.id,

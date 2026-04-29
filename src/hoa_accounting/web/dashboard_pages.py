@@ -49,7 +49,7 @@ class DashboardPages:
         self._fiscal_year = fiscal_year
         self._fy_start_month = fy_start_month
 
-    def _render(self, template: str, **ctx) -> PageResponse:
+    def _render(self, template: str, **ctx: Any) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
     # ── Dashboard home ─────────────────────────────────────────────────

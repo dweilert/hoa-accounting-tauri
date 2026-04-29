@@ -28,7 +28,7 @@ class ReconciliationPages:
 
     # ── Helpers ────────────────────────────────────────────────────────
 
-    def _render(self, template: str, **ctx) -> PageResponse:
+    def _render(self, template: str, **ctx: Any) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
     def _render_404(self, msg: str, org: dict[str, Any], theme: str) -> PageResponse:

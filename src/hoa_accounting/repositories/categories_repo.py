@@ -44,7 +44,7 @@ class CategoriesRepository(BaseRepository):
         )
 
     def get_category(self, category_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """SELECT id, code, name, category_type, fund_code, sort_order,
                       group_name, description, active_flag
                FROM categories WHERE id = ?""",

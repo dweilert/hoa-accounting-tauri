@@ -134,7 +134,7 @@ class LotsRepository(BaseRepository):
 
     def get_lot_with_owner(self, lot_id: int) -> sqlite3.Row | None:
         """Return a single lot with its earliest current owner name, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT
                 l.id AS lot_id,
@@ -162,7 +162,7 @@ class LotsRepository(BaseRepository):
 
     def get_lot(self, lot_id: int) -> sqlite3.Row | None:
         """Return a single lot row by id, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, lot_number, street_address_1, street_address_2,
                    city, state, postal_code, legal_description, active_flag

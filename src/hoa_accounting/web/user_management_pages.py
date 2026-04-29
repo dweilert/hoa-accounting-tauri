@@ -11,7 +11,7 @@ from hoa_accounting.web.template_engine import render_template
 
 
 class UserManagementPages:
-    def __init__(self, auth_manager) -> None:
+    def __init__(self, auth_manager: Any) -> None:
         self._am = auth_manager
 
     def register(self, app: Flask) -> None:
@@ -47,7 +47,7 @@ class UserManagementPages:
 
     # ── Users list ────────────────────────────────────────────────────────
 
-    def _list(self):
+    def _list(self) -> Any:
         users = self._am.local.list_users()
         return render_template("users_list.html", self._ctx({
             "users": users,
@@ -56,7 +56,7 @@ class UserManagementPages:
 
     # ── New user ──────────────────────────────────────────────────────────
 
-    def _new(self):
+    def _new(self) -> Any:
         error = None
         if request.method == "POST":
             email = request.form.get("email", "").strip()
@@ -86,7 +86,7 @@ class UserManagementPages:
 
     # ── Edit user ─────────────────────────────────────────────────────────
 
-    def _edit(self, uid: int):
+    def _edit(self, uid: int) -> Any:
         user = self._am.local.get_user(uid)
         if not user:
             return redirect("/system/users")
@@ -108,7 +108,7 @@ class UserManagementPages:
 
     # ── Set password ──────────────────────────────────────────────────────
 
-    def _set_password(self, uid: int):
+    def _set_password(self, uid: int) -> Any:
         password = request.form.get("password", "")
         confirm = request.form.get("confirm_password", "")
         if password and password == confirm and len(password) >= 8:
@@ -118,13 +118,13 @@ class UserManagementPages:
 
     # ── Delete user ───────────────────────────────────────────────────────
 
-    def _delete(self, uid: int):
+    def _delete(self, uid: int) -> Any:
         self._am.local.delete_user(uid)
         return redirect("/system/users?flash=deleted")
 
     # ── Role overrides ────────────────────────────────────────────────────
 
-    def _overrides(self):
+    def _overrides(self) -> Any:
         error = None
         if request.method == "POST":
             action = request.form.get("action", "add")
@@ -146,6 +146,6 @@ class UserManagementPages:
             "error": error,
         }))
 
-    def _delete_override(self, oid: int):
+    def _delete_override(self, oid: int) -> Any:
         self._am.local.delete_override(oid)
         return redirect("/system/overrides?flash=deleted")

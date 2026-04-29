@@ -80,7 +80,7 @@ class IncomeBatchesRepository(BaseRepository):
         )
 
     def get_income_batch(self, income_batch_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, posting_date, bank_account_id, income_description,
                    total_amount, notes, category_id

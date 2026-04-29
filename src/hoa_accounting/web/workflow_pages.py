@@ -1,6 +1,8 @@
 """Workflow Guide — DB-driven page handlers and admin service."""
 
 from __future__ import annotations
+
+from collections.abc import Mapping
 from typing import Any
 
 import sqlite3
@@ -87,7 +89,7 @@ class WorkflowAdminService:
              href or '#', link_label, color, max_sort)
         )
         self._conn.commit()
-        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[no-any-return]
 
     def update_card(self, card_id: int, section_id: int, num_label: str, icon: str,
                     title: str, description: str, href: str, link_label: str, color: str) -> None:
@@ -159,7 +161,7 @@ class WorkflowAdminService:
             (tab_id, label, tip_text, max_sort)
         )
         self._conn.commit()
-        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[no-any-return]
 
     def toggle_section(self, section_id: int) -> None:
         self._conn.execute(
@@ -184,7 +186,7 @@ class WorkflowAdminService:
             (tab_key, icon, label, description, max_sort)
         )
         self._conn.commit()
-        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return self._conn.execute("SELECT last_insert_rowid()").fetchone()[0]  # type: ignore[no-any-return]
 
     def toggle_tab(self, tab_id: int) -> None:
         self._conn.execute(
@@ -212,7 +214,7 @@ class WorkflowPages:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def _render(self, template: str, **ctx) -> tuple[int, str]:
+    def _render(self, template: str, **ctx: Any) -> tuple[int, str]:
         return 200, render_template(template, ctx)
 
     def render_guide(self, org: dict[str, Any], theme: str) -> tuple[int, str]:
@@ -231,7 +233,7 @@ class WorkflowAdminPages:
         self._conn = conn
         self._svc = WorkflowAdminService(conn)
 
-    def _render(self, template: str, **ctx) -> tuple[int, str]:
+    def _render(self, template: str, **ctx: Any) -> tuple[int, str]:
         return 200, render_template(template, ctx)
 
     def render_admin(self, org: dict[str, Any], theme: str, active_tab_id: int = 1,
@@ -253,7 +255,7 @@ class WorkflowAdminPages:
             flash=flash,
         )
 
-    def handle_add_card(self, form) -> str:
+    def handle_add_card(self, form: Mapping[str, str]) -> str:
         sec_id = int(form.get("section_id", 0))
         tab_id = int(form.get("tab_id", 1))
         self._svc.add_card(
@@ -268,7 +270,7 @@ class WorkflowAdminPages:
         )
         return f"/admin/workflow-guide?tab={tab_id}&flash=Card+added"
 
-    def handle_update_card(self, form) -> str:
+    def handle_update_card(self, form: Mapping[str, str]) -> str:
         card_id = int(form.get("card_id", 0))
         tab_id = int(form.get("tab_id", 1))
         self._svc.update_card(
@@ -284,7 +286,7 @@ class WorkflowAdminPages:
         )
         return f"/admin/workflow-guide?tab={tab_id}&flash=Card+saved&scrollto={card_id}"
 
-    def handle_move_card(self, form) -> str:
+    def handle_move_card(self, form: Mapping[str, str]) -> str:
         card_id = int(form.get("card_id", 0))
         new_section = int(form.get("new_section_id", 0))
         tab_id = int(form.get("tab_id", 1))
@@ -294,20 +296,20 @@ class WorkflowAdminPages:
     def handle_toggle_card(self, card_id: int, tab_id: int) -> None:
         self._svc.toggle_card(card_id)
 
-    def handle_delete_card(self, form) -> str:
+    def handle_delete_card(self, form: Mapping[str, str]) -> str:
         card_id = int(form.get("card_id", 0))
         tab_id = int(form.get("tab_id", 1))
         self._svc.delete_card(card_id)
         return f"/admin/workflow-guide?tab={tab_id}&flash=Card+deleted"
 
-    def handle_reorder_card(self, form) -> str:
+    def handle_reorder_card(self, form: Mapping[str, str]) -> str:
         card_id = int(form.get("card_id", 0))
         tab_id = int(form.get("tab_id", 1))
         direction = form.get("direction", "up")
         self._svc.reorder_card(card_id, direction)
         return f"/admin/workflow-guide?tab={tab_id}"
 
-    def handle_add_section(self, form) -> str:
+    def handle_add_section(self, form: Mapping[str, str]) -> str:
         tab_id = int(form.get("tab_id", 1))
         label = (form.get("label") or "").strip()
         tip = (form.get("tip_text") or "").strip()
@@ -318,7 +320,7 @@ class WorkflowAdminPages:
     def handle_toggle_section(self, section_id: int, tab_id: int) -> None:
         self._svc.toggle_section(section_id)
 
-    def handle_add_tab(self, form) -> str:
+    def handle_add_tab(self, form: Mapping[str, str]) -> str:
         label = (form.get("label") or "").strip()
         icon = (form.get("icon") or "").strip()
         desc = (form.get("description") or "").strip()

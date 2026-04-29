@@ -6,7 +6,7 @@ from dataclasses import fields
 from pathlib import Path
 from typing import TypeVar, Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from hoa_accounting.config.models import (
     AccountingConfig,
@@ -30,7 +30,7 @@ def _build(cls: type[_T], raw: dict[str, Any]) -> _T:
     """
     valid = {f.name for f in fields(cls)}  # type: ignore[arg-type]
     filtered = {k: v for k, v in raw.items() if k in valid}
-    return cls(**filtered)  # type: ignore[arg-type]
+    return cls(**filtered)
 
 
 def load_config(path: str | Path = "config.yaml") -> Config:

@@ -110,7 +110,7 @@ class PaymentsRepository(BaseRepository):
         )
 
     def get_payment(self, payment_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, receipt_number, owner_id, payment_date, amount,
                    payment_method, reference_number, bank_account_id,

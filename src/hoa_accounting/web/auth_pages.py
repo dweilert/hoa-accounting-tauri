@@ -14,7 +14,7 @@ _auth_manager = None
 _org_ctx: dict[str, Any] = {}
 
 
-def init_auth(auth_manager, org_context: dict[str, Any]) -> None:
+def init_auth(auth_manager: Any, org_context: dict[str, Any]) -> None:
     global _auth_manager, _org_ctx
     _auth_manager = auth_manager
     _org_ctx = org_context
@@ -39,7 +39,7 @@ def _get_current_user() -> AuthUser | None:
 # ── Routes ────────────────────────────────────────────────────────────────
 
 @auth_bp.route("/login", methods=["GET", "POST"])
-def login():
+def login() -> Any:
     if _auth_manager is None:
         return "Auth not initialised", 500
 
@@ -86,7 +86,7 @@ def login():
 
 
 @auth_bp.route("/auth/callback")
-def cognito_callback():
+def cognito_callback() -> Any:
     if _auth_manager is None:
         return "Auth not initialised", 500
 
@@ -104,6 +104,6 @@ def cognito_callback():
 
 
 @auth_bp.route("/logout")
-def logout():
+def logout() -> Any:
     session.clear()
     return redirect("/login")

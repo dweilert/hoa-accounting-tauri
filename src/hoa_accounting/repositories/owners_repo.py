@@ -37,7 +37,7 @@ class OwnersRepository(BaseRepository):
 
     def get_owner(self, owner_id: int) -> sqlite3.Row | None:
         """Return a single owner row by id, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, owner_type, display_name, first_name, last_name,
                    entity_name, email, phone, home_phone,

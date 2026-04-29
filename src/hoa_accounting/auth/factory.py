@@ -21,7 +21,7 @@ def _cognito_reachable(region: str, user_pool_id: str) -> bool:
     )
     try:
         with urllib.request.urlopen(url, timeout=2) as resp:
-                return resp.status == 200
+                return resp.status == 200  # type: ignore[no-any-return]
     except Exception:
         return False
 
@@ -59,12 +59,12 @@ class AuthManager:
     def get_cognito_login_url(self, redirect_uri: str) -> str | None:
         if self._cognito is None:
             return None
-        return self._cognito.get_login_url(redirect_uri)
+        return self._cognito.get_login_url(redirect_uri)  # type: ignore[no-any-return]
 
     def handle_cognito_callback(self, code: str, redirect_uri: str) -> AuthUser | None:
         if self._cognito is None:
             return None
-        return self._cognito.handle_callback(code, redirect_uri)
+        return self._cognito.handle_callback(code, redirect_uri)  # type: ignore[no-any-return]
 
     @property
     def cognito_enabled(self) -> bool:

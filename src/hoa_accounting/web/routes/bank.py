@@ -1,6 +1,8 @@
 """Bank routes (accounts, recon, OFX, transactions, rules, deposits, AR)."""
 
 from __future__ import annotations
+
+import sqlite3
 from typing import Any
 
 from flask import Blueprint, Response, g, redirect, request
@@ -20,7 +22,7 @@ from hoa_accounting.web.record_deposit_pages import RecordDepositPages
 from hoa_accounting.web.transaction_rule_pages import TransactionRulePages
 
 
-def _summarise_fetcher_response(status: int, body, *, mode: str) -> str:
+def _summarise_fetcher_response(status: int, body: Any, *, mode: str) -> str:
     """Turn the fetcher's JSON reply into a short user-facing message."""
     if status == 202 and isinstance(body, dict):
         job = body.get("job_id") or "?"
@@ -36,7 +38,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     bp = Blueprint("bank", __name__)
     org_context = ctx.org_context
 
-    def _open_db():
+    def _open_db() -> sqlite3.Connection:
         return ctx.open_db()
 
     # ── AR / Receivables pages ───────────────────────────────────────
@@ -319,7 +321,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── OFX Inbox (fetcher daemon integration) ───────────────────────────────
 
-    def _open_ofx_inbox_pages():
+    def _open_ofx_inbox_pages() -> Any:
         from hoa_accounting.web.ofx_inbox_pages import OFXInboxPages
         return OFXInboxPages(_open_db())
 
@@ -430,7 +432,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Pending Validation (canonical bank_transactions queue) ───────────────
 
-    def _open_bank_txn_pages():
+    def _open_bank_txn_pages() -> Any:
         from hoa_accounting.web.bank_transactions_pages import BankTransactionsPages
         return BankTransactionsPages(_open_db())
 
@@ -651,7 +653,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Record Deposit (unified money-in entry point) ────────────────────────
 
-    def _open_record_deposit_pages():
+    def _open_record_deposit_pages() -> Any:
         from hoa_accounting.web.record_deposit_pages import RecordDepositPages
         return RecordDepositPages(_open_db())
 

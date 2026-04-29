@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,7 @@ class DuesBillingRecord:
     # Backwards-compat: callers historically used dict-subscript access
     # (``row["amount"]``). Keep that working while we migrate to attr
     # access.
-    def __getitem__(self, key: str):  # pragma: no cover — trivial passthrough
+    def __getitem__(self, key: str) -> Any:  # pragma: no cover — trivial passthrough
         return getattr(self, key)
 
 

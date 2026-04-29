@@ -47,7 +47,7 @@ class BankStatementPages:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _render(self, template: str, **ctx) -> PageResponse:
+    def _render(self, template: str, **ctx: Any) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
     def _get_unmatched_items(self, bank_account_id: int) -> list[dict[str, Any]]:
@@ -386,7 +386,7 @@ class BankStatementPages:
         rules: list[dict[str, Any]],
         bank_account_id: int | None = None,
     ) -> tuple[
-        dict[int, dict],
+        dict[int, dict[str, Any]],
         dict[int, tuple[str, int]],
         dict[int, int],
     ]:
@@ -406,7 +406,7 @@ class BankStatementPages:
         return rule_m, source_m, batch_m
 
     @staticmethod
-    def _dedup_key(txn, bank_account_id: int) -> str:
+    def _dedup_key(txn: Any, bank_account_id: int) -> str:
         """Per-account unique key. Prefers the canonical record's hash so
         identity is bank-agnostic and FITID-independent; falls back to a
         content-based key for legacy ``ParsedTransaction`` callers during
@@ -646,7 +646,7 @@ class BankStatementPages:
     # ── Standalone import (no reconciliation) ────────────────────────────────
 
     def _get_bank_account(self, bank_account_id: int) -> sqlite3.Row | None:
-        return self._conn.execute(
+        return self._conn.execute(  # type: ignore[no-any-return]
             "SELECT id, account_name, account_last4, institution_name, fund_code FROM bank_accounts WHERE id = ?",
             (bank_account_id,),
         ).fetchone()
@@ -1371,7 +1371,7 @@ class BankStatementPages:
             curr_texts = [t.lower() for t in (ofx_desc, ofx_memo) if t]
 
             def _name_tokens(names: list[str]) -> list[str]:
-                tokens = []
+                tokens: list[str] = []
                 for n in names:
                     tokens.extend(p for p in n.lower().split() if len(p) > 2)
                 return tokens

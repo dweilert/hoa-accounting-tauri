@@ -463,7 +463,7 @@ def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]
     # past or future fiscal year, peg at 100% (past) or 0% (future).
     from datetime import date as _date
     today = _date.today()
-    fy = int(data.get("fiscal_year") or 0)
+    fy = int(data.get("fiscal_year") or 0)  # type: ignore[call-overload]
     if fy and today.year > fy:
         expected_pct = 100.0
     elif fy and today.year < fy:
@@ -494,9 +494,9 @@ def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]
 
 
 def _build_budget_summary_summary(data: dict[str, object]) -> dict[str, Any]:
-    years = list(data.get("years", []))
-    total_amounts = [str(a) for a in (data.get("total_amounts") or [])]
-    total_pct_changes = list(data.get("total_pct_changes") or [])
+    years = list(data.get("years", []))  # type: ignore[call-overload]
+    total_amounts = [str(a) for a in (data.get("total_amounts") or [])]  # type: ignore[attr-defined]
+    total_pct_changes = list(data.get("total_pct_changes") or [])  # type: ignore[call-overload]
     groups = []
     for g in _safe_dict_list(data.get("groups")):
         rows = []
@@ -504,14 +504,14 @@ def _build_budget_summary_summary(data: dict[str, object]) -> dict[str, Any]:
             rows.append({
                 "category_name": str(row.get("category_name", "")),
                 "group_code":    str(row.get("group_code", "")),
-                "year_amounts":  [str(a) for a in (row.get("year_amounts") or [])],
-                "pct_changes":   list(row.get("pct_changes") or []),
+                "year_amounts":  [str(a) for a in (row.get("year_amounts") or [])],  # type: ignore[attr-defined]
+                "pct_changes":   list(row.get("pct_changes") or []),  # type: ignore[call-overload]
             })
         groups.append({
             "group_code":           str(g.get("group_code", "")),
             "rows":                 rows,
-            "subtotal_amounts":     [str(a) for a in (g.get("subtotal_amounts") or [])],
-            "subtotal_pct_changes": list(g.get("subtotal_pct_changes") or []),
+            "subtotal_amounts":     [str(a) for a in (g.get("subtotal_amounts") or [])],  # type: ignore[attr-defined]
+            "subtotal_pct_changes": list(g.get("subtotal_pct_changes") or []),  # type: ignore[call-overload]
         })
     return {
         "summary_template": "partials/summary_budget_summary.html",

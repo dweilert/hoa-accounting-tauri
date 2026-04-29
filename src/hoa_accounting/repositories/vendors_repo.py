@@ -64,7 +64,7 @@ class VendorsRepository(BaseRepository):
 
     def get_vendor(self, vendor_id: int) -> sqlite3.Row | None:
         """Return a single vendor row by id, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, vendor_name, contact_name, email, phone,
                    address_1, address_2, city, state, postal_code,
@@ -185,7 +185,7 @@ class VendorsRepository(BaseRepository):
         return int(cur.lastrowid or 0)
 
     def get_vendor_bill(self, vendor_bill_id: int) -> "sqlite3.Row | None":
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT vb.id, vb.vendor_id, vb.invoice_number, vb.invoice_date,
                    vb.due_date, vb.amount, vb.fund_code, vb.status,

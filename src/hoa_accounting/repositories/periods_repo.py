@@ -15,7 +15,7 @@ class PeriodsRepository(BaseRepository):
 
     def get_period_for_date(self, entry_date: str) -> sqlite3.Row | None:
         """Return the accounting period row covering a posting date."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, is_closed, fiscal_year
             FROM accounting_periods
@@ -39,7 +39,7 @@ class PeriodsRepository(BaseRepository):
 
     def get_period(self, period_id: int) -> sqlite3.Row | None:
         """Return one period row or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, period_name, start_date, end_date,
                    fiscal_year, fiscal_period, is_closed, closed_at

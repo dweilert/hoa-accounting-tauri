@@ -107,7 +107,7 @@ class CognitoBackend:
         )
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                return _json.loads(resp.read())
+                return _json.loads(resp.read())  # type: ignore[no-any-return]
         except Exception as exc:
             _log.warning("Cognito token exchange failed: %s", exc)
             return None
@@ -192,7 +192,7 @@ class CognitoBackend:
                 (email,),
             ).fetchone()
             if row:
-                return row["role"]
+                return row["role"]  # type: ignore[no-any-return]
 
         # Map Cognito group → role (first match wins, admin beats reports)
         mapped_roles = {self._group_role_map.get(g) for g in groups} - {None}

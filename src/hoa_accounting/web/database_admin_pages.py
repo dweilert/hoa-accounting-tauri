@@ -97,7 +97,7 @@ class DatabaseAdminPages:
     })
 
     def _get_stats(self) -> DbStats:
-        def pragma(name: str):
+        def pragma(name: str) -> Any:
             if name not in self._PRAGMA_WHITELIST:
                 raise ValueError(f"PRAGMA {name!r} not whitelisted")
             row = self.conn.execute(f"PRAGMA {name}").fetchone()
@@ -272,13 +272,13 @@ class DatabaseAdminPages:
         """Collect summary stats from the live DB to embed in the backup file."""
         def count(table: str) -> int | None:
             try:
-                return self.conn.execute(
+                return self.conn.execute(  # type: ignore[no-any-return]
                     f'SELECT COUNT(*) FROM "{table}"'
                 ).fetchone()[0]
             except Exception:
                 return None
 
-        def scalar(sql: str):
+        def scalar(sql: str) -> Any:
             try:
                 row = self.conn.execute(sql).fetchone()
                 return row[0] if row else None
@@ -433,13 +433,13 @@ class DatabaseAdminPages:
 
                 def count(table: str) -> int | None:
                     try:
-                        return conn.execute(
+                        return conn.execute(  # type: ignore[no-any-return]
                             f'SELECT COUNT(*) FROM "{table}"'
                         ).fetchone()[0]
                     except Exception:
                         return None
 
-                def scalar(sql: str):
+                def scalar(sql: str) -> Any:
                     try:
                         r = conn.execute(sql).fetchone()
                         return r[0] if r else None

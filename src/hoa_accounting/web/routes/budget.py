@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from flask import Blueprint, Response, g, redirect, request
 from flask.typing import ResponseReturnValue
 from flask import session as _session
@@ -17,7 +19,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
     bp = Blueprint("budget", __name__)
     org_context = ctx.org_context
 
-    def _open_db():
+    def _open_db() -> sqlite3.Connection:
         return ctx.open_db()
 
     # ── Reserve Study pages ───────────────────────────────────────────
@@ -28,7 +30,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return _redir(url, code=303)
 
     def _rs_resp(pr: object) -> ResponseReturnValue:
-        return Response(pr.body_html, status=pr.status_code, mimetype="text/html; charset=utf-8")
+        return Response(pr.body_html, status=pr.status_code, mimetype="text/html; charset=utf-8")  # type: ignore[attr-defined]
 
     @bp.get("/reserve-study")
     def rs_summary() -> ResponseReturnValue:

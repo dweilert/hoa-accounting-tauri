@@ -1,6 +1,9 @@
 """Homeowner-side: lots, owners, renters, board, billing, fees."""
 
 from __future__ import annotations
+from typing import Any
+
+import sqlite3
 
 from flask import Blueprint, Response, g, redirect, request
 from flask.typing import ResponseReturnValue
@@ -21,7 +24,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     bp = Blueprint("homeowners", __name__)
     org_context = ctx.org_context
 
-    def _open_db():
+    def _open_db() -> sqlite3.Connection:
         return ctx.open_db()
 
     # ── Resale Certificate Fee ────────────────────────────────────────────────
@@ -215,7 +218,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Edit Records hub + payments ledger ──────────────────────────
 
-    def _open_edit_records_pages():
+    def _open_edit_records_pages() -> Any:
         from hoa_accounting.web.edit_records_pages import EditRecordsPages
         return EditRecordsPages(_open_db())
 
@@ -410,7 +413,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Board Member pages ───────────────────────────────────────────
 
-    def _open_board_member_pages():
+    def _open_board_member_pages() -> Any:
         from hoa_accounting.web.board_member_pages import BoardMemberPages
         return BoardMemberPages(_open_db())
 

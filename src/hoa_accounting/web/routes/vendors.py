@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from flask import Blueprint, Response, g, redirect, request
 from flask.typing import ResponseReturnValue
 from flask import session as _session
@@ -16,7 +18,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     bp = Blueprint("vendors", __name__)
     org_context = ctx.org_context
 
-    def _open_db():
+    def _open_db() -> sqlite3.Connection:
         return ctx.open_db()
 
     # ── Batch PDF ─────────────────────────────────────────────────────────────

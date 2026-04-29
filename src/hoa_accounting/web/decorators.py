@@ -34,10 +34,10 @@ def current_user() -> AuthUser | None:
     return _get_current_user()
 
 
-def require_admin(f):
+def require_admin(f: Any) -> Any:
     """Decorator: require admin role, else 403."""
     @functools.wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         user = _get_current_user()
         if user is None:
             return redirect(f"/login?next={request.path}")
@@ -47,11 +47,11 @@ def require_admin(f):
     return wrapper
 
 
-def setup_auth_guard(app, org_ctx: dict[str, Any]) -> None:
+def setup_auth_guard(app: Any, org_ctx: dict[str, Any]) -> None:
     """Register a before_request that enforces login + role on every route."""
 
-    @app.before_request
-    def _guard():
+    @app.before_request  # type: ignore[untyped-decorator]
+    def _guard() -> Any:
         path = request.path
 
         # Always allow public routes
@@ -83,7 +83,7 @@ def setup_auth_guard(app, org_ctx: dict[str, Any]) -> None:
         return _forbidden()
 
 
-def _forbidden():
+def _forbidden() -> Any:
     from flask import g
     org = getattr(g, "org", {})
     ctx = {

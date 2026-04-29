@@ -67,7 +67,7 @@ VALID_ACTION_TYPES = set(ACTION_TYPES.keys())
 
 def action_pattern(action_type: str) -> str:
     """Return 'expense' or 'income' for the given action_type."""
-    return ACTION_TYPES.get(action_type, ACTION_TYPES["recurring_bill"])["pattern"]
+    return ACTION_TYPES.get(action_type, ACTION_TYPES["recurring_bill"])["pattern"]  # type: ignore[no-any-return]
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,7 @@ class TransactionRulePages:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def _render(self, template: str, **ctx) -> PageResponse:
+    def _render(self, template: str, **ctx: Any) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
     def _get_categories(self) -> list[dict[str, Any]]:

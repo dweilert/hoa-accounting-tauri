@@ -624,7 +624,7 @@ class ImportPages:
             self.conn.execute("SAVEPOINT chk_row")
             errs = method(row)
             self.conn.execute("ROLLBACK TO SAVEPOINT chk_row")
-            return errs
+            return errs  # type: ignore[no-any-return]
         except sqlite3.IntegrityError as e:
             try:
                 self.conn.execute("ROLLBACK TO SAVEPOINT chk_row")
@@ -694,7 +694,7 @@ class ImportPages:
                 self.conn.execute("ROLLBACK TO SAVEPOINT import_row")
             else:
                 self.conn.execute("RELEASE SAVEPOINT import_row")
-            return errs
+            return errs  # type: ignore[no-any-return]
         except sqlite3.IntegrityError as e:
             self.conn.execute("ROLLBACK TO SAVEPOINT import_row")
             msg = str(e)
@@ -975,7 +975,7 @@ class ImportPages:
 
     # ── Transactional imports (mid-year migration) ─────────────────────
 
-    def _lookup(self, table: str, key_col: str, value: str, label: str | None = None):
+    def _lookup(self, table: str, key_col: str, value: str, label: str | None = None) -> Any:
         if not value:
             return None, [f'{label or key_col} is required.']
         row = self.conn.execute(
@@ -989,13 +989,13 @@ class ImportPages:
         bank_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "bank_account_name"), "Bank account")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         cat_code = (self._v(row, "category_code", "") or "").upper()
         cat_id = None
         if cat_code:
             cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
             if e:
-                return e
+                return e  # type: ignore[no-any-return]
             cat_id = cid
         try:
             total = Decimal(self._v(row, "total_amount", "0"))
@@ -1020,17 +1020,17 @@ class ImportPages:
         lot_id, errs = self._lookup("lots", "lot_number",
                                     self._v(row, "lot_number"), "Lot")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         owner_id, errs = self._lookup("owners", "display_name",
                                       self._v(row, "owner_name"), "Owner")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         cat_id = None
         cat_code = (self._v(row, "category_code", "") or "").upper()
         if cat_code:
             cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
             if e:
-                return e
+                return e  # type: ignore[no-any-return]
             cat_id = cid
         try:
             amt = Decimal(self._v(row, "amount", "0"))
@@ -1068,17 +1068,17 @@ class ImportPages:
         owner_id, errs = self._lookup("owners", "display_name",
                                       self._v(row, "owner_name"), "Owner")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         bank_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "bank_account_name"), "Bank account")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         cat_id = None
         cat_code = (self._v(row, "category_code", "") or "").upper()
         if cat_code:
             cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
             if e:
-                return e
+                return e  # type: ignore[no-any-return]
             cat_id = cid
         try:
             amt = Decimal(self._v(row, "amount", "0"))
@@ -1100,12 +1100,12 @@ class ImportPages:
         vendor_id, errs = self._lookup("vendors", "vendor_name",
                                        self._v(row, "vendor_name"), "Vendor")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         cat_id, errs = self._lookup("categories", "UPPER(code)",
                                     (self._v(row, "category_code", "") or "").upper(),
                                     "Category")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         invoice = self._v(row, "invoice_number")
         if self.conn.execute(
             "SELECT 1 FROM vendor_bills WHERE vendor_id=? AND invoice_number=?",
@@ -1145,7 +1145,7 @@ class ImportPages:
         bank_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "bank_account_name"), "Bank account")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         try:
             amt = Decimal(self._v(row, "amount", "0"))
         except (InvalidOperation, ValueError):
@@ -1170,13 +1170,13 @@ class ImportPages:
         bank_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "bank_account_name"), "Bank account")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         cat_id = None
         cat_code = (self._v(row, "category_code", "") or "").upper()
         if cat_code:
             cid, e = self._lookup("categories", "UPPER(code)", cat_code, "Category")
             if e:
-                return e
+                return e  # type: ignore[no-any-return]
             cat_id = cid
         try:
             total = Decimal(self._v(row, "total_amount", "0"))
@@ -1205,11 +1205,11 @@ class ImportPages:
         from_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "from_bank_account"), "From bank account")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         to_id, errs = self._lookup("bank_accounts", "account_name",
                                    self._v(row, "to_bank_account"), "To bank account")
         if errs:
-            return errs
+            return errs  # type: ignore[no-any-return]
         if from_id == to_id:
             return ["From and To bank accounts must be different."]
         try:
@@ -1296,7 +1296,7 @@ class ImportPages:
         if self.conn.execute("SELECT 1 FROM bank_transaction_rules WHERE rule_name=?", (rn,)).fetchone():
             return [f"Rule \"{rn}\" already exists."]
 
-        def _lookup(table, col, val):
+        def _lookup(table: str, col: str, val: Any) -> int | None:
             if not val:
                 return None
             r = self.conn.execute(f"SELECT id FROM {table} WHERE {col}=?", (val,)).fetchone()

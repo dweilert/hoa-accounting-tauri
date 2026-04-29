@@ -75,7 +75,7 @@ class DashboardRepository:
     # ── HOA Profile ────────────────────────────────────────────────────
 
     def get_hoa_profile(self) -> sqlite3.Row | None:
-        return self._conn.execute(
+        return self._conn.execute(  # type: ignore[no-any-return]
             "SELECT * FROM hoa_profile LIMIT 1"
         ).fetchone()
 
@@ -490,7 +490,7 @@ class DashboardRepository:
 
     def get_last_auto_backup(self) -> sqlite3.Row | None:
         try:
-            return self._conn.execute(
+            return self._conn.execute(  # type: ignore[no-any-return]
                 "SELECT backed_up_at, file_path, file_size_bytes FROM startup_backups ORDER BY id DESC LIMIT 1"
             ).fetchone()
         except Exception:

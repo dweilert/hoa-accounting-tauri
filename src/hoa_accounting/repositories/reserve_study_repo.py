@@ -13,7 +13,7 @@ class ReserveStudyRepository:
     # ── Assumptions ───────────────────────────────────────────────────
 
     def get_active_assumptions(self) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             "SELECT * FROM reserve_study_assumptions WHERE is_active = 1 ORDER BY id DESC LIMIT 1"
         ).fetchone()
 
@@ -69,7 +69,7 @@ class ReserveStudyRepository:
         ).fetchall()
 
     def get_asset(self, asset_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             "SELECT * FROM reserve_assets WHERE id = ?", (asset_id,)
         ).fetchone()
 
@@ -152,7 +152,7 @@ class ReserveStudyRepository:
         ).fetchall()
 
     def get_scenario(self, scenario_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             "SELECT * FROM reserve_study_scenarios WHERE id = ?", (scenario_id,)
         ).fetchone()
 

@@ -38,7 +38,7 @@ class BankAccountsRepository(BaseRepository):
         )
 
     def get_bank_account(self, bank_account_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT
                 id,

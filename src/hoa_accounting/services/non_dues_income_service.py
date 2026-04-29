@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Sequence
+from typing import Sequence, Any
 
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.exceptions import NotFoundError, ValidationError
@@ -120,7 +120,7 @@ class NonDuesIncomeService:
                 total_amount=q2(total),
             )
 
-    def _resolve_bank_account(self, bank_account_id: int):
+    def _resolve_bank_account(self, bank_account_id: int) -> Any:
         for row in self.bank_accounts_repo.list_bank_accounts():
             if int(row["id"]) == int(bank_account_id):
                 return row

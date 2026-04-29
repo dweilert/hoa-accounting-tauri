@@ -51,7 +51,7 @@ class LotOwnershipRepository(BaseRepository):
 
     def get_ownership(self, ownership_id: int) -> sqlite3.Row | None:
         """Return a single ownership row by id, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT lo.id, lo.lot_id, lo.owner_id, lo.start_date, lo.end_date,
                    o.display_name AS owner_name,
@@ -90,7 +90,7 @@ class LotOwnershipRepository(BaseRepository):
         An owner can have multiple current lots; this returns one for callers
         that only need to know if the owner is linked anywhere.
         """
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT lo.id, lo.lot_id, lo.owner_id, lo.start_date, lo.end_date,
                    l.lot_number, l.street_address_1

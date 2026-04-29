@@ -96,7 +96,7 @@ class LotRentersRepository(BaseRepository):
 
     def get_renter(self, renter_id: int) -> sqlite3.Row | None:
         """Return a single renter row by id, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT
                 r.id, r.lot_id, r.display_name, r.first_name, r.last_name,

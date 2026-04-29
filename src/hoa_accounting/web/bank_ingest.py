@@ -384,7 +384,7 @@ def lookup_csv_mapping(
     if row is None:
         return None
     try:
-        return json.loads(row[0])
+        return json.loads(row[0])  # type: ignore[no-any-return]
     except (TypeError, ValueError):
         return None
 

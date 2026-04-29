@@ -90,7 +90,7 @@ class BackupService:
 
     def _upload_s3(self, local_path: Path, filename: str) -> None:
         try:
-            import boto3  # type: ignore[import]
+            import boto3
             s3 = boto3.client("s3")
             key = self._s3_prefix + filename
             s3.upload_file(str(local_path), self._s3_bucket, key)
@@ -101,10 +101,10 @@ class BackupService:
 
     def _rotate_s3(self) -> None:
         try:
-            import boto3  # type: ignore[import]
+            import boto3
             s3 = boto3.client("s3")
             paginator = s3.get_paginator("list_objects_v2")
-            objects = []
+            objects: list[Any] = []
             for page in paginator.paginate(Bucket=self._s3_bucket, Prefix=self._s3_prefix):
                 objects.extend(
                     o for o in page.get("Contents", []) if o["Key"].endswith(".db")

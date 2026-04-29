@@ -31,7 +31,7 @@ _HEAD_BG = "2C3E50"   # dark slate — table header fill
 _ALT_BG  = "F2F4F5"   # very light grey — alternating row
 
 
-def _shade_cell(cell, hex_color: str) -> None:
+def _shade_cell(cell: Any, hex_color: str) -> None:
     """Fill a table cell background with a hex colour (no #)."""
     from docx.oxml import OxmlElement
     tc = cell._tc
@@ -43,14 +43,14 @@ def _shade_cell(cell, hex_color: str) -> None:
     tcPr.append(shd)
 
 
-def _set_col_widths(table, widths_inches: list[float]) -> None:
+def _set_col_widths(table: Any, widths_inches: list[float]) -> None:
     for row in table.rows:
         for i, cell in enumerate(row.cells):
             if i < len(widths_inches):
                 cell.width = Inches(widths_inches[i])
 
 
-def _header_row(table, labels: list[str]) -> None:
+def _header_row(table: Any, labels: list[str]) -> None:
     row = table.rows[0]
     for i, label in enumerate(labels):
         cell = row.cells[i]
@@ -91,7 +91,7 @@ def _chart_funding_gauge(pct_funded: float) -> io.BytesIO:
     # startangle=180 + counterclock=False → sweeps left→top→right (0%→50%→100%)
     sizes = [capped, 100 - capped, 100]
     pie_colors = [color, "#E5E7EB", "white"]
-    wedges, _ = ax.pie(
+    wedges, *_ = ax.pie(
         sizes,
         colors=pie_colors,
         startangle=180,
@@ -150,7 +150,7 @@ def _chart_balance_projection(plan_rows: list[dict[str, Any]]) -> io.BytesIO:
     ax.set_xlabel("Year", fontsize=9, color="#444444")
     ax.set_ylabel("Balance", fontsize=9, color="#444444")
     ax.yaxis.set_major_formatter(
-        plt.FuncFormatter(lambda v, _: f"${v/1000:,.0f}k")
+        plt.FuncFormatter(lambda v, _: f"${v/1000:,.0f}k")  # type: ignore[attr-defined]
     )
     ax.spines[["top", "right"]].set_visible(False)
     ax.tick_params(axis="x", labelsize=8, colors="#555555")
@@ -186,7 +186,7 @@ def _chart_expenditures(plan_rows: list[dict[str, Any]]) -> io.BytesIO:
     ax.set_xlabel("Year", fontsize=9, color="#444444")
     ax.set_ylabel("Amount", fontsize=9, color="#444444")
     ax.yaxis.set_major_formatter(
-        plt.FuncFormatter(lambda v, _: f"${v/1000:,.0f}k")
+        plt.FuncFormatter(lambda v, _: f"${v/1000:,.0f}k")  # type: ignore[attr-defined]
     )
     ax.spines[["top", "right"]].set_visible(False)
     ax.tick_params(axis="x", labelsize=8, colors="#555555")
@@ -301,7 +301,7 @@ def generate_reserve_study_docx(
     sr.font.size = Pt(11)
     sr.font.color.rgb = _WHITE
 
-    doc.add_page_break()
+    doc.add_page_break()  # type: ignore[no-untyped-call]
 
     # ════════════════════════════════════════════════════════════════════════
     # 1. EXECUTIVE SUMMARY
@@ -370,7 +370,7 @@ def generate_reserve_study_docx(
     expend_buf = _chart_expenditures(plan_rows)
     doc.add_picture(expend_buf, width=Inches(6.3))
 
-    doc.add_page_break()
+    doc.add_page_break()  # type: ignore[no-untyped-call]
 
     # ════════════════════════════════════════════════════════════════════════
     # 2. ASSET INVENTORY & CONDITION ASSESSMENT
@@ -448,7 +448,7 @@ def generate_reserve_study_docx(
                    shade=_ALT_BG if i % 2 == 0 else None)
     _set_col_widths(key_tbl, [1.0, 5.6])
 
-    doc.add_page_break()
+    doc.add_page_break()  # type: ignore[no-untyped-call]
 
     # ════════════════════════════════════════════════════════════════════════
     # 3. FUNDING PLAN
@@ -519,7 +519,7 @@ def generate_reserve_study_docx(
     note_r.font.size = Pt(9)
     note_r.font.color.rgb = _GREY
 
-    doc.add_page_break()
+    doc.add_page_break()  # type: ignore[no-untyped-call]
 
     # ════════════════════════════════════════════════════════════════════════
     # 4. SCENARIO ANALYSIS
@@ -581,7 +581,7 @@ def generate_reserve_study_docx(
     sc_note_r.font.size = Pt(9)
     sc_note_r.font.color.rgb = _GREY
 
-    doc.add_page_break()
+    doc.add_page_break()  # type: ignore[no-untyped-call]
 
     # ════════════════════════════════════════════════════════════════════════
     # 5. STUDY ASSUMPTIONS & METHODOLOGY
@@ -654,19 +654,19 @@ def generate_reserve_study_docx(
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _h1(doc: Document, text: str) -> None:
-    p = doc.add_heading(text, level=1)
+def _h1(doc: Document, text: str) -> None:  # type: ignore[valid-type]
+    p = doc.add_heading(text, level=1)  # type: ignore[attr-defined]
     for run in p.runs:
         run.font.color.rgb = _DARK
 
 
-def _h2(doc: Document, text: str) -> None:
-    p = doc.add_heading(text, level=2)
+def _h2(doc: Document, text: str) -> None:  # type: ignore[valid-type]
+    p = doc.add_heading(text, level=2)  # type: ignore[attr-defined]
     for run in p.runs:
         run.font.color.rgb = _DARK
 
 
-def _header_row_2col(table, col1: str, col2: str) -> None:
+def _header_row_2col(table: Any, col1: str, col2: str) -> None:
     row = table.rows[0]
     for cell, label in zip(row.cells, [col1, col2]):
         _shade_cell(cell, _HEAD_BG)
@@ -678,7 +678,7 @@ def _header_row_2col(table, col1: str, col2: str) -> None:
 
 
 def _cell_text(
-    cell,
+    cell: Any,
     text: str,
     *,
     bold: bool = False,

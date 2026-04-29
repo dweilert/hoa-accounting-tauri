@@ -54,7 +54,7 @@ class AssessmentsRepository(BaseRepository):
         )
         return int(cur.lastrowid or 0)
 
-    def get_for_payment_application(self, assessment_id: int):
+    def get_for_payment_application(self, assessment_id: int) -> Any:
         """Return assessment data used for payment application."""
         return self.conn.execute(
             """
@@ -132,7 +132,7 @@ class AssessmentsRepository(BaseRepository):
         )
 
     def get_for_edit(self, assessment_id: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, lot_id, owner_id, assessment_date, due_date, amount,
                    description, status, charge_type, category_id

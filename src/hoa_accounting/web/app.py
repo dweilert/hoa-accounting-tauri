@@ -109,7 +109,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     raw_config: dict[str, Any] = {}
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
         with open(resolved_config_path) as _f:
             raw_config = yaml.safe_load(_f) or {}
     except Exception:
@@ -217,7 +217,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def _open_db() -> sqlite3.Connection:
         """Return the per-request shared DB connection, creating it on first call."""
         if hasattr(g, "db"):
-            return g.db
+            return g.db  # type: ignore[no-any-return]
         db_path = org_context.get("db_path")
         if not db_path:
             raise RuntimeError("database.path missing from config.")

@@ -56,7 +56,7 @@ def _fiscal_year_range(org: dict[str, object] | None) -> tuple[str, str]:
     start_month = 1
     if org and "fiscal_year_start_month" in org:
         try:
-            start_month = int(org.get("fiscal_year_start_month") or 1)
+            start_month = int(org.get("fiscal_year_start_month") or 1)  # type: ignore[call-overload]
         except (TypeError, ValueError):
             start_month = 1
 

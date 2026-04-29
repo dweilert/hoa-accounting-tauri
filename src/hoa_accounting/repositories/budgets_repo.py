@@ -31,7 +31,7 @@ class BudgetsRepository(BaseRepository):
 
     def get_budget(self, budget_id: int) -> sqlite3.Row | None:
         """Return a budget header row, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT id, fiscal_year, fund_code, status, notes,
                    created_at, updated_at
@@ -68,7 +68,7 @@ class BudgetsRepository(BaseRepository):
         self, fiscal_year: int, fund_code: str
     ) -> sqlite3.Row | None:
         """Return a budget by year + fund, or None."""
-        return self.conn.execute(
+        return self.conn.execute(  # type: ignore[no-any-return]
             "SELECT id, fiscal_year, fund_code, status FROM budgets "
             "WHERE fiscal_year = ? AND fund_code = ?",
             (fiscal_year, fund_code),
