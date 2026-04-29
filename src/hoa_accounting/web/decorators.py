@@ -88,7 +88,9 @@ def setup_auth_guard(app, org_ctx: dict) -> None:
                 return None
             return _forbidden()
 
-        return None
+        # Default-deny: any authenticated user with an unknown role
+        # (future role added without explicit handling above) is blocked.
+        return _forbidden()
 
 
 def _forbidden():

@@ -81,8 +81,19 @@ class DatabaseAdminPages:
 
     # ── Stats ────────────────────────────────────────────────────────────
 
+    # SQLite's PRAGMA syntax doesn't accept ``?`` placeholders for the
+    # pragma name itself, so we have to interpolate. Whitelist the names
+    # we actually invoke so a future caller can't be tricked into running
+    # an arbitrary PRAGMA via this helper.
+    _PRAGMA_WHITELIST = frozenset({
+        "journal_mode", "page_size", "page_count", "freelist_count",
+        "wal_autocheckpoint",
+    })
+
     def _get_stats(self) -> DbStats:
         def pragma(name: str):
+            if name not in self._PRAGMA_WHITELIST:
+                raise ValueError(f"PRAGMA {name!r} not whitelisted")
             row = self.conn.execute(f"PRAGMA {name}").fetchone()
             return row[0] if row else None
 

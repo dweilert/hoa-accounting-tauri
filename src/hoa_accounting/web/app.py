@@ -26,41 +26,11 @@ from hoa_accounting.application.report_runner import ReportRunner
 from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
-from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
-from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
-from hoa_accounting.web.lot_pages import LotPages
-from hoa_accounting.web.lot_renters_pages import LotRentersPages
-from hoa_accounting.web.owner_pages import OwnerPages
-from hoa_accounting.web.all_ledger_pages import AllLedgerPages
-from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
-from hoa_accounting.web.bank_account_pages import BankAccountPages
-from hoa_accounting.web.database_admin_pages import DatabaseAdminPages
-from hoa_accounting.web.export_pages import ExportPages
-from hoa_accounting.web.import_pages import ImportPages
-from hoa_accounting.web.dashboard_pages import DashboardPages
-from hoa_accounting.web.dues_billing_pages import DuesBillingPages
-from hoa_accounting.web.late_fee_pages import LateFeePages
-from hoa_accounting.web.opening_balances_pages import OpeningBalancesPages
-from hoa_accounting.web.reconciliation_pages import ReconciliationPages
-from hoa_accounting.web.bank_statement_pages import BankStatementPages
-from hoa_accounting.web.reserve_transfer_pages import ReserveTransferPages
-from hoa_accounting.web.vendor_pages import VendorPages
-from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ui_server import (
     ReportConsolePageService,
     UIResponse,
 )
-from hoa_accounting.web.vendor_bill_pages import VendorBillPages
-from hoa_accounting.web.budget_pages import BudgetPages
-from hoa_accounting.web.batch_pdf_pages import BatchPdfPages
-from hoa_accounting.web.resale_fee_pages import ResaleFeePages
-from hoa_accounting.web.reserve_study_pages import ReserveStudyPages
-from hoa_accounting.web.ar_pages import ARPages
-from hoa_accounting.web.audit_log_pages import AuditLogPages
-from hoa_accounting.web.search_pages import SearchPages
 from hoa_accounting.web.setup_pages import needs_setup
-from hoa_accounting.web.transaction_rule_pages import TransactionRulePages
-from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS
 
 
 def _ui_response_to_flask(response: UIResponse) -> Response:
@@ -318,9 +288,12 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         import traceback as tb
         from hoa_accounting.web.template_engine import render_template as _render
 
-        _is_local_env = org_context.get("environment") == "local"
-        _is_local_request = request.remote_addr in ("127.0.0.1", "::1", "localhost")
-        show_traceback = _is_local_env and _is_local_request
+        # Tracebacks only ever shown in `environment == "local"`. The
+        # earlier ``remote_addr`` check was unreliable behind a reverse
+        # proxy (the proxy IP is what we'd see, not the user's), so
+        # we don't gate on it: deployments configure environment != local
+        # and tracebacks stay hidden regardless of source IP.
+        show_traceback = org_context.get("environment") == "local"
         trace_str = tb.format_exc() if show_traceback else None
         theme = str(org_context.get("theme", "warm"))
         html = _render("error_500.html", {

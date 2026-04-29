@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from decimal import Decimal
 
 from .base import BaseRepository
 
@@ -130,7 +131,7 @@ class ReserveTransfersRepository(BaseRepository):
             """
         ).fetchone()
         if row and row["balance"] is not None:
-            return f"{float(row['balance']):,.2f}"
+            return f"{Decimal(str(row['balance'])):,.2f}"
         return "0.00"
 
     def delete_transfer(self, transfer_id: int) -> None:

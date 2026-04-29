@@ -25,6 +25,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from http import HTTPStatus
 from typing import Any
 
@@ -668,8 +669,8 @@ class ImportPages:
                     errs.append(f"'{field['label']}': \"{val}\" must be a whole number.")
             elif ftype == "decimal":
                 try:
-                    float(val)
-                except ValueError:
+                    Decimal(val)
+                except (InvalidOperation, ValueError):
                     errs.append(f"'{field['label']}': \"{val}\" must be a number.")
             elif ftype == "date":
                 try:
@@ -966,7 +967,7 @@ class ImportPages:
                 budget_row[0],
                 cat_row[0],
                 period,
-                float(self._v(row, "budget_amount", 0)),
+                Decimal(str(self._v(row, "budget_amount", "0"))),
             ),
         )
         return []
@@ -997,8 +998,8 @@ class ImportPages:
                 return e
             cat_id = cid
         try:
-            total = float(self._v(row, "total_amount", "0"))
-        except ValueError:
+            total = Decimal(self._v(row, "total_amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Total amount must be a number."]
         deposit_date = self._v(row, "deposit_date")
         if self.conn.execute(
@@ -1032,8 +1033,8 @@ class ImportPages:
                 return e
             cat_id = cid
         try:
-            amt = float(self._v(row, "amount", "0"))
-        except ValueError:
+            amt = Decimal(self._v(row, "amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Amount must be a number."]
         charge_type = (self._v(row, "charge_type", "") or "").upper()
         assessment_date = self._v(row, "assessment_date")
@@ -1080,8 +1081,8 @@ class ImportPages:
                 return e
             cat_id = cid
         try:
-            amt = float(self._v(row, "amount", "0"))
-        except ValueError:
+            amt = Decimal(self._v(row, "amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Amount must be a number."]
         method = (self._v(row, "payment_method", "") or "").upper()
         self.conn.execute(
@@ -1112,8 +1113,8 @@ class ImportPages:
         ).fetchone():
             return [f'Invoice "{invoice}" already exists for this vendor.']
         try:
-            amt = float(self._v(row, "amount", "0"))
-        except ValueError:
+            amt = Decimal(self._v(row, "amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Amount must be a number."]
         fund = (self._v(row, "fund_code", "OPERATING") or "OPERATING").upper()
         if fund not in ("OPERATING", "RESERVE", "SPECIAL"):
@@ -1146,8 +1147,8 @@ class ImportPages:
         if errs:
             return errs
         try:
-            amt = float(self._v(row, "amount", "0"))
-        except ValueError:
+            amt = Decimal(self._v(row, "amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Amount must be a number."]
         if self.conn.execute(
             """SELECT 1 FROM bill_payments
@@ -1178,8 +1179,8 @@ class ImportPages:
                 return e
             cat_id = cid
         try:
-            total = float(self._v(row, "total_amount", "0"))
-        except ValueError:
+            total = Decimal(self._v(row, "total_amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Total amount must be a number."]
         posting_date = self._v(row, "posting_date")
         desc = self._v(row, "income_description")
@@ -1212,8 +1213,8 @@ class ImportPages:
         if from_id == to_id:
             return ["From and To bank accounts must be different."]
         try:
-            amt = float(self._v(row, "amount", "0"))
-        except ValueError:
+            amt = Decimal(self._v(row, "amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Amount must be a number."]
         transfer_date = self._v(row, "transfer_date")
         if self.conn.execute(
@@ -1265,7 +1266,7 @@ class ImportPages:
         if not cat_row:
             return [f'Category "{cat_code}" not found.']
         try:
-            amt = float(self._v(row, "default_amount", "0"))
+            amt = Decimal(self._v(row, "default_amount", "0"))
         except ValueError:
             return ["Default Amount must be a number."]
         self.conn.execute(
@@ -1376,8 +1377,8 @@ class ImportPages:
         ).fetchone():
             return ["This entity already has an opening balance — delete it first to re-import."]
         try:
-            amt = float(self._v(row, "amount", "0"))
-        except ValueError:
+            amt = Decimal(self._v(row, "amount", "0"))
+        except (InvalidOperation, ValueError):
             return ["Amount must be a number."]
         self.conn.execute(
             """INSERT INTO opening_balances (as_of_date, entity_type, entity_id, amount)

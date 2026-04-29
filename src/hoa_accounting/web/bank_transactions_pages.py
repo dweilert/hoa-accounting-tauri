@@ -113,16 +113,22 @@ class BankTransactionsPages:
 
         # Count rows with a usable proposed match (so the page can show the
         # Dry Run / Accept All buttons only when there's something to act on).
-        accept_where = ("bt.validation_status = 'UNVALIDATED' "
-                        "AND bt.match_type IN ('RULE','SOURCE','BATCH')")
-        accept_params: list[object] = []
+        # Two literal query strings rather than f-string interpolation so the
+        # SQL surface is statically auditable.
         if bank_account_id:
-            accept_where += " AND bt.bank_account_id = ?"
-            accept_params.append(bank_account_id)
-        acceptable_count = int(self._conn.execute(
-            f"SELECT COUNT(*) FROM bank_transactions bt WHERE {accept_where}",
-            accept_params,
-        ).fetchone()[0])
+            acceptable_count = int(self._conn.execute(
+                "SELECT COUNT(*) FROM bank_transactions bt "
+                "WHERE bt.validation_status = 'UNVALIDATED' "
+                "  AND bt.match_type IN ('RULE','SOURCE','BATCH') "
+                "  AND bt.bank_account_id = ?",
+                (bank_account_id,),
+            ).fetchone()[0])
+        else:
+            acceptable_count = int(self._conn.execute(
+                "SELECT COUNT(*) FROM bank_transactions bt "
+                "WHERE bt.validation_status = 'UNVALIDATED' "
+                "  AND bt.match_type IN ('RULE','SOURCE','BATCH')"
+            ).fetchone()[0])
 
         ctx = {
             "heading": "Pending Validation",
@@ -1061,17 +1067,28 @@ class BankTransactionsPages:
     ) -> tuple[str, str]:
         """Run handle_accept on every UNVALIDATED row that has a usable
         match (RULE, SOURCE, BATCH). Skips UNMATCHED. Reports counts."""
-        where = "validation_status = 'UNVALIDATED' AND match_type IN ('RULE','SOURCE','BATCH')"
-        params: list[object] = []
+        # Two literal query strings rather than f-string interpolation so the
+        # SQL surface is statically auditable.
         if bank_account_id:
-            where += " AND bank_account_id = ?"
-            params.append(bank_account_id)
-        ids = [
-            int(r[0]) for r in self._conn.execute(
-                f"SELECT id FROM bank_transactions WHERE {where} ORDER BY transaction_date, id",
-                params,
-            ).fetchall()
-        ]
+            ids = [
+                int(r[0]) for r in self._conn.execute(
+                    "SELECT id FROM bank_transactions "
+                    "WHERE validation_status = 'UNVALIDATED' "
+                    "  AND match_type IN ('RULE','SOURCE','BATCH') "
+                    "  AND bank_account_id = ? "
+                    "ORDER BY transaction_date, id",
+                    (bank_account_id,),
+                ).fetchall()
+            ]
+        else:
+            ids = [
+                int(r[0]) for r in self._conn.execute(
+                    "SELECT id FROM bank_transactions "
+                    "WHERE validation_status = 'UNVALIDATED' "
+                    "  AND match_type IN ('RULE','SOURCE','BATCH') "
+                    "ORDER BY transaction_date, id"
+                ).fetchall()
+            ]
         back = "/bank-transactions/pending"
         if bank_account_id:
             back += f"?bank_account_id={bank_account_id}"

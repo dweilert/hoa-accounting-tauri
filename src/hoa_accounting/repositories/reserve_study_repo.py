@@ -46,10 +46,10 @@ class ReserveStudyRepository:
             """,
             (
                 study_year,
-                float(reserve_balance_override) if reserve_balance_override is not None else None,
-                float(annual_contribution),
-                float(contribution_growth_rate),
-                float(investment_return_rate),
+                str(reserve_balance_override) if reserve_balance_override is not None else None,
+                str(annual_contribution),
+                str(contribution_growth_rate),
+                str(investment_return_rate),
                 num_lots,
                 projection_years,
                 notes,
@@ -95,7 +95,7 @@ class ReserveStudyRepository:
             """,
             (
                 asset_group, component, install_year, useful_life_years,
-                condition, float(replacement_cost), float(annual_inflation), notes,
+                condition, str(replacement_cost), str(annual_inflation), notes,
             ),
         )
         return cur.lastrowid  # type: ignore[return-value]
@@ -129,7 +129,7 @@ class ReserveStudyRepository:
             """,
             (
                 asset_group, component, install_year, useful_life_years,
-                condition, float(replacement_cost), float(annual_inflation),
+                condition, str(replacement_cost), str(annual_inflation),
                 notes, asset_id,
             ),
         )
@@ -172,7 +172,7 @@ class ReserveStudyRepository:
             VALUES (?, ?, ?, ?,?,
                     (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM reserve_study_scenarios))
             """,
-            (scenario_name, description, float(emergency_cost), expected_year, notes),
+            (scenario_name, description, str(emergency_cost), expected_year, notes),
         )
         return cur.lastrowid  # type: ignore[return-value]
 
@@ -197,7 +197,7 @@ class ReserveStudyRepository:
                 updated_at     = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (scenario_name, description, float(emergency_cost), expected_year, notes, scenario_id),
+            (scenario_name, description, str(emergency_cost), expected_year, notes, scenario_id),
         )
 
     def deactivate_scenario(self, scenario_id: int) -> None:
