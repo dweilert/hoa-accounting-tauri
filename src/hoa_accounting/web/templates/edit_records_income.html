@@ -29,9 +29,12 @@
       <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem;">
         <input type="search" id="inc-filter" placeholder="Filter by any text…"
                autocomplete="off"
-               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;"
-               oninput="filterInc()" />
-        <span id="inc-filter-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+               data-filter-table="#inc-table"
+               data-filter-count="#inc-filter-count"
+               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;" />
+        <span id="inc-filter-count"
+              data-noun="entries"
+              style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
           {{ batches|length }} entries
         </span>
       </div>
@@ -40,14 +43,16 @@
 
     {% if batches %}
       <div class="table-wrap inc-scroll">
-        <table id="inc-table">
+        <table id="inc-table"
+               data-sortable
+               data-keep-following=".inc-edit-row">
           <thead>
             <tr>
-              <th data-sort="date"   style="cursor:pointer;" onclick="sortBy(this, 0)">Date <span class="sort-ind"></span></th>
-              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 1)">Description <span class="sort-ind"></span></th>
-              <th data-sort="number" style="cursor:pointer;text-align:right;" onclick="sortBy(this, 2)">Amount <span class="sort-ind"></span></th>
-              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 3)">Category <span class="sort-ind"></span></th>
-              <th data-sort="text"   style="cursor:pointer;" onclick="sortBy(this, 4)">Notes <span class="sort-ind"></span></th>
+              <th data-sort="date">Date</th>
+              <th data-sort="text">Description</th>
+              <th data-sort="number" style="text-align:right;">Amount</th>
+              <th data-sort="text">Category</th>
+              <th data-sort="text">Notes</th>
               <th></th>
             </tr>
           </thead>
@@ -120,10 +125,8 @@
   </div>
 
 <style>
-  #inc-table th .sort-ind { font-size:10px; color: var(--text-muted); margin-left:.25rem; }
-  #inc-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
-  #inc-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
-  #inc-table tr.inc-row.filtered { display: none; }
+  /* Page-specific tweaks. Sortable + filter behavior come from the
+     shared /static/sortable-tables.js. */
   .inc-sticky-header { position: sticky; top: var(--app-topbar-offset, 0); z-index: 5;
     background: var(--surface); border-bottom: 1px solid var(--border); }
   #inc-table thead th { position: sticky; top: var(--inc-head-offset, 0);
@@ -133,10 +136,10 @@
 </style>
 <script>
 (function () {
+  // Stack the column-header stickiness under this page's panel header.
   function sync() {
     var topbar = document.querySelector('header.topbar');
     var topH = topbar ? topbar.getBoundingClientRect().height : 0;
-    document.documentElement.style.setProperty('--app-topbar-offset', topH + 'px');
     var h = document.querySelector('.inc-sticky-header');
     var headH = h ? h.getBoundingClientRect().height : 0;
     document.documentElement.style.setProperty('--inc-head-offset', (topH + headH) + 'px');
@@ -144,53 +147,6 @@
   window.addEventListener('load', sync);
   window.addEventListener('resize', sync);
   setTimeout(sync, 50);
-
-  var table = document.getElementById('inc-table');
-  if (!table) return;
-
-  window.filterInc = function () {
-    var q = (document.getElementById('inc-filter').value || '').trim().toLowerCase();
-    var shown = 0;
-    table.querySelectorAll('tr.inc-row').forEach(function (tr) {
-      var m = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
-      tr.classList.toggle('filtered', !m);
-      var edit = document.getElementById('inc-row-' + tr.dataset.rowId);
-      if (edit && !m) edit.style.display = 'none';
-      if (m) shown++;
-    });
-    var c = document.getElementById('inc-filter-count');
-    if (c) c.textContent = shown + ' entries';
-  };
-
-  function cellValue(tr, idx, type) {
-    var raw = (tr.children[idx] && tr.children[idx].textContent || '').trim();
-    if (type === 'number') return parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0;
-    if (type === 'date')   return raw || '';
-    return raw.toLowerCase();
-  }
-  window.sortBy = function (th, idx) {
-    var type = th.dataset.sort || 'text';
-    var asc = !th.classList.contains('sort-asc');
-    table.querySelectorAll('th').forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); });
-    th.classList.add(asc ? 'sort-asc' : 'sort-desc');
-    var tbody = table.querySelector('tbody');
-    var pairs = [];
-    var children = Array.from(tbody.children);
-    for (var i = 0; i < children.length; i++) {
-      if (children[i].classList.contains('inc-row')) {
-        var next = children[i + 1];
-        pairs.push([children[i], next && next.classList.contains('inc-edit-row') ? next : null]);
-      }
-    }
-    pairs.sort(function (a, b) {
-      var av = cellValue(a[0], idx, type);
-      var bv = cellValue(b[0], idx, type);
-      if (av < bv) return asc ? -1 : 1;
-      if (av > bv) return asc ?  1 : -1;
-      return 0;
-    });
-    pairs.forEach(function (p) { tbody.appendChild(p[0]); if (p[1]) tbody.appendChild(p[1]); });
-  };
 
   function dismissFlash() {
     document.querySelectorAll('.alert--ok').forEach(function (a) { a.remove(); });
@@ -204,7 +160,6 @@
     document.querySelectorAll('tr.inc-edit-row').forEach(function (x) { if (x !== er) x.style.display = 'none'; });
     er.style.display = open ? 'none' : 'table-row';
   };
-
 })();
 </script>
 {% endblock %}

@@ -33,9 +33,11 @@
                id="pay-filter"
                placeholder="Filter by any text…"
                autocomplete="off"
-               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;"
-               oninput="filterPay()" />
+               data-filter-table="#pay-table"
+               data-filter-count="#pay-filter-count"
+               style="padding:.35rem .6rem;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:16rem;" />
         <span id="pay-filter-count"
+              data-noun="payments"
               style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
           {{ payments|length }} payments
         </span>
@@ -45,15 +47,17 @@
 
     {% if payments %}
       <div class="table-wrap pay-scroll">
-        <table id="pay-table">
+        <table id="pay-table"
+               data-sortable
+               data-keep-following=".pay-edit-row">
           <thead>
             <tr>
-              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 0)">Receipt # <span class="sort-ind"></span></th>
-              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 1)">Owner <span class="sort-ind"></span></th>
-              <th data-sort="date"    style="cursor:pointer;" onclick="sortBy(this, 2)">Date <span class="sort-ind"></span></th>
-              <th data-sort="number"  style="cursor:pointer;text-align:right;" onclick="sortBy(this, 3)">Amount <span class="sort-ind"></span></th>
-              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 4)">Method <span class="sort-ind"></span></th>
-              <th data-sort="text"    style="cursor:pointer;" onclick="sortBy(this, 5)">Memo <span class="sort-ind"></span></th>
+              <th data-sort="text">Receipt #</th>
+              <th data-sort="text">Owner</th>
+              <th data-sort="date">Date</th>
+              <th data-sort="number" style="text-align:right;">Amount</th>
+              <th data-sort="text">Method</th>
+              <th data-sort="text">Memo</th>
               <th></th>
             </tr>
           </thead>
@@ -182,14 +186,8 @@
   </div>
 
 <style>
-  #pay-table th .sort-ind { font-size:10px; color: var(--text-muted); margin-left:.25rem; }
-  #pay-table th.sort-asc  .sort-ind::after { content: "▲"; color: var(--accent); }
-  #pay-table th.sort-desc .sort-ind::after { content: "▼"; color: var(--accent); }
-  #pay-table tr.pay-row.filtered { display: none; }
-
-  /* Keep the panel title + filter row and the table headers visible
-     while the user scrolls. Both sit below the app topbar, whose height
-     the script below measures into --app-topbar-offset. */
+  /* Sort/filter visuals come from app.css via [data-sortable]. Page-specific
+     bits below: panel-header sticky-offset stacking. */
   .pay-sticky-header {
     position: sticky; top: var(--app-topbar-offset, 0);
     z-index: 5;
@@ -213,12 +211,11 @@
   // Measure the app topbar + our sticky panel header so the two sticky
   // layers can stack cleanly without overlapping.
   (function () {
+    // The shared sortable-tables.js sets --app-topbar-offset; this just
+    // adds the panel-header height to compute the table's sticky offset.
     function sync() {
       var topbar = document.querySelector('header.topbar');
       var topH = topbar ? topbar.getBoundingClientRect().height : 0;
-      document.documentElement.style.setProperty(
-        '--app-topbar-offset', topH + 'px'
-      );
       var h = document.querySelector('.pay-sticky-header');
       var headH = h ? h.getBoundingClientRect().height : 0;
       document.documentElement.style.setProperty(
@@ -233,59 +230,9 @@
 
 <script>
 (function () {
-  var table = document.getElementById('pay-table');
-  if (!table) return;
-
-  window.filterPay = function () {
-    var q = (document.getElementById('pay-filter').value || '').trim().toLowerCase();
-    var shown = 0;
-    table.querySelectorAll('tr.pay-row').forEach(function (tr) {
-      var m = !q || tr.textContent.toLowerCase().indexOf(q) !== -1;
-      tr.classList.toggle('filtered', !m);
-      var edit = document.getElementById('pay-row-' + tr.dataset.rowId);
-      if (edit && !m) edit.style.display = 'none';
-      if (m) shown++;
-    });
-    var c = document.getElementById('pay-filter-count');
-    if (c) c.textContent = shown + ' payments';
-  };
-
-  function cellValue(tr, idx, type) {
-    var raw = (tr.children[idx] && tr.children[idx].textContent || '').trim();
-    if (type === 'number') return parseFloat(raw.replace(/[^0-9.\-]/g, '')) || 0;
-    if (type === 'date')   return raw || '';
-    return raw.toLowerCase();
-  }
-
-  window.sortBy = function (th, idx) {
-    var type = th.dataset.sort || 'text';
-    var asc = !th.classList.contains('sort-asc');
-    table.querySelectorAll('th').forEach(function (h) {
-      h.classList.remove('sort-asc', 'sort-desc');
-    });
-    th.classList.add(asc ? 'sort-asc' : 'sort-desc');
-
-    var tbody = table.querySelector('tbody');
-    var pairs = [];
-    var children = Array.from(tbody.children);
-    for (var i = 0; i < children.length; i++) {
-      if (children[i].classList.contains('pay-row')) {
-        var next = children[i + 1];
-        pairs.push([children[i], next && next.classList.contains('pay-edit-row') ? next : null]);
-      }
-    }
-    pairs.sort(function (a, b) {
-      var av = cellValue(a[0], idx, type);
-      var bv = cellValue(b[0], idx, type);
-      if (av < bv) return asc ? -1 : 1;
-      if (av > bv) return asc ?  1 : -1;
-      return 0;
-    });
-    pairs.forEach(function (p) {
-      tbody.appendChild(p[0]);
-      if (p[1]) tbody.appendChild(p[1]);
-    });
-  };
+  // Sort + filter come from /static/sortable-tables.js. The page-specific
+  // bits below are only the inline-edit toggle and the panel-header
+  // sticky-offset sync (computed against this page's own header).
 
   function dismissFlash() {
     document.querySelectorAll('.alert--ok').forEach(function (a) { a.remove(); });
