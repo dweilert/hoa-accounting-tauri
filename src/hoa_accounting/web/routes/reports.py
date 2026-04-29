@@ -43,13 +43,10 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Global search ─────────────────────────────────────────────────────
 
-    def _open_search_pages() -> SearchPages:
-        conn = _open_db()
-        return SearchPages(conn)
 
     @bp.get("/search")
     def search_page() -> Response:
-        pages = _open_search_pages()
+        pages = ctx.open_pages(SearchPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render(
             q=(request.args.get("q") or "").strip(),
@@ -76,16 +73,10 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Ledger reports: all-accounts views ───────────────────────────
 
-    def _open_all_ledger_pages() -> AllLedgerPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError("database.path missing from config.")
-        conn = _open_db()
-        return AllLedgerPages(conn)
 
     @bp.get("/ledger/transactions")
     def all_transactions() -> Response:
-        pages = _open_all_ledger_pages()
+        pages = ctx.open_pages(AllLedgerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_all_transactions(
             org=org_context, theme=theme,

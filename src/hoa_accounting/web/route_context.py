@@ -15,11 +15,13 @@ to test and reason about.
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
+from typing import Any, TypeVar
 
 from flask import g
 
 from hoa_accounting.db.connection import connect_sqlite
+
+P = TypeVar("P")
 
 
 class RouteContext:
@@ -65,3 +67,19 @@ class RouteContext:
             pass
         g.db = conn
         return conn
+
+    def open_pages(self, page_cls: type[P]) -> P:
+        """Instantiate a Pages class with the per-request DB connection.
+
+        Most ``Pages`` classes accept a single ``conn`` argument; the
+        legacy per-blueprint ``_open_<area>_pages()`` factories all
+        followed that shape. This helper collapses 34 of those factories
+        into one call site:
+
+            pages = ctx.open_pages(VendorPages)
+
+        For the few factories that need extra construction logic
+        (e.g. ``DashboardPages`` takes a fiscal year), keep the local
+        factory rather than forcing it through this helper.
+        """
+        return page_cls(self.open_db())  # type: ignore[call-arg]

@@ -103,18 +103,10 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Dues Billing pages ───────────────────────────────────────────
 
-    def _open_dues_billing_pages() -> DuesBillingPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; dues billing pages need it."
-            )
-        conn = _open_db()
-        return DuesBillingPages(conn)
 
     @bp.get("/dues-billing")
     def dues_billing_page() -> Response:
-        pages = _open_dues_billing_pages()
+        pages = ctx.open_pages(DuesBillingPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(
             org=org_context, theme=theme,
@@ -127,7 +119,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/dues-billing/post")
     def submit_dues_billing() -> Response:
         from flask import redirect
-        pages = _open_dues_billing_pages()
+        pages = ctx.open_pages(DuesBillingPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_bill(
             form_data={k: v for k, v in request.form.items()},
@@ -142,16 +134,10 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Late Fee pages ───────────────────────────────────────────────
 
-    def _open_late_fee_pages() -> LateFeePages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError("database.path missing from config; late fee pages need it.")
-        conn = _open_db()
-        return LateFeePages(conn)
 
     @bp.get("/late-fees")
     def late_fees_page() -> Response:
-        pages = _open_late_fee_pages()
+        pages = ctx.open_pages(LateFeePages)
         theme = str(org_context.get("theme", "warm"))
         lot_id_raw = (request.args.get("lot_id") or "").strip()
         lot_id = int(lot_id_raw) if lot_id_raw.isdigit() else None
@@ -167,7 +153,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/late-fees/post")
     def submit_late_fees() -> Response:
         from flask import redirect
-        pages = _open_late_fee_pages()
+        pages = ctx.open_pages(LateFeePages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_post(
             form_data={k: v for k, v in request.form.items()},
@@ -182,18 +168,10 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Transaction pages: Bill Assessments ─────────────────────────
 
-    def _open_assessment_billing_pages() -> AssessmentBillingPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; billing pages need it."
-            )
-        conn = _open_db()
-        return AssessmentBillingPages(conn)
 
     @bp.get("/assessments/bill")
     def bill_assessments_page() -> Response:
-        pages = _open_assessment_billing_pages()
+        pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
         billed_msg = (request.args.get("billed") or "").strip() or ""
         resp = pages.render_page(
@@ -206,7 +184,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/assessments/bill-all")
     def submit_bill_all() -> Response:
         from flask import redirect
-        pages = _open_assessment_billing_pages()
+        pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_bill_all(
@@ -221,7 +199,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/assessments/bill-individual")
     def submit_bill_individual() -> Response:
         from flask import redirect
-        pages = _open_assessment_billing_pages()
+        pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_bill_individuals(
@@ -354,18 +332,10 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Owner pages ───────────────────────────────────────────────────
 
-    def _open_owner_pages() -> OwnerPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; owner pages need it."
-            )
-        conn = _open_db()
-        return OwnerPages(conn)
 
     @bp.get("/owners")
     def list_owners() -> Response:
-        pages = _open_owner_pages()
+        pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
         resp = pages.render_list(org=org_context, theme=theme,
@@ -375,7 +345,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/owners/add")
     def new_owner_form() -> Response:
-        pages = _open_owner_pages()
+        pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -384,7 +354,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/owners/add")
     def submit_new_owner() -> Response:
         from flask import redirect
-        pages = _open_owner_pages()
+        pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_add(
             form_data={k: v for k, v in request.form.items()},
@@ -398,7 +368,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/owners/<int:owner_id>/edit")
     def edit_owner_form(owner_id: int) -> Response:
-        pages = _open_owner_pages()
+        pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme,
                                  owner_id=owner_id)
@@ -408,7 +378,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/owners/<int:owner_id>/edit")
     def submit_edit_owner(owner_id: int) -> Response:
         from flask import redirect
-        pages = _open_owner_pages()
+        pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_edit(
             owner_id=owner_id,
@@ -424,7 +394,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/owners/<int:owner_id>/delete")
     def submit_delete_owner(owner_id: int) -> Response:
         from flask import redirect
-        pages = _open_owner_pages()
+        pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_delete(
             owner_id=owner_id,
@@ -503,18 +473,10 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Renter pages ─────────────────────────────────────────────────
 
-    def _open_renter_pages() -> LotRentersPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; renter pages need it."
-            )
-        conn = _open_db()
-        return LotRentersPages(conn)
 
     @bp.get("/renters")
     def list_renters() -> Response:
-        pages = _open_renter_pages()
+        pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
         resp = pages.render_list(org=org_context, theme=theme,
@@ -524,7 +486,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/renters/add")
     def new_renter_form() -> Response:
-        pages = _open_renter_pages()
+        pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -533,7 +495,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/renters/add")
     def submit_new_renter() -> Response:
         from flask import redirect
-        pages = _open_renter_pages()
+        pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_add(
             form_data={k: v for k, v in request.form.items()},
@@ -547,7 +509,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/renters/<int:renter_id>/edit")
     def edit_renter_form(renter_id: int) -> Response:
-        pages = _open_renter_pages()
+        pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme,
                                  renter_id=renter_id)
@@ -557,7 +519,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/renters/<int:renter_id>/edit")
     def submit_edit_renter(renter_id: int) -> Response:
         from flask import redirect
-        pages = _open_renter_pages()
+        pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_edit(
             renter_id=renter_id,
@@ -573,7 +535,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/renters/<int:renter_id>/end")
     def submit_end_tenancy(renter_id: int) -> Response:
         from flask import redirect
-        pages = _open_renter_pages()
+        pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_end(
             renter_id=renter_id,
@@ -589,18 +551,10 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Lot pages ─────────────────────────────────────────────────────
 
-    def _open_lot_pages() -> LotPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; lot pages need it."
-            )
-        conn = _open_db()
-        return LotPages(conn)
 
     @bp.get("/lots")
     def list_lots() -> Response:
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
         resp = pages.render_list(org=org_context, theme=theme,
@@ -610,7 +564,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/lots/add")
     def new_lot_form() -> Response:
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -619,7 +573,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/lots/add")
     def submit_new_lot() -> Response:
         from flask import redirect
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         # active_flag checkbox: present=1, absent=0
         form_data = {k: v for k, v in request.form.items()}
@@ -636,7 +590,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/lots/<int:lot_id>/edit")
     def edit_lot_form(lot_id: int) -> Response:
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
         resp = pages.render_form(org=org_context, theme=theme, lot_id=lot_id,
@@ -647,7 +601,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/lots/<int:lot_id>/edit")
     def submit_edit_lot(lot_id: int) -> Response:
         from flask import redirect
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         if "_active_flag_present" in form_data and "active_flag" not in form_data:
@@ -664,7 +618,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/lots/<int:lot_id>/delete")
     def submit_delete_lot(lot_id: int) -> Response:
         from flask import redirect
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_delete(
             lot_id=lot_id, org=org_context, theme=theme,
@@ -678,7 +632,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/lots/<int:lot_id>/owners/link")
     def submit_link_owner(lot_id: int) -> Response:
         from flask import redirect
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_link_owner(
             lot_id=lot_id,
@@ -694,7 +648,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/lots/<int:lot_id>/owners/<int:ownership_id>/end")
     def submit_end_ownership(lot_id: int, ownership_id: int) -> Response:
         from flask import redirect
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_end_ownership(
             lot_id=lot_id,
@@ -711,7 +665,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/lots/<int:lot_id>/owners/<int:ownership_id>/edit-dates")
     def submit_edit_ownership_dates(lot_id: int, ownership_id: int) -> Response:
         from flask import redirect
-        pages = _open_lot_pages()
+        pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_edit_ownership_dates(
             lot_id=lot_id,

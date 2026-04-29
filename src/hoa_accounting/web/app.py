@@ -18,14 +18,15 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-import yaml
 from flask import Flask, Response, g, redirect, request
 
 from hoa_accounting.api.report_api import ReportAPIService
 from hoa_accounting.application.report_runner import ReportRunner
 from hoa_accounting.bootstrap.migrator import Migrator
-from hoa_accounting.config.loader import load_config
 from hoa_accounting.db.connection import connect_sqlite
+from hoa_accounting.web.csrf import install_csrf_guard
+from hoa_accounting.web.error_handlers import install_error_handler
+from hoa_accounting.web.org_context_loader import load_org_context
 from hoa_accounting.web.ui_server import (
     ReportConsolePageService,
     UIResponse,
@@ -57,66 +58,6 @@ def _flatten_query_params(multi_dict: Any) -> dict[str, str]:
     return out
 
 
-def _load_org_context(config_path: Path) -> dict[str, Any]:
-    """Pull the pieces of config templates want into a small dict.
-
-    If the config can't be loaded (missing or malformed), fall back to
-    safe placeholders so the UI still renders rather than 500-ing at the
-    sidebar. This matches the ergonomics of a dev machine where config
-    may not be fully written yet.
-    """
-    try:
-        config = load_config(config_path)
-    except Exception:
-        return {
-            "name": "HOA Accounting",
-            "legal_name": "",
-            "environment": "local",
-            "fiscal_year_start_month": 1,
-            "theme": "warm",
-        }
-    # Try to read HOA names from the DB (editable via System Settings);
-    # fall back to config.yaml values if the table is empty or missing.
-    hoa_name = config.hoa.name
-    hoa_legal = config.hoa.legal_name
-    db_theme = getattr(config.app, "theme", "warm")
-    db_dues = "0.00"
-    db_freq = "annual"
-    try:
-        import sqlite3 as _sq3
-        _c = _sq3.connect(config.database.path)
-        _c.row_factory = _sq3.Row
-        _row = _c.execute(
-            "SELECT display_name, legal_name, theme, default_assessment_amount, default_billing_frequency FROM hoa_profile LIMIT 1"
-        ).fetchone()
-        if _row and _row["display_name"]:
-            hoa_name = _row["display_name"]
-        if _row and _row["legal_name"]:
-            hoa_legal = _row["legal_name"]
-        if _row and _row["theme"]:
-            db_theme = _row["theme"]
-        if _row and _row["default_assessment_amount"]:
-            db_dues = _row["default_assessment_amount"]
-        db_freq = (_row["default_billing_frequency"] if _row else None) or "annual"
-        _c.close()
-    except Exception:
-        pass
-    return {
-        "name": hoa_name,
-        "legal_name": hoa_legal,
-        "environment": config.app.environment,
-        "fiscal_year_start_month": config.accounting.fiscal_year_start_month,
-        "theme": db_theme,
-        "default_assessment_amount": db_dues,
-        "default_billing_frequency": db_freq,
-        "db_path": config.database.path,
-        "resale_fee_default_amount": getattr(
-            config.accounting, "resale_fee_default_amount", "175.00"
-        ),
-        "backup_config": (yaml.safe_load(Path(config_path).read_text()) or {}).get("backup") or {},
-    }
-
-
 def create_app(config_path: str | Path = "config.yaml") -> Flask:
     """Build a Flask app wired to the read-only report UI services."""
     app = Flask(__name__)
@@ -132,7 +73,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     # The existing UI services render via their own Jinja environment and
     # don't see Flask's context processors. Pass `org` through as part of
     # the view-model context instead — handled in view_models.py.
-    org_context = _load_org_context(resolved_config_path)
+    org_context = load_org_context(resolved_config_path)
 
     # Apply any pending schema migrations to the configured database on
     # startup. The migrator is idempotent (already-applied migrations are
@@ -253,66 +194,14 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     app.register_blueprint(make_dashboard_blueprint(ctx))
     app.register_blueprint(make_api_blueprint(ctx))
 
-    # ── CSRF enforcement ──────────────────────────────────────────────────
-    # /api/ofx-ready is the fetcher webhook — the fetcher has no session,
-    # so a CSRF token is impossible. Localhost-only + path validation in
-    # the handler provide the safety margin.
-    _CSRF_EXEMPT = {"/login", "/logout", "/auth/callback",
-                    "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment",
-                    "/api/ofx-ready"}
-
-    @app.before_request
-    def _enforce_csrf() -> Response | None:
-        if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
-            return None
-        if request.path in _CSRF_EXEMPT:
-            return None
-        from flask import session as _session, abort as _abort
-        expected = _session.get("_csrf_token")
-        provided = (
-            request.form.get("_csrf_token")
-            or request.headers.get("X-CSRF-Token")
-        )
-        if not expected or expected != provided:
-            _abort(403)
-        return None
-
+    install_csrf_guard(app)
     setup_auth_guard(app, org_context)
 
     # ── User management routes ────────────────────────────────────────────
     from hoa_accounting.web.user_management_pages import UserManagementPages
     UserManagementPages(auth_manager).register(app)
 
-    @app.errorhandler(Exception)
-    def _handle_unhandled_exception(exc: Exception) -> Response:
-        import traceback as tb
-        from werkzeug.exceptions import HTTPException
-        from hoa_accounting.web.template_engine import render_template as _render
-
-        # Don't swallow HTTPException — abort(403)/abort(404) etc. should
-        # surface with their original status code, not be flattened to 500.
-        if isinstance(exc, HTTPException):
-            return exc  # type: ignore[return-value]
-
-        # Tracebacks only ever shown in `environment == "local"`. The
-        # earlier ``remote_addr`` check was unreliable behind a reverse
-        # proxy (the proxy IP is what we'd see, not the user's), so
-        # we don't gate on it: deployments configure environment != local
-        # and tracebacks stay hidden regardless of source IP.
-        show_traceback = org_context.get("environment") == "local"
-        trace_str = tb.format_exc() if show_traceback else None
-        theme = str(org_context.get("theme", "warm"))
-        html = _render("error_500.html", {
-            "active_nav": "",
-            "page_key": "",
-            "breadcrumb": "",
-            "org": org_context,
-            "theme": theme,
-            "error_type": type(exc).__name__,
-            "error_message": str(exc),
-            "traceback": trace_str,
-        })
-        return Response(html, status=500, mimetype="text/html; charset=utf-8")
+    install_error_handler(app, org_context)
 
     @app.get("/static/app.css")
     def _static_css_passthrough() -> Response:

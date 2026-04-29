@@ -22,13 +22,10 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Audit log pages ──────────────────────────────────────────────
 
-    def _open_audit_pages() -> AuditLogPages:
-        conn = _open_db()
-        return AuditLogPages(conn)
 
     @bp.get("/admin/audit-log")
     def audit_log_page() -> Response:
-        pages = _open_audit_pages()
+        pages = ctx.open_pages(AuditLogPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render(
             org=org_context,
@@ -46,16 +43,10 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Import pages ──────────────────────────────────────────────────
 
-    def _open_import_pages() -> ImportPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError("database.path missing from config.")
-        conn = _open_db()
-        return ImportPages(conn)
 
     @bp.get("/admin/import")
     def import_page() -> Response:
-        pages = _open_import_pages()
+        pages = ctx.open_pages(ImportPages)
         theme = str(org_context.get("theme", "warm"))
         ba_raw = request.args.get("bank_account_id", "")
         resp  = pages.render_page(
@@ -133,7 +124,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/import/run")
     def import_run() -> Response:
-        pages = _open_import_pages()
+        pages = ctx.open_pages(ImportPages)
         theme = str(org_context.get("theme", "warm"))
         resp  = pages.handle_run(
             data_type   = request.form.get("data_type",   ""),
@@ -149,7 +140,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/admin/import/validate")
     def import_validate() -> Response:
         import json as _json
-        pages  = _open_import_pages()
+        pages  = ctx.open_pages(ImportPages)
         result = pages.handle_validate(
             data_type    = request.form.get("data_type",    ""),
             mapping_json = request.form.get("mapping",      "{}"),
@@ -162,16 +153,10 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Export pages ─────────────────────────────────────────────────
 
-    def _open_export_pages() -> ExportPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError("database.path missing from config.")
-        conn = _open_db()
-        return ExportPages(conn)
 
     @bp.get("/admin/export")
     def export_page() -> Response:
-        pages = _open_export_pages()
+        pages = ctx.open_pages(ExportPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -179,7 +164,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.post("/admin/export/download")
     def export_download() -> Response:
-        pages = _open_export_pages()
+        pages = ctx.open_pages(ExportPages)
         selected = request.form.getlist("export_key")
         if not selected:
             theme = str(org_context.get("theme", "warm"))

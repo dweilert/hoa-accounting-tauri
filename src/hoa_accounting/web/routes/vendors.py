@@ -53,18 +53,10 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     # (`?created=JE-...`) so the list page can display a success banner
     # without pulling in Flask-Session or a secret key.
 
-    def _open_vendor_bill_pages() -> VendorBillPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; transaction pages need it."
-            )
-        conn = _open_db()
-        return VendorBillPages(conn)
 
     @bp.get("/vendor-bills")
     def list_vendor_bills() -> Response:
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         created = (request.args.get("created") or "").strip() or None
         resp = pages.render_list(org=org_context, theme=theme, created_entry_number=created)
@@ -73,7 +65,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/vendor-bills/new")
     def new_vendor_bill_form() -> Response:
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -82,7 +74,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/vendor-bills/new")
     def submit_vendor_bill() -> Response:
         from flask import redirect
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_post(
@@ -96,7 +88,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/vendor-bills/<int:vendor_bill_id>/edit")
     def edit_vendor_bill_form(vendor_bill_id: int) -> Response:
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_edit(vendor_bill_id, org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -105,7 +97,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/vendor-bills/<int:vendor_bill_id>/edit")
     def submit_vendor_bill_edit(vendor_bill_id: int) -> Response:
         from flask import redirect
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_edit(
@@ -119,7 +111,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/vendor-bills/<int:vendor_bill_id>/split")
     def split_vendor_bill_form(vendor_bill_id: int) -> Response:
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_split(vendor_bill_id, org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -128,7 +120,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/vendor-bills/<int:vendor_bill_id>/split")
     def submit_vendor_bill_split(vendor_bill_id: int) -> Response:
         from flask import redirect
-        pages = _open_vendor_bill_pages()
+        pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         cats = request.form.getlist("line_category_id")
         amts = request.form.getlist("line_amount")
@@ -146,18 +138,10 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Vendor pages ─────────────────────────────────────────────────
 
-    def _open_vendor_pages() -> VendorPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; vendor pages need it."
-            )
-        conn = _open_db()
-        return VendorPages(conn)
 
     @bp.get("/vendors")
     def list_vendors() -> Response:
-        pages = _open_vendor_pages()
+        pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
         resp = pages.render_list(org=org_context, theme=theme,
@@ -167,7 +151,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/vendors/add")
     def new_vendor_form() -> Response:
-        pages = _open_vendor_pages()
+        pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -176,7 +160,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/vendors/add")
     def submit_new_vendor() -> Response:
         from flask import redirect
-        pages = _open_vendor_pages()
+        pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_add(
             form_data={k: v for k, v in request.form.items()},
@@ -190,7 +174,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/vendors/<int:vendor_id>/edit")
     def edit_vendor_form(vendor_id: int) -> Response:
-        pages = _open_vendor_pages()
+        pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme,
                                  vendor_id=vendor_id)
@@ -200,7 +184,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/vendors/<int:vendor_id>/edit")
     def submit_edit_vendor(vendor_id: int) -> Response:
         from flask import redirect
-        pages = _open_vendor_pages()
+        pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         if "_active_flag_present" in form_data and "active_flag" not in form_data:
@@ -218,7 +202,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/vendors/<int:vendor_id>/delete")
     def submit_delete_vendor(vendor_id: int) -> Response:
         from flask import redirect
-        pages = _open_vendor_pages()
+        pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_delete(
             vendor_id=vendor_id, org=org_context, theme=theme,

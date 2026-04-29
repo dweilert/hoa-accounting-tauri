@@ -18,18 +18,10 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Accounting period pages ───────────────────────────────────────
 
-    def _open_period_pages() -> AccountingPeriodPages:
-        db_path = org_context.get("db_path")
-        if not db_path:
-            raise RuntimeError(
-                "database.path missing from config; period pages need it."
-            )
-        conn = _open_db()
-        return AccountingPeriodPages(conn)
 
     @bp.get("/accounting-periods")
     def list_periods() -> Response:
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
         resp = pages.render_list(org=org_context, theme=theme,
@@ -39,7 +31,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/accounting-periods/add")
     def new_period_form() -> Response:
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_add_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -48,7 +40,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/accounting-periods/add")
     def submit_new_period() -> Response:
         from flask import redirect
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_add(
             form_data={k: v for k, v in request.form.items()},
@@ -62,7 +54,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
     @bp.get("/accounting-periods/generate")
     def generate_year_form() -> Response:
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_generate_form(org=org_context, theme=theme)
         return Response(resp.body_html, status=resp.status_code,
@@ -71,7 +63,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/accounting-periods/generate")
     def submit_generate_year() -> Response:
         from flask import redirect
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_generate_year(
             form_data={k: v for k, v in request.form.items()},
@@ -86,7 +78,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/accounting-periods/<int:period_id>/close")
     def close_period(period_id: int) -> Response:
         from flask import redirect
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_close(
             period_id=period_id, org=org_context, theme=theme,
@@ -100,7 +92,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/accounting-periods/<int:period_id>/reopen")
     def reopen_period(period_id: int) -> Response:
         from flask import redirect
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_reopen(
             period_id=period_id, org=org_context, theme=theme,
@@ -114,7 +106,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/accounting-periods/<int:period_id>/delete")
     def delete_period(period_id: int) -> Response:
         from flask import redirect
-        pages = _open_period_pages()
+        pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_delete(
             period_id=period_id, org=org_context, theme=theme,
