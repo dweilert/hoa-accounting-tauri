@@ -210,3 +210,148 @@ def test_vendor_bill_page_handler_atomic_rollback(monkeypatch):
         "Stranded vendor_bills row after payment-side failure — "
         "outer transaction did not roll back the bill."
     )
+
+
+# ── handle_split (vendor_bill_pages) — destructive split rollback ─────
+
+
+def test_vendor_bill_split_rolls_back_when_second_pair_fails(monkeypatch):
+    """``vendor_bill_pages.handle_split`` deletes the original bill and
+    payment after creating N new bill+payment pairs. The wrapping
+    ``with transaction(self.conn):`` (commit ``400a7ef``) means a
+    failure mid-loop must leave the original intact AND drop any new
+    pairs already created.
+
+    Mirrors the page handler's call sequence using a direct outer
+    ``with transaction(...)`` block so the test exercises the same
+    SAVEPOINT nesting the page would.
+    """
+    from hoa_accounting.db.transaction import transaction
+
+    conn, ids = build_seeded_conn()
+    factory = ServiceFactory(conn)
+    bill_service = factory.vendor_bill_service()
+    payment_service = factory.vendor_payment_service()
+
+    # Seed an original bill + payment to be split.
+    original = bill_service.post_vendor_bill(
+        entry_date="2026-04-01",
+        vendor_id=ids.vendor1_id,
+        amount="200.00",
+        description="HP original to split",
+        invoice_number="HP-SPLIT-ORIG",
+        invoice_date="2026-04-01",
+        category_id=ids.cat_landscape_id,
+        fund_code="OPERATING",
+    )
+    payment_service.post_vendor_payment(
+        entry_date="2026-04-01",
+        vendor_bill_id=original.vendor_bill_id,
+        amount="200.00",
+        description="HP original payment",
+        bank_account_id=ids.bank_op_id,
+    )
+
+    # Force the second new bill in the split to raise.
+    real_post_bill = bill_service.post_vendor_bill
+    call_count = {"n": 0}
+
+    def boom_post_bill(*args, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] >= 2:
+            raise RuntimeError("simulated mid-split failure")
+        return real_post_bill(*args, **kwargs)
+
+    monkeypatch.setattr(bill_service, "post_vendor_bill", boom_post_bill)
+
+    with pytest.raises(RuntimeError, match="simulated mid-split failure"):
+        with transaction(conn):
+            for line_amt in (Decimal("100.00"), Decimal("100.00")):
+                new_bill = bill_service.post_vendor_bill(
+                    entry_date="2026-04-01",
+                    vendor_id=ids.vendor1_id,
+                    amount=str(line_amt),
+                    description="HP split",
+                    invoice_number=f"HP-SPLIT-NEW-{line_amt}",
+                    invoice_date="2026-04-01",
+                    category_id=ids.cat_landscape_id,
+                    fund_code="OPERATING",
+                )
+                payment_service.post_vendor_payment(
+                    entry_date="2026-04-01",
+                    vendor_bill_id=new_bill.vendor_bill_id,
+                    amount=str(line_amt),
+                    description="HP split payment",
+                    bank_account_id=ids.bank_op_id,
+                )
+
+    # Original survived (it was outside the with-block scope).
+    n_orig = conn.execute(
+        "SELECT COUNT(*) FROM vendor_bills WHERE invoice_number = ?",
+        ("HP-SPLIT-ORIG",),
+    ).fetchone()[0]
+    assert n_orig == 1, "Original bill must survive the split's rollback"
+
+    # No partial new pairs landed.
+    n_new = conn.execute(
+        "SELECT COUNT(*) FROM vendor_bills WHERE invoice_number LIKE 'HP-SPLIT-NEW%'"
+    ).fetchone()[0]
+    assert n_new == 0, "Partial new-pair rows leaked through rollback"
+
+
+# ── handle_income_split (edit_records_pages) — same destructive pattern ─
+
+
+def test_income_split_rolls_back_when_second_batch_fails(monkeypatch):
+    """``edit_records_pages.handle_income_split`` deletes the original
+    income_batch after creating N new batches. Wrapping must roll back
+    new batches if any post fails."""
+    from hoa_accounting.db.transaction import transaction
+    from hoa_accounting.services.non_dues_income_service import IncomeRow
+
+    conn, ids = build_seeded_conn()
+    factory = ServiceFactory(conn)
+    income_service = factory.non_dues_income_service()
+
+    # Seed an original batch to be split.
+    original = income_service.post_batch(
+        posting_date="2026-04-01",
+        bank_account_id=ids.bank_op_id,
+        income_description="HP original income",
+        rows=[IncomeRow(amount="300.00", other_source="HP-ORIG")],
+        category_id=ids.cat_dues_id,
+    )
+    original_id = original.income_batch_id
+
+    real_post = income_service.post_batch
+    call_count = {"n": 0}
+
+    def boom(*args, **kwargs):
+        call_count["n"] += 1
+        # Fail the second new batch in the split.
+        if call_count["n"] >= 2:
+            raise RuntimeError("simulated mid-split failure")
+        return real_post(*args, **kwargs)
+
+    monkeypatch.setattr(income_service, "post_batch", boom)
+
+    with pytest.raises(RuntimeError, match="simulated mid-split failure"):
+        with transaction(conn):
+            for line_amt in (Decimal("150.00"), Decimal("150.00")):
+                income_service.post_batch(
+                    posting_date="2026-04-01",
+                    bank_account_id=ids.bank_op_id,
+                    income_description="HP split income",
+                    rows=[IncomeRow(amount=str(line_amt), other_source="HP-SPLIT")],
+                    category_id=ids.cat_dues_id,
+                )
+
+    orig = conn.execute(
+        "SELECT id FROM income_batches WHERE id = ?", (original_id,),
+    ).fetchone()
+    assert orig is not None, "Original income batch must survive rollback"
+
+    n_new = conn.execute(
+        "SELECT COUNT(*) FROM income_batches WHERE income_description = 'HP split income'"
+    ).fetchone()[0]
+    assert n_new == 0, "Partial new-batch rows leaked through rollback"
