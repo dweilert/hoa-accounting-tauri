@@ -286,7 +286,13 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     @app.errorhandler(Exception)
     def _handle_unhandled_exception(exc: Exception) -> Response:
         import traceback as tb
+        from werkzeug.exceptions import HTTPException
         from hoa_accounting.web.template_engine import render_template as _render
+
+        # Don't swallow HTTPException — abort(403)/abort(404) etc. should
+        # surface with their original status code, not be flattened to 500.
+        if isinstance(exc, HTTPException):
+            return exc  # type: ignore[return-value]
 
         # Tracebacks only ever shown in `environment == "local"`. The
         # earlier ``remote_addr`` check was unreliable behind a reverse

@@ -15,6 +15,7 @@ from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.format import format_money
 from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
 
 
@@ -66,7 +67,7 @@ class VendorBillPages:
                 "invoice_number": r["invoice_number"],
                 "invoice_date": r["invoice_date"],
                 "due_date": r["due_date"] or "",
-                "amount": f"{Decimal(str(r['amount'])):.2f}",
+                "amount": format_money(r['amount']),
                 "fund_code": r["fund_code"],
                 "status": r["status"],
                 "vendor_name": r["vendor_name"],
@@ -217,7 +218,7 @@ class VendorBillPages:
             "invoice_number": bill["invoice_number"],
             "invoice_date":   bill["invoice_date"],
             "due_date":       bill["due_date"] or "",
-            "amount":         f"{Decimal(str(bill['amount'])):.2f}",
+            "amount":         format_money(bill['amount']),
             "fund_code":      bill["fund_code"],
             "category_id":    str(bill["category_id"] or ""),
             "description":    bill["description"] or "",
@@ -339,7 +340,7 @@ class VendorBillPages:
                     "page_key": "vendor-bills",
                 }),
             )
-        bill_amount = f"{Decimal(str(bill['amount'])):.2f}"
+        bill_amount = format_money(bill['amount'])
 
         if form_values and form_values.get("line_category_id"):
             cats = form_values["line_category_id"]

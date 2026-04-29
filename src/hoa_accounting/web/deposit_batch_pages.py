@@ -28,6 +28,7 @@ from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.deposit_batch_service import DepositRow
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.format import format_money
 from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
 
 
@@ -68,7 +69,7 @@ class DepositBatchPages:
             {
                 "id": r["id"],
                 "deposit_date": r["deposit_date"],
-                "total_amount": f"{Decimal(str(r['total_amount'])):.2f}",
+                "total_amount": format_money(r['total_amount']),
                 "bank_account": r["bank_account_name"],
                 "institution": r["institution_name"],
                 "entry_number": r["entry_number"] or "",

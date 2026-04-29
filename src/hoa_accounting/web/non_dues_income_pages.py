@@ -17,6 +17,7 @@ from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.format import format_money
 from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
 
 
@@ -58,7 +59,7 @@ class NonDuesIncomePages:
                 "id": r["id"],
                 "posting_date": r["posting_date"],
                 "description": r["income_description"],
-                "total_amount": f"{Decimal(str(r['total_amount'])):.2f}",
+                "total_amount": format_money(r['total_amount']),
                 "bank_account": r["bank_account_name"],
                 "income_account": (
                     r["category_name"]

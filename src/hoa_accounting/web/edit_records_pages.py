@@ -23,6 +23,7 @@ from hoa_accounting.repositories.categories_repo import CategoriesRepository
 from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.web.template_engine import render_template
+from hoa_accounting.validators.format import format_money
 from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _req
 
 
@@ -87,7 +88,7 @@ class EditRecordsPages:
                 "owner_id": r["owner_id"],
                 "owner_name": r["owner_name"] or "",
                 "payment_date": r["payment_date"] or "",
-                "amount": f"{Decimal(str(r['amount'])):.2f}",
+                "amount": format_money(r['amount']),
                 "payment_method": r["payment_method"] or "",
                 "reference_number": r["reference_number"] or "",
                 "bank_account_id": r["bank_account_id"],
@@ -216,7 +217,7 @@ class EditRecordsPages:
                     f"{r['bank_account_name']} (···{r['bank_account_last4'] or '????'})"
                 ),
                 "income_description": r["income_description"] or "",
-                "total_amount": f"{Decimal(str(r['total_amount'])):.2f}",
+                "total_amount": format_money(r['total_amount']),
                 "notes": r["notes"] or "",
                 "category_id": r["category_id"],
                 "category_name": r["category_name"] or "",
@@ -315,7 +316,7 @@ class EditRecordsPages:
                     "page_key": "edit-records-income",
                 }),
             )
-        batch_amount = f"{Decimal(str(row['total_amount'])):.2f}"
+        batch_amount = format_money(row['total_amount'])
 
         if form_values and form_values.get("line_category_id"):
             cats = form_values["line_category_id"]
@@ -496,7 +497,7 @@ class EditRecordsPages:
                 "owner_name": r["owner_name"] or "",
                 "assessment_date": r["assessment_date"] or "",
                 "due_date": r["due_date"] or "",
-                "amount": f"{Decimal(str(r['amount'])):.2f}",
+                "amount": format_money(r['amount']),
                 "description": r["description"] or "",
                 "status": r["status"] or "",
                 "charge_type": r["charge_type"] or "",
