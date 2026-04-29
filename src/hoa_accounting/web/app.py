@@ -58,7 +58,7 @@ from hoa_accounting.web.reserve_study_pages import ReserveStudyPages
 from hoa_accounting.web.ar_pages import ARPages
 from hoa_accounting.web.audit_log_pages import AuditLogPages
 from hoa_accounting.web.search_pages import SearchPages
-from hoa_accounting.web.setup_pages import SetupPages, needs_setup
+from hoa_accounting.web.setup_pages import needs_setup
 from hoa_accounting.web.transaction_rule_pages import TransactionRulePages
 from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS
 
@@ -247,8 +247,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         g.current_user = _get_current_user()
 
     # ── Setup wizard ──────────────────────────────────────────────────────
-    _setup = SetupPages(str(db_path), org_context)
-
     _SETUP_PATHS = {"/setup", "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment"}
 
     @app.before_request
@@ -260,25 +258,10 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
             return _redir("/setup")
         return None
 
-    @app.get("/setup")
-    def setup_get() -> Response:
-        return _setup.get_setup()
-
-    @app.post("/setup/admin")
-    def setup_post_admin() -> Response:
-        return _setup.post_admin()
-
-    @app.post("/setup/login")
-    def setup_post_login() -> Response:
-        return _setup.post_login()
-
-    @app.post("/setup/identity")
-    def setup_post_identity() -> Response:
-        return _setup.post_identity()
-
-    @app.post("/setup/assessment")
-    def setup_post_assessment() -> Response:
-        return _setup.post_assessment()
+    from hoa_accounting.web.route_context import RouteContext
+    from hoa_accounting.web.routes.setup import make_setup_blueprint
+    ctx = RouteContext(org_context=org_context)
+    app.register_blueprint(make_setup_blueprint(ctx))
 
     # ── CSRF enforcement ──────────────────────────────────────────────────
     # /api/ofx-ready is the fetcher webhook — the fetcher has no session,
