@@ -25,6 +25,20 @@ def init_auth(auth_manager: Any, org_context: dict[str, Any]) -> None:
 
 
 def _set_current_user(user: AuthUser) -> None:
+    """Store *user* in the session, rotating the session ID first.
+
+    Clearing pre-login session state and minting a new ``_csrf_token``
+    closes the session-fixation window: an attacker who plants a cookie
+    on a victim's browser before login cannot ride it into the
+    authenticated state, because the cookie they planted will no longer
+    be associated with the post-login session.
+    """
+    import secrets as _secrets
+
+    session.clear()
+    # Match the format minted in template_engine.py so any cached
+    # rendered page that looked up the old token agrees on shape.
+    session["_csrf_token"] = _secrets.token_hex(32)
     session["user"] = user.to_session()
 
 

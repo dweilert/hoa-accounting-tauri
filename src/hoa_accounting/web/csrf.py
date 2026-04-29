@@ -8,6 +8,8 @@ exposed to templates as the ``csrf_token()`` helper plus a
 
 from __future__ import annotations
 
+import secrets
+
 from flask import Flask, Response, abort, request, session
 
 # Routes exempted from CSRF. Each must justify why:
@@ -42,6 +44,12 @@ def install_csrf_guard(app: Flask) -> None:
         provided = request.form.get("_csrf_token") or request.headers.get(
             "X-CSRF-Token"
         )
-        if not expected or expected != provided:
+        # Constant-time compare so token validity can't be probed by
+        # measuring response latency.
+        if (
+            not expected
+            or not provided
+            or not secrets.compare_digest(str(expected), str(provided))
+        ):
             abort(403)
         return None

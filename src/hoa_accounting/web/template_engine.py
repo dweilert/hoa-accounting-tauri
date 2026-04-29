@@ -14,7 +14,22 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
 def _tojson_filter(value: object, indent: int | None = None) -> Markup:
-    return Markup(json.dumps(value, indent=indent))
+    """Render *value* as JSON safe to embed inside a ``<script>`` block.
+
+    ``json.dumps`` does not escape ``<``, ``>``, ``&``, or ``'`` — all of
+    which break out of an HTML script context if they appear in a
+    user-supplied string (a CSV cell, a memo, a category name, …).
+    Escape them as Unicode escapes so the JSON stays semantically
+    identical but cannot terminate the surrounding tag or comment.
+    """
+    encoded = (
+        json.dumps(value, indent=indent)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace("'", "\\u0027")
+    )
+    return Markup(encoded)
 
 
 @lru_cache(maxsize=1)

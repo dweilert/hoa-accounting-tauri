@@ -109,13 +109,28 @@ class LocalFileBackend:
     """Write PDFs to a local directory (dev / testing)."""
 
     def __init__(self, output_dir: str | Path) -> None:
-        self._dir = Path(output_dir)
+        self._dir = Path(output_dir).resolve()
         self._dir.mkdir(parents=True, exist_ok=True)
+
+    def _safe_join(self, key: str) -> Path:
+        """Resolve ``self._dir / key`` and reject any path that escapes
+        the configured directory (``../`` traversal, absolute keys, …).
+
+        Defense in depth — today's caller builds *key* server-side from
+        a lot number, so traversal isn't reachable; this just keeps the
+        contract honest if a future caller forgets that.
+        """
+        candidate = (self._dir / key).resolve()
+        try:
+            candidate.relative_to(self._dir)
+        except ValueError as exc:
+            raise ValueError(f"storage key escapes backend directory: {key!r}") from exc
+        return candidate
 
     def upload(
         self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf"
     ) -> str:
-        dest = self._dir / key
+        dest = self._safe_join(key)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(pdf_bytes)
         return str(dest)
@@ -125,11 +140,17 @@ class LocalFileBackend:
 
         Mirrors S3 semantics: a prefix is a literal key prefix, not a
         glob — ``owner-reports/L-1/`` removes everything inside that
-        sub-directory.
+        sub-directory. Traversal-safe — *prefix* is validated against
+        the backend root before any filesystem walk.
         """
+        # Validate the prefix (with or without trailing '/') against the
+        # backend root. Empty prefix is rejected — refuse to wipe self._dir.
+        if not prefix:
+            return 0
+        # _safe_join rejects traversal even when the path doesn't exist.
+        self._safe_join(prefix.rstrip("/"))
+
         deleted = 0
-        # Treat prefix that ends in '/' as a directory; otherwise match
-        # any path whose relative-to-_dir str startswith() the prefix.
         if prefix.endswith("/"):
             target_dir = self._dir / prefix.rstrip("/")
             if target_dir.is_dir():

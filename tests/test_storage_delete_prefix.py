@@ -12,7 +12,30 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from hoa_accounting.storage.backend import LocalFileBackend
+
+
+def test_upload_rejects_traversal_key(tmp_path: Path) -> None:
+    """A key with ``../`` segments must not write outside the backend dir."""
+    backend = LocalFileBackend(tmp_path)
+    with pytest.raises(ValueError, match="escapes backend directory"):
+        backend.upload("../escaped.pdf", b"%PDF-evil")
+    # And confirm nothing landed at the escaped location.
+    assert not (tmp_path.parent / "escaped.pdf").exists()
+
+
+def test_upload_rejects_absolute_key(tmp_path: Path) -> None:
+    backend = LocalFileBackend(tmp_path)
+    with pytest.raises(ValueError, match="escapes backend directory"):
+        backend.upload("/etc/passwd", b"%PDF-evil")
+
+
+def test_delete_prefix_rejects_traversal(tmp_path: Path) -> None:
+    backend = LocalFileBackend(tmp_path)
+    with pytest.raises(ValueError, match="escapes backend directory"):
+        backend.delete_prefix("../")
 
 
 def test_upload_writes_at_full_key_path(tmp_path: Path) -> None:
