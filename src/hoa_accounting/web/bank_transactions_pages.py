@@ -20,7 +20,6 @@ from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.bank_statement_pages import BankStatementPages
 from hoa_accounting.web.template_engine import render_template
 
-
 # Candidate search window for "Link to existing" — wide enough to catch a
 # deposit recorded a few days before the bank cleared it, narrow enough to
 # not drown the user in unrelated rows.
@@ -96,11 +95,13 @@ class BankTransactionsPages:
             params,
         ).fetchall()
 
-        ignored_count = int(self._conn.execute(
-            "SELECT COUNT(*) FROM bank_transactions WHERE validation_status = 'IGNORED'"
-            + (" AND bank_account_id = ?" if bank_account_id else ""),
-            ([bank_account_id] if bank_account_id else []),
-        ).fetchone()[0])
+        ignored_count = int(
+            self._conn.execute(
+                "SELECT COUNT(*) FROM bank_transactions WHERE validation_status = 'IGNORED'"
+                + (" AND bank_account_id = ?" if bank_account_id else ""),
+                ([bank_account_id] if bank_account_id else []),
+            ).fetchone()[0]
+        )
 
         counts = self._conn.execute(
             """
@@ -118,19 +119,23 @@ class BankTransactionsPages:
         # Two literal query strings rather than f-string interpolation so the
         # SQL surface is statically auditable.
         if bank_account_id:
-            acceptable_count = int(self._conn.execute(
-                "SELECT COUNT(*) FROM bank_transactions bt "
-                "WHERE bt.validation_status = 'UNVALIDATED' "
-                "  AND bt.match_type IN ('RULE','SOURCE','BATCH') "
-                "  AND bt.bank_account_id = ?",
-                (bank_account_id,),
-            ).fetchone()[0])
+            acceptable_count = int(
+                self._conn.execute(
+                    "SELECT COUNT(*) FROM bank_transactions bt "
+                    "WHERE bt.validation_status = 'UNVALIDATED' "
+                    "  AND bt.match_type IN ('RULE','SOURCE','BATCH') "
+                    "  AND bt.bank_account_id = ?",
+                    (bank_account_id,),
+                ).fetchone()[0]
+            )
         else:
-            acceptable_count = int(self._conn.execute(
-                "SELECT COUNT(*) FROM bank_transactions bt "
-                "WHERE bt.validation_status = 'UNVALIDATED' "
-                "  AND bt.match_type IN ('RULE','SOURCE','BATCH')"
-            ).fetchone()[0])
+            acceptable_count = int(
+                self._conn.execute(
+                    "SELECT COUNT(*) FROM bank_transactions bt "
+                    "WHERE bt.validation_status = 'UNVALIDATED' "
+                    "  AND bt.match_type IN ('RULE','SOURCE','BATCH')"
+                ).fetchone()[0]
+            )
 
         ctx = {
             "heading": "Pending Validation",
@@ -212,13 +217,23 @@ class BankTransactionsPages:
                         (bank_transaction_id, ledger_source_type, ledger_source_id, link_source)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (bank_txn_id, current["matched_source_type"],
-                     int(current["matched_source_id"]), match_type),
+                    (
+                        bank_txn_id,
+                        current["matched_source_type"],
+                        int(current["matched_source_id"]),
+                        match_type,
+                    ),
                 )
-            return back, f"Accepted — linked to {current['matched_source_type'].lower()} #{current['matched_source_id']}."
+            return (
+                back,
+                f"Accepted — linked to {current['matched_source_type'].lower()} #{current['matched_source_id']}.",
+            )
 
         if match_type != "RULE" or not row["rule_id"]:
-            return back, "No rule match on this transaction. Pick a category or link an existing ledger record."
+            return (
+                back,
+                "No rule match on this transaction. Pick a category or link an existing ledger record.",
+            )
 
         with transaction(self._conn):
             result = self._bsp._apply_rule(
@@ -330,14 +345,16 @@ class BankTransactionsPages:
             ).fetchall():
                 if int(r["id"]) in linked_payments:
                     continue
-                candidates.append({
-                    "source_type": "PAYMENT",
-                    "source_id": int(r["id"]),
-                    "date": r["dt"],
-                    "amount": r["amount"],
-                    "label": f"Payment #{r['receipt_number'] or r['id']}"
-                             + (f" — {r['owner_name']}" if r["owner_name"] else ""),
-                })
+                candidates.append(
+                    {
+                        "source_type": "PAYMENT",
+                        "source_id": int(r["id"]),
+                        "date": r["dt"],
+                        "amount": r["amount"],
+                        "label": f"Payment #{r['receipt_number'] or r['id']}"
+                        + (f" — {r['owner_name']}" if r["owner_name"] else ""),
+                    }
+                )
 
             linked_batches = self._linked_source_ids("INCOME_BATCH")
             for r in self._conn.execute(
@@ -355,13 +372,15 @@ class BankTransactionsPages:
             ).fetchall():
                 if int(r["id"]) in linked_batches:
                     continue
-                candidates.append({
-                    "source_type": "INCOME_BATCH",
-                    "source_id": int(r["id"]),
-                    "date": r["dt"],
-                    "amount": r["amount"],
-                    "label": f"Income #{r['id']} — {r['income_description'] or ''}",
-                })
+                candidates.append(
+                    {
+                        "source_type": "INCOME_BATCH",
+                        "source_id": int(r["id"]),
+                        "date": r["dt"],
+                        "amount": r["amount"],
+                        "label": f"Income #{r['id']} — {r['income_description'] or ''}",
+                    }
+                )
         else:
             linked_bps = self._linked_source_ids("BILL_PAYMENT")
             for r in self._conn.execute(
@@ -381,14 +400,18 @@ class BankTransactionsPages:
             ).fetchall():
                 if int(r["id"]) in linked_bps:
                     continue
-                candidates.append({
-                    "source_type": "BILL_PAYMENT",
-                    "source_id": int(r["id"]),
-                    "date": r["dt"],
-                    "amount": r["amount"],
-                    "label": (f"Bill payment #{r['check_number'] or r['id']}"
-                              + (f" — {r['vendor_name']}" if r["vendor_name"] else "")),
-                })
+                candidates.append(
+                    {
+                        "source_type": "BILL_PAYMENT",
+                        "source_id": int(r["id"]),
+                        "date": r["dt"],
+                        "amount": r["amount"],
+                        "label": (
+                            f"Bill payment #{r['check_number'] or r['id']}"
+                            + (f" — {r['vendor_name']}" if r["vendor_name"] else "")
+                        ),
+                    }
+                )
 
         return candidates
 
@@ -404,32 +427,39 @@ class BankTransactionsPages:
         if txn is None:
             return PageResponse(
                 status_code=404,
-                body_html=render_template("bank_transactions_pending.html", {
-                    "org": org, "theme": theme, "active_nav": "transactions",
-                    "page_key": "bank-pending", "accounts": [], "rows": [],
-                    "total_pending": 0, "count_by_account": {},
-                    "error_message": "Transaction not found.",
-                    "flash_message": "", "selected_bank_account_id": None,
-                    "breadcrumb": "Money In · Bank Data", "parent_url": "/",
-                    "heading": "Pending Validation",
-                }),
+                body_html=render_template(
+                    "bank_transactions_pending.html",
+                    {
+                        "org": org,
+                        "theme": theme,
+                        "active_nav": "transactions",
+                        "page_key": "bank-pending",
+                        "accounts": [],
+                        "rows": [],
+                        "total_pending": 0,
+                        "count_by_account": {},
+                        "error_message": "Transaction not found.",
+                        "flash_message": "",
+                        "selected_bank_account_id": None,
+                        "breadcrumb": "Money In · Bank Data",
+                        "parent_url": "/",
+                        "heading": "Pending Validation",
+                    },
+                ),
             )
 
-        categories = self._conn.execute(
-            """
+        categories = self._conn.execute("""
             SELECT id, code, name, category_type, group_name
             FROM categories
             WHERE active_flag = 1 AND category_type IN ('INCOME', 'EXPENSE')
             ORDER BY category_type, sort_order, name
-            """
-        ).fetchall()
+            """).fetchall()
         vendors = self._conn.execute(
             "SELECT id, vendor_name FROM vendors WHERE active_flag = 1 ORDER BY vendor_name COLLATE NOCASE"
         ).fetchall()
         # Lots with first owner alphabetically (last, first) for the
         # owner-payment branch ("HOA Dues" / "Late Fees" / "Resale Fee").
-        lots = self._conn.execute(
-            """
+        lots = self._conn.execute("""
             SELECT
                 l.id,
                 l.lot_number,
@@ -451,8 +481,7 @@ class BankTransactionsPages:
             LEFT JOIN owners o ON o.id = lo.owner_id
             WHERE l.active_flag = 1
             ORDER BY l.lot_number
-            """
-        ).fetchall()
+            """).fetchall()
 
         amount = Decimal(str(txn["amount"]))
         is_income = amount > 0
@@ -513,8 +542,10 @@ class BankTransactionsPages:
         target = abs(amount)
         line_sum = sum((amt for _, amt in lines), Decimal("0.00"))
         if abs(line_sum - target) >= Decimal("0.01"):
-            return back, (f"Lines must sum to {target}; current total is "
-                          f"{line_sum} (off by {target - line_sum}).")
+            return back, (
+                f"Lines must sum to {target}; current total is "
+                f"{line_sum} (off by {target - line_sum})."
+            )
 
         description = (memo or txn["description"] or "").strip()
         factory = ServiceFactory(self._conn)
@@ -536,7 +567,10 @@ class BankTransactionsPages:
             # adding more, but enforce here too.
             if amount > 0 and first_code in OWNER_PAYMENT_CODES:
                 if len(lines) != 1:
-                    return back, "Owner-payment categories (HOA Dues / Late Fees / Resale Fees) cannot be split."
+                    return (
+                        back,
+                        "Owner-payment categories (HOA Dues / Late Fees / Resale Fees) cannot be split.",
+                    )
                 if not lot_id:
                     return back, "Lot is required when the category is an owner charge."
                 owner = self._conn.execute(
@@ -561,9 +595,14 @@ class BankTransactionsPages:
                 )
                 deposit_batch_id = int(batch_cur.lastrowid or 0)
 
-                charge_filter = ("RESALE_FEE",) if first_code == "RESALE_FEE" else ("DUES", "LATE_FEE")
+                charge_filter = (
+                    ("RESALE_FEE",)
+                    if first_code == "RESALE_FEE"
+                    else ("DUES", "LATE_FEE")
+                )
                 open_assess = [
-                    int(r[0]) for r in self._conn.execute(
+                    int(r[0])
+                    for r in self._conn.execute(
                         """SELECT a.id FROM assessments a
                            WHERE a.lot_id = ?
                              AND a.charge_type IN ({}) AND a.status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
@@ -580,7 +619,9 @@ class BankTransactionsPages:
                     description=description or "Owner payment (manual classify)",
                     bank_account_id=int(txn["bank_account_id"]),
                     payment_method="ACH",
-                    receipt_number=self._bsp._next_receipt_number(txn["transaction_date"]),
+                    receipt_number=self._bsp._next_receipt_number(
+                        txn["transaction_date"]
+                    ),
                     apply_to_assessment_ids=open_assess,
                 )
                 self._conn.execute(
@@ -636,12 +677,14 @@ class BankTransactionsPages:
                         invoice_date=txn["transaction_date"],
                         category_id=int(cat_id),
                     )
-                    vendor_payment = factory.vendor_payment_service().post_vendor_payment(
-                        entry_date=txn["transaction_date"],
-                        vendor_bill_id=bill.vendor_bill_id,
-                        amount=str(line_amt),
-                        description=description,
-                        bank_account_id=int(txn["bank_account_id"]),
+                    vendor_payment = (
+                        factory.vendor_payment_service().post_vendor_payment(
+                            entry_date=txn["transaction_date"],
+                            vendor_bill_id=bill.vendor_bill_id,
+                            amount=str(line_amt),
+                            description=description,
+                            bank_account_id=int(txn["bank_account_id"]),
+                        )
                     )
                     posted.append(("BILL_PAYMENT", int(vendor_payment.bill_payment_id)))
                 primary = posted[0]
@@ -700,9 +743,9 @@ class BankTransactionsPages:
         # advisory (the user explicitly chose this row), so we skip that
         # check to allow small fee differences.
         table, date_col, amount_col = {
-            "PAYMENT":      ("payments",       "payment_date", "amount"),
+            "PAYMENT": ("payments", "payment_date", "amount"),
             "INCOME_BATCH": ("income_batches", "posting_date", "total_amount"),
-            "BILL_PAYMENT": ("bill_payments",  "payment_date", "amount"),
+            "BILL_PAYMENT": ("bill_payments", "payment_date", "amount"),
         }[source_type]
         ledger = self._conn.execute(
             f"SELECT id, bank_account_id FROM {table} WHERE id = ?",
@@ -732,7 +775,10 @@ class BankTransactionsPages:
                 """,
                 (bank_txn_id, source_type, int(source_id)),
             )
-        return "/bank-transactions/pending", f"Linked to {source_type.lower()} #{source_id}."
+        return (
+            "/bank-transactions/pending",
+            f"Linked to {source_type.lower()} #{source_id}.",
+        )
 
     # ── Manual entry (grid) ──────────────────────────────────────────────
 
@@ -790,7 +836,9 @@ class BankTransactionsPages:
         queue entries as a file import."""
         from datetime import datetime
         from hoa_accounting.web.bank_ingest import (
-            CANONICAL_TRN_TYPES, CanonicalBankTxn, normalize_trn_type,
+            CANONICAL_TRN_TYPES,
+            CanonicalBankTxn,
+            normalize_trn_type,
         )
         from hoa_accounting.web.bank_statement_pages import BankStatementPages
 
@@ -828,21 +876,26 @@ class BankTransactionsPages:
                 trn_type = normalize_trn_type(trn_type)
             elif not trn_type:
                 trn_type = "CREDIT" if amount > 0 else "DEBIT"
-            canonical.append(CanonicalBankTxn(
-                posted_at=posted,
-                amount=amount,
-                description=description,
-                memo=(r.get("memo") or "").strip(),
-                transaction_type=trn_type,
-                check_number=(r.get("check_number") or "").strip(),
-                external_ref="",
-                raw={"source": "manual"},
-            ))
+            canonical.append(
+                CanonicalBankTxn(
+                    posted_at=posted,
+                    amount=amount,
+                    description=description,
+                    memo=(r.get("memo") or "").strip(),
+                    transaction_type=trn_type,
+                    check_number=(r.get("check_number") or "").strip(),
+                    external_ref="",
+                    raw={"source": "manual"},
+                )
+            )
 
         if errors:
             return "/bank-transactions/manual", " ".join(errors)
         if not canonical:
-            return "/bank-transactions/manual", "No rows to save — fill in at least one line."
+            return (
+                "/bank-transactions/manual",
+                "No rows to save — fill in at least one line.",
+            )
 
         bsp = BankStatementPages(self._conn)
         stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -872,7 +925,10 @@ class BankTransactionsPages:
         from datetime import datetime
         from decimal import Decimal as _D
         from hoa_accounting.web.bank_statement_import import (
-            ParsedTransaction, apply_rules, match_transactions, find_batch_matches,
+            ParsedTransaction,
+            apply_rules,
+            match_transactions,
+            find_batch_matches,
         )
 
         back = "/bank-transactions/pending"
@@ -920,15 +976,20 @@ class BankTransactionsPages:
                     ids_to_revalidate,
                 )
 
-            rules = [dict(r) for r in self._conn.execute(
-                "SELECT * FROM bank_transaction_rules WHERE active_flag = 1"
-            ).fetchall()]
+            rules = [
+                dict(r)
+                for r in self._conn.execute(
+                    "SELECT * FROM bank_transaction_rules WHERE active_flag = 1"
+                ).fetchall()
+            ]
 
             updated = 0
             for ba_id, batch_rows in by_ba.items():
                 txns = [
                     ParsedTransaction(
-                        transaction_date=datetime.strptime(str(r["transaction_date"]), "%Y-%m-%d").date(),
+                        transaction_date=datetime.strptime(
+                            str(r["transaction_date"]), "%Y-%m-%d"
+                        ).date(),
                         amount=_D(str(r["amount"])),
                         description=r["description"] or "",
                         memo=r["memo"] or "",
@@ -941,9 +1002,12 @@ class BankTransactionsPages:
                 batches = self._bsp._get_unmatched_batches(ba_id)
 
                 rule_m = apply_rules(txns, rules, bank_account_id=ba_id)
-                source_m = match_transactions(txns, items, skip_indices=set(rule_m.keys()))
+                source_m = match_transactions(
+                    txns, items, skip_indices=set(rule_m.keys())
+                )
                 batch_m = find_batch_matches(
-                    txns, batches,
+                    txns,
+                    batches,
                     skip_indices=set(rule_m.keys()) | set(source_m.keys()),
                 )
 
@@ -985,7 +1049,10 @@ class BankTransactionsPages:
                             "WHERE id=?",
                             (int(r["id"]),),
                         )
-        return back, f"Re-validated {len(rows)} transaction(s); {updated} now have a proposed match."
+        return (
+            back,
+            f"Re-validated {len(rows)} transaction(s); {updated} now have a proposed match.",
+        )
 
     # ── Dry Run (preview what Accept All would do) ─────────────────────
 
@@ -1051,7 +1118,8 @@ class BankTransactionsPages:
 
         ctx = {
             "heading": "Dry Run — what Accept All would do",
-            "org": org, "theme": theme,
+            "org": org,
+            "theme": theme,
             "active_nav": "transactions",
             "page_key": "bank-pending",
             "breadcrumb": "Money In · Bank Data",
@@ -1060,10 +1128,10 @@ class BankTransactionsPages:
             "source_rows": source_rows,
             "batch_rows": batch_rows,
             "unmatched_rows": unmatched_rows,
-            "rule_total":   str(_sum(rule_rows)),
+            "rule_total": str(_sum(rule_rows)),
             "source_total": str(_sum(source_rows)),
-            "batch_total":  str(_sum(batch_rows)),
-            "net":          str(_sum(rule_rows) + _sum(source_rows) + _sum(batch_rows)),
+            "batch_total": str(_sum(batch_rows)),
+            "net": str(_sum(rule_rows) + _sum(source_rows) + _sum(batch_rows)),
             "accounts": [dict(a) for a in accounts],
             "selected_bank_account_id": bank_account_id,
             "acceptable_count": len(rule_rows) + len(source_rows) + len(batch_rows),
@@ -1081,7 +1149,8 @@ class BankTransactionsPages:
         # SQL surface is statically auditable.
         if bank_account_id:
             ids = [
-                int(r[0]) for r in self._conn.execute(
+                int(r[0])
+                for r in self._conn.execute(
                     "SELECT id FROM bank_transactions "
                     "WHERE validation_status = 'UNVALIDATED' "
                     "  AND match_type IN ('RULE','SOURCE','BATCH') "
@@ -1092,7 +1161,8 @@ class BankTransactionsPages:
             ]
         else:
             ids = [
-                int(r[0]) for r in self._conn.execute(
+                int(r[0])
+                for r in self._conn.execute(
                     "SELECT id FROM bank_transactions "
                     "WHERE validation_status = 'UNVALIDATED' "
                     "  AND match_type IN ('RULE','SOURCE','BATCH') "

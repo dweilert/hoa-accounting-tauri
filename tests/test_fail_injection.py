@@ -38,7 +38,6 @@ from hoa_accounting.services.assessment_billing_service import (
 
 from tests._service_fixtures import build_seeded_conn
 
-
 # ── Deposit batch — confirm atomic rollback ───────────────────────────
 
 
@@ -76,12 +75,8 @@ def test_deposit_batch_rolls_back_when_payment_apply_raises(monkeypatch):
         )
 
     # Atomic: no batch row, no payment rows.
-    n_batches = conn.execute(
-        "SELECT COUNT(*) FROM deposit_batches"
-    ).fetchone()[0]
-    n_payments = conn.execute(
-        "SELECT COUNT(*) FROM payments"
-    ).fetchone()[0]
+    n_batches = conn.execute("SELECT COUNT(*) FROM deposit_batches").fetchone()[0]
+    n_payments = conn.execute("SELECT COUNT(*) FROM payments").fetchone()[0]
     assert n_batches == 0, "deposit_batches row leaked through rollback"
     assert n_payments == 0, "payments row leaked through rollback"
 
@@ -176,7 +171,8 @@ def test_vendor_bill_page_handler_atomic_rollback(monkeypatch):
     payment_service = factory.vendor_payment_service()
 
     monkeypatch.setattr(
-        payment_service, "post_vendor_payment",
+        payment_service,
+        "post_vendor_payment",
         lambda *a, **kw: (_ for _ in ()).throw(
             RuntimeError("simulated payment-side failure")
         ),
@@ -347,7 +343,8 @@ def test_income_split_rolls_back_when_second_batch_fails(monkeypatch):
                 )
 
     orig = conn.execute(
-        "SELECT id FROM income_batches WHERE id = ?", (original_id,),
+        "SELECT id FROM income_batches WHERE id = ?",
+        (original_id,),
     ).fetchone()
     assert orig is not None, "Original income batch must survive rollback"
 

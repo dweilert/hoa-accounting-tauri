@@ -18,7 +18,9 @@ PBKDF2_ITERATIONS = 600_000
 def make_password_hash(password: str) -> str:
     """Create a PBKDF2 password hash."""
     salt = secrets.token_bytes(16)
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)
+    dk = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
+    )
     return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt.hex()}${dk.hex()}"
 
 
@@ -46,7 +48,9 @@ class DatabaseInitializer:
         """Create and seed the configured database."""
         db_type = self.config.database.type.lower()
         if db_type != "sqlite":
-            raise ValidationError(f"Unsupported database type for initializer: {db_type}")
+            raise ValidationError(
+                f"Unsupported database type for initializer: {db_type}"
+            )
 
         db_path = Path(self.config.database.path).expanduser()
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -78,7 +82,9 @@ class DatabaseInitializer:
                 reserve_bank_name=reserve_bank_name,
                 reserve_last4=reserve_last4,
             )
-            self._seed_assessment_rule(conn, annual_assessment_amount=annual_assessment_amount)
+            self._seed_assessment_rule(
+                conn, annual_assessment_amount=annual_assessment_amount
+            )
             if seed_demo_data:
                 self._seed_demo_master_data(conn)
             conn.commit()
@@ -139,10 +145,22 @@ class DatabaseInitializer:
 
     def _seed_periods(self, conn: sqlite3.Connection, *, fiscal_year: int) -> None:
         month_lengths = {
-            1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
-            7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
+            1: 31,
+            2: 28,
+            3: 31,
+            4: 30,
+            5: 31,
+            6: 30,
+            7: 31,
+            8: 31,
+            9: 30,
+            10: 31,
+            11: 30,
+            12: 31,
         }
-        leap = fiscal_year % 4 == 0 and (fiscal_year % 100 != 0 or fiscal_year % 400 == 0)
+        leap = fiscal_year % 4 == 0 and (
+            fiscal_year % 100 != 0 or fiscal_year % 400 == 0
+        )
         if leap:
             month_lengths[2] = 29
 
@@ -175,8 +193,22 @@ class DatabaseInitializer:
             ) VALUES (?, ?, ?, ?, ?, ?, 1)
             """,
             [
-                (1, 'Operating Checking', operating_bank_name, operating_last4, 'CHECKING', 'OPERATING'),
-                (2, 'Reserve Savings', reserve_bank_name, reserve_last4, 'SAVINGS', 'RESERVE'),
+                (
+                    1,
+                    "Operating Checking",
+                    operating_bank_name,
+                    operating_last4,
+                    "CHECKING",
+                    "OPERATING",
+                ),
+                (
+                    2,
+                    "Reserve Savings",
+                    reserve_bank_name,
+                    reserve_last4,
+                    "SAVINGS",
+                    "RESERVE",
+                ),
             ],
         )
 
@@ -208,31 +240,23 @@ class DatabaseInitializer:
 
     def _seed_demo_master_data(self, conn: sqlite3.Connection) -> None:
         """Seed minimal demo records so example scripts can run immediately."""
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO lots (
                 id, lot_number, street_address_1, city, state, postal_code, active_flag
             ) VALUES (1, '1', '100 Sample Lane', 'Austin', 'TX', '78701', 1)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             INSERT INTO owners (
                 id, owner_type, display_name, first_name, last_name, active_flag
             ) VALUES (1, 'PERSON', 'Sample Owner', 'Sample', 'Owner', 1)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             INSERT INTO lot_ownership (
                 id, lot_id, owner_id, start_date
             ) VALUES (1, 1, 1, '2026-01-01')
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             INSERT INTO vendors (
                 id, vendor_name, active_flag
             ) VALUES (1, 'Sample Vendor', 1)
-            """
-        )
+            """)

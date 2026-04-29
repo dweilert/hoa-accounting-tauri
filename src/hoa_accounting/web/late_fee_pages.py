@@ -32,8 +32,8 @@ from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 
-_DEFAULT_RATE = Decimal("10.00")   # 10 % per annum per bylaws
-_LATE_FEE_ACCOUNT = "4050"         # Late Fee Income (seeded in migration 0013)
+_DEFAULT_RATE = Decimal("10.00")  # 10 % per annum per bylaws
+_LATE_FEE_ACCOUNT = "4050"  # Late Fee Income (seeded in migration 0013)
 _AR_DEFAULT = "1100"
 
 
@@ -91,8 +91,7 @@ class LateFeePages:
         # One row per lot. When a lot has multiple current owners we show
         # the one that sorts first by (last_name, first_name) — keeps the
         # dropdown compact and lets the user scan it alphabetically.
-        rows = self.conn.execute(
-            """
+        rows = self.conn.execute("""
             WITH first_owner AS (
                 SELECT
                     lo.lot_id,
@@ -119,8 +118,7 @@ class LateFeePages:
                    ON fo.lot_id = l.id AND fo.rn = 1
             WHERE l.active_flag = 1
             ORDER BY l.lot_number COLLATE NOCASE
-            """
-        ).fetchall()
+            """).fetchall()
         options = []
         for r in rows:
             owner = r["owner_name"] or "(no owner)"
@@ -151,19 +149,21 @@ class LateFeePages:
                 principal = Decimal(str(row["amount"]))
                 remaining = principal - Decimal(str(row["already_applied"]))
                 days = _days_between(delinquent_date, through_date)
-                chargeable.append({
-                    "id": row["id"],
-                    "description": row["description"],
-                    "amount": principal,
-                    "remaining": remaining,
-                    "due_date": row["due_date"],
-                    "assessment_date": row["assessment_date"],
-                    "charge_type": ct,
-                    "delinquent_date": delinquent_date,
-                    "days": days,
-                    # interest calculated with default rate; JS recalculates live
-                    "interest": _calc_interest(remaining, _DEFAULT_RATE, days),
-                })
+                chargeable.append(
+                    {
+                        "id": row["id"],
+                        "description": row["description"],
+                        "amount": principal,
+                        "remaining": remaining,
+                        "due_date": row["due_date"],
+                        "assessment_date": row["assessment_date"],
+                        "charge_type": ct,
+                        "delinquent_date": delinquent_date,
+                        "days": days,
+                        # interest calculated with default rate; JS recalculates live
+                        "interest": _calc_interest(remaining, _DEFAULT_RATE, days),
+                    }
+                )
 
         return {"lot": lot, "chargeable": chargeable, "history": history}
 
@@ -209,18 +209,22 @@ class LateFeePages:
             lot_data = self._load_lot_charges(lot_id, eff_through)
             # Re-calculate with the actual rate (form values may differ from default).
             for row in lot_data.get("chargeable", []):
-                row["interest"] = _calc_interest(row["remaining"], rate_dec, row["days"])
+                row["interest"] = _calc_interest(
+                    row["remaining"], rate_dec, row["days"]
+                )
                 # Restore any user-overridden values from a validation-error repost.
                 row_key = str(row["id"])
                 if fv.get(f"row_{row_key}_delinquent_date"):
                     row["delinquent_date"] = fv[f"row_{row_key}_delinquent_date"]
                     row["days"] = _days_between(row["delinquent_date"], eff_through)
-                    row["interest"] = _calc_interest(row["remaining"], rate_dec, row["days"])
+                    row["interest"] = _calc_interest(
+                        row["remaining"], rate_dec, row["days"]
+                    )
                 if fv.get(f"row_{row_key}_interest"):
                     try:
-                        row["interest"] = Decimal(fv[f"row_{row_key}_interest"]).quantize(
-                            Decimal("0.01"), rounding=ROUND_HALF_UP
-                        )
+                        row["interest"] = Decimal(
+                            fv[f"row_{row_key}_interest"]
+                        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                     except InvalidOperation:
                         pass
 
@@ -259,7 +263,8 @@ class LateFeePages:
 
         def _err(msg: str) -> tuple[None, LateFeePageResponse]:
             return None, self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=msg,
             )
@@ -305,7 +310,9 @@ class LateFeePages:
             except ValueError:
                 continue
 
-            interest_raw = (form_data.get(f"row_{assessment_id}_interest") or "").strip()
+            interest_raw = (
+                form_data.get(f"row_{assessment_id}_interest") or ""
+            ).strip()
             delinquent_date = (
                 form_data.get(f"row_{assessment_id}_delinquent_date") or ""
             ).strip()
@@ -323,14 +330,18 @@ class LateFeePages:
             if not delinquent_date:
                 return _err(f"Delinquent date is required for each selected charge.")
 
-            rows_to_post.append({
-                "assessment_id": assessment_id,
-                "delinquent_date": delinquent_date,
-                "interest": interest,
-            })
+            rows_to_post.append(
+                {
+                    "assessment_id": assessment_id,
+                    "delinquent_date": delinquent_date,
+                    "interest": interest,
+                }
+            )
 
         if not rows_to_post:
-            return _err("Select at least one charge and ensure the interest amount is greater than zero.")
+            return _err(
+                "Select at least one charge and ensure the interest amount is greater than zero."
+            )
 
         # ── Post one LATE_FEE assessment per selected row ──
         try:
@@ -342,7 +353,9 @@ class LateFeePages:
                     "SELECT description, due_date FROM assessments WHERE id = ?",
                     (row["assessment_id"],),
                 ).fetchone()
-                orig_desc = orig["description"] if orig else f"charge #{row['assessment_id']}"
+                orig_desc = (
+                    orig["description"] if orig else f"charge #{row['assessment_id']}"
+                )
                 desc = (
                     f"Late fee on: {orig_desc} "
                     f"(delinquent {row['delinquent_date']} through {through_date}, "
@@ -363,6 +376,7 @@ class LateFeePages:
             return _err(str(exc))
 
         from urllib.parse import quote
+
         total = sum(r["interest"] for r in rows_to_post)
         msg = (
             f"Posted {posted} late fee charge(s) totalling "

@@ -22,9 +22,18 @@ from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 
 _MONTH_NAMES = [
-    "January", "February", "March", "April",
-    "May", "June", "July", "August",
-    "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ]
 
 _CYCLE_MAX: dict[str, int] = {
@@ -92,10 +101,10 @@ def _today() -> str:
 # Treasurers can override, but the default matches the typical grace period
 # for each cycle length.
 _DEFAULT_GRACE_DAYS: dict[str, int] = {
-    "MONTHLY":    15,
-    "QUARTERLY":  30,
+    "MONTHLY": 15,
+    "QUARTERLY": 30,
     "SEMIANNUAL": 30,
-    "ANNUAL":     30,
+    "ANNUAL": 30,
 }
 
 
@@ -109,6 +118,7 @@ def _default_due_date(cycle_type: str, entry_date_iso: str) -> str:
         base = _date.today()
     grace = _DEFAULT_GRACE_DAYS.get(cycle_type, 15)
     from datetime import timedelta
+
     return (base + timedelta(days=grace)).isoformat()
 
 
@@ -132,7 +142,8 @@ class DuesBillingPages:
 
     @staticmethod
     def _resolve_income_account(
-        conn: sqlite3.Connection, org: dict[str, Any]  # noqa: ARG004 — kept for signature stability
+        conn: sqlite3.Connection,
+        org: dict[str, Any],  # noqa: ARG004 — kept for signature stability
     ) -> tuple[int | None, str]:
         """Return (category_id, display_label) for the dues income category.
 
@@ -147,7 +158,10 @@ class DuesBillingPages:
             (cat_code,),
         ).fetchone()
         if row is None:
-            return None, f"Dues category '{cat_code}' not found. Add it on the Categories page."
+            return (
+                None,
+                f"Dues category '{cat_code}' not found. Add it on the Categories page.",
+            )
         if int(row["active_flag"]) != 1:
             return None, f"Dues category '{cat_code}' is inactive."
         return int(row["id"]), f"{row['code']} · {row['name']}"
@@ -165,7 +179,9 @@ class DuesBillingPages:
         org = org or {}
 
         # Auto-resolve the income account — no dropdown needed.
-        income_account_id, income_account_label = self._resolve_income_account(self.conn, org)
+        income_account_id, income_account_label = self._resolve_income_account(
+            self.conn, org
+        )
         if income_account_id is None:
             error_message = error_message or income_account_label
             income_account_label = ""
@@ -178,7 +194,9 @@ class DuesBillingPages:
         # values.  Otherwise default to the next logical period.
         if values:
             def_cycle = values.get("cycle_type", "MONTHLY")
-            def_year = int(values.get("period_year", _date.today().year) or _date.today().year)
+            def_year = int(
+                values.get("period_year", _date.today().year) or _date.today().year
+            )
             def_seq = int(values.get("period_sequence", 1) or 1)
         elif last:
             def_cycle = last["cycle_type"]
@@ -192,7 +210,9 @@ class DuesBillingPages:
             def_year, def_seq = _default_period_for_today("MONTHLY")
 
         def_label = _period_label(def_cycle, def_year, def_seq)
-        def_description = values.get("description") or _auto_description(def_cycle, def_label)
+        def_description = values.get("description") or _auto_description(
+            def_cycle, def_label
+        )
         # Fall back to the HOA's configured default assessment amount (set on
         # /setup) so treasurers don't have to re-type it every billing cycle.
         def_amount = (
@@ -201,7 +221,9 @@ class DuesBillingPages:
             or ""
         )
         def_entry_date = values.get("entry_date", _today())
-        def_due_date = values.get("due_date") or _default_due_date(def_cycle, def_entry_date)
+        def_due_date = values.get("due_date") or _default_due_date(
+            def_cycle, def_entry_date
+        )
 
         ctx = {
             "heading": "Bill Dues",
@@ -244,7 +266,8 @@ class DuesBillingPages:
     ) -> tuple[str | None, DuesBillingPageResponse | None]:
         def _err(msg: str) -> tuple[None, DuesBillingPageResponse]:
             return None, self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=msg,
             )
@@ -353,4 +376,5 @@ class DuesBillingPages:
             f"for {label}. Total {format_currency(result.total_amount)}."
         )
         from urllib.parse import quote
+
         return f"/dues-billing?msg={quote(msg)}", None

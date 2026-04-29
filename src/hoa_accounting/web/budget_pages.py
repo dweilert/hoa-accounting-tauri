@@ -24,8 +24,18 @@ from hoa_accounting.repositories.budgets_repo import BudgetsRepository
 from hoa_accounting.web.template_engine import render_template
 
 _MONTH_NAMES = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 ]
 
 _NO_GROUP_LABEL = "Other"
@@ -59,22 +69,22 @@ class BudgetPages:
         rows = self._repo.list_budgets()
         budgets = [
             {
-                "id":          r["id"],
+                "id": r["id"],
                 "fiscal_year": r["fiscal_year"],
-                "fund_code":   r["fund_code"],
-                "status":      r["status"],
-                "notes":       r["notes"] or "",
-                "created_at":  r["created_at"],
+                "fund_code": r["fund_code"],
+                "status": r["status"],
+                "notes": r["notes"] or "",
+                "created_at": r["created_at"],
             }
             for r in rows
         ]
         ctx = {
-            "active_nav":  "master-data",
-            "page_key":    "budgets",
-            "breadcrumb":  "Master Data",
-            "org":         org,
-            "theme":       theme,
-            "budgets":     budgets,
+            "active_nav": "master-data",
+            "page_key": "budgets",
+            "breadcrumb": "Master Data",
+            "org": org,
+            "theme": theme,
+            "budgets": budgets,
             "flash_message": flash_message,
         }
         return PageResponse(
@@ -94,15 +104,15 @@ class BudgetPages:
     ) -> PageResponse:
         fd = form_data or {}
         ctx = {
-            "active_nav":  "master-data",
-            "page_key":    "budgets",
-            "breadcrumb":  "Master Data / Budgets",
-            "org":         org,
-            "theme":       theme,
-            "error":       error,
+            "active_nav": "master-data",
+            "page_key": "budgets",
+            "breadcrumb": "Master Data / Budgets",
+            "org": org,
+            "theme": theme,
+            "error": error,
             "fiscal_year": fd.get("fiscal_year", ""),
-            "fund_code":   fd.get("fund_code", "OPERATING"),
-            "notes":       fd.get("notes", ""),
+            "fund_code": fd.get("fund_code", "OPERATING"),
+            "notes": fd.get("notes", ""),
         }
         return PageResponse(
             status_code=HTTPStatus.OK,
@@ -124,14 +134,16 @@ class BudgetPages:
             fiscal_year = int(fiscal_year_raw)
         except ValueError:
             return None, self.render_new_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error="Fiscal year must be a number.",
                 form_data=form_data,
             )
 
         if fund_code not in ("OPERATING", "RESERVE", "SPECIAL"):
             return None, self.render_new_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error="Invalid fund code.",
                 form_data=form_data,
             )
@@ -139,7 +151,8 @@ class BudgetPages:
         existing = self._repo.find_budget(fiscal_year, fund_code)
         if existing is not None:
             return None, self.render_new_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error=f"A budget for {fiscal_year} {fund_code} already exists.",
                 form_data=form_data,
             )
@@ -184,11 +197,12 @@ class BudgetPages:
         legacy_totals: dict[str, Decimal] = {}
         for line in saved_lines:
             if line["category_id"] is None:
-                acct_name = str(line["legacy_account_name"] or line["account_id"] or "Unknown")
-                legacy_totals[acct_name] = (
-                    legacy_totals.get(acct_name, Decimal("0.00"))
-                    + Decimal(str(line["budget_amount"]))
+                acct_name = str(
+                    line["legacy_account_name"] or line["account_id"] or "Unknown"
                 )
+                legacy_totals[acct_name] = legacy_totals.get(
+                    acct_name, Decimal("0.00")
+                ) + Decimal(str(line["budget_amount"]))
                 continue
             key = (int(line["category_id"]), int(line["fiscal_period"]))
             saved[key] = Decimal(str(line["budget_amount"]))
@@ -227,19 +241,23 @@ class BudgetPages:
                 for p in range(1, 13):
                     amt = saved.get((cid, p), Decimal("0.00"))
                     row_total += amt
-                    monthly.append({
-                        "period":  p,
-                        "field":   f"amt_{cid}_{p}",
-                        "value":   "" if amt == Decimal("0.00") else str(amt),
-                    })
-                category_rows.append({
-                    "category_id":    cid,
-                    "category_name":  cat["name"],
-                    "group_name":     gn,
-                    "group_label":    gn or _NO_GROUP_LABEL,
-                    "monthly":        monthly,
-                    "row_total":      str(row_total) if row_total else "",
-                })
+                    monthly.append(
+                        {
+                            "period": p,
+                            "field": f"amt_{cid}_{p}",
+                            "value": "" if amt == Decimal("0.00") else str(amt),
+                        }
+                    )
+                category_rows.append(
+                    {
+                        "category_id": cid,
+                        "category_name": cat["name"],
+                        "group_name": gn,
+                        "group_label": gn or _NO_GROUP_LABEL,
+                        "monthly": monthly,
+                        "row_total": str(row_total) if row_total else "",
+                    }
+                )
 
         legacy_lines = [
             {"account_name": name, "total": str(total)}
@@ -247,20 +265,20 @@ class BudgetPages:
         ]
 
         ctx = {
-            "active_nav":     "master-data",
-            "page_key":       "budgets",
-            "breadcrumb":     "Master Data / Budgets",
-            "org":            org,
-            "theme":          theme,
-            "budget":         dict(budget),
-            "category_rows":  category_rows,
-            "month_names":    _MONTH_NAMES,
-            "flash_message":  flash_message,
-            "error":          error,
-            "is_approved":    budget["status"] == "APPROVED",
-            "is_draft":       budget["status"] == "DRAFT",
-            "is_archived":    budget["status"] == "ARCHIVED",
-            "legacy_lines":   legacy_lines,
+            "active_nav": "master-data",
+            "page_key": "budgets",
+            "breadcrumb": "Master Data / Budgets",
+            "org": org,
+            "theme": theme,
+            "budget": dict(budget),
+            "category_rows": category_rows,
+            "month_names": _MONTH_NAMES,
+            "flash_message": flash_message,
+            "error": error,
+            "is_approved": budget["status"] == "APPROVED",
+            "is_draft": budget["status"] == "DRAFT",
+            "is_archived": budget["status"] == "ARCHIVED",
+            "legacy_lines": legacy_lines,
         }
         return PageResponse(
             status_code=HTTPStatus.OK,
@@ -402,7 +420,10 @@ class BudgetPages:
         if budget is None:
             return "/budgets?msg=Budget+not+found.", None
         if budget["status"] != "DRAFT":
-            return f"/budgets/{budget_id}/edit?msg=Only+DRAFT+budgets+can+be+deleted.", None
+            return (
+                f"/budgets/{budget_id}/edit?msg=Only+DRAFT+budgets+can+be+deleted.",
+                None,
+            )
         try:
             self._repo.delete_budget(budget_id)
             self.conn.commit()

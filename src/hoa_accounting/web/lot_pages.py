@@ -125,10 +125,13 @@ class LotPages:
             all_owners = self.owners_repo.list_owners(active_only=True)
             # Exclude owners already linked to this lot
             linked_ids = {o["owner_id"] for o in current_ownerships}
+
             def _owner_label(r: sqlite3.Row) -> str:
                 first = (r["first_name"] or "").strip()
                 last = (r["last_name"] or "").strip()
-                name = f"{first} {last}".strip() if (first or last) else r["display_name"]
+                name = (
+                    f"{first} {last}".strip() if (first or last) else r["display_name"]
+                )
                 return name
 
             owner_options = [
@@ -165,7 +168,11 @@ class LotPages:
             "error_message": error_message,
             "ownership_error": ownership_error,
         }
-        status = HTTPStatus.BAD_REQUEST if (error_message or ownership_error) else HTTPStatus.OK
+        status = (
+            HTTPStatus.BAD_REQUEST
+            if (error_message or ownership_error)
+            else HTTPStatus.OK
+        )
         return LotPageResponse(
             status_code=status,
             body_html=render_template(self.FORM_TEMPLATE, ctx),
@@ -184,9 +191,7 @@ class LotPages:
             lot_number = _require(form_data.get("lot_number", ""), "Lot Number")
 
             if self.repo.lot_number_exists(lot_number):
-                raise ValidationError(
-                    f"Lot number \"{lot_number}\" is already in use."
-                )
+                raise ValidationError(f'Lot number "{lot_number}" is already in use.')
 
             self.repo.insert_lot(
                 lot_number=lot_number,
@@ -201,7 +206,8 @@ class LotPages:
 
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -225,7 +231,7 @@ class LotPages:
 
             if self.repo.lot_number_exists(lot_number, exclude_id=lot_id):
                 raise ValidationError(
-                    f"Lot number \"{lot_number}\" is already in use by another lot."
+                    f'Lot number "{lot_number}" is already in use by another lot.'
                 )
 
             active_flag = form_data.get("active_flag", "1") == "1"
@@ -244,7 +250,8 @@ class LotPages:
 
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 lot_id=lot_id,
                 form_values=form_data,
                 error_message=str(exc),
@@ -278,7 +285,8 @@ class LotPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 lot_id=lot_id,
                 error_message=str(exc),
             )
@@ -309,7 +317,9 @@ class LotPages:
             start_date = _require(form_data.get("start_date", ""), "Start Date")
 
             if self.ownership_repo.owner_already_linked(lot_id, owner_id):
-                raise ValidationError("That owner is already a current owner of this lot.")
+                raise ValidationError(
+                    "That owner is already a current owner of this lot."
+                )
 
             self.ownership_repo.assign_owner(
                 lot_id=lot_id,
@@ -319,7 +329,8 @@ class LotPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 lot_id=lot_id,
                 ownership_error=str(exc),
             )
@@ -348,7 +359,8 @@ class LotPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 lot_id=lot_id,
                 ownership_error=str(exc),
             )
@@ -379,7 +391,8 @@ class LotPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 lot_id=lot_id,
                 ownership_error=str(exc),
             )

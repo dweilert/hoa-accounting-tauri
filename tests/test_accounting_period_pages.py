@@ -21,7 +21,6 @@ from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.repositories.periods_repo import PeriodsRepository
 from hoa_accounting.web.accounting_period_pages import AccountingPeriodPages
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────
 
 
@@ -53,8 +52,12 @@ def _seed_period(
     return int(cur.lastrowid)
 
 
-_ORG = {"name": "Test HOA", "environment": "test",
-        "fiscal_year_start_month": 1, "theme": "warm"}
+_ORG = {
+    "name": "Test HOA",
+    "environment": "test",
+    "fiscal_year_start_month": 1,
+    "theme": "warm",
+}
 
 
 # ── render_list ────────────────────────────────────────────────────────
@@ -113,7 +116,8 @@ def test_handle_add_redirects_on_success(conn: sqlite3.Connection) -> None:
             "fiscal_year": "2030",
             "fiscal_period": "7",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is not None
     assert resp is None
@@ -130,7 +134,8 @@ def test_handle_add_missing_period_name_returns_error(conn: sqlite3.Connection) 
             "fiscal_year": "2030",
             "fiscal_period": "7",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert resp is not None
@@ -147,7 +152,8 @@ def test_handle_add_end_before_start_returns_error(conn: sqlite3.Connection) -> 
             "fiscal_year": "2030",
             "fiscal_period": "7",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert resp is not None
@@ -164,7 +170,8 @@ def test_handle_add_duplicate_name_returns_error(conn: sqlite3.Connection) -> No
             "fiscal_year": "2030",
             "fiscal_period": "1",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert resp is not None
@@ -177,7 +184,8 @@ def test_handle_add_duplicate_name_returns_error(conn: sqlite3.Connection) -> No
 def test_handle_generate_year_creates_12_periods(conn: sqlite3.Connection) -> None:
     redirect_url, resp = AccountingPeriodPages(conn).handle_generate_year(
         form_data={"fiscal_year": "2031"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is not None
     rows = PeriodsRepository(conn).list_periods()
@@ -191,7 +199,8 @@ def test_handle_generate_year_creates_12_periods(conn: sqlite3.Connection) -> No
 def test_handle_generate_year_handles_leap_year(conn: sqlite3.Connection) -> None:
     AccountingPeriodPages(conn).handle_generate_year(
         form_data={"fiscal_year": "2032"},  # 2032 is a leap year
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     rows = PeriodsRepository(conn).list_periods()
     feb = next(r for r in rows if r["period_name"] == "2032-02")
@@ -201,11 +210,13 @@ def test_handle_generate_year_handles_leap_year(conn: sqlite3.Connection) -> Non
 def test_handle_generate_year_blocks_duplicate(conn: sqlite3.Connection) -> None:
     AccountingPeriodPages(conn).handle_generate_year(
         form_data={"fiscal_year": "2031"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     redirect_url, resp = AccountingPeriodPages(conn).handle_generate_year(
         form_data={"fiscal_year": "2031"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert resp is not None
@@ -266,5 +277,3 @@ def test_handle_delete_removes_empty_period(conn: sqlite3.Connection) -> None:
     )
     assert redirect_url is not None
     assert PeriodsRepository(conn).get_period(pid) is None
-
-

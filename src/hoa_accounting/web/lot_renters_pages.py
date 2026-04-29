@@ -21,7 +21,11 @@ from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.lot_renters_repo import LotRentersRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.forms import opt as _opt, parse_int as _parse_int, require as _require
+from hoa_accounting.validators.forms import (
+    opt as _opt,
+    parse_int as _parse_int,
+    require as _require,
+)
 
 
 @dataclass(frozen=True)
@@ -57,7 +61,9 @@ class LotRentersPages:
         return [
             {
                 "id": r["id"],
-                "label": f"{r['lot_number']} — {r['street_address_1'] or ''}".strip(" —"),
+                "label": f"{r['lot_number']} — {r['street_address_1'] or ''}".strip(
+                    " —"
+                ),
             }
             for r in rows
         ]
@@ -178,7 +184,8 @@ class LotRentersPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -215,7 +222,8 @@ class LotRentersPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 renter_id=renter_id,
                 form_values=form_data,
                 error_message=str(exc),
@@ -241,7 +249,9 @@ class LotRentersPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_list(
-                org=org, theme=theme, error_message=str(exc),
+                org=org,
+                theme=theme,
+                error_message=str(exc),
             )
         except Exception:
             self.conn.rollback()

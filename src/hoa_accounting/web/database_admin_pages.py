@@ -58,7 +58,7 @@ class HealthResult:
     integrity_ok: bool
     integrity_errors: list[str]
     fk_violations: list[dict[str, Any]]  # table, rowid, parent, fkid
-    checked_at: str = ""       # human-readable timestamp, e.g. "2:47:05 PM"
+    checked_at: str = ""  # human-readable timestamp, e.g. "2:47:05 PM"
 
     @property
     def all_ok(self) -> bool:
@@ -91,10 +91,15 @@ class DatabaseAdminPages:
     # (e.g. ``PRAGMA wal_checkpoint(TRUNCATE)``) deliberately bypass this
     # helper — they have different semantics and their full literal
     # appears at the call site, which is auditable on its own.
-    _PRAGMA_WHITELIST = frozenset({
-        "journal_mode", "page_size", "page_count", "freelist_count",
-        "wal_autocheckpoint",
-    })
+    _PRAGMA_WHITELIST = frozenset(
+        {
+            "journal_mode",
+            "page_size",
+            "page_count",
+            "freelist_count",
+            "wal_autocheckpoint",
+        }
+    )
 
     def _get_stats(self) -> DbStats:
         def pragma(name: str) -> Any:
@@ -115,8 +120,7 @@ class DatabaseAdminPages:
             freelist_count=int(pragma("freelist_count") or 0),
             journal_mode=journal_mode,
             wal_autocheckpoint=(
-                int(pragma("wal_autocheckpoint"))
-                if journal_mode == "wal" else None
+                int(pragma("wal_autocheckpoint")) if journal_mode == "wal" else None
             ),
         )
 
@@ -150,14 +154,15 @@ class DatabaseAdminPages:
 
     def _table_counts(self) -> list[dict[str, Any]]:
         tables = [
-            r[0] for r in self.conn.execute(
+            r[0]
+            for r in self.conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
                 "AND name NOT LIKE 'sqlite_%' ORDER BY name"
             ).fetchall()
         ]
         counts = []
         for t in tables:
-            n = self.conn.execute(f"SELECT COUNT(*) FROM \"{t}\"").fetchone()[0]
+            n = self.conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
             counts.append({"table": t, "rows": n})
         return counts
 
@@ -205,7 +210,8 @@ class DatabaseAdminPages:
     ) -> tuple[str | None, DatabaseAdminPageResponse | None]:
         result = self.run_health_check()
         resp = self.render_page(
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             health_result=result,
             flash_message="Health check complete." if result.all_ok else "",
             error_message="" if result.all_ok else "Issues found — see details below.",
@@ -221,7 +227,8 @@ class DatabaseAdminPages:
             self.conn.execute("REINDEX")
         except Exception as exc:
             resp = self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error_message=f"REINDEX failed: {exc}",
             )
             return None, resp
@@ -236,21 +243,23 @@ class DatabaseAdminPages:
             size_before = self._get_stats().file_size_mb
             # VACUUM must run outside a transaction; conn.isolation_level=None
             # (autocommit) is needed, or we use executescript.
-            self.conn.execute("COMMIT")          # close any open txn
+            self.conn.execute("COMMIT")  # close any open txn
         except Exception:
             pass
         try:
-            self.conn.isolation_level = None     # switch to autocommit
+            self.conn.isolation_level = None  # switch to autocommit
             self.conn.execute("VACUUM")
             self.conn.isolation_level = "DEFERRED"  # restore default
         except Exception as exc:
             resp = self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error_message=f"VACUUM failed: {exc}",
             )
             return None, resp
         size_after = self._get_stats().file_size_mb
         from urllib.parse import quote
+
         msg = f"VACUUM complete. Size: {size_before} → {size_after}."
         return f"/admin/database?msg={quote(msg)}", None
 
@@ -270,6 +279,7 @@ class DatabaseAdminPages:
 
     def _gather_backup_stats(self) -> dict[str, Any]:
         """Collect summary stats from the live DB to embed in the backup file."""
+
         def count(table: str) -> int | None:
             try:
                 return self.conn.execute(  # type: ignore[no-any-return]
@@ -449,16 +459,27 @@ class DatabaseAdminPages:
                 return {
                     "ok": True,
                     "backed_up_at": meta_row.get("backed_up_at"),
-                    "lot_count": meta_row.get("lot_count") if meta_row else count("lots"),
-                    "owner_count": meta_row.get("owner_count") if meta_row else count("owners"),
-                    "renter_count": meta_row.get("renter_count") if meta_row else count("lot_renters"),
+                    "lot_count": (
+                        meta_row.get("lot_count") if meta_row else count("lots")
+                    ),
+                    "owner_count": (
+                        meta_row.get("owner_count") if meta_row else count("owners")
+                    ),
+                    "renter_count": (
+                        meta_row.get("renter_count")
+                        if meta_row
+                        else count("lot_renters")
+                    ),
                 }
             finally:
                 conn.close()
 
         except Exception as exc:
             _log.warning("Could not read backup file for preview: %s", exc)
-            return {"ok": False, "error": "Could not read backup file. The file may be corrupted or not a valid database."}
+            return {
+                "ok": False,
+                "error": "Could not read backup file. The file may be corrupted or not a valid database.",
+            }
         finally:
             if tmp_path:
                 try:
@@ -621,9 +642,10 @@ class DatabaseAdminPages:
         stats = self._get_stats()
         if stats.journal_mode != "wal":
             resp = self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error_message="WAL checkpoint is only applicable when journal mode is WAL. "
-                              f"Current mode: {stats.journal_mode}.",
+                f"Current mode: {stats.journal_mode}.",
             )
             return None, resp
         try:
@@ -635,9 +657,11 @@ class DatabaseAdminPages:
             )
         except Exception as exc:
             resp = self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error_message=f"WAL checkpoint failed: {exc}",
             )
             return None, resp
         from urllib.parse import quote
+
         return f"/admin/database?msg={quote(msg)}", None

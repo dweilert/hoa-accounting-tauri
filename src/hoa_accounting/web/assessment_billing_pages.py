@@ -27,7 +27,11 @@ from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.services.assessment_billing_service import IndividualAssessmentRow
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
-from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
+from hoa_accounting.validators.forms import (
+    parse_int as _parse_int,
+    parse_positive_decimal as _parse_positive_decimal,
+    require as _require,
+)
 
 
 @dataclass(frozen=True)
@@ -99,7 +103,9 @@ class AssessmentBillingPages:
         success_message: str = "",
     ) -> BillingPageResponse:
         values = form_values or {}
-        submitted = {"rows": submitted_individual_rows} if submitted_individual_rows else {}
+        submitted = (
+            {"rows": submitted_individual_rows} if submitted_individual_rows else {}
+        )
 
         resolved_error = error_message
         ar_account_label = ""
@@ -126,11 +132,13 @@ class AssessmentBillingPages:
             if street:
                 bits.append(street)
             bits.append(owner)
-            lot_options.append({
-                "id": r["id"],
-                "label": " · ".join(bits),
-                "has_owner": bool(r["owner_names"]),
-            })
+            lot_options.append(
+                {
+                    "id": r["id"],
+                    "label": " · ".join(bits),
+                    "has_owner": bool(r["owner_names"]),
+                }
+            )
 
         # Individual-billing rows — preserve whatever the user typed on
         # re-render after a validation error, otherwise start with a
@@ -164,7 +172,8 @@ class AssessmentBillingPages:
                 "entry_date": values.get("entry_date", _today()),
                 "due_date": values.get("due_date", ""),
                 "category_id": values.get("category_id", ""),
-                "bulk_amount": values.get("bulk_amount") or str((org or {}).get("default_assessment_amount", "") or ""),
+                "bulk_amount": values.get("bulk_amount")
+                or str((org or {}).get("default_assessment_amount", "") or ""),
             },
             "error_message": resolved_error,
             "success_message": success_message,
@@ -190,9 +199,7 @@ class AssessmentBillingPages:
             due_date = (form_data.get("due_date", "") or "").strip() or None
             category_id_raw = (form_data.get("category_id", "") or "").strip()
             category_id = int(category_id_raw) if category_id_raw else None
-            amount = _parse_positive_decimal(
-                form_data.get("bulk_amount", ""), "Amount"
-            )
+            amount = _parse_positive_decimal(form_data.get("bulk_amount", ""), "Amount")
 
             result = self.factory.assessment_billing_service().bill_all_at_same_amount(
                 entry_date=entry_date,
@@ -203,7 +210,8 @@ class AssessmentBillingPages:
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 submitted_individual_rows=_extract_individual_rows(form_data),
                 error_message=str(exc),
@@ -273,7 +281,8 @@ class AssessmentBillingPages:
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 submitted_individual_rows=_extract_individual_rows(form_data),
                 error_message=str(exc),
@@ -304,5 +313,3 @@ def _extract_individual_rows(form_data: dict[str, str]) -> list[dict[str, str]]:
         if m_amt:
             by_idx.setdefault(int(m_amt.group(1)), {})["amount"] = value
     return [by_idx[i] for i in sorted(by_idx)]
-
-

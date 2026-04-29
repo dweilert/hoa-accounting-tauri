@@ -34,30 +34,37 @@ def make_api_blueprint(ctx: RouteContext) -> Blueprint:
 
         db_path = org_context.get("db_path")
         if not db_path:
-            return Response(json.dumps({"error": "no db"}), status=500,
-                            mimetype="application/json")
+            return Response(
+                json.dumps({"error": "no db"}), status=500, mimetype="application/json"
+            )
 
         conn = _open_db()
         try:
             owner_id = LotsRepository(conn).get_current_owner_id(lot_id)
             if owner_id is None:
-                return Response(json.dumps({"charges": [], "total_outstanding": "0.00"}),
-                                mimetype="application/json")
+                return Response(
+                    json.dumps({"charges": [], "total_outstanding": "0.00"}),
+                    mimetype="application/json",
+                )
 
             rows = AssessmentsRepository(conn).list_open_for_owner(owner_id)
             charges = []
             total = Decimal("0.00")
             for r in rows:
-                outstanding = Decimal(str(r["amount"])) - Decimal(str(r["already_applied"]))
+                outstanding = Decimal(str(r["amount"])) - Decimal(
+                    str(r["already_applied"])
+                )
                 if outstanding <= 0:
                     continue
-                charges.append({
-                    "id": int(r["id"]),
-                    "charge_type": r["charge_type"],
-                    "description": r["description"] or "",
-                    "due_date": r["due_date"] or "",
-                    "outstanding": str(outstanding),
-                })
+                charges.append(
+                    {
+                        "id": int(r["id"]),
+                        "charge_type": r["charge_type"],
+                        "description": r["description"] or "",
+                        "due_date": r["due_date"] or "",
+                        "outstanding": str(outstanding),
+                    }
+                )
                 total += outstanding
             return Response(
                 json.dumps({"charges": charges, "total_outstanding": str(total)}),

@@ -42,7 +42,9 @@ class CognitoBackend:
         self._region = region
         self._domain = domain.rstrip("/")
         self._group_role_map = {**DEFAULT_GROUP_ROLE_MAP, **group_role_map}
-        self._override_db_path = override_db_path or (None if override_conn is None else None)
+        self._override_db_path = override_db_path or (
+            None if override_conn is None else None
+        )
         self._override_conn = override_conn  # kept for backwards compat
         self._override_tl = threading.local()
         self._jwks_cache: dict[str, Any] = {}
@@ -92,11 +94,13 @@ class CognitoBackend:
         credentials = base64.b64encode(
             f"{self._client_id}:{self._client_secret}".encode()
         ).decode()
-        body = urlencode({
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-        }).encode()
+        body = urlencode(
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+            }
+        ).encode()
         req = urllib.request.Request(
             token_url,
             data=body,
@@ -150,9 +154,7 @@ class CognitoBackend:
 
         try:
             public_key = RSAAlgorithm.from_jwk(key_data)
-            issuer = (
-                f"https://cognito-idp.{self._region}.amazonaws.com/{self._pool_id}"
-            )
+            issuer = f"https://cognito-idp.{self._region}.amazonaws.com/{self._pool_id}"
             claims = jwt.decode(
                 id_token,
                 public_key,  # type: ignore[arg-type]  # cryptography stub typed as private+public union; from_jwk returns public

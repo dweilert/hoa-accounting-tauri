@@ -15,7 +15,6 @@ from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepository
 from hoa_accounting.web.bank_account_pages import BankAccountPages
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────
 
 
@@ -46,8 +45,12 @@ def _seed_bank_account(
     return int(cur.lastrowid)
 
 
-_ORG = {"name": "Test HOA", "environment": "test",
-        "fiscal_year_start_month": 1, "theme": "warm"}
+_ORG = {
+    "name": "Test HOA",
+    "environment": "test",
+    "fiscal_year_start_month": 1,
+    "theme": "warm",
+}
 
 
 # ── render_list ────────────────────────────────────────────────────────
@@ -92,8 +95,9 @@ def test_render_form_add_blank(conn: sqlite3.Connection) -> None:
 
 def test_render_form_edit_prefilled(conn: sqlite3.Connection) -> None:
     ba_id = _seed_bank_account(conn)
-    resp = BankAccountPages(conn).render_form(org=_ORG, theme="warm",
-                                               bank_account_id=ba_id)
+    resp = BankAccountPages(conn).render_form(
+        org=_ORG, theme="warm", bank_account_id=ba_id
+    )
     assert resp.status_code == 200
     assert "Edit Bank Account" in resp.body_html
     assert "Operating Checking" in resp.body_html
@@ -101,8 +105,9 @@ def test_render_form_edit_prefilled(conn: sqlite3.Connection) -> None:
 
 
 def test_render_form_edit_unknown_returns_404(conn: sqlite3.Connection) -> None:
-    resp = BankAccountPages(conn).render_form(org=_ORG, theme="warm",
-                                               bank_account_id=9999)
+    resp = BankAccountPages(conn).render_form(
+        org=_ORG, theme="warm", bank_account_id=9999
+    )
     assert resp.status_code == 404
 
 
@@ -118,7 +123,8 @@ def test_handle_add_redirects_on_success(conn: sqlite3.Connection) -> None:
             "account_last4": "5678",
             "fund_code": "RESERVE",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is not None
     assert "bank-accounts" in redirect_url
@@ -127,7 +133,9 @@ def test_handle_add_redirects_on_success(conn: sqlite3.Connection) -> None:
     assert any(r["account_name"] == "Reserve Savings" for r in rows)
 
 
-def test_handle_add_missing_account_name_returns_error(conn: sqlite3.Connection) -> None:
+def test_handle_add_missing_account_name_returns_error(
+    conn: sqlite3.Connection,
+) -> None:
     redirect_url, resp = BankAccountPages(conn).handle_add(
         form_data={
             "account_name": "",
@@ -135,7 +143,8 @@ def test_handle_add_missing_account_name_returns_error(conn: sqlite3.Connection)
             "account_type": "CHECKING",
             "fund_code": "OPERATING",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert resp is not None
@@ -151,7 +160,8 @@ def test_handle_add_missing_institution_returns_error(conn: sqlite3.Connection) 
             "account_type": "CHECKING",
             "fund_code": "OPERATING",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert resp is not None
@@ -174,7 +184,8 @@ def test_handle_edit_updates_and_redirects(conn: sqlite3.Connection) -> None:
             "_active_flag_present": "1",
             "active_flag": "1",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is not None
     row = BankAccountsRepository(conn).get_bank_account(ba_id)
@@ -195,7 +206,8 @@ def test_handle_edit_deactivate(conn: sqlite3.Connection) -> None:
             "_active_flag_present": "1",
             # active_flag omitted = unchecked
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     row = BankAccountsRepository(conn).get_bank_account(ba_id)
     assert row["active_flag"] == 0

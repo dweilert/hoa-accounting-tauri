@@ -13,7 +13,6 @@ a *parser smoke test*, not a comprehensive corpus.
 
 from __future__ import annotations
 
-
 # ── OFX 1.x (SGML, no closing tags on field elements) ─────────────────
 # Two transactions: one deposit, one withdrawal. Single account.
 SAMPLE_OFX_BYTES: bytes = (
@@ -57,8 +56,8 @@ SAMPLE_OFX_BYTES: bytes = (
 
 # ── OFX 2.x (XML form, multi-account) ─────────────────────────────────
 SAMPLE_OFX_MULTIACCOUNT_BYTES: bytes = (
-    b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-    b"<?OFX OFXHEADER=\"200\" VERSION=\"211\"?>\r\n"
+    b'<?xml version="1.0" encoding="UTF-8"?>\r\n'
+    b'<?OFX OFXHEADER="200" VERSION="211"?>\r\n'
     b"<OFX>\r\n"
     b" <BANKMSGSRSV1>\r\n"
     b"  <STMTTRNRS>\r\n"
@@ -103,7 +102,4 @@ SAMPLE_CSV_DEBIT_CREDIT_BYTES: bytes = (
 
 # ── Malformed (header-only OFX, no transactions) ──────────────────────
 # Useful for verifying empty-file handling.
-EMPTY_OFX_BYTES: bytes = (
-    b"OFXHEADER:100\r\nDATA:OFXSGML\r\n"
-    b"<OFX></OFX>\r\n"
-)
+EMPTY_OFX_BYTES: bytes = b"OFXHEADER:100\r\nDATA:OFXSGML\r\n" b"<OFX></OFX>\r\n"

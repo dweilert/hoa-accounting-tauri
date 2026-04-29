@@ -7,8 +7,11 @@ from hoa_accounting.services.rule_diagnoser import diagnose, find_other_matches
 
 def _txn(**kw):
     base = {
-        "description": "", "memo": "", "amount": "0.00",
-        "transaction_type": "", "bank_account_id": 1,
+        "description": "",
+        "memo": "",
+        "amount": "0.00",
+        "transaction_type": "",
+        "bank_account_id": 1,
     }
     base.update(kw)
     return base
@@ -16,20 +19,33 @@ def _txn(**kw):
 
 def _rule(**kw):
     base = {
-        "id": 1, "rule_name": "R", "active_flag": 1,
-        "description_contains": "", "match_memo": "",
-        "match_type": "", "match_amount": "", "bank_account_id": None,
+        "id": 1,
+        "rule_name": "R",
+        "active_flag": 1,
+        "description_contains": "",
+        "match_memo": "",
+        "match_type": "",
+        "match_amount": "",
+        "bank_account_id": None,
     }
     base.update(kw)
     return base
 
 
 def test_full_match_all_criteria_pass():
-    txn = _txn(description="OmniSite", memo="My Frost Billpay",
-               amount="-152.00", transaction_type="DEBIT")
+    txn = _txn(
+        description="OmniSite",
+        memo="My Frost Billpay",
+        amount="-152.00",
+        transaction_type="DEBIT",
+    )
     r = diagnose(
-        _rule(description_contains="OmniSite", match_type="DEBIT",
-              match_amount="152.00", bank_account_id=1),
+        _rule(
+            description_contains="OmniSite",
+            match_type="DEBIT",
+            match_amount="152.00",
+            bank_account_id=1,
+        ),
         txn,
     )
     assert r.would_match is True
@@ -39,8 +55,7 @@ def test_full_match_all_criteria_pass():
 def test_description_in_memo_only_suggests_match_memo():
     """Common bug — user put 'Interest' in description_contains but the
     bank only puts it in memo. Diagnoser should hint at match_memo."""
-    txn = _txn(memo="IOD Interest Payment", transaction_type="CREDIT",
-               amount="11.68")
+    txn = _txn(memo="IOD Interest Payment", transaction_type="CREDIT", amount="11.68")
     r = diagnose(_rule(description_contains="Interest"), txn)
     assert r.would_match is False
     failed = [c for c in r.checks if not c.passed]
@@ -93,8 +108,8 @@ def test_unparseable_amount_target_reported():
 def test_find_other_matches_lists_collisions():
     txn = _txn(description="Acme Bill", transaction_type="DEBIT")
     rules = [
-        _rule(id=10, rule_name="Generic",  description_contains="Bill"),
-        _rule(id=20, rule_name="Acme",     description_contains="Acme"),
+        _rule(id=10, rule_name="Generic", description_contains="Bill"),
+        _rule(id=20, rule_name="Acme", description_contains="Acme"),
         _rule(id=30, rule_name="Unrelated", description_contains="Foo"),
     ]
     others = find_other_matches(rules, txn, exclude_rule_id=20)

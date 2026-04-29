@@ -93,9 +93,7 @@ class LotsRepository(BaseRepository):
           - is_owner_occupied — 1 when no current renter, 0 otherwise
         """
         active_filter = "WHERE l.active_flag = 1" if active_only else ""
-        return list(
-            self.conn.execute(
-                f"""
+        return list(self.conn.execute(f"""
                 SELECT
                     l.id AS lot_id,
                     l.lot_number,
@@ -128,9 +126,7 @@ class LotsRepository(BaseRepository):
                  )
                 {active_filter}
                 ORDER BY l.lot_number COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_lot_with_owner(self, lot_id: int) -> sqlite3.Row | None:
         """Return a single lot with its earliest current owner name, or None."""
@@ -190,8 +186,15 @@ class LotsRepository(BaseRepository):
                  city, state, postal_code, legal_description)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (lot_number, street_address_1, street_address_2,
-             city, state, postal_code, legal_description),
+            (
+                lot_number,
+                street_address_1,
+                street_address_2,
+                city,
+                state,
+                postal_code,
+                legal_description,
+            ),
         )
         return int(cur.lastrowid or 0)
 
@@ -218,9 +221,17 @@ class LotsRepository(BaseRepository):
                    updated_at = CURRENT_TIMESTAMP
              WHERE id = ?
             """,
-            (lot_number, street_address_1, street_address_2,
-             city, state, postal_code, legal_description,
-             1 if active_flag else 0, lot_id),
+            (
+                lot_number,
+                street_address_1,
+                street_address_2,
+                city,
+                state,
+                postal_code,
+                legal_description,
+                1 if active_flag else 0,
+                lot_id,
+            ),
         )
 
     def has_current_owners(self, lot_id: int) -> bool:
@@ -245,7 +256,9 @@ class LotsRepository(BaseRepository):
         self.conn.execute("DELETE FROM lot_renters WHERE lot_id = ?", (lot_id,))
         self.conn.execute("DELETE FROM lots WHERE id = ?", (lot_id,))
 
-    def lot_number_exists(self, lot_number: str, *, exclude_id: int | None = None) -> bool:
+    def lot_number_exists(
+        self, lot_number: str, *, exclude_id: int | None = None
+    ) -> bool:
         """Return True if lot_number is already taken by another lot."""
         if exclude_id is not None:
             row = self.conn.execute(
@@ -262,9 +275,7 @@ class LotsRepository(BaseRepository):
     def list_lots(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         """Return lots with a comma-separated list of current owner names."""
         active_filter = "WHERE l.active_flag = 1" if active_only else ""
-        return list(
-            self.conn.execute(
-                f"""
+        return list(self.conn.execute(f"""
                 SELECT
                     l.id,
                     l.lot_number,
@@ -284,6 +295,4 @@ class LotsRepository(BaseRepository):
                 FROM lots l
                 {active_filter}
                 ORDER BY l.lot_number COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())

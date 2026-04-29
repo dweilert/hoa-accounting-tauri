@@ -26,7 +26,9 @@ class UIResponse:
 class HomePageService:
     """Render the dashboard landing page."""
 
-    def __init__(self, api_service: ReportAPIService, template_path: str | None = None) -> None:
+    def __init__(
+        self, api_service: ReportAPIService, template_path: str | None = None
+    ) -> None:
         self.api_service = api_service
         self.template_name = "home.html"
 
@@ -46,7 +48,9 @@ class HomePageService:
 class ReportConsolePageService:
     """Render a minimal report console page."""
 
-    def __init__(self, api_service: ReportAPIService, template_path: str | None = None) -> None:
+    def __init__(
+        self, api_service: ReportAPIService, template_path: str | None = None
+    ) -> None:
         self.api_service = api_service
         self.template_name = "report_console.html"
 

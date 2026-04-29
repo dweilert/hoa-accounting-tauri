@@ -131,7 +131,9 @@ class BatchPdfService:
 
                 context = _report_to_template_context(report)
                 context["generated_at"] = generated_at
-                html_str = render_template("pdf_owner_ledger.html", {"summary": context})
+                html_str = render_template(
+                    "pdf_owner_ledger.html", {"summary": context}
+                )
                 pdf_bytes: bytes = HTML(string=html_str).write_pdf()
 
                 filename = _build_filename(report)
@@ -140,25 +142,29 @@ class BatchPdfService:
 
                 url = self._backend.upload(s3_key, pdf_bytes)
 
-                results.append(PdfResult(
-                    lot_id=lot_id,
-                    lot_number=report.lot_number,
-                    owner_name=owner_name,
-                    filename=filename,
-                    s3_key=s3_key,
-                    url=url,
-                    ok=True,
-                ))
+                results.append(
+                    PdfResult(
+                        lot_id=lot_id,
+                        lot_number=report.lot_number,
+                        owner_name=owner_name,
+                        filename=filename,
+                        s3_key=s3_key,
+                        url=url,
+                        ok=True,
+                    )
+                )
             except Exception as exc:  # noqa: BLE001
-                results.append(PdfResult(
-                    lot_id=lot_id,
-                    lot_number=str(lot_id),
-                    owner_name="",
-                    filename="",
-                    s3_key="",
-                    url="",
-                    ok=False,
-                    error=str(exc),
-                ))
+                results.append(
+                    PdfResult(
+                        lot_id=lot_id,
+                        lot_number=str(lot_id),
+                        owner_name="",
+                        filename="",
+                        s3_key="",
+                        url="",
+                        ok=False,
+                        error=str(exc),
+                    )
+                )
 
         return results

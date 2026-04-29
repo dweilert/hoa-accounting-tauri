@@ -45,11 +45,18 @@ class OpeningBalancesPages:
         lot_rows: list[Any] | None = None,
         has_existing_je: bool = False,
     ) -> PageResponse:
-        bank_rows = bank_rows if bank_rows is not None else self._repo.get_bank_accounts_with_balances()
-        lot_rows = lot_rows if lot_rows is not None else self._repo.get_lots_with_balances()
+        bank_rows = (
+            bank_rows
+            if bank_rows is not None
+            else self._repo.get_bank_accounts_with_balances()
+        )
+        lot_rows = (
+            lot_rows if lot_rows is not None else self._repo.get_lots_with_balances()
+        )
         return self._render(
             "opening_balances.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="opening-balances",
             heading="Opening Balances",
             bank_rows=bank_rows,
@@ -84,8 +91,10 @@ class OpeningBalancesPages:
         )
 
         return self._page_ctx(
-            org=org, theme=theme,
-            flash=flash, error=error,
+            org=org,
+            theme=theme,
+            flash=flash,
+            error=error,
             as_of_date=as_of_date,
             bank_rows=bank_rows,
             lot_rows=lot_rows,
@@ -107,7 +116,8 @@ class OpeningBalancesPages:
             lot_rows = self._repo.get_lots_with_balances()
             has_existing_je = self._repo.get_current_je_id() is not None
             return None, self._page_ctx(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error=msg,
                 values=form_data,
                 as_of_date=as_of_date,
@@ -121,7 +131,9 @@ class OpeningBalancesPages:
 
         # ── Parse bank amounts ─────────────────────────────────────────
         bank_rows = self._repo.get_bank_accounts_with_balances()
-        bank_amounts: dict[int, tuple[None, Decimal]] = {}  # bank_id → (None, amt) — gl_id retired
+        bank_amounts: dict[int, tuple[None, Decimal]] = (
+            {}
+        )  # bank_id → (None, amt) — gl_id retired
         for row in bank_rows:
             bid = int(row["bank_account_id"])
             raw = form_data.get(f"bank_{bid}", "0").strip().replace(",", "") or "0"

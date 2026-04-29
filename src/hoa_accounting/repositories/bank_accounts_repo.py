@@ -10,16 +10,12 @@ from .base import BaseRepository
 class BankAccountsRepository(BaseRepository):
     """Database access for bank accounts."""
 
-    def list_bank_accounts(
-        self, *, active_only: bool = True
-    ) -> list[sqlite3.Row]:
+    def list_bank_accounts(self, *, active_only: bool = True) -> list[sqlite3.Row]:
         predicates = []
         if active_only:
             predicates.append("active_flag = 1")
         where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
-        return list(
-            self.conn.execute(
-                f"""
+        return list(self.conn.execute(f"""
                 SELECT
                     id,
                     account_name,
@@ -33,9 +29,7 @@ class BankAccountsRepository(BaseRepository):
                 FROM bank_accounts
                 {where_sql}
                 ORDER BY account_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_bank_account(self, bank_account_id: int) -> sqlite3.Row | None:
         return self.conn.execute(  # type: ignore[no-any-return]
@@ -94,8 +88,15 @@ class BankAccountsRepository(BaseRepository):
                  fund_code, opening_balance, opening_balance_date)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (account_name, institution_name, account_last4, account_type,
-             fund_code, opening_balance, opening_balance_date),
+            (
+                account_name,
+                institution_name,
+                account_last4,
+                account_type,
+                fund_code,
+                opening_balance,
+                opening_balance_date,
+            ),
         )
         return cur.lastrowid  # type: ignore[return-value]
 
@@ -140,6 +141,4 @@ class BankAccountsRepository(BaseRepository):
         )
 
     def delete_bank_account(self, bank_account_id: int) -> None:
-        self.conn.execute(
-            "DELETE FROM bank_accounts WHERE id = ?", (bank_account_id,)
-        )
+        self.conn.execute("DELETE FROM bank_accounts WHERE id = ?", (bank_account_id,))

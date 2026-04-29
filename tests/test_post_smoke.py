@@ -22,7 +22,6 @@ import pytest
 from hoa_accounting.config.loader import load_config
 from hoa_accounting.web.app import create_app
 
-
 _PLACEHOLDER_TABLES: dict[str, str | None] = {
     "lot_id": "lots",
     "owner_id": "owners",
@@ -91,7 +90,9 @@ _SKIP_PATHS = {
     re.compile(r".+/run-recon$"),
     re.compile(r"/bank-transactions/accept-all$"),
     re.compile(r"/bank-transactions/revalidate"),
-    re.compile(r"/bank-transactions/.+/(accept|ignore|unignore|pick|link|edit|memo|find)"),
+    re.compile(
+        r"/bank-transactions/.+/(accept|ignore|unignore|pick|link|edit|memo|find)"
+    ),
     re.compile(r"/manage/edit-records/.+/(edit|split)$"),
     re.compile(r"/categories/.+/delete"),
     re.compile(r"/lots/.+/owners/"),
@@ -196,7 +197,9 @@ def test_no_post_route_returns_500(app_and_ids):
     skipped: list[str] = []
     ok = 0
 
-    for rule in sorted(set(r.rule for r in app.url_map.iter_rules() if "POST" in r.methods)):
+    for rule in sorted(
+        set(r.rule for r in app.url_map.iter_rules() if "POST" in r.methods)
+    ):
         url = _resolve(rule, ids)
         if _skipped(rule, url):
             skipped.append(rule)

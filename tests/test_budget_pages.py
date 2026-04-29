@@ -30,8 +30,12 @@ def conn() -> sqlite3.Connection:
     return c
 
 
-_ORG = {"name": "Test HOA", "environment": "test",
-        "fiscal_year_start_month": 1, "theme": "warm"}
+_ORG = {
+    "name": "Test HOA",
+    "environment": "test",
+    "fiscal_year_start_month": 1,
+    "theme": "warm",
+}
 
 
 def _seed(conn: sqlite3.Connection) -> None:
@@ -43,14 +47,18 @@ def _seed(conn: sqlite3.Connection) -> None:
         "VALUES (?, ?, ?, ?, ?, ?, 1)",
         [
             (6100, "MOW_BLOW", "Mow & Blow", "EXPENSE", "OPERATING", 110),
-            (6200, "SEWER",    "Sewer Fee",  "EXPENSE", "OPERATING", 120),
+            (6200, "SEWER", "Sewer Fee", "EXPENSE", "OPERATING", 120),
         ],
     )
     conn.commit()
 
 
-def _make_budget(conn: sqlite3.Connection, fiscal_year: int = 2025,
-                 fund_code: str = "OPERATING", status: str = "DRAFT") -> int:
+def _make_budget(
+    conn: sqlite3.Connection,
+    fiscal_year: int = 2025,
+    fund_code: str = "OPERATING",
+    status: str = "DRAFT",
+) -> int:
     cur = conn.execute(
         "INSERT INTO budgets (fiscal_year, fund_code, status) VALUES (?, ?, ?)",
         (fiscal_year, fund_code, status),
@@ -60,6 +68,7 @@ def _make_budget(conn: sqlite3.Connection, fiscal_year: int = 2025,
 
 
 # ── render_list ────────────────────────────────────────────────────
+
 
 def test_list_empty(conn: sqlite3.Connection) -> None:
     resp = BudgetPages(conn).render_list(org=_ORG, theme="warm")
@@ -76,12 +85,14 @@ def test_list_shows_budget(conn: sqlite3.Connection) -> None:
 
 
 def test_list_flash_message(conn: sqlite3.Connection) -> None:
-    resp = BudgetPages(conn).render_list(org=_ORG, theme="warm",
-                                         flash_message="Budget saved.")
+    resp = BudgetPages(conn).render_list(
+        org=_ORG, theme="warm", flash_message="Budget saved."
+    )
     assert "Budget saved." in resp.body_html
 
 
 # ── render_new_form ────────────────────────────────────────────────
+
 
 def test_new_form_renders(conn: sqlite3.Connection) -> None:
     resp = BudgetPages(conn).render_new_form(org=_ORG, theme="warm")
@@ -91,10 +102,12 @@ def test_new_form_renders(conn: sqlite3.Connection) -> None:
 
 # ── handle_new ────────────────────────────────────────────────────
 
+
 def test_handle_new_creates_budget(conn: sqlite3.Connection) -> None:
     redirect_url, form_resp = BudgetPages(conn).handle_new(
         form_data={"fiscal_year": "2025", "fund_code": "OPERATING", "notes": ""},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert form_resp is None
     assert redirect_url is not None
@@ -111,7 +124,8 @@ def test_handle_new_duplicate_rejected(conn: sqlite3.Connection) -> None:
     _make_budget(conn, 2025, "OPERATING")
     redirect_url, form_resp = BudgetPages(conn).handle_new(
         form_data={"fiscal_year": "2025", "fund_code": "OPERATING", "notes": ""},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -121,7 +135,8 @@ def test_handle_new_duplicate_rejected(conn: sqlite3.Connection) -> None:
 def test_handle_new_invalid_year(conn: sqlite3.Connection) -> None:
     redirect_url, form_resp = BudgetPages(conn).handle_new(
         form_data={"fiscal_year": "not-a-year", "fund_code": "OPERATING", "notes": ""},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -129,6 +144,7 @@ def test_handle_new_invalid_year(conn: sqlite3.Connection) -> None:
 
 
 # ── render_edit_form ───────────────────────────────────────────────
+
 
 def test_edit_form_404(conn: sqlite3.Connection) -> None:
     resp = BudgetPages(conn).render_edit_form(9999, org=_ORG, theme="warm")
@@ -148,6 +164,7 @@ def test_edit_form_loads_saved_amounts(conn: sqlite3.Connection) -> None:
 
 # ── handle_save ───────────────────────────────────────────────────
 # ── handle_approve / archive / delete ─────────────────────────────
+
 
 def test_handle_approve(conn: sqlite3.Connection) -> None:
     bid = _make_budget(conn, 2025)

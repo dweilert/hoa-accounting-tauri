@@ -100,7 +100,9 @@ def test_failed_migration_is_not_recorded(tmp_path: Path) -> None:
     with pytest.raises(sqlite3.OperationalError):
         m.apply_all(conn)
 
-    versions = {r["version"] for r in conn.execute("SELECT version FROM schema_version")}
+    versions = {
+        r["version"] for r in conn.execute("SELECT version FROM schema_version")
+    }
     assert versions == {"0001_ok.sql"}
 
     # Re-running after the SQL file is fixed should apply it now.
@@ -147,6 +149,7 @@ def test_migrator_is_safe_on_existing_database() -> None:
     """
     conn = _conn()
     from hoa_accounting.bootstrap.schema import base_schema_sql
+
     conn.executescript(base_schema_sql())
 
     applied = Migrator().apply_all(conn)

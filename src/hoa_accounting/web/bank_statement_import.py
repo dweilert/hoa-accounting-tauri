@@ -18,11 +18,11 @@ from decimal import Decimal, InvalidOperation
 @dataclass
 class ParsedTransaction:
     transaction_date: date
-    amount: Decimal          # signed: positive = deposit, negative = payment
+    amount: Decimal  # signed: positive = deposit, negative = payment
     description: str
     memo: str
-    fitid: str               # OFX unique ID; '' for CSV
-    transaction_type: str    # OFX TRNTYPE (DEBIT/CREDIT/CHECK…); '' for CSV
+    fitid: str  # OFX unique ID; '' for CSV
+    transaction_type: str  # OFX TRNTYPE (DEBIT/CREDIT/CHECK…); '' for CSV
 
 
 class ParseError(Exception):
@@ -31,9 +31,14 @@ class ParseError(Exception):
 
 # ── Format detection ──────────────────────────────────────────────────────────
 
+
 def detect_format(content: bytes | str) -> str:
     """Return 'OFX' or 'CSV'. Raises ParseError on unrecognized input."""
-    text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+    text = (
+        content.decode("utf-8", errors="replace")
+        if isinstance(content, bytes)
+        else content
+    )
     sample = text[:600].upper()
     if "OFXHEADER" in sample or "<OFX>" in sample or "OFXSGML" in sample:
         return "OFX"
@@ -48,9 +53,14 @@ def detect_format(content: bytes | str) -> str:
 
 # ── OFX parser ────────────────────────────────────────────────────────────────
 
+
 def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
     """Parse OFX 1.x (SGML) or OFX 2.x (XML-like) bank statement files."""
-    text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+    text = (
+        content.decode("utf-8", errors="replace")
+        if isinstance(content, bytes)
+        else content
+    )
 
     # Collect STMTTRN blocks.  OFX 2.x uses proper closing tags; OFX 1.x may not.
     blocks = re.findall(r"<STMTTRN>(.*?)</STMTTRN>", text, re.DOTALL | re.IGNORECASE)
@@ -64,12 +74,13 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
 
     transactions: list[ParsedTransaction] = []
     for block in blocks:
+
         def field(tag: str) -> str:
             m = re.search(r"<" + tag + r">\s*([^\r\n<]+)", block, re.IGNORECASE)
             return m.group(1).strip() if m else ""
 
         dtposted = field("DTPOSTED")
-        trnamt   = field("TRNAMT")
+        trnamt = field("TRNAMT")
         if not dtposted or not trnamt:
             continue
 
@@ -99,13 +110,21 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
     return transactions
 
 
-def parse_ofx_by_account(content: bytes | str) -> list[tuple[str, list[ParsedTransaction]]]:
+def parse_ofx_by_account(
+    content: bytes | str,
+) -> list[tuple[str, list[ParsedTransaction]]]:
     """Parse a multi-account OFX file. Returns list of (acctid, transactions) per account section.
     Falls back to [("", all_transactions)] if no STMTRS sections found."""
-    text = content.decode("utf-8", errors="replace") if isinstance(content, bytes) else content
+    text = (
+        content.decode("utf-8", errors="replace")
+        if isinstance(content, bytes)
+        else content
+    )
 
     # Try XML-style STMTRS blocks first (OFX 2.x)
-    stmtrs_blocks = re.findall(r"<STMTRS>(.*?)</STMTRS>", text, re.DOTALL | re.IGNORECASE)
+    stmtrs_blocks = re.findall(
+        r"<STMTRS>(.*?)</STMTRS>", text, re.DOTALL | re.IGNORECASE
+    )
 
     if not stmtrs_blocks:
         # OFX 1.x: no closing tags — split on <STMTRS> and take until next block/end
@@ -129,21 +148,67 @@ def parse_ofx_by_account(content: bytes | str) -> list[tuple[str, list[ParsedTra
 
 # ── CSV parser ────────────────────────────────────────────────────────────────
 
-_DATE_COLS   = {"date", "transaction date", "trans date", "posted date",
-                "posting date", "settlement date", "trans. date", "value date"}
-_AMOUNT_COLS = {"amount", "transaction amount", "net amount", "transaction amt", "trans. amount"}
-_DEBIT_COLS  = {"debit", "debit amount", "withdrawal", "withdrawals",
-                "payment", "charges", "debits", "debit(-)"}
-_CREDIT_COLS = {"credit", "credit amount", "deposit", "deposits",
-                "credits", "additions", "credit(+)"}
-_DESC_COLS   = {"description", "memo", "transaction", "details", "name",
-                "payee", "narrative", "transaction detail", "particulars",
-                "reference", "transaction description"}
+_DATE_COLS = {
+    "date",
+    "transaction date",
+    "trans date",
+    "posted date",
+    "posting date",
+    "settlement date",
+    "trans. date",
+    "value date",
+}
+_AMOUNT_COLS = {
+    "amount",
+    "transaction amount",
+    "net amount",
+    "transaction amt",
+    "trans. amount",
+}
+_DEBIT_COLS = {
+    "debit",
+    "debit amount",
+    "withdrawal",
+    "withdrawals",
+    "payment",
+    "charges",
+    "debits",
+    "debit(-)",
+}
+_CREDIT_COLS = {
+    "credit",
+    "credit amount",
+    "deposit",
+    "deposits",
+    "credits",
+    "additions",
+    "credit(+)",
+}
+_DESC_COLS = {
+    "description",
+    "memo",
+    "transaction",
+    "details",
+    "name",
+    "payee",
+    "narrative",
+    "transaction detail",
+    "particulars",
+    "reference",
+    "transaction description",
+}
 
 _DATE_FORMATS = [
-    "%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%d/%m/%Y",
-    "%m-%d-%Y", "%Y/%m/%d", "%b %d, %Y", "%d %b %Y",
-    "%B %d, %Y", "%d-%b-%Y",
+    "%m/%d/%Y",
+    "%m/%d/%y",
+    "%Y-%m-%d",
+    "%d/%m/%Y",
+    "%m-%d-%Y",
+    "%Y/%m/%d",
+    "%b %d, %Y",
+    "%d %b %Y",
+    "%B %d, %Y",
+    "%d-%b-%Y",
 ]
 
 
@@ -180,7 +245,9 @@ def auto_detect_csv_columns(headers: list[str]) -> dict[str, str]:
 
 
 def _clean_num(s: str) -> str:
-    return s.strip().replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
+    return (
+        s.strip().replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
+    )
 
 
 def parse_csv(
@@ -192,7 +259,11 @@ def parse_csv(
     Returns (transactions, headers, resolved_column_map).
     column_map may be None for auto-detection.
     """
-    text = content.decode("utf-8-sig", errors="replace") if isinstance(content, bytes) else content
+    text = (
+        content.decode("utf-8-sig", errors="replace")
+        if isinstance(content, bytes)
+        else content
+    )
     reader = csv.DictReader(io.StringIO(text))
     headers: list[str] = list(reader.fieldnames or [])
     col = column_map if column_map else auto_detect_csv_columns(headers)
@@ -212,7 +283,9 @@ def parse_csv(
             elif "debit" in col and "credit" in col:
                 dr = _clean_num(row.get(col["debit"], "") or "0")
                 cr = _clean_num(row.get(col["credit"], "") or "0")
-                amount = (Decimal(cr) if cr else Decimal("0")) - (Decimal(dr) if dr else Decimal("0"))
+                amount = (Decimal(cr) if cr else Decimal("0")) - (
+                    Decimal(dr) if dr else Decimal("0")
+                )
             else:
                 continue
 
@@ -237,12 +310,13 @@ def parse_csv(
 
 def csv_map_is_usable(col: dict[str, str]) -> bool:
     """True if the column map has at least a date and an amount source."""
-    has_date   = "date" in col
+    has_date = "date" in col
     has_amount = "amount" in col or ("debit" in col and "credit" in col)
     return has_date and has_amount
 
 
 # ── Rule matching ────────────────────────────────────────────────────────────
+
 
 def apply_rules(
     transactions: list[ParsedTransaction],
@@ -286,6 +360,7 @@ def apply_rules(
 
 
 # ── 1-to-1 match against single-entry items ───────────────────────────────────
+
 
 def match_transactions(
     transactions: list[ParsedTransaction],
@@ -335,6 +410,7 @@ def match_transactions(
 
 
 # ── Batch deposit match (OFX deposit → deposit_batch with exact total) ───────
+
 
 def find_batch_matches(
     transactions: list[ParsedTransaction],
@@ -387,6 +463,7 @@ def find_batch_matches(
 
 
 # ── File round-tripping through hidden form fields ────────────────────────────
+
 
 def encode_file(content: bytes) -> str:
     return base64.b64encode(content).decode("ascii")

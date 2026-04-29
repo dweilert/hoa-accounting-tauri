@@ -15,8 +15,14 @@ from hoa_accounting.web.template_engine import render_template
 # /api/ofx-ready is the fetcher webhook — localhost-only, no session
 # available to authenticate with. The route's handler still validates
 # the payload's claimed file path against the inbox directory.
-_PUBLIC_PREFIXES = ("/login", "/logout", "/auth/", "/static/", "/setup",
-                    "/api/ofx-ready")
+_PUBLIC_PREFIXES = (
+    "/login",
+    "/logout",
+    "/auth/",
+    "/static/",
+    "/setup",
+    "/api/ofx-ready",
+)
 
 # Paths that reports-level users can access (GET only)
 _REPORTS_ALLOWED_PREFIXES = (
@@ -36,6 +42,7 @@ def current_user() -> AuthUser | None:
 
 def require_admin(f: Any) -> Any:
     """Decorator: require admin role, else 403."""
+
     @functools.wraps(f)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         user = _get_current_user()
@@ -44,6 +51,7 @@ def require_admin(f: Any) -> Any:
         if not user.is_admin:
             return _forbidden()
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -71,8 +79,7 @@ def setup_auth_guard(app: Any, org_ctx: dict[str, Any]) -> None:
         # Reports-only users: GET allowed on whitelisted paths, block everything else
         if user.is_reports_only:
             allowed_path = any(
-                path == p or path.startswith(p + "/")
-                for p in _REPORTS_ALLOWED_PREFIXES
+                path == p or path.startswith(p + "/") for p in _REPORTS_ALLOWED_PREFIXES
             )
             if allowed_path and request.method == "GET":
                 return None
@@ -85,12 +92,13 @@ def setup_auth_guard(app: Any, org_ctx: dict[str, Any]) -> None:
 
 def _forbidden() -> Any:
     from flask import g
+
     org = getattr(g, "org", {})
     ctx = {
         "active_nav": "",
-        "page_key":   "",
-        "theme":      org.get("theme", "warm"),
-        "org":        org,
+        "page_key": "",
+        "theme": org.get("theme", "warm"),
+        "org": org,
         "breadcrumb": "Access Denied",
     }
     return render_template("403.html", ctx), 403

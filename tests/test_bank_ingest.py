@@ -31,7 +31,6 @@ from tests._bank_fixtures import (
     SAMPLE_OFX_MULTIACCOUNT_BYTES,
 )
 
-
 # ── parse_ofx ──────────────────────────────────────────────────────────
 
 
@@ -198,8 +197,10 @@ def test_bank_import_upload_ofx_lands_a_batch(app_db):
     # or 200 with an error message (dev DB doesn't have a bank account
     # whose ACCTID matches HP-TEST-0001). Both are fine — we're testing
     # that the parser ran, not that the dev DB is seeded.
-    assert resp.status_code in (200, 303), \
-        f"Unexpected status {resp.status_code}: {resp.data[:200]!r}"
+    assert resp.status_code in (
+        200,
+        303,
+    ), f"Unexpected status {resp.status_code}: {resp.data[:200]!r}"
 
     if resp.status_code == 303:
         conn = sqlite3.connect(db_path, isolation_level=None)

@@ -17,9 +17,7 @@ class OpeningBalancesRepository(BaseRepository):
 
     def get_bank_accounts_with_balances(self) -> list[sqlite3.Row]:
         """All active bank accounts with their opening-balance record (if any)."""
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT
                     ba.id           AS bank_account_id,
                     ba.account_name,
@@ -33,16 +31,12 @@ class OpeningBalancesRepository(BaseRepository):
                     ON ob.entity_type = 'BANK_ACCOUNT' AND ob.entity_id = ba.id
                 WHERE ba.active_flag = 1
                 ORDER BY ba.account_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_lots_with_balances(self) -> list[sqlite3.Row]:
         """One row per lot. The owner shown is the alphabetically first
         current owner (last name, then first name)."""
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT
                     l.id               AS lot_id,
                     l.lot_number,
@@ -73,9 +67,7 @@ class OpeningBalancesRepository(BaseRepository):
                 LEFT JOIN opening_balances oa
                     ON oa.entity_type = 'LOT_ASSESSMENT' AND oa.entity_id = l.id
                 ORDER BY l.lot_number COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_lot_opening_balance(self, lot_id: int) -> Decimal | None:
         row = self.conn.execute(

@@ -18,7 +18,11 @@ from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.format import format_money
-from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
+from hoa_accounting.validators.forms import (
+    parse_int as _parse_int,
+    parse_positive_decimal as _parse_positive_decimal,
+    require as _require,
+)
 
 
 @dataclass(frozen=True)
@@ -59,7 +63,7 @@ class NonDuesIncomePages:
                 "id": r["id"],
                 "posting_date": r["posting_date"],
                 "description": r["income_description"],
-                "total_amount": format_money(r['total_amount']),
+                "total_amount": format_money(r["total_amount"]),
                 "bank_account": r["bank_account_name"],
                 "income_account": (
                     r["category_name"]
@@ -111,7 +115,7 @@ class NonDuesIncomePages:
             {
                 "id": r["id"],
                 "label": f"{r['account_name']} · {r['institution_name']}"
-                         + (f" (…{r['account_last4']})" if r["account_last4"] else ""),
+                + (f" (…{r['account_last4']})" if r["account_last4"] else ""),
                 "fund_code": r["fund_code"],
             }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
@@ -182,7 +186,8 @@ class NonDuesIncomePages:
             by_index.setdefault(idx, {})[m.group(2)] = value
         submitted_owner_rows = [by_index[i] for i in sorted(by_index)]
         active_owner = [
-            r for r in submitted_owner_rows
+            r
+            for r in submitted_owner_rows
             if (r.get("amount") or "").strip() or (r.get("lot_id") or "").strip()
         ]
 
@@ -192,9 +197,7 @@ class NonDuesIncomePages:
         has_other = bool(other_source or other_amount)
 
         try:
-            posting_date = _require(
-                form_data.get("posting_date", ""), "Posting date"
-            )
+            posting_date = _require(form_data.get("posting_date", ""), "Posting date")
             bank_account_id = _parse_int(
                 form_data.get("bank_account_id", ""), "Bank account"
             )
@@ -231,9 +234,7 @@ class NonDuesIncomePages:
                         "OTHER row: amount is required when an OTHER "
                         "source is entered."
                     )
-                amount_dec = _parse_positive_decimal(
-                    other_amount, "OTHER: amount"
-                )
+                amount_dec = _parse_positive_decimal(other_amount, "OTHER: amount")
                 rows.append(
                     IncomeRow(
                         amount=amount_dec,
@@ -279,5 +280,3 @@ def _lot_label(row: sqlite3.Row) -> str:
         bits.append(street)
     bits.append(owner)
     return " · ".join(bits)
-
-

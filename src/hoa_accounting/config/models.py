@@ -8,6 +8,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class HOAConfig:
     """HOA identity settings."""
+
     name: str
     legal_name: str
     tax_id_federal: str
@@ -17,6 +18,7 @@ class HOAConfig:
 @dataclass(frozen=True)
 class DatabaseConfig:
     """Database settings."""
+
     type: str
     path: str
 
@@ -24,6 +26,7 @@ class DatabaseConfig:
 @dataclass(frozen=True)
 class AppConfig:
     """Application runtime settings."""
+
     environment: str
     debug: bool
     theme: str = "warm"
@@ -32,6 +35,7 @@ class AppConfig:
 @dataclass(frozen=True)
 class AccountingConfig:
     """Accounting defaults."""
+
     fiscal_year_start_month: int
     default_fund: str
     resale_fee_default_amount: str = "175.00"
@@ -40,6 +44,7 @@ class AccountingConfig:
 @dataclass(frozen=True)
 class Config:
     """Top-level application configuration."""
+
     hoa: HOAConfig
     database: DatabaseConfig
     app: AppConfig

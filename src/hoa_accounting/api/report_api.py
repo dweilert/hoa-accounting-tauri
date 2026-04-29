@@ -13,6 +13,7 @@ from hoa_accounting.exceptions import AccountingError, NotFoundError, Validation
 @dataclass(frozen=True)
 class APIResponse:
     """Structured API response."""
+
     status_code: int
     body: dict[str, Any]
 

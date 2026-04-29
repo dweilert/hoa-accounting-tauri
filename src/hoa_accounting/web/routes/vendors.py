@@ -36,6 +36,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/batch-pdf/generate")
     def batch_pdf_generate() -> ResponseReturnValue:
         from flask import request as _req
+
         pages = _open_batch_pdf_pages()
         theme = str(org_context.get("theme", "warm"))
         try:
@@ -43,12 +44,12 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
         except ValueError:
             year = 0
         if not year:
-            html = pages.render_page(org=org_context, theme=theme,
-                                     error="Please enter a valid year.")
+            html = pages.render_page(
+                org=org_context, theme=theme, error="Please enter a valid year."
+            )
             return Response(html, status=400, mimetype="text/html; charset=utf-8")
         html = pages.handle_generate(org=org_context, theme=theme, year=year)
         return Response(html, status=200, mimetype="text/html; charset=utf-8")
-
 
     # ── Transaction pages: Vendor Bills ──────────────────────────────
     # Same per-request connection pattern as the master-data pages, with
@@ -56,165 +57,206 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     # (`?created=JE-...`) so the list page can display a success banner
     # without pulling in Flask-Session or a secret key.
 
-
     @bp.get("/vendor-bills")
     def list_vendor_bills() -> ResponseReturnValue:
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         created = (request.args.get("created") or "").strip() or None
-        resp = pages.render_list(org=org_context, theme=theme, created_entry_number=created)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        resp = pages.render_list(
+            org=org_context, theme=theme, created_entry_number=created
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.get("/vendor-bills/new")
     def new_vendor_bill_form() -> ResponseReturnValue:
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/vendor-bills/new")
     def submit_vendor_bill() -> ResponseReturnValue:
         from flask import redirect
+
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_post(
-            form_data=form_data, org=org_context, theme=theme,
+            form_data=form_data,
+            org=org_context,
+            theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)  # see-other: GET the list
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.get("/vendor-bills/<int:vendor_bill_id>/edit")
     def edit_vendor_bill_form(vendor_bill_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_edit(vendor_bill_id, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/vendor-bills/<int:vendor_bill_id>/edit")
     def submit_vendor_bill_edit(vendor_bill_id: int) -> ResponseReturnValue:
         from flask import redirect
+
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         redirect_url, form_resp = pages.handle_edit(
-            vendor_bill_id, form_data=form_data, org=org_context, theme=theme,
+            vendor_bill_id,
+            form_data=form_data,
+            org=org_context,
+            theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.get("/vendor-bills/<int:vendor_bill_id>/split")
     def split_vendor_bill_form(vendor_bill_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_split(vendor_bill_id, org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/vendor-bills/<int:vendor_bill_id>/split")
     def submit_vendor_bill_split(vendor_bill_id: int) -> ResponseReturnValue:
         from flask import redirect
+
         pages = ctx.open_pages(VendorBillPages)
         theme = str(org_context.get("theme", "warm"))
         cats = request.form.getlist("line_category_id")
         amts = request.form.getlist("line_amount")
         redirect_url, form_resp = pages.handle_split(
             vendor_bill_id,
-            line_category_ids=cats, line_amounts=amts,
-            org=org_context, theme=theme,
+            line_category_ids=cats,
+            line_amounts=amts,
+            org=org_context,
+            theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     # ── Vendor pages ─────────────────────────────────────────────────
-
 
     @bp.get("/vendors")
     def list_vendors() -> ResponseReturnValue:
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
-        resp = pages.render_list(org=org_context, theme=theme,
-                                 flash_message=flash_message)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        resp = pages.render_list(
+            org=org_context, theme=theme, flash_message=flash_message
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.get("/vendors/add")
     def new_vendor_form() -> ResponseReturnValue:
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/vendors/add")
     def submit_new_vendor() -> ResponseReturnValue:
         from flask import redirect
+
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_add(
             form_data={k: v for k, v in request.form.items()},
-            org=org_context, theme=theme,
+            org=org_context,
+            theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.get("/vendors/<int:vendor_id>/edit")
     def edit_vendor_form(vendor_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
-        resp = pages.render_form(org=org_context, theme=theme,
-                                 vendor_id=vendor_id)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        resp = pages.render_form(org=org_context, theme=theme, vendor_id=vendor_id)
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/vendors/<int:vendor_id>/edit")
     def submit_edit_vendor(vendor_id: int) -> ResponseReturnValue:
         from flask import redirect
+
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         form_data = {k: v for k, v in request.form.items()}
         if "_active_flag_present" in form_data and "active_flag" not in form_data:
             form_data["active_flag"] = "0"
         redirect_url, form_resp = pages.handle_edit(
-            vendor_id=vendor_id, form_data=form_data,
-            org=org_context, theme=theme,
+            vendor_id=vendor_id,
+            form_data=form_data,
+            org=org_context,
+            theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.post("/vendors/<int:vendor_id>/delete")
     def submit_delete_vendor(vendor_id: int) -> ResponseReturnValue:
         from flask import redirect
+
         pages = ctx.open_pages(VendorPages)
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_delete(
-            vendor_id=vendor_id, org=org_context, theme=theme,
+            vendor_id=vendor_id,
+            org=org_context,
+            theme=theme,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     return bp

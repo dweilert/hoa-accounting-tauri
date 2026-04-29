@@ -67,7 +67,15 @@ class CategoriesRepository(BaseRepository):
                SET name = ?, group_name = ?, description = ?,
                    fund_code = ?, sort_order = ?, active_flag = ?
                WHERE id = ?""",
-            (name, group_name, description, fund_code, sort_order, active_flag, category_id),
+            (
+                name,
+                group_name,
+                description,
+                fund_code,
+                sort_order,
+                active_flag,
+                category_id,
+            ),
         )
         self.conn.commit()
 

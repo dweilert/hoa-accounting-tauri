@@ -43,7 +43,7 @@ class ExpenseVsBudgetReportService:
 
         budget_id = int(budget["id"])
         from_date = f"{fiscal_year}-01-01"
-        to_date   = f"{fiscal_year}-12-31"
+        to_date = f"{fiscal_year}-12-31"
 
         # Show every active EXPENSE category whose fund matches this budget's
         # fund — even if it has no budget line (budget = 0) and even if it has
@@ -81,16 +81,16 @@ class ExpenseVsBudgetReportService:
         ).fetchall()
 
         rows_by_group: dict[str, list[ExpenseVsBudgetRow]] = defaultdict(list)
-        group_budget:  dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
-        group_actual:  dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+        group_budget: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+        group_actual: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
         total_budget = Decimal("0.00")
         total_actual = Decimal("0.00")
 
         for row in rows:
             budget_amount = q2(row["budget_amount"])
             actual_amount = q2(row["actual_amount"])
-            variance      = q2(budget_amount - actual_amount)
-            group_code    = str(row["group_code"])
+            variance = q2(budget_amount - actual_amount)
+            group_code = str(row["group_code"])
 
             rows_by_group[group_code].append(
                 ExpenseVsBudgetRow(

@@ -58,7 +58,9 @@ class PaymentService:
             try:
                 parsed_method = PaymentMethod(payment_method.upper())
             except ValueError as exc:
-                raise ValidationError(f"Invalid payment method: {payment_method}") from exc
+                raise ValidationError(
+                    f"Invalid payment method: {payment_method}"
+                ) from exc
 
             payment_id = self.payment_repo.insert_payment(
                 receipt_number=receipt_number,

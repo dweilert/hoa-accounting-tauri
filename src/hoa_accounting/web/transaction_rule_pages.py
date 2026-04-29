@@ -10,55 +10,55 @@ from hoa_accounting.web.template_engine import render_template
 
 ACTION_TYPES: dict[str, dict[str, Any]] = {
     "recurring_bill": {
-        "label":        "Recurring Bill / Auto-Pay",
-        "description":  "Utilities, insurance, landscaping, management fees",
-        "pattern":      "expense",
-        "acct_type":    "EXPENSE",
+        "label": "Recurring Bill / Auto-Pay",
+        "description": "Utilities, insurance, landscaping, management fees",
+        "pattern": "expense",
+        "acct_type": "EXPENSE",
     },
     "dues_payment": {
-        "label":        "Dues or Assessment Payment",
-        "description":  "Monthly dues deposits or special assessments received",
-        "pattern":      "income",
-        "acct_type":    "INCOME",
+        "label": "Dues or Assessment Payment",
+        "description": "Monthly dues deposits or special assessments received",
+        "pattern": "income",
+        "acct_type": "INCOME",
     },
     "fee_income": {
-        "label":        "Fee or Other Income",
-        "description":  "Late fees, resale fees, interest earned, refunds",
-        "pattern":      "income",
-        "acct_type":    "INCOME",
+        "label": "Fee or Other Income",
+        "description": "Late fees, resale fees, interest earned, refunds",
+        "pattern": "income",
+        "acct_type": "INCOME",
     },
     "bank_charge": {
-        "label":        "Bank Fee or Charge",
-        "description":  "Monthly service fees, wire fees, NSF charges",
-        "pattern":      "expense",
-        "acct_type":    "EXPENSE",
+        "label": "Bank Fee or Charge",
+        "description": "Monthly service fees, wire fees, NSF charges",
+        "pattern": "expense",
+        "acct_type": "EXPENSE",
     },
     "homeowner_batch": {
-        "label":        "Homeowner Batch Deposit",
-        "description":  "Teller deposit covering multiple homeowner payments — uses Find to identify which payments make up the deposit",
-        "pattern":      "income",
-        "acct_type":    None,
-        "no_category":  True,
+        "label": "Homeowner Batch Deposit",
+        "description": "Teller deposit covering multiple homeowner payments — uses Find to identify which payments make up the deposit",
+        "pattern": "income",
+        "acct_type": None,
+        "no_category": True,
     },
     "vendor_bill_match": {
-        "label":        "Vendor Bill Payment",
-        "description":  "Debit that pays one or more open vendor bills — uses Find to link the bank transaction to the bill",
-        "pattern":      "expense",
-        "acct_type":    None,
-        "no_category":  True,
+        "label": "Vendor Bill Payment",
+        "description": "Debit that pays one or more open vendor bills — uses Find to link the bank transaction to the bill",
+        "pattern": "expense",
+        "acct_type": None,
+        "no_category": True,
     },
     # Legacy values kept for backward compatibility
     "direct_expense": {
-        "label":        "Direct Expense (legacy)",
-        "description":  "",
-        "pattern":      "expense",
-        "acct_type":    "EXPENSE",
+        "label": "Direct Expense (legacy)",
+        "description": "",
+        "pattern": "expense",
+        "acct_type": "EXPENSE",
     },
     "direct_income": {
-        "label":        "Direct Income (legacy)",
-        "description":  "",
-        "pattern":      "income",
-        "acct_type":    "INCOME",
+        "label": "Direct Income (legacy)",
+        "description": "",
+        "pattern": "income",
+        "acct_type": "INCOME",
     },
 }
 
@@ -85,44 +85,37 @@ class TransactionRulePages:
 
     def _get_categories(self) -> list[dict[str, Any]]:
         """Return all active income/expense categories."""
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT id, code, name, category_type, fund_code, group_name
             FROM categories
             WHERE active_flag = 1
               AND category_type IN ('INCOME', 'EXPENSE')
             ORDER BY category_type, sort_order, name
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
     def _get_bank_accounts(self) -> list[dict[str, Any]]:
         """Return all bank accounts for the rule restriction dropdown."""
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT id, account_name, account_last4, institution_name
             FROM bank_accounts
             ORDER BY account_name
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
     def _get_vendors(self) -> list[dict[str, Any]]:
         """Return active vendors for the expense-rule vendor picker."""
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT id, vendor_name
             FROM vendors
             WHERE active_flag = 1
             ORDER BY vendor_name COLLATE NOCASE
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
     def _get_lots(self) -> list[dict[str, Any]]:
         """Return all active lots with their current owner name(s)."""
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT l.id, l.lot_number,
                    COALESCE(GROUP_CONCAT(o.display_name, ', '), '') AS owner_name
             FROM lots l
@@ -131,13 +124,11 @@ class TransactionRulePages:
             WHERE l.active_flag = 1
             GROUP BY l.id
             ORDER BY l.lot_number
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
     def _get_rules(self) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT r.id, r.rule_name, r.description_contains,
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
                    r.action_type, r.category_id, r.vendor_id, r.default_memo,
@@ -161,14 +152,16 @@ class TransactionRulePages:
             LEFT JOIN owners o ON o.id = lo.owner_id
             LEFT JOIN bank_accounts ba ON ba.id = r.bank_account_id
             ORDER BY r.rule_name
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
-    def render_list(self, org: dict[str, Any], theme: str, return_to: str = "") -> PageResponse:
+    def render_list(
+        self, org: dict[str, Any], theme: str, return_to: str = ""
+    ) -> PageResponse:
         return self._render(
             "transaction_rules.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="transaction-rules",
             rules=self._get_rules(),
             categories=self._get_categories(),
@@ -185,23 +178,25 @@ class TransactionRulePages:
         org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
-        rule_id        = form_data.get("rule_id", "").strip()
-        rule_name      = form_data.get("rule_name", "").strip()
-        desc_contains  = form_data.get("description_contains", "").strip()
-        match_type        = form_data.get("match_type", "").strip()
-        match_memo        = form_data.get("match_memo", "").strip()
-        match_amount      = form_data.get("match_amount", "").strip().lstrip("$").replace(",", "")
-        ba_id_raw         = form_data.get("bank_account_id", "").strip()
+        rule_id = form_data.get("rule_id", "").strip()
+        rule_name = form_data.get("rule_name", "").strip()
+        desc_contains = form_data.get("description_contains", "").strip()
+        match_type = form_data.get("match_type", "").strip()
+        match_memo = form_data.get("match_memo", "").strip()
+        match_amount = (
+            form_data.get("match_amount", "").strip().lstrip("$").replace(",", "")
+        )
+        ba_id_raw = form_data.get("bank_account_id", "").strip()
         rule_bank_acct_id = int(ba_id_raw) if ba_id_raw else None
-        action_type    = form_data.get("action_type", "recurring_bill").strip()
+        action_type = form_data.get("action_type", "recurring_bill").strip()
         category_id_raw = form_data.get("category_id", "").strip()
-        category_id    = int(category_id_raw) if category_id_raw else None
-        vendor_id_raw  = form_data.get("vendor_id", "").strip()
-        vendor_id      = int(vendor_id_raw) if vendor_id_raw else None
-        lot_id_raw     = form_data.get("lot_id", "").strip()
-        lot_id         = int(lot_id_raw) if lot_id_raw else None
-        default_memo   = form_data.get("default_memo", "").strip()
-        active_flag    = 1 if form_data.get("active_flag") else 0
+        category_id = int(category_id_raw) if category_id_raw else None
+        vendor_id_raw = form_data.get("vendor_id", "").strip()
+        vendor_id = int(vendor_id_raw) if vendor_id_raw else None
+        lot_id_raw = form_data.get("lot_id", "").strip()
+        lot_id = int(lot_id_raw) if lot_id_raw else None
+        default_memo = form_data.get("default_memo", "").strip()
+        active_flag = 1 if form_data.get("active_flag") else 0
         # Rule confidence: 'review_first' (default) leaves matched txns in
         # the Pending Validation queue; 'auto_post' posts them without
         # review. Promotion is otherwise automatic once confirmed_matches
@@ -234,7 +229,8 @@ class TransactionRulePages:
         if existing:
             return None, self._render_error(
                 f'A rule named "{rule_name}" already exists. Please use a different name.',
-                org, theme,
+                org,
+                theme,
             )
 
         if rule_id:
@@ -248,10 +244,23 @@ class TransactionRulePages:
                     confidence_mode = ?, auto_post_after_n = ?
                 WHERE id = ?
                 """,
-                (rule_name, desc_contains, match_type, match_memo, match_amount,
-                 rule_bank_acct_id, action_type, category_id, vendor_id, lot_id,
-                 default_memo, active_flag,
-                 confidence_mode, auto_post_after_n, int(rule_id)),
+                (
+                    rule_name,
+                    desc_contains,
+                    match_type,
+                    match_memo,
+                    match_amount,
+                    rule_bank_acct_id,
+                    action_type,
+                    category_id,
+                    vendor_id,
+                    lot_id,
+                    default_memo,
+                    active_flag,
+                    confidence_mode,
+                    auto_post_after_n,
+                    int(rule_id),
+                ),
             )
         else:
             self._conn.execute(
@@ -263,19 +272,34 @@ class TransactionRulePages:
                      confidence_mode, auto_post_after_n)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (rule_name, desc_contains, match_type, match_memo, match_amount,
-                 rule_bank_acct_id, action_type, category_id, vendor_id, lot_id,
-                 default_memo, active_flag,
-                 confidence_mode, auto_post_after_n),
+                (
+                    rule_name,
+                    desc_contains,
+                    match_type,
+                    match_memo,
+                    match_amount,
+                    rule_bank_acct_id,
+                    action_type,
+                    category_id,
+                    vendor_id,
+                    lot_id,
+                    default_memo,
+                    active_flag,
+                    confidence_mode,
+                    auto_post_after_n,
+                ),
             )
 
         self._conn.commit()
         return "/admin/transaction-rules", None
 
-    def _render_error(self, error: str, org: dict[str, Any], theme: str) -> PageResponse:
+    def _render_error(
+        self, error: str, org: dict[str, Any], theme: str
+    ) -> PageResponse:
         return self._render(
             "transaction_rules.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="transaction-rules",
             rules=self._get_rules(),
             categories=self._get_categories(),

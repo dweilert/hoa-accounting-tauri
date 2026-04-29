@@ -21,7 +21,6 @@ import pytest
 from hoa_accounting.config.loader import load_config
 from hoa_accounting.web.app import create_app
 
-
 _PLACEHOLDER_TABLES: dict[str, str | None] = {
     "lot_id": "lots",
     "owner_id": "owners",
@@ -86,7 +85,9 @@ def _config_path() -> Path:
 def smoke_app():
     cfg_path = _config_path()
     if not cfg_path.exists():
-        pytest.skip(f"No config.yaml at {cfg_path} — smoke suite needs the live app config.")
+        pytest.skip(
+            f"No config.yaml at {cfg_path} — smoke suite needs the live app config."
+        )
     cfg = load_config(str(cfg_path))
     if not Path(cfg.database.path).exists():
         pytest.skip(f"Configured database missing: {cfg.database.path}")
@@ -156,9 +157,7 @@ def test_no_route_returns_500(smoke_app, smoke_ids):
             ok += 1
 
     if failures:
-        msg = "Routes returning 5xx:\n" + "\n".join(
-            f"  [{s}] {u}" for u, s in failures
-        )
+        msg = "Routes returning 5xx:\n" + "\n".join(f"  [{s}] {u}" for u, s in failures)
         pytest.fail(msg)
 
     # Surface skips in test output without failing.

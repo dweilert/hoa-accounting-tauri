@@ -8,11 +8,12 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ReportField:
     """Metadata describing one report input field."""
+
     name: str
     label: str
     placeholder: str
     required: bool
-    field_type: str = "text"    # "text" | "select"
+    field_type: str = "text"  # "text" | "select"
     options_key: str | None = None
     default_value: str = ""
 
@@ -20,6 +21,7 @@ class ReportField:
 @dataclass(frozen=True)
 class ReportDefinition:
     """Metadata describing one supported report."""
+
     name: str
     title: str
     description: str

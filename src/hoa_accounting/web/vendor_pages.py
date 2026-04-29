@@ -166,7 +166,8 @@ class VendorPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -205,7 +206,8 @@ class VendorPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 vendor_id=vendor_id,
                 form_values=form_data,
                 error_message=str(exc),
@@ -234,7 +236,8 @@ class VendorPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 vendor_id=vendor_id,
                 error_message=str(exc),
             )

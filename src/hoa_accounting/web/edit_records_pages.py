@@ -26,8 +26,11 @@ from hoa_accounting.repositories.income_batches_repo import IncomeBatchesReposit
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
 from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.format import format_currency, format_money
-from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _req
-
+from hoa_accounting.validators.forms import (
+    parse_int as _parse_int,
+    parse_positive_decimal as _parse_positive_decimal,
+    require as _req,
+)
 
 _PAYMENT_METHODS = [m.value for m in PaymentMethod]
 
@@ -50,7 +53,10 @@ class EditRecordsPages:
     # ── Hub ──────────────────────────────────────────────────────
 
     def render_hub(
-        self, *, org: dict[str, Any] | None, theme: str,
+        self,
+        *,
+        org: dict[str, Any] | None,
+        theme: str,
     ) -> EditRecordsResponse:
         ctx = {
             "heading": "Edit Records",
@@ -90,7 +96,7 @@ class EditRecordsPages:
                 "owner_id": r["owner_id"],
                 "owner_name": r["owner_name"] or "",
                 "payment_date": r["payment_date"] or "",
-                "amount": format_money(r['amount']),
+                "amount": format_money(r["amount"]),
                 "payment_method": r["payment_method"] or "",
                 "reference_number": r["reference_number"] or "",
                 "bank_account_id": r["bank_account_id"],
@@ -105,8 +111,10 @@ class EditRecordsPages:
             for r in rows
         ]
         bank_accounts = [
-            {"id": r["id"],
-             "label": f"{r['account_name']} (···{r['account_last4'] or '????'})"}
+            {
+                "id": r["id"],
+                "label": f"{r['account_name']} (···{r['account_last4'] or '????'})",
+            }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
             if r["active_flag"]
         ]
@@ -157,7 +165,9 @@ class EditRecordsPages:
             method_raw = _req(form_data.get("payment_method"), "Payment method").upper()
             if method_raw not in _PAYMENT_METHODS:
                 raise ValidationError(f"Invalid payment method: {method_raw}")
-            bank_account_id = _parse_int(form_data.get("bank_account_id"), "Bank account")
+            bank_account_id = _parse_int(
+                form_data.get("bank_account_id"), "Bank account"
+            )
             reference_number = (form_data.get("reference_number") or "").strip() or None
             notes = (form_data.get("notes") or "").strip()
             cat_raw = (form_data.get("category_id") or "").strip()
@@ -182,7 +192,9 @@ class EditRecordsPages:
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_payments(
-                org=org, theme=theme, error_message=str(exc),
+                org=org,
+                theme=theme,
+                error_message=str(exc),
             )
             return (None, resp)
         except sqlite3.IntegrityError as exc:
@@ -190,7 +202,9 @@ class EditRecordsPages:
             if "receipt_number" in msg:
                 msg = f"Receipt number '{receipt_number}' already used."
             resp = self.render_payments(
-                org=org, theme=theme, error_message=msg,
+                org=org,
+                theme=theme,
+                error_message=msg,
             )
             return (None, resp)
 
@@ -211,22 +225,26 @@ class EditRecordsPages:
         repo = IncomeBatchesRepository(self.conn)
         batches = []
         for r in repo.list_batches(limit=500):
-            batches.append({
-                "id": r["id"],
-                "posting_date": r["posting_date"] or "",
-                "bank_account_id": r["bank_account_id"],
-                "bank_label": (
-                    f"{r['bank_account_name']} (···{r['bank_account_last4'] or '????'})"
-                ),
-                "income_description": r["income_description"] or "",
-                "total_amount": format_money(r['total_amount']),
-                "notes": r["notes"] or "",
-                "category_id": r["category_id"],
-                "category_name": r["category_name"] or "",
-            })
+            batches.append(
+                {
+                    "id": r["id"],
+                    "posting_date": r["posting_date"] or "",
+                    "bank_account_id": r["bank_account_id"],
+                    "bank_label": (
+                        f"{r['bank_account_name']} (···{r['bank_account_last4'] or '????'})"
+                    ),
+                    "income_description": r["income_description"] or "",
+                    "total_amount": format_money(r["total_amount"]),
+                    "notes": r["notes"] or "",
+                    "category_id": r["category_id"],
+                    "category_name": r["category_name"] or "",
+                }
+            )
         bank_accounts = [
-            {"id": r["id"],
-             "label": f"{r['account_name']} (···{r['account_last4'] or '????'})"}
+            {
+                "id": r["id"],
+                "label": f"{r['account_name']} (···{r['account_last4'] or '????'})",
+            }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
             if r["active_flag"]
         ]
@@ -270,8 +288,12 @@ class EditRecordsPages:
             return ("/manage/edit-records/non-dues-income", None)
         try:
             posting_date = _req(form_data.get("posting_date"), "Posting date")
-            bank_account_id = _parse_int(form_data.get("bank_account_id"), "Bank account")
-            income_description = _req(form_data.get("income_description"), "Description")
+            bank_account_id = _parse_int(
+                form_data.get("bank_account_id"), "Bank account"
+            )
+            income_description = _req(
+                form_data.get("income_description"), "Description"
+            )
             amount = _parse_positive_decimal(form_data.get("total_amount"), "Amount")
             notes = (form_data.get("notes") or "").strip() or None
             cat_raw = (form_data.get("category_id") or "").strip()
@@ -288,7 +310,9 @@ class EditRecordsPages:
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_income(
-                org=org, theme=theme, error_message=str(exc),
+                org=org,
+                theme=theme,
+                error_message=str(exc),
             )
             return (None, resp)
         return ("/manage/edit-records/non-dues-income?msg=Saved", None)
@@ -311,21 +335,27 @@ class EditRecordsPages:
         if row is None:
             return EditRecordsResponse(
                 status_code=HTTPStatus.NOT_FOUND,
-                body_html=render_template("error.html", {
-                    "org": org or {}, "theme": theme,
-                    "heading": "Not Found",
-                    "message": f"Income batch #{income_batch_id} not found.",
-                    "page_key": "edit-records-income",
-                }),
+                body_html=render_template(
+                    "error.html",
+                    {
+                        "org": org or {},
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": f"Income batch #{income_batch_id} not found.",
+                        "page_key": "edit-records-income",
+                    },
+                ),
             )
-        batch_amount = format_money(row['total_amount'])
+        batch_amount = format_money(row["total_amount"])
 
         if form_values and form_values.get("line_category_id"):
             cats = form_values["line_category_id"]
             amts = form_values.get("line_amount", [])
             initial_lines = [
-                {"category_id": cats[i] if i < len(cats) else "",
-                 "amount": amts[i] if i < len(amts) else ""}
+                {
+                    "category_id": cats[i] if i < len(cats) else "",
+                    "amount": amts[i] if i < len(amts) else "",
+                }
                 for i in range(max(len(cats), 1))
             ]
         else:
@@ -342,7 +372,8 @@ class EditRecordsPages:
         ]
         ctx = {
             "heading": f"Split Income Batch · {row['income_description']}",
-            "org": org or {}, "theme": theme,
+            "org": org or {},
+            "theme": theme,
             "active_nav": "master-data",
             "page_key": "edit-records-income",
             "breadcrumb": "Manage · Edit Records · Split",
@@ -374,7 +405,10 @@ class EditRecordsPages:
         row = repo.get_income_batch(income_batch_id)
         if row is None:
             return ("/manage/edit-records/non-dues-income", None)
-        form_values = {"line_category_id": line_category_ids, "line_amount": line_amounts}
+        form_values = {
+            "line_category_id": line_category_ids,
+            "line_amount": line_amounts,
+        }
         try:
             if len(line_category_ids) != len(line_amounts) or not line_category_ids:
                 raise ValidationError("Provide at least one line.")
@@ -399,7 +433,8 @@ class EditRecordsPages:
                 (income_batch_id,),
             ).fetchone()
             deposit_batch_id = (
-                int(deposit_batch_id[0]) if deposit_batch_id and deposit_batch_id[0] is not None
+                int(deposit_batch_id[0])
+                if deposit_batch_id and deposit_batch_id[0] is not None
                 else None
             )
 
@@ -460,13 +495,18 @@ class EditRecordsPages:
                 )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_income_split(
-                income_batch_id, org=org, theme=theme,
-                form_values=form_values, error_message=str(exc),
+                income_batch_id,
+                org=org,
+                theme=theme,
+                form_values=form_values,
+                error_message=str(exc),
             )
             return (None, resp)
         except sqlite3.IntegrityError as exc:
             resp = self.render_income_split(
-                income_batch_id, org=org, theme=theme,
+                income_batch_id,
+                org=org,
+                theme=theme,
                 form_values=form_values,
                 error_message=f"Database error: {exc}",
             )
@@ -495,20 +535,22 @@ class EditRecordsPages:
         }
         rows = []
         for r in repo.list_for_edit(limit=500):
-            rows.append({
-                "id": r["id"],
-                "lot_number": r["lot_number"] or "",
-                "owner_name": r["owner_name"] or "",
-                "assessment_date": r["assessment_date"] or "",
-                "due_date": r["due_date"] or "",
-                "amount": format_money(r['amount']),
-                "description": r["description"] or "",
-                "status": r["status"] or "",
-                "charge_type": r["charge_type"] or "",
-                "category_id": r["category_id"],
-                "category_name": r["category_name"] or "",
-                "has_applications": int(r["id"]) in ids_with_apps,
-            })
+            rows.append(
+                {
+                    "id": r["id"],
+                    "lot_number": r["lot_number"] or "",
+                    "owner_name": r["owner_name"] or "",
+                    "assessment_date": r["assessment_date"] or "",
+                    "due_date": r["due_date"] or "",
+                    "amount": format_money(r["amount"]),
+                    "description": r["description"] or "",
+                    "status": r["status"] or "",
+                    "charge_type": r["charge_type"] or "",
+                    "category_id": r["category_id"],
+                    "category_name": r["category_name"] or "",
+                    "has_applications": int(r["id"]) in ids_with_apps,
+                }
+            )
         income_categories = [
             {"id": c["id"], "label": c["name"]}
             for c in CategoriesRepository(self.conn).list_categories(
@@ -556,9 +598,7 @@ class EditRecordsPages:
             if has_apps:
                 amount_to_write: str | None = None
             else:
-                amount_dec = _parse_positive_decimal(
-                    form_data.get("amount"), "Amount"
-                )
+                amount_dec = _parse_positive_decimal(form_data.get("amount"), "Amount")
                 amount_to_write = str(amount_dec)
             repo.update_for_edit(
                 assessment_id,
@@ -570,7 +610,9 @@ class EditRecordsPages:
             )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_assessments(
-                org=org, theme=theme, error_message=str(exc),
+                org=org,
+                theme=theme,
+                error_message=str(exc),
             )
             return (None, resp)
         return ("/manage/edit-records/assessments?msg=Saved", None)

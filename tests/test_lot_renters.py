@@ -50,9 +50,18 @@ def conn() -> sqlite3.Connection:
 def test_lot_renters_table_exists_with_expected_columns(conn) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(lot_renters)")}
     for required in [
-        "id", "lot_id", "display_name", "first_name", "last_name",
-        "email", "phone", "start_date", "end_date",
-        "notes", "created_at", "updated_at",
+        "id",
+        "lot_id",
+        "display_name",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "start_date",
+        "end_date",
+        "notes",
+        "created_at",
+        "updated_at",
     ]:
         assert required in cols
 
@@ -97,7 +106,10 @@ def test_end_tenancy_excludes_from_current(conn) -> None:
     renter_id = repo.insert_renter(
         lot_id=ids["lot_vacant"],
         display_name="Old Tenant",
-        first_name=None, last_name=None, email=None, phone=None,
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
         start_date="2024-01-01",
     )
     assert len(repo.get_current_renters(ids["lot_vacant"])) == 1
@@ -116,21 +128,30 @@ def test_history_orders_newest_first(conn) -> None:
     repo.insert_renter(
         lot_id=ids["lot_vacant"],
         display_name="2023 Tenant",
-        first_name=None, last_name=None, email=None, phone=None,
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
         start_date="2023-01-01",
         end_date="2023-12-31",
     )
     repo.insert_renter(
         lot_id=ids["lot_vacant"],
         display_name="2024 Tenant",
-        first_name=None, last_name=None, email=None, phone=None,
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
         start_date="2024-01-01",
         end_date="2024-12-31",
     )
     repo.insert_renter(
         lot_id=ids["lot_vacant"],
         display_name="Current Tenant",
-        first_name=None, last_name=None, email=None, phone=None,
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
         start_date="2025-01-01",
     )
     names = [r["display_name"] for r in repo.list_renter_history(ids["lot_vacant"])]
@@ -156,8 +177,10 @@ def test_list_lots_with_occupancy_flips_when_renter_present(conn) -> None:
     LotRentersRepository(conn).insert_renter(
         lot_id=ids["lot_vacant"],
         display_name="Dana Reeves",
-        first_name="Dana", last_name="Reeves",
-        email="dana@example.com", phone="555-0100",
+        first_name="Dana",
+        last_name="Reeves",
+        email="dana@example.com",
+        phone="555-0100",
         start_date="2025-06-01",
     )
     rows = LotsRepository(conn).list_lots_with_occupancy()
@@ -174,17 +197,32 @@ def test_ended_tenancy_no_longer_shows_on_occupancy(conn) -> None:
     renter_id = repo.insert_renter(
         lot_id=ids["lot_alice"],
         display_name="Past Tenant",
-        first_name=None, last_name=None, email=None, phone=None,
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
         start_date="2023-01-01",
     )
-    assert int(
-        [r for r in LotsRepository(conn).list_lots_with_occupancy()
-         if int(r["lot_id"]) == ids["lot_alice"]][0]["is_owner_occupied"]
-    ) == 0
+    assert (
+        int(
+            [
+                r
+                for r in LotsRepository(conn).list_lots_with_occupancy()
+                if int(r["lot_id"]) == ids["lot_alice"]
+            ][0]["is_owner_occupied"]
+        )
+        == 0
+    )
 
     repo.end_tenancy(renter_id=renter_id, end_date="2024-06-30")
 
-    assert int(
-        [r for r in LotsRepository(conn).list_lots_with_occupancy()
-         if int(r["lot_id"]) == ids["lot_alice"]][0]["is_owner_occupied"]
-    ) == 1
+    assert (
+        int(
+            [
+                r
+                for r in LotsRepository(conn).list_lots_with_occupancy()
+                if int(r["lot_id"]) == ids["lot_alice"]
+            ][0]["is_owner_occupied"]
+        )
+        == 1
+    )

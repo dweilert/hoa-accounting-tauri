@@ -19,15 +19,21 @@ def _factory(conn):
 
 def test_post_batch_two_rows_one_slip():
     conn, ids = build_seeded_conn()
-    res = _factory(conn).deposit_batch_service().post_batch(
-        deposit_date="2026-01-20",
-        bank_account_id=ids.bank_op_id,
-        rows=[
-            DepositRow(lot_id=ids.lot1_id, amount="125.00",
-                       reference_number="CHK-1001"),
-            DepositRow(lot_id=ids.lot2_id, amount="125.00",
-                       reference_number="CHK-1002"),
-        ],
+    res = (
+        _factory(conn)
+        .deposit_batch_service()
+        .post_batch(
+            deposit_date="2026-01-20",
+            bank_account_id=ids.bank_op_id,
+            rows=[
+                DepositRow(
+                    lot_id=ids.lot1_id, amount="125.00", reference_number="CHK-1001"
+                ),
+                DepositRow(
+                    lot_id=ids.lot2_id, amount="125.00", reference_number="CHK-1002"
+                ),
+            ],
+        )
     )
     assert Decimal(res.total_amount) == Decimal("250.00")
     assert len(res.payment_ids) == 2

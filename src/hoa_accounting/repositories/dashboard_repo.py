@@ -46,7 +46,7 @@ class BudgetCategoryTile:
     fiscal_year: int
     total_budget: Decimal
     actual_spent: Decimal
-    over_budget: int   # number of expense categories where actual > budget
+    over_budget: int  # number of expense categories where actual > budget
     under_budget: int  # number of expense categories where actual <= budget
 
     @property
@@ -62,6 +62,7 @@ def _fiscal_year_range(fiscal_year: int, fy_start_month: int = 1) -> tuple[str, 
     if fy_start_month == 1:
         return fy_start, f"{fiscal_year}-12-31"
     import calendar as _cal
+
     end_year = fiscal_year + 1
     end_month = fy_start_month - 1
     last_day = _cal.monthrange(end_year, end_month)[1]
@@ -92,13 +93,26 @@ class DashboardRepository:
             self._conn.execute(
                 "UPDATE hoa_profile SET legal_name=?, display_name=?, theme=?, "
                 "default_assessment_amount=?, default_billing_frequency=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (legal_name, display_name, theme, default_assessment_amount, default_billing_frequency, existing["id"]),
+                (
+                    legal_name,
+                    display_name,
+                    theme,
+                    default_assessment_amount,
+                    default_billing_frequency,
+                    existing["id"],
+                ),
             )
         else:
             self._conn.execute(
                 "INSERT INTO hoa_profile (legal_name, display_name, theme, default_assessment_amount, default_billing_frequency) "
                 "VALUES (?,?,?,?,?)",
-                (legal_name, display_name, theme, default_assessment_amount, default_billing_frequency),
+                (
+                    legal_name,
+                    display_name,
+                    theme,
+                    default_assessment_amount,
+                    default_billing_frequency,
+                ),
             )
         self._conn.commit()
 
@@ -113,8 +127,7 @@ class DashboardRepository:
         # (entered via the Starting Balances UI). ``bank_accounts.opening_balance``
         # is a legacy column that often lags behind — fall back to it only
         # when no Starting-Balances row exists for the account yet.
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT
                 ba.account_name,
                 ba.account_type,
@@ -142,8 +155,7 @@ class DashboardRepository:
             FROM bank_accounts ba
             WHERE ba.active_flag = 1
             ORDER BY ba.account_name COLLATE NOCASE
-            """
-        ).fetchall()
+            """).fetchall()
         return [
             BankTile(
                 account_name=r["account_name"],
@@ -155,16 +167,14 @@ class DashboardRepository:
         ]
 
     def get_last_reconciliation(self) -> ReconciliationTile | None:
-        row = self._conn.execute(
-            """
+        row = self._conn.execute("""
             SELECT ba.account_name, br.statement_ending_date,
                    br.statement_ending_balance, br.status
             FROM bank_reconciliations br
             JOIN bank_accounts ba ON ba.id = br.bank_account_id
             ORDER BY br.statement_ending_date DESC
             LIMIT 1
-            """
-        ).fetchone()
+            """).fetchone()
         if not row:
             return None
         return ReconciliationTile(
@@ -174,7 +184,9 @@ class DashboardRepository:
             status=row["status"],
         )
 
-    def get_budget_tile(self, fiscal_year: int, fy_start_month: int = 1) -> BudgetTile | None:
+    def get_budget_tile(
+        self, fiscal_year: int, fy_start_month: int = 1
+    ) -> BudgetTile | None:
         budget_row = self._conn.execute(
             """
             SELECT SUM(bl.budget_amount) AS total
@@ -205,7 +217,9 @@ class DashboardRepository:
             actual_spent=Decimal(str(actual_row["spent"] if actual_row else 0)),
         )
 
-    def get_budget_category_tile(self, fiscal_year: int, fy_start_month: int = 1) -> "BudgetCategoryTile | None":
+    def get_budget_category_tile(
+        self, fiscal_year: int, fy_start_month: int = 1
+    ) -> "BudgetCategoryTile | None":
         """Return per-category over/under budget counts for the fiscal year.
 
         Cash basis: actual spend = sum of bill_payments in the fiscal-year
@@ -259,13 +273,19 @@ class DashboardRepository:
             (fy_start, fy_end),
         ).fetchone()
 
-        over_count = sum(1 for r in rows if Decimal(str(r["actual"])) > Decimal(str(r["budgeted"])))
-        under_count = sum(1 for r in rows if Decimal(str(r["actual"])) <= Decimal(str(r["budgeted"])))
+        over_count = sum(
+            1 for r in rows if Decimal(str(r["actual"])) > Decimal(str(r["budgeted"]))
+        )
+        under_count = sum(
+            1 for r in rows if Decimal(str(r["actual"])) <= Decimal(str(r["budgeted"]))
+        )
 
         return BudgetCategoryTile(
             fiscal_year=fiscal_year,
             total_budget=Decimal(str(budget_row["total"])),
-            actual_spent=Decimal(str(total_actual_row["spent"] if total_actual_row else 0)),
+            actual_spent=Decimal(
+                str(total_actual_row["spent"] if total_actual_row else 0)
+            ),
             over_budget=over_count,
             under_budget=under_count,
         )
@@ -342,18 +362,27 @@ class DashboardRepository:
         dismissed = self.get_dismissed_alerts()
         nudges: list[dict[str, Any]] = []
 
-        def _add(key: str, level: str, icon: str, text: str, href: str, link: str) -> None:
+        def _add(
+            key: str, level: str, icon: str, text: str, href: str, link: str
+        ) -> None:
             if not settings.get(key, True):
                 return
             if key in dismissed:
                 return
-            nudges.append({"key": key, "level": level, "icon": icon,
-                           "text": text, "href": href, "link": link})
+            nudges.append(
+                {
+                    "key": key,
+                    "level": level,
+                    "icon": icon,
+                    "text": text,
+                    "href": href,
+                    "link": link,
+                }
+            )
 
         # ── 90-day overdue (more urgent — shown before 60-day) ────────────
         try:
-            row = self._conn.execute(
-                """
+            row = self._conn.execute("""
                 SELECT COUNT(*) c FROM (
                     SELECT a.id,
                            a.amount - COALESCE(SUM(pa.applied_amount), 0) AS remaining
@@ -364,14 +393,18 @@ class DashboardRepository:
                     GROUP BY a.id
                     HAVING remaining > 0
                 )
-                """
-            ).fetchone()
+                """).fetchone()
             if row and row["c"] > 0:
                 n = row["c"]
-                _add("overdue_90_days", "urgent", "🚨",
-                     f"{n} homeowner balance{'s' if n != 1 else ''} "
-                     "90+ days past due — consider sending a formal notice.",
-                     "/ar-lots", "AR by Lot")
+                _add(
+                    "overdue_90_days",
+                    "urgent",
+                    "🚨",
+                    f"{n} homeowner balance{'s' if n != 1 else ''} "
+                    "90+ days past due — consider sending a formal notice.",
+                    "/ar-lots",
+                    "AR by Lot",
+                )
         except Exception:
             pass
 
@@ -383,10 +416,15 @@ class DashboardRepository:
             ).fetchone()
             if row and row["c"] > 0:
                 n = row["c"]
-                _add("open_periods", "warn", "🔒",
-                     f"{n} accounting period{'s' if n != 1 else ''} "
-                     "still open from a prior month — close them to lock the books.",
-                     "/accounting-periods", "Accounting Periods")
+                _add(
+                    "open_periods",
+                    "warn",
+                    "🔒",
+                    f"{n} accounting period{'s' if n != 1 else ''} "
+                    "still open from a prior month — close them to lock the books.",
+                    "/accounting-periods",
+                    "Accounting Periods",
+                )
         except Exception:
             pass
 
@@ -397,52 +435,62 @@ class DashboardRepository:
             ).fetchone()
             if row and row["c"] > 0:
                 n = row["c"]
-                _add("open_reconciliation", "warn", "🏦",
-                     f"{n} bank reconciliation{'s' if n != 1 else ''} "
-                     "in progress — finish reconciling to close the month.",
-                     "/reconciliations", "Reconciliations")
+                _add(
+                    "open_reconciliation",
+                    "warn",
+                    "🏦",
+                    f"{n} bank reconciliation{'s' if n != 1 else ''} "
+                    "in progress — finish reconciling to close the month.",
+                    "/reconciliations",
+                    "Reconciliations",
+                )
         except Exception:
             pass
 
         # ── Vendor bills past due ─────────────────────────────────────────
         try:
-            row = self._conn.execute(
-                """
+            row = self._conn.execute("""
                 SELECT COUNT(*) c FROM vendor_bills
                 WHERE status IN ('APPROVED', 'PARTIALLY_PAID')
                   AND due_date < DATE('now')
-                """
-            ).fetchone()
+                """).fetchone()
             if row and row["c"] > 0:
                 n = row["c"]
-                _add("unpaid_vendor_bills", "warn", "📄",
-                     f"{n} vendor bill{'s' if n != 1 else ''} past due — "
-                     "payment has not been recorded.",
-                     "/vendor-bills", "Vendor Bills")
+                _add(
+                    "unpaid_vendor_bills",
+                    "warn",
+                    "📄",
+                    f"{n} vendor bill{'s' if n != 1 else ''} past due — "
+                    "payment has not been recorded.",
+                    "/vendor-bills",
+                    "Vendor Bills",
+                )
         except Exception:
             pass
 
         # ── No reconciliation completed this month ────────────────────────
         try:
-            row = self._conn.execute(
-                """
+            row = self._conn.execute("""
                 SELECT COUNT(*) c FROM bank_reconciliations
                 WHERE status = 'FINALIZED'
                   AND strftime('%Y-%m', statement_ending_date) = strftime('%Y-%m', 'now')
-                """
-            ).fetchone()
+                """).fetchone()
             if row and row["c"] == 0:
-                _add("no_recon_this_month", "info", "📅",
-                     "No bank reconciliation completed for this month yet — "
-                     "reconcile before closing the period.",
-                     "/reconciliations", "Reconciliations")
+                _add(
+                    "no_recon_this_month",
+                    "info",
+                    "📅",
+                    "No bank reconciliation completed for this month yet — "
+                    "reconcile before closing the period.",
+                    "/reconciliations",
+                    "Reconciliations",
+                )
         except Exception:
             pass
 
         # ── 60-day overdue (shown after 90-day so they don't both show for same owners)
         try:
-            row = self._conn.execute(
-                """
+            row = self._conn.execute("""
                 SELECT COUNT(*) c FROM (
                     SELECT a.id,
                            a.amount - COALESCE(SUM(pa.applied_amount), 0) AS remaining
@@ -453,14 +501,18 @@ class DashboardRepository:
                     GROUP BY a.id
                     HAVING remaining > 0
                 )
-                """
-            ).fetchone()
+                """).fetchone()
             if row and row["c"] > 0:
                 n = row["c"]
-                _add("overdue_60_days", "info", "📬",
-                     f"{n} assessment{'s' if n != 1 else ''} "
-                     "60+ days overdue with an outstanding balance.",
-                     "/ar-lots", "AR by Lot")
+                _add(
+                    "overdue_60_days",
+                    "info",
+                    "📬",
+                    f"{n} assessment{'s' if n != 1 else ''} "
+                    "60+ days overdue with an outstanding balance.",
+                    "/ar-lots",
+                    "AR by Lot",
+                )
         except Exception:
             pass
 
@@ -470,19 +522,24 @@ class DashboardRepository:
 
         # ── Reserve study older than 3 years ─────────────────────────────
         try:
-            row = self._conn.execute(
-                """
+            row = self._conn.execute("""
                 SELECT MAX(study_date) AS latest FROM reserve_studies
-                """
-            ).fetchone()
+                """).fetchone()
             latest = row["latest"] if row else None
             if latest is None or latest < str(
-                __import__("datetime").date.today().replace(year=__import__("datetime").date.today().year - 3)
+                __import__("datetime")
+                .date.today()
+                .replace(year=__import__("datetime").date.today().year - 3)
             ):
-                _add("reserve_study_old", "info", "🏗️",
-                     "No reserve study on record in the past 3 years — "
-                     "consider scheduling an updated study.",
-                     "/reserve-study", "Reserve Study")
+                _add(
+                    "reserve_study_old",
+                    "info",
+                    "🏗️",
+                    "No reserve study on record in the past 3 years — "
+                    "consider scheduling an updated study.",
+                    "/reserve-study",
+                    "Reserve Study",
+                )
         except Exception:
             pass
 
@@ -500,8 +557,7 @@ class DashboardRepository:
 
     def get_dashboard_cards(self) -> list[sqlite3.Row]:
         """Cards currently shown on the dashboard, in position order."""
-        return self._conn.execute(
-            """
+        return self._conn.execute("""
             SELECT dc.id, dc.title, dc.description, dc.card_type,
                    dc.target_url, dc.report_name, dc.color, dc.is_system,
                    dl.position
@@ -509,20 +565,17 @@ class DashboardRepository:
             JOIN dashboard_cards dc ON dc.id = dl.card_id
             WHERE dc.is_active = 1
             ORDER BY dl.position
-            """
-        ).fetchall()
+            """).fetchall()
 
     def get_all_catalog_cards(self) -> list[sqlite3.Row]:
         """All cards in the catalog (for the admin config page)."""
-        return self._conn.execute(
-            """
+        return self._conn.execute("""
             SELECT dc.*, dl.position IS NOT NULL AS on_dashboard
             FROM dashboard_cards dc
             LEFT JOIN dashboard_layout dl ON dl.card_id = dc.id
             WHERE dc.is_active = 1
             ORDER BY dc.sort_order, dc.title COLLATE NOCASE
-            """
-        ).fetchall()
+            """).fetchall()
 
     def upsert_card(
         self,
@@ -541,7 +594,15 @@ class DashboardRepository:
                    SET title=?, description=?, card_type=?, target_url=?,
                        report_name=?, color=?, updated_at=CURRENT_TIMESTAMP
                    WHERE id=?""",
-                (title, description, card_type, target_url, report_name, color, card_id),
+                (
+                    title,
+                    description,
+                    card_type,
+                    target_url,
+                    report_name,
+                    color,
+                    card_id,
+                ),
             )
             return card_id
         else:
@@ -554,9 +615,7 @@ class DashboardRepository:
             return int(cur.lastrowid)  # type: ignore[arg-type]
 
     def delete_card(self, card_id: int) -> None:
-        self._conn.execute(
-            "DELETE FROM dashboard_layout WHERE card_id=?", (card_id,)
-        )
+        self._conn.execute("DELETE FROM dashboard_layout WHERE card_id=?", (card_id,))
         self._conn.execute(
             "DELETE FROM dashboard_cards WHERE id=? AND is_system=0", (card_id,)
         )

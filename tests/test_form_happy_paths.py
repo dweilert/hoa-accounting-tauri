@@ -22,7 +22,6 @@ import pytest
 from hoa_accounting.config.loader import load_config
 from hoa_accounting.web.app import create_app
 
-
 # ── Per-run marker — unique enough to scope cleanup safely. ─────────────
 MARKER = "HP-" + uuid.uuid4().hex[:8].upper()
 
@@ -144,24 +143,33 @@ def _first_id(conn, table: str) -> int:
 
 def _post(client, csrf, url, body):
     body = {**body, "_csrf_token": csrf}
-    return client.post(url, data=body, headers={"X-CSRF-Token": csrf},
-                       follow_redirects=False)
+    return client.post(
+        url, data=body, headers={"X-CSRF-Token": csrf}, follow_redirects=False
+    )
 
 
 # ── 1. Category create ─────────────────────────────────────────────────
 def test_categories_add(client, csrf, conn):
     code = f"HP{MARKER[-6:]}"
     name = f"HappyPath Category {MARKER}"
-    resp = _post(client, csrf, "/categories/add", {
-        "code": code,
-        "name": name,
-        "category_type": "EXPENSE",
-        "fund_code": "OPERATING",
-        "group_name": "",
-        "description": "",
-        "active_flag": "1",
-    })
-    assert resp.status_code in (302, 303), f"Expected redirect, got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/categories/add",
+        {
+            "code": code,
+            "name": name,
+            "category_type": "EXPENSE",
+            "fund_code": "OPERATING",
+            "group_name": "",
+            "description": "",
+            "active_flag": "1",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Expected redirect, got {resp.status_code}: {resp.data[:300]!r}"
     # Verify redirect target — a 303 to the form URL with ?error=... would
     # also be 303 but isn't success.
     assert "/categories" in resp.location, f"unexpected redirect: {resp.location}"
@@ -172,57 +180,85 @@ def test_categories_add(client, csrf, conn):
 # ── 2. Vendor create ───────────────────────────────────────────────────
 def test_vendors_add(client, csrf, conn):
     name = f"HP Vendor {MARKER}"
-    resp = _post(client, csrf, "/vendors/add", {
-        "vendor_name": name,
-        "contact_name": "Test",
-        "email": "test@example.com",
-        "phone": "",
-        "address_1": "",
-        "address_2": "",
-        "city": "",
-        "state": "",
-        "postal_code": "",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/vendors/add",
+        {
+            "vendor_name": name,
+            "contact_name": "Test",
+            "email": "test@example.com",
+            "phone": "",
+            "address_1": "",
+            "address_2": "",
+            "city": "",
+            "state": "",
+            "postal_code": "",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     assert "/vendors" in resp.location, f"unexpected redirect: {resp.location}"
-    row = conn.execute("SELECT id FROM vendors WHERE vendor_name = ?", (name,)).fetchone()
+    row = conn.execute(
+        "SELECT id FROM vendors WHERE vendor_name = ?", (name,)
+    ).fetchone()
     assert row is not None
 
 
 # ── 3. Owner create ────────────────────────────────────────────────────
 def test_owners_add(client, csrf, conn):
     display = f"HP Owner {MARKER}"
-    resp = _post(client, csrf, "/owners/add", {
-        "owner_type": "PERSON",
-        "display_name": display,
-        "first_name": "Happy",
-        "last_name": "Path",
-        "entity_name": "",
-        "email": "hp@example.com",
-        "phone": "",
-        "home_phone": "",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
-    row = conn.execute("SELECT id FROM owners WHERE display_name = ?", (display,)).fetchone()
+    resp = _post(
+        client,
+        csrf,
+        "/owners/add",
+        {
+            "owner_type": "PERSON",
+            "display_name": display,
+            "first_name": "Happy",
+            "last_name": "Path",
+            "entity_name": "",
+            "email": "hp@example.com",
+            "phone": "",
+            "home_phone": "",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    row = conn.execute(
+        "SELECT id FROM owners WHERE display_name = ?", (display,)
+    ).fetchone()
     assert row is not None
 
 
 # ── 4. Lot create ──────────────────────────────────────────────────────
 def test_lots_add(client, csrf, conn):
     lot_no = f"HP-{MARKER[-6:]}"
-    resp = _post(client, csrf, "/lots/add", {
-        "lot_number": lot_no,
-        "street_address_1": f"123 Happy Path {MARKER}",
-        "street_address_2": "",
-        "city": "Testville",
-        "state": "TX",
-        "postal_code": "00000",
-        "legal_description": "",
-        "active_flag": "1",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/lots/add",
+        {
+            "lot_number": lot_no,
+            "street_address_1": f"123 Happy Path {MARKER}",
+            "street_address_2": "",
+            "city": "Testville",
+            "state": "TX",
+            "postal_code": "00000",
+            "legal_description": "",
+            "active_flag": "1",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     assert "/lots" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute("SELECT id FROM lots WHERE lot_number = ?", (lot_no,)).fetchone()
     assert row is not None
@@ -231,15 +267,25 @@ def test_lots_add(client, csrf, conn):
 # ── 5. Bank account create ─────────────────────────────────────────────
 def test_bank_accounts_add(client, csrf, conn):
     name = f"HP Bank {MARKER}"
-    resp = _post(client, csrf, "/bank-accounts/add", {
-        "account_name": name,
-        "institution_name": "Test Bank",
-        "account_type": "CHECKING",
-        "fund_code": "OPERATING",
-        "account_last4": "0000",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
-    row = conn.execute("SELECT id FROM bank_accounts WHERE account_name = ?", (name,)).fetchone()
+    resp = _post(
+        client,
+        csrf,
+        "/bank-accounts/add",
+        {
+            "account_name": name,
+            "institution_name": "Test Bank",
+            "account_type": "CHECKING",
+            "fund_code": "OPERATING",
+            "account_last4": "0000",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    row = conn.execute(
+        "SELECT id FROM bank_accounts WHERE account_name = ?", (name,)
+    ).fetchone()
     assert row is not None
 
 
@@ -251,40 +297,66 @@ def test_categories_edit(client, csrf, conn):
         pytest.skip("Depends on test_categories_add having run.")
     cat_id = int(row[0])
     new_name = f"Renamed HP Category {MARKER}"
-    resp = _post(client, csrf, f"/categories/{cat_id}/edit", {
-        "code": code,
-        "name": new_name,
-        "category_type": "EXPENSE",
-        "fund_code": "OPERATING",
-        "group_name": "",
-        "description": "Edited via happy-path test",
-        "active_flag": "1",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
-    after = conn.execute("SELECT name FROM categories WHERE id = ?", (cat_id,)).fetchone()
+    resp = _post(
+        client,
+        csrf,
+        f"/categories/{cat_id}/edit",
+        {
+            "code": code,
+            "name": new_name,
+            "category_type": "EXPENSE",
+            "fund_code": "OPERATING",
+            "group_name": "",
+            "description": "Edited via happy-path test",
+            "active_flag": "1",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    after = conn.execute(
+        "SELECT name FROM categories WHERE id = ?", (cat_id,)
+    ).fetchone()
     assert after and after[0] == new_name, f"Name didn't update: {after}"
 
 
 # ── 7. Vendor edit ─────────────────────────────────────────────────────
 def test_vendors_edit(client, csrf, conn):
     name = f"HP Vendor {MARKER}"
-    row = conn.execute("SELECT id FROM vendors WHERE vendor_name = ?", (name,)).fetchone()
+    row = conn.execute(
+        "SELECT id FROM vendors WHERE vendor_name = ?", (name,)
+    ).fetchone()
     if not row:
         pytest.skip("Depends on test_vendors_add.")
     vid = int(row[0])
     new_name = f"HP Vendor Renamed {MARKER}"
-    resp = _post(client, csrf, f"/vendors/{vid}/edit", {
-        "vendor_name": new_name,
-        "contact_name": "Updated",
-        "email": "u@example.com",
-        "phone": "",
-        "address_1": "", "address_2": "", "city": "", "state": "",
-        "postal_code": "", "notes": "",
-        "_active_flag_present": "1",
-        "active_flag": "1",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
-    after = conn.execute("SELECT vendor_name FROM vendors WHERE id = ?", (vid,)).fetchone()
+    resp = _post(
+        client,
+        csrf,
+        f"/vendors/{vid}/edit",
+        {
+            "vendor_name": new_name,
+            "contact_name": "Updated",
+            "email": "u@example.com",
+            "phone": "",
+            "address_1": "",
+            "address_2": "",
+            "city": "",
+            "state": "",
+            "postal_code": "",
+            "notes": "",
+            "_active_flag_present": "1",
+            "active_flag": "1",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    after = conn.execute(
+        "SELECT vendor_name FROM vendors WHERE id = ?", (vid,)
+    ).fetchone()
     assert after and after[0] == new_name
 
 
@@ -306,28 +378,38 @@ def test_vendor_bills_new(client, csrf, conn):
         pytest.skip("Need an expense category and a bank account to post a bill.")
 
     invoice = f"HP-{MARKER}"
-    resp = _post(client, csrf, "/vendor-bills/new", {
-        "invoice_number": invoice,
-        "invoice_date": "2026-01-15",
-        "entry_date": "2026-01-15",
-        "due_date": "2026-02-15",
-        "vendor_id": str(vendor_id[0]),
-        "category_id": str(cat_id[0]),
-        "fund_code": "OPERATING",
-        "amount": "12.34",
-        "description": f"Happy-path bill {MARKER}",
-        "bank_account_id": str(bank_id[0]),
-        "payment_date": "2026-01-15",
-        "check_number": MARKER,
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/vendor-bills/new",
+        {
+            "invoice_number": invoice,
+            "invoice_date": "2026-01-15",
+            "entry_date": "2026-01-15",
+            "due_date": "2026-02-15",
+            "vendor_id": str(vendor_id[0]),
+            "category_id": str(cat_id[0]),
+            "fund_code": "OPERATING",
+            "amount": "12.34",
+            "description": f"Happy-path bill {MARKER}",
+            "bank_account_id": str(bank_id[0]),
+            "payment_date": "2026-01-15",
+            "check_number": MARKER,
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     assert "/vendor-bills" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute(
-        "SELECT id FROM vendor_bills WHERE invoice_number = ?", (invoice,),
+        "SELECT id FROM vendor_bills WHERE invoice_number = ?",
+        (invoice,),
     ).fetchone()
     assert row is not None, "vendor_bill row missing"
     pay = conn.execute(
-        "SELECT id FROM bill_payments WHERE check_number = ?", (MARKER,),
+        "SELECT id FROM bill_payments WHERE check_number = ?",
+        (MARKER,),
     ).fetchone()
     assert pay is not None, "bill_payment row missing (auto-payment didn't fire)"
 
@@ -344,15 +426,24 @@ def test_budgets_new(client, csrf, conn):
         if year < 2050:
             pytest.skip("No free fiscal year available.")
     notes = f"HP budget {MARKER}"
-    resp = _post(client, csrf, "/budgets/new", {
-        "fiscal_year": str(year),
-        "fund_code": "OPERATING",
-        "notes": notes,
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/budgets/new",
+        {
+            "fiscal_year": str(year),
+            "fund_code": "OPERATING",
+            "notes": notes,
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     assert "/budgets" in resp.location, f"unexpected redirect: {resp.location}"
     row = conn.execute(
-        "SELECT id FROM budgets WHERE fiscal_year = ? AND fund_code='OPERATING'", (year,),
+        "SELECT id FROM budgets WHERE fiscal_year = ? AND fund_code='OPERATING'",
+        (year,),
     ).fetchone()
     assert row is not None
 
@@ -360,26 +451,35 @@ def test_budgets_new(client, csrf, conn):
 # ── 10. Transaction rule create ────────────────────────────────────────
 def test_transaction_rules_save(client, csrf, conn):
     rule_name = f"HP rule {MARKER}"
-    resp = _post(client, csrf, "/admin/transaction-rules/save", {
-        "rule_id": "",
-        "rule_name": rule_name,
-        "description_contains": MARKER,
-        "match_type": "any",
-        "match_memo": "",
-        "match_amount": "",
-        "bank_account_id": "",
-        "action_type": "ignore",
-        "category_id": "",
-        "vendor_id": "",
-        "lot_id": "",
-        "default_memo": "",
-        "active_flag": "on",
-        "confidence_mode": "review_first",
-        "auto_post_after_n": "3",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/admin/transaction-rules/save",
+        {
+            "rule_id": "",
+            "rule_name": rule_name,
+            "description_contains": MARKER,
+            "match_type": "any",
+            "match_memo": "",
+            "match_amount": "",
+            "bank_account_id": "",
+            "action_type": "ignore",
+            "category_id": "",
+            "vendor_id": "",
+            "lot_id": "",
+            "default_memo": "",
+            "active_flag": "on",
+            "confidence_mode": "review_first",
+            "auto_post_after_n": "3",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM bank_transaction_rules WHERE rule_name = ?", (rule_name,),
+        "SELECT id FROM bank_transaction_rules WHERE rule_name = ?",
+        (rule_name,),
     ).fetchone()
     assert row is not None
 
@@ -402,16 +502,25 @@ def test_accounting_periods_add(client, csrf, conn):
         if year < 2050:
             pytest.skip("No free fiscal year/period available.")
     name = f"HP Period {MARKER}"
-    resp = _post(client, csrf, "/accounting-periods/add", {
-        "period_name": name,
-        "fiscal_year": str(year),
-        "fiscal_period": str(period),
-        "start_date": f"{year}-12-01",
-        "end_date": f"{year}-12-31",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/accounting-periods/add",
+        {
+            "period_name": name,
+            "fiscal_year": str(year),
+            "fiscal_period": str(period),
+            "start_date": f"{year}-12-01",
+            "end_date": f"{year}-12-31",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM accounting_periods WHERE period_name=?", (name,),
+        "SELECT id FROM accounting_periods WHERE period_name=?",
+        (name,),
     ).fetchone()
     assert row is not None
 
@@ -433,13 +542,21 @@ def test_reconciliations_new(client, csrf, conn):
         # Step back a day if (extremely unlikely) collision.
         stmt_date = "2099-12-30"
         break
-    resp = _post(client, csrf, "/reconciliations/new", {
-        "bank_account_id": str(bank_id[0]),
-        "statement_date": stmt_date,
-        "statement_balance": "1000.00",
-        "beginning_balance": "0.00",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/reconciliations/new",
+        {
+            "bank_account_id": str(bank_id[0]),
+            "statement_date": stmt_date,
+            "statement_balance": "1000.00",
+            "beginning_balance": "0.00",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
         "SELECT id FROM bank_reconciliations "
         "WHERE bank_account_id=? AND statement_ending_date=?",
@@ -459,19 +576,28 @@ def test_income_new(client, csrf, conn):
     if not bank_id or not cat_id:
         pytest.skip("Need bank account + income category.")
     desc = f"HP non-dues income {MARKER}"
-    resp = _post(client, csrf, "/income/new", {
-        "posting_date": "2026-01-15",
-        "bank_account_id": str(bank_id[0]),
-        "category_id": str(cat_id[0]),
-        "income_description": desc,
-        "notes": "",
-        "other_source": f"HP Source {MARKER}",
-        "other_amount": "42.50",
-        "other_memo": "Happy-path test",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/income/new",
+        {
+            "posting_date": "2026-01-15",
+            "bank_account_id": str(bank_id[0]),
+            "category_id": str(cat_id[0]),
+            "income_description": desc,
+            "notes": "",
+            "other_source": f"HP Source {MARKER}",
+            "other_amount": "42.50",
+            "other_memo": "Happy-path test",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM income_batches WHERE income_description=?", (desc,),
+        "SELECT id FROM income_batches WHERE income_description=?",
+        (desc,),
     ).fetchone()
     assert row is not None
 
@@ -483,9 +609,14 @@ def test_opening_balances_save(client, csrf, conn):
     # validation page cleanly when no amounts are supplied (200 OK
     # with a recognizable error). Catches: handler crashing, template
     # missing, etc.
-    resp = _post(client, csrf, "/opening-balances/save", {
-        "as_of_date": "2026-01-01",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/opening-balances/save",
+        {
+            "as_of_date": "2026-01-01",
+        },
+    )
     assert resp.status_code == 200, f"Got {resp.status_code}: {resp.data[:300]!r}"
     body = resp.get_data(as_text=True).lower()
     assert "at least one" in body or "opening balance" in body
@@ -494,7 +625,8 @@ def test_opening_balances_save(client, csrf, conn):
 # ── 15. Renter create ──────────────────────────────────────────────────
 def test_renters_add(client, csrf, conn):
     lot_id = conn.execute(
-        "SELECT id FROM lots WHERE lot_number LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM lots WHERE lot_number LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not lot_id:
         # Fallback to any lot.
@@ -502,19 +634,28 @@ def test_renters_add(client, csrf, conn):
     if not lot_id:
         pytest.skip("No lots exist.")
     display = f"HP Renter {MARKER}"
-    resp = _post(client, csrf, "/renters/add", {
-        "lot_id": str(lot_id[0]),
-        "display_name": display,
-        "first_name": "Renter",
-        "last_name": "Test",
-        "email": "r@example.com",
-        "phone": "",
-        "start_date": "2026-01-01",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/renters/add",
+        {
+            "lot_id": str(lot_id[0]),
+            "display_name": display,
+            "first_name": "Renter",
+            "last_name": "Test",
+            "email": "r@example.com",
+            "phone": "",
+            "start_date": "2026-01-01",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM lot_renters WHERE display_name=?", (display,),
+        "SELECT id FROM lot_renters WHERE display_name=?",
+        (display,),
     ).fetchone()
     assert row is not None
 
@@ -522,19 +663,28 @@ def test_renters_add(client, csrf, conn):
 # ── 16. Board member create ────────────────────────────────────────────
 def test_board_members_add(client, csrf, conn):
     name = f"HP Board {MARKER}"
-    resp = _post(client, csrf, "/board-members/add", {
-        "full_name": name,
-        "title": "Member at Large",
-        "email": "b@example.com",
-        "phone": "",
-        "start_date": "2026-01-01",
-        "end_date": "",
-        "is_active": "1",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/board-members/add",
+        {
+            "full_name": name,
+            "title": "Member at Large",
+            "email": "b@example.com",
+            "phone": "",
+            "start_date": "2026-01-01",
+            "end_date": "",
+            "is_active": "1",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM board_members WHERE full_name=?", (name,),
+        "SELECT id FROM board_members WHERE full_name=?",
+        (name,),
     ).fetchone()
     assert row is not None
 
@@ -553,19 +703,28 @@ def test_vendor_bills_edit(client, csrf, conn):
         "SELECT id FROM categories WHERE category_type='EXPENSE' AND active_flag=1 LIMIT 1"
     ).fetchone()
     new_desc = f"HP edited bill {MARKER}"
-    resp = _post(client, csrf, f"/vendor-bills/{bill_id}/edit", {
-        "invoice_number": invoice,
-        "invoice_date": "2026-01-16",
-        "due_date": "2026-02-16",
-        "category_id": str(cat_id[0]),
-        "fund_code": "OPERATING",
-        "description": new_desc,
-        # bill has a payment so amount is locked; field may be ignored.
-        "amount": "12.34",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/vendor-bills/{bill_id}/edit",
+        {
+            "invoice_number": invoice,
+            "invoice_date": "2026-01-16",
+            "due_date": "2026-02-16",
+            "category_id": str(cat_id[0]),
+            "fund_code": "OPERATING",
+            "description": new_desc,
+            # bill has a payment so amount is locked; field may be ignored.
+            "amount": "12.34",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT description FROM vendor_bills WHERE id=?", (bill_id,),
+        "SELECT description FROM vendor_bills WHERE id=?",
+        (bill_id,),
     ).fetchone()
     assert after and after[0] == new_desc
 
@@ -580,19 +739,28 @@ def test_edit_records_payment(client, csrf, conn):
         pytest.skip("No payments to edit.")
     pay_id = int(pay[0])
     new_notes = f"HP edited payment {MARKER}"
-    resp = _post(client, csrf, f"/manage/edit-records/payments/{pay_id}/edit", {
-        "receipt_number": pay[1],
-        "payment_date": "2026-01-15",
-        "payment_method": pay[4] or "CHECK",
-        "amount": str(pay[2]),
-        "bank_account_id": str(pay[3]),
-        "category_id": "",
-        "reference_number": "",
-        "notes": new_notes,
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/manage/edit-records/payments/{pay_id}/edit",
+        {
+            "receipt_number": pay[1],
+            "payment_date": "2026-01-15",
+            "payment_method": pay[4] or "CHECK",
+            "amount": str(pay[2]),
+            "bank_account_id": str(pay[3]),
+            "category_id": "",
+            "reference_number": "",
+            "notes": new_notes,
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT notes FROM payments WHERE id=?", (pay_id,),
+        "SELECT notes FROM payments WHERE id=?",
+        (pay_id,),
     ).fetchone()
     assert after and after[0] == new_notes
 
@@ -608,17 +776,26 @@ def test_edit_records_non_dues_income(client, csrf, conn):
         pytest.skip("Depends on test_income_new.")
     batch_id = int(batch[0])
     new_desc = f"HP edited income {MARKER}"
-    resp = _post(client, csrf, f"/manage/edit-records/non-dues-income/{batch_id}/edit", {
-        "posting_date": batch[1],
-        "bank_account_id": str(batch[2]),
-        "category_id": str(batch[3]) if batch[3] else "",
-        "income_description": new_desc,
-        "total_amount": str(batch[4]),
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/manage/edit-records/non-dues-income/{batch_id}/edit",
+        {
+            "posting_date": batch[1],
+            "bank_account_id": str(batch[2]),
+            "category_id": str(batch[3]) if batch[3] else "",
+            "income_description": new_desc,
+            "total_amount": str(batch[4]),
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT income_description FROM income_batches WHERE id=?", (batch_id,),
+        "SELECT income_description FROM income_batches WHERE id=?",
+        (batch_id,),
     ).fetchone()
     assert after and after[0] == new_desc
 
@@ -632,15 +809,20 @@ def test_deposits_new(client, csrf, conn):
     if not bank_id or not lot_id:
         pytest.skip("Need bank account + lot.")
     ref = f"HP-DEP-{MARKER}"
-    resp = _post(client, csrf, "/deposits/new", {
-        "deposit_date": "2026-01-15",
-        "bank_account_id": str(bank_id[0]),
-        "notes": f"HP deposit {MARKER}",
-        "row_0_lot_id": str(lot_id[0]),
-        "row_0_amount": "25.00",
-        "row_0_reference_number": ref,
-        "row_0_memo": "Happy-path deposit",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/deposits/new",
+        {
+            "deposit_date": "2026-01-15",
+            "bank_account_id": str(bank_id[0]),
+            "notes": f"HP deposit {MARKER}",
+            "row_0_lot_id": str(lot_id[0]),
+            "row_0_amount": "25.00",
+            "row_0_reference_number": ref,
+            "row_0_memo": "Happy-path deposit",
+        },
+    )
     # /deposits/new currently calls AccountsRepository.get_by_number which
     # is a CoA-era stub returning None — flow short-circuits with a
     # ValidationError. If that bug is fixed this test will start asserting
@@ -651,7 +833,8 @@ def test_deposits_new(client, csrf, conn):
             f"status={resp.status_code}"
         )
     row = conn.execute(
-        "SELECT id FROM deposit_batches WHERE notes LIKE ?", (f"%{MARKER}%",),
+        "SELECT id FROM deposit_batches WHERE notes LIKE ?",
+        (f"%{MARKER}%",),
     ).fetchone()
     assert row is not None
 
@@ -665,26 +848,36 @@ def test_deposits_new(client, csrf, conn):
 def test_lots_edit(client, csrf, conn):
     lot_no = f"HP-{MARKER[-6:]}"
     row = conn.execute(
-        "SELECT id, lot_number FROM lots WHERE lot_number = ? LIMIT 1", (lot_no,),
+        "SELECT id, lot_number FROM lots WHERE lot_number = ? LIMIT 1",
+        (lot_no,),
     ).fetchone()
     if not row:
         pytest.skip("Depends on test_lots_add.")
     lot_id = int(row[0])
     new_addr = f"456 Updated Way {MARKER}"
-    resp = _post(client, csrf, f"/lots/{lot_id}/edit", {
-        "lot_number": row[1],
-        "street_address_1": new_addr,
-        "street_address_2": "",
-        "city": "Testville",
-        "state": "TX",
-        "postal_code": "00000",
-        "legal_description": "",
-        "_active_flag_present": "1",
-        "active_flag": "1",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/lots/{lot_id}/edit",
+        {
+            "lot_number": row[1],
+            "street_address_1": new_addr,
+            "street_address_2": "",
+            "city": "Testville",
+            "state": "TX",
+            "postal_code": "00000",
+            "legal_description": "",
+            "_active_flag_present": "1",
+            "active_flag": "1",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT street_address_1 FROM lots WHERE id=?", (lot_id,),
+        "SELECT street_address_1 FROM lots WHERE id=?",
+        (lot_id,),
     ).fetchone()
     assert after and after[0] == new_addr
 
@@ -699,20 +892,29 @@ def test_owners_edit(client, csrf, conn):
         pytest.skip("Depends on test_owners_add.")
     owner_id = int(row[0])
     new_display = f"HP Owner Renamed {MARKER}"
-    resp = _post(client, csrf, f"/owners/{owner_id}/edit", {
-        "owner_type": "PERSON",
-        "display_name": new_display,
-        "first_name": "Updated",
-        "last_name": "Name",
-        "entity_name": "",
-        "email": "u@example.com",
-        "phone": "",
-        "home_phone": "",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/owners/{owner_id}/edit",
+        {
+            "owner_type": "PERSON",
+            "display_name": new_display,
+            "first_name": "Updated",
+            "last_name": "Name",
+            "entity_name": "",
+            "email": "u@example.com",
+            "phone": "",
+            "home_phone": "",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT display_name FROM owners WHERE id=?", (owner_id,),
+        "SELECT display_name FROM owners WHERE id=?",
+        (owner_id,),
     ).fetchone()
     assert after and after[0] == new_display
 
@@ -727,18 +929,27 @@ def test_bank_accounts_edit(client, csrf, conn):
         pytest.skip("Depends on test_bank_accounts_add.")
     bid = int(row[0])
     new_name = f"HP Bank Renamed {MARKER}"
-    resp = _post(client, csrf, f"/bank-accounts/{bid}/edit", {
-        "account_name": new_name,
-        "institution_name": "Updated Bank",
-        "account_type": "CHECKING",
-        "fund_code": "OPERATING",
-        "account_last4": "0000",
-        "_active_flag_present": "1",
-        "active_flag": "1",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/bank-accounts/{bid}/edit",
+        {
+            "account_name": new_name,
+            "institution_name": "Updated Bank",
+            "account_type": "CHECKING",
+            "fund_code": "OPERATING",
+            "account_last4": "0000",
+            "_active_flag_present": "1",
+            "active_flag": "1",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT account_name FROM bank_accounts WHERE id=?", (bid,),
+        "SELECT account_name FROM bank_accounts WHERE id=?",
+        (bid,),
     ).fetchone()
     assert after and after[0] == new_name
 
@@ -753,19 +964,28 @@ def test_board_members_edit(client, csrf, conn):
         pytest.skip("Depends on test_board_members_add.")
     mid = int(row[0])
     new_title = f"President {MARKER}"
-    resp = _post(client, csrf, f"/board-members/{mid}/edit", {
-        "full_name": f"HP Board {MARKER}",
-        "title": new_title,
-        "email": "b@example.com",
-        "phone": "",
-        "start_date": "2026-01-01",
-        "end_date": "",
-        "is_active": "1",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/board-members/{mid}/edit",
+        {
+            "full_name": f"HP Board {MARKER}",
+            "title": new_title,
+            "email": "b@example.com",
+            "phone": "",
+            "start_date": "2026-01-01",
+            "end_date": "",
+            "is_active": "1",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT title FROM board_members WHERE id=?", (mid,),
+        "SELECT title FROM board_members WHERE id=?",
+        (mid,),
     ).fetchone()
     assert after and after[0] == new_title
 
@@ -780,19 +1000,28 @@ def test_renters_edit(client, csrf, conn):
         pytest.skip("Depends on test_renters_add.")
     rid = int(row[0])
     new_display = f"HP Renter Renamed {MARKER}"
-    resp = _post(client, csrf, f"/renters/{rid}/edit", {
-        "lot_id": str(row[1]),
-        "display_name": new_display,
-        "first_name": "Updated",
-        "last_name": "Renter",
-        "email": "r@example.com",
-        "phone": "",
-        "start_date": row[2] or "2026-01-01",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/renters/{rid}/edit",
+        {
+            "lot_id": str(row[1]),
+            "display_name": new_display,
+            "first_name": "Updated",
+            "last_name": "Renter",
+            "email": "r@example.com",
+            "phone": "",
+            "start_date": row[2] or "2026-01-01",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT display_name FROM lot_renters WHERE id=?", (rid,),
+        "SELECT display_name FROM lot_renters WHERE id=?",
+        (rid,),
     ).fetchone()
     assert after and after[0] == new_display
 
@@ -800,18 +1029,28 @@ def test_renters_edit(client, csrf, conn):
 # ── 26. Budget edit (notes only — line edits would be huge) ────────────
 def test_budgets_edit(client, csrf, conn):
     row = conn.execute(
-        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not row:
         pytest.skip("Depends on test_budgets_new.")
     bid = int(row[0])
     new_notes = f"HP edited budget notes {MARKER}"
-    resp = _post(client, csrf, f"/budgets/{bid}/edit", {
-        "notes": new_notes,
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/budgets/{bid}/edit",
+        {
+            "notes": new_notes,
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT notes FROM budgets WHERE id=?", (bid,),
+        "SELECT notes FROM budgets WHERE id=?",
+        (bid,),
     ).fetchone()
     assert after and after[0] == new_notes
 
@@ -826,16 +1065,25 @@ def test_edit_records_assessment(client, csrf, conn):
         pytest.skip("No assessments to edit.")
     aid = int(asm[0])
     new_desc = f"HP edited assessment {MARKER}"
-    resp = _post(client, csrf, f"/manage/edit-records/assessments/{aid}/edit", {
-        "assessment_date": asm[1],
-        "due_date": asm[2],
-        "description": new_desc,
-        "category_id": "",
-        "amount": str(asm[3]),
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/manage/edit-records/assessments/{aid}/edit",
+        {
+            "assessment_date": asm[1],
+            "due_date": asm[2],
+            "description": new_desc,
+            "category_id": "",
+            "amount": str(asm[3]),
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
-        "SELECT description FROM assessments WHERE id=?", (aid,),
+        "SELECT description FROM assessments WHERE id=?",
+        (aid,),
     ).fetchone()
     assert after and after[0] == new_desc
 
@@ -852,13 +1100,18 @@ def test_reserve_transfers_new(client, csrf, conn):
     if not (op and rsv):
         pytest.skip("Need active OPERATING and RESERVE bank accounts.")
     notes = f"HP reserve transfer {MARKER}"
-    resp = _post(client, csrf, "/reserve-transfers/new", {
-        "transfer_type": "FUND",
-        "transfer_date": "2026-01-15",
-        "amount": "1.23",
-        "purpose": "",
-        "notes": notes,
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/reserve-transfers/new",
+        {
+            "transfer_type": "FUND",
+            "transfer_date": "2026-01-15",
+            "amount": "1.23",
+            "purpose": "",
+            "notes": notes,
+        },
+    )
     if resp.status_code not in (302, 303):
         # FUND validation checks for sufficient operating balance and other
         # preconditions that may not hold in dev DB. Skip rather than fail.
@@ -867,7 +1120,8 @@ def test_reserve_transfers_new(client, csrf, conn):
             f"(likely missing precondition)"
         )
     row = conn.execute(
-        "SELECT id FROM reserve_transfers WHERE notes = ?", (notes,),
+        "SELECT id FROM reserve_transfers WHERE notes = ?",
+        (notes,),
     ).fetchone()
     assert row is not None
 
@@ -875,18 +1129,27 @@ def test_reserve_transfers_new(client, csrf, conn):
 # ── 29. Reserve study asset create ─────────────────────────────────────
 def test_reserve_study_asset_new(client, csrf, conn):
     component = f"HP Roof {MARKER}"
-    resp = _post(client, csrf, "/reserve-study/assets/new", {
-        "asset_group": "Building",
-        "component": component,
-        "condition": "Good",
-        "install_year": "2020",
-        "useful_life_years": "25",
-        "replacement_cost": "10000.00",
-        "annual_inflation": "4",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/reserve-study/assets/new",
+        {
+            "asset_group": "Building",
+            "component": component,
+            "condition": "Good",
+            "install_year": "2020",
+            "useful_life_years": "25",
+            "replacement_cost": "10000.00",
+            "annual_inflation": "4",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM reserve_assets WHERE component = ?", (component,),
+        "SELECT id FROM reserve_assets WHERE component = ?",
+        (component,),
     ).fetchone()
     assert row is not None
 
@@ -894,16 +1157,25 @@ def test_reserve_study_asset_new(client, csrf, conn):
 # ── 30. Reserve study scenario create ──────────────────────────────────
 def test_reserve_study_scenario_new(client, csrf, conn):
     name = f"HP Scenario {MARKER}"
-    resp = _post(client, csrf, "/reserve-study/scenarios/new", {
-        "scenario_name": name,
-        "description": "Happy-path test scenario",
-        "emergency_cost": "0",
-        "expected_year": "",
-        "notes": "",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/reserve-study/scenarios/new",
+        {
+            "scenario_name": name,
+            "description": "Happy-path test scenario",
+            "emergency_cost": "0",
+            "expected_year": "",
+            "notes": "",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM reserve_study_scenarios WHERE scenario_name = ?", (name,),
+        "SELECT id FROM reserve_study_scenarios WHERE scenario_name = ?",
+        (name,),
     ).fetchone()
     assert row is not None
 
@@ -918,17 +1190,27 @@ def test_accounting_periods_generate(client, csrf, conn):
     # Pick a fiscal year with no existing periods.
     year = 2098
     while conn.execute(
-        "SELECT 1 FROM accounting_periods WHERE fiscal_year=?", (year,),
+        "SELECT 1 FROM accounting_periods WHERE fiscal_year=?",
+        (year,),
     ).fetchone():
         year -= 1
         if year < 2050:
             pytest.skip("No free fiscal year available.")
-    resp = _post(client, csrf, "/accounting-periods/generate", {
-        "fiscal_year": str(year),
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/accounting-periods/generate",
+        {
+            "fiscal_year": str(year),
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     rows = conn.execute(
-        "SELECT COUNT(*) FROM accounting_periods WHERE fiscal_year=?", (year,),
+        "SELECT COUNT(*) FROM accounting_periods WHERE fiscal_year=?",
+        (year,),
     ).fetchone()
     assert rows[0] == 12, f"Expected 12 periods for {year}, got {rows[0]}"
 
@@ -937,7 +1219,8 @@ def test_accounting_periods_generate(client, csrf, conn):
 def test_lots_owners_link(client, csrf, conn):
     lot_no = f"HP-{MARKER[-6:]}"
     lot = conn.execute(
-        "SELECT id FROM lots WHERE lot_number=? LIMIT 1", (lot_no,),
+        "SELECT id FROM lots WHERE lot_number=? LIMIT 1",
+        (lot_no,),
     ).fetchone()
     owner = conn.execute(
         "SELECT id FROM owners WHERE display_name LIKE ? LIMIT 1",
@@ -945,11 +1228,19 @@ def test_lots_owners_link(client, csrf, conn):
     ).fetchone()
     if not (lot and owner):
         pytest.skip("Need HP-tagged lot + owner.")
-    resp = _post(client, csrf, f"/lots/{int(lot[0])}/owners/link", {
-        "owner_id": str(owner[0]),
-        "start_date": "2026-01-01",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        f"/lots/{int(lot[0])}/owners/link",
+        {
+            "owner_id": str(owner[0]),
+            "start_date": "2026-01-01",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
         "SELECT id FROM lot_ownership WHERE lot_id=? AND owner_id=? AND start_date='2026-01-01'",
         (int(lot[0]), int(owner[0])),
@@ -966,31 +1257,48 @@ def test_system_settings_save(client, csrf, conn):
     ).fetchone()
     if not cur:
         pytest.skip("No hoa_profile row.")
-    resp = _post(client, csrf, "/system-settings/save", {
-        "legal_name": cur[0],
-        "display_name": cur[1],
-        "theme": cur[2] or "sage",
-        "default_assessment_amount": str(cur[3] or "0.00"),
-        "default_billing_frequency": cur[4] or "annual",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/system-settings/save",
+        {
+            "legal_name": cur[0],
+            "display_name": cur[1],
+            "theme": cur[2] or "sage",
+            "default_assessment_amount": str(cur[3] or "0.00"),
+            "default_billing_frequency": cur[4] or "annual",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
 
 
 # ── 34. Dashboard-config save card ─────────────────────────────────────
 def test_dashboard_config_save_card(client, csrf, conn):
     title = f"HP Card {MARKER}"
-    resp = _post(client, csrf, "/dashboard-config/save-card", {
-        "card_id": "",
-        "title": title,
-        "description": "Happy-path test card",
-        "card_type": "NAV",
-        "target_url": "/",
-        "report_name": "",
-        "color": "#4a5462",
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/dashboard-config/save-card",
+        {
+            "card_id": "",
+            "title": title,
+            "description": "Happy-path test card",
+            "card_type": "NAV",
+            "target_url": "/",
+            "report_name": "",
+            "color": "#4a5462",
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     row = conn.execute(
-        "SELECT id FROM dashboard_cards WHERE title=?", (title,),
+        "SELECT id FROM dashboard_cards WHERE title=?",
+        (title,),
     ).fetchone()
     assert row is not None
 
@@ -998,21 +1306,38 @@ def test_dashboard_config_save_card(client, csrf, conn):
 # ── 35. Dashboard-config save layout ───────────────────────────────────
 def test_dashboard_config_save_layout(client, csrf, conn):
     # Submit current layout back unchanged.
-    ids = [str(r[0]) for r in conn.execute(
-        "SELECT id FROM dashboard_cards ORDER BY id"
-    ).fetchall()]
-    resp = _post(client, csrf, "/dashboard-config/save-layout", {
-        "layout_order": ",".join(ids),
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    ids = [
+        str(r[0])
+        for r in conn.execute("SELECT id FROM dashboard_cards ORDER BY id").fetchall()
+    ]
+    resp = _post(
+        client,
+        csrf,
+        "/dashboard-config/save-layout",
+        {
+            "layout_order": ",".join(ids),
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
 
 
 # ── 36. Dashboard-config save alert settings ───────────────────────────
 def test_dashboard_config_save_alert_settings(client, csrf, conn):
-    resp = _post(client, csrf, "/dashboard-config/save-alert-settings", {
-        # No enabled_alerts checkboxes — equivalent to "all off".
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/dashboard-config/save-alert-settings",
+        {
+            # No enabled_alerts checkboxes — equivalent to "all off".
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
 
 
 # ── 37. DB admin: integrity check ──────────────────────────────────────
@@ -1025,19 +1350,28 @@ def test_admin_database_check(client, csrf):
 # ── 38. DB admin: reindex ──────────────────────────────────────────────
 def test_admin_database_reindex(client, csrf):
     resp = _post(client, csrf, "/admin/database/reindex", {})
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:200]!r}"
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:200]!r}"
 
 
 # ── 39. DB admin: vacuum ───────────────────────────────────────────────
 def test_admin_database_vacuum(client, csrf):
     resp = _post(client, csrf, "/admin/database/vacuum", {})
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:200]!r}"
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:200]!r}"
 
 
 # ── 40. DB admin: WAL checkpoint ───────────────────────────────────────
 def test_admin_database_wal_checkpoint(client, csrf):
     resp = _post(client, csrf, "/admin/database/wal-checkpoint", {})
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:200]!r}"
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:200]!r}"
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -1048,28 +1382,46 @@ def test_admin_database_wal_checkpoint(client, csrf):
 # ── 41. Workflow-guide: add tab ────────────────────────────────────────
 def test_workflow_add_tab(client, csrf, conn):
     label = f"HP Tab {MARKER}"
-    resp = _post(client, csrf, "/admin/workflow-guide/add-tab", {
-        "label": label, "icon": "📋", "description": "test",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/add-tab",
+        {
+            "label": label,
+            "icon": "📋",
+            "description": "test",
+        },
+    )
     assert resp.status_code in (302, 303)
-    row = conn.execute("SELECT id FROM workflow_tabs WHERE label=?", (label,)).fetchone()
+    row = conn.execute(
+        "SELECT id FROM workflow_tabs WHERE label=?", (label,)
+    ).fetchone()
     assert row is not None
 
 
 # ── 42. Workflow-guide: add section ────────────────────────────────────
 def test_workflow_add_section(client, csrf, conn):
     tab = conn.execute(
-        "SELECT id FROM workflow_tabs WHERE label LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM workflow_tabs WHERE label LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not tab:
         pytest.skip("Depends on add-tab.")
     label = f"HP Section {MARKER}"
-    resp = _post(client, csrf, "/admin/workflow-guide/add-section", {
-        "tab_id": str(tab[0]), "label": label, "tip_text": "test tip",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/add-section",
+        {
+            "tab_id": str(tab[0]),
+            "label": label,
+            "tip_text": "test tip",
+        },
+    )
     assert resp.status_code in (302, 303)
     row = conn.execute(
-        "SELECT id FROM workflow_sections WHERE label=?", (label,),
+        "SELECT id FROM workflow_sections WHERE label=?",
+        (label,),
     ).fetchone()
     assert row is not None
 
@@ -1083,20 +1435,26 @@ def test_workflow_add_card(client, csrf, conn):
     if not section:
         pytest.skip("Depends on add-section.")
     title = f"HP WG Card {MARKER}"
-    resp = _post(client, csrf, "/admin/workflow-guide/add-card", {
-        "section_id": str(section[0]),
-        "tab_id": str(section[1]),
-        "num_label": "1",
-        "icon": "🚀",
-        "title": title,
-        "description": "test",
-        "href": "/",
-        "link_label": "Go",
-        "color": "slate",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/add-card",
+        {
+            "section_id": str(section[0]),
+            "tab_id": str(section[1]),
+            "num_label": "1",
+            "icon": "🚀",
+            "title": title,
+            "description": "test",
+            "href": "/",
+            "link_label": "Go",
+            "color": "slate",
+        },
+    )
     assert resp.status_code in (302, 303)
     row = conn.execute(
-        "SELECT id FROM workflow_cards WHERE title=?", (title,),
+        "SELECT id FROM workflow_cards WHERE title=?",
+        (title,),
     ).fetchone()
     assert row is not None
 
@@ -1110,21 +1468,27 @@ def test_workflow_update_card(client, csrf, conn):
     if not card:
         pytest.skip("Depends on add-card.")
     new_title = f"HP WG Card Updated {MARKER}"
-    resp = _post(client, csrf, "/admin/workflow-guide/update-card", {
-        "card_id": str(card[0]),
-        "section_id": str(card[1]),
-        "tab_id": "1",
-        "num_label": "1",
-        "icon": "🚀",
-        "title": new_title,
-        "description": "updated",
-        "href": "/",
-        "link_label": "Go",
-        "color": "slate",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/update-card",
+        {
+            "card_id": str(card[0]),
+            "section_id": str(card[1]),
+            "tab_id": "1",
+            "num_label": "1",
+            "icon": "🚀",
+            "title": new_title,
+            "description": "updated",
+            "href": "/",
+            "link_label": "Go",
+            "color": "slate",
+        },
+    )
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT title FROM workflow_cards WHERE id=?", (int(card[0]),),
+        "SELECT title FROM workflow_cards WHERE id=?",
+        (int(card[0]),),
     ).fetchone()
     assert after and after[0] == new_title
 
@@ -1137,9 +1501,16 @@ def test_workflow_reorder_card(client, csrf, conn):
     ).fetchone()
     if not card:
         pytest.skip("Depends on add-card.")
-    resp = _post(client, csrf, "/admin/workflow-guide/reorder-card", {
-        "card_id": str(card[0]), "tab_id": "1", "direction": "up",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/reorder-card",
+        {
+            "card_id": str(card[0]),
+            "tab_id": "1",
+            "direction": "up",
+        },
+    )
     assert resp.status_code in (302, 303)
 
 
@@ -1152,11 +1523,16 @@ def test_workflow_move_card(client, csrf, conn):
     if not card:
         pytest.skip("Depends on add-card.")
     # Move to same section (no-op behavior, just verifies handler).
-    resp = _post(client, csrf, "/admin/workflow-guide/move-card", {
-        "card_id": str(card[0]),
-        "new_section_id": str(card[1]),
-        "tab_id": "1",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/move-card",
+        {
+            "card_id": str(card[0]),
+            "new_section_id": str(card[1]),
+            "tab_id": "1",
+        },
+    )
     assert resp.status_code in (302, 303)
 
 
@@ -1169,12 +1545,19 @@ def test_workflow_toggle_card(client, csrf, conn):
     if not card:
         pytest.skip("Depends on add-card.")
     before = int(card[1])
-    resp = _post(client, csrf, "/admin/workflow-guide/toggle-card", {
-        "card_id": str(card[0]), "tab_id": "1",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/toggle-card",
+        {
+            "card_id": str(card[0]),
+            "tab_id": "1",
+        },
+    )
     assert resp.status_code == 200  # returns "ok" as text
     after = conn.execute(
-        "SELECT is_active FROM workflow_cards WHERE id=?", (int(card[0]),),
+        "SELECT is_active FROM workflow_cards WHERE id=?",
+        (int(card[0]),),
     ).fetchone()
     assert int(after[0]) != before
 
@@ -1188,12 +1571,19 @@ def test_workflow_toggle_section(client, csrf, conn):
     if not section:
         pytest.skip("Depends on add-section.")
     before = int(section[1])
-    resp = _post(client, csrf, "/admin/workflow-guide/toggle-section", {
-        "section_id": str(section[0]), "tab_id": "1",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/toggle-section",
+        {
+            "section_id": str(section[0]),
+            "tab_id": "1",
+        },
+    )
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT is_active FROM workflow_sections WHERE id=?", (int(section[0]),),
+        "SELECT is_active FROM workflow_sections WHERE id=?",
+        (int(section[0]),),
     ).fetchone()
     assert int(after[0]) != before
 
@@ -1207,12 +1597,18 @@ def test_workflow_toggle_tab(client, csrf, conn):
     if not tab:
         pytest.skip("Depends on add-tab.")
     before = int(tab[1])
-    resp = _post(client, csrf, "/admin/workflow-guide/toggle-tab", {
-        "tab_id": str(tab[0]),
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/toggle-tab",
+        {
+            "tab_id": str(tab[0]),
+        },
+    )
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT is_active FROM workflow_tabs WHERE id=?", (int(tab[0]),),
+        "SELECT is_active FROM workflow_tabs WHERE id=?",
+        (int(tab[0]),),
     ).fetchone()
     assert int(after[0]) != before
 
@@ -1225,12 +1621,19 @@ def test_workflow_delete_card(client, csrf, conn):
     ).fetchone()
     if not card:
         pytest.skip("Depends on add-card.")
-    resp = _post(client, csrf, "/admin/workflow-guide/delete-card", {
-        "card_id": str(card[0]), "tab_id": "1",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/admin/workflow-guide/delete-card",
+        {
+            "card_id": str(card[0]),
+            "tab_id": "1",
+        },
+    )
     assert resp.status_code in (302, 303)
     gone = conn.execute(
-        "SELECT id FROM workflow_cards WHERE id=?", (int(card[0]),),
+        "SELECT id FROM workflow_cards WHERE id=?",
+        (int(card[0]),),
     ).fetchone()
     assert gone is None
 
@@ -1263,17 +1666,25 @@ def test_reserve_study_assumptions_edit(client, csrf, conn):
             "FROM reserve_study_assumptions WHERE is_active=1 LIMIT 1"
         ).fetchone()
     new_notes = f"HP assumptions edit {MARKER}"
-    resp = _post(client, csrf, "/reserve-study/assumptions/edit", {
-        "study_year": str(cur[0]),
-        "annual_contribution": str(cur[1] or "0"),
-        "contribution_growth_rate": str((cur[2] or 0) * 100),
-        "investment_return_rate": str((cur[3] or 0) * 100),
-        "num_lots": str(cur[4] or 0),
-        "projection_years": str(cur[5] or 30),
-        "notes": new_notes,
-        "reserve_balance_override": str(cur[7] or "0"),
-    })
-    assert resp.status_code in (302, 303), f"Got {resp.status_code}: {resp.data[:300]!r}"
+    resp = _post(
+        client,
+        csrf,
+        "/reserve-study/assumptions/edit",
+        {
+            "study_year": str(cur[0]),
+            "annual_contribution": str(cur[1] or "0"),
+            "contribution_growth_rate": str((cur[2] or 0) * 100),
+            "investment_return_rate": str((cur[3] or 0) * 100),
+            "num_lots": str(cur[4] or 0),
+            "projection_years": str(cur[5] or 30),
+            "notes": new_notes,
+            "reserve_balance_override": str(cur[7] or "0"),
+        },
+    )
+    assert resp.status_code in (
+        302,
+        303,
+    ), f"Got {resp.status_code}: {resp.data[:300]!r}"
     after = conn.execute(
         "SELECT notes FROM reserve_study_assumptions WHERE is_active=1 LIMIT 1"
     ).fetchone()
@@ -1289,18 +1700,24 @@ def test_reserve_study_asset_edit(client, csrf, conn):
     if not asset:
         pytest.skip("Depends on asset_new.")
     new_component = f"HP Roof Renamed {MARKER}"
-    resp = _post(client, csrf, f"/reserve-study/assets/{int(asset[0])}/edit", {
-        "asset_group": asset[1],
-        "component": new_component,
-        "condition": "Good",
-        "install_year": "2020",
-        "useful_life_years": "25",
-        "replacement_cost": "11000",
-        "annual_inflation": "4",
-    })
+    resp = _post(
+        client,
+        csrf,
+        f"/reserve-study/assets/{int(asset[0])}/edit",
+        {
+            "asset_group": asset[1],
+            "component": new_component,
+            "condition": "Good",
+            "install_year": "2020",
+            "useful_life_years": "25",
+            "replacement_cost": "11000",
+            "annual_inflation": "4",
+        },
+    )
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT component FROM reserve_assets WHERE id=?", (int(asset[0]),),
+        "SELECT component FROM reserve_assets WHERE id=?",
+        (int(asset[0]),),
     ).fetchone()
     assert after and after[0] == new_component
 
@@ -1314,16 +1731,22 @@ def test_reserve_study_scenario_edit(client, csrf, conn):
     if not sc:
         pytest.skip("Depends on scenario_new.")
     new_name = f"HP Scenario Renamed {MARKER}"
-    resp = _post(client, csrf, f"/reserve-study/scenarios/{int(sc[0])}/edit", {
-        "scenario_name": new_name,
-        "description": "Updated",
-        "emergency_cost": "0",
-        "expected_year": "",
-        "notes": "",
-    })
+    resp = _post(
+        client,
+        csrf,
+        f"/reserve-study/scenarios/{int(sc[0])}/edit",
+        {
+            "scenario_name": new_name,
+            "description": "Updated",
+            "emergency_cost": "0",
+            "expected_year": "",
+            "notes": "",
+        },
+    )
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT scenario_name FROM reserve_study_scenarios WHERE id=?", (int(sc[0]),),
+        "SELECT scenario_name FROM reserve_study_scenarios WHERE id=?",
+        (int(sc[0]),),
     ).fetchone()
     assert after and after[0] == new_name
 
@@ -1340,7 +1763,8 @@ def test_transaction_rules_toggle(client, csrf, conn):
     resp = _post(client, csrf, f"/admin/transaction-rules/{int(rule[0])}/toggle", {})
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT active_flag FROM bank_transaction_rules WHERE id=?", (int(rule[0]),),
+        "SELECT active_flag FROM bank_transaction_rules WHERE id=?",
+        (int(rule[0]),),
     ).fetchone()
     assert int(after[0]) != before
 
@@ -1353,16 +1777,22 @@ def test_dashboard_reset_layout(client, csrf):
 
 # ── 56. Dashboard dismiss-alert ────────────────────────────────────────
 def test_dashboard_dismiss_alert(client, csrf):
-    resp = _post(client, csrf, "/dashboard/dismiss-alert", {
-        "alert_key": "test-alert-key",
-    })
+    resp = _post(
+        client,
+        csrf,
+        "/dashboard/dismiss-alert",
+        {
+            "alert_key": "test-alert-key",
+        },
+    )
     assert resp.status_code == 200  # returns JSON {"ok": true}
 
 
 # ── 57. Budget approve ─────────────────────────────────────────────────
 def test_budget_approve(client, csrf, conn):
     b = conn.execute(
-        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not b:
         pytest.skip("Depends on budget_new.")
@@ -1375,7 +1805,8 @@ def test_budget_approve(client, csrf, conn):
 # ── 58. Budget revert-to-draft ─────────────────────────────────────────
 def test_budget_revert_to_draft(client, csrf, conn):
     b = conn.execute(
-        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not b:
         pytest.skip()
@@ -1386,7 +1817,8 @@ def test_budget_revert_to_draft(client, csrf, conn):
 # ── 59. Budget archive ─────────────────────────────────────────────────
 def test_budget_archive(client, csrf, conn):
     b = conn.execute(
-        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not b:
         pytest.skip()
@@ -1399,7 +1831,8 @@ def test_budget_archive(client, csrf, conn):
 # ── 60. Budget un-archive ──────────────────────────────────────────────
 def test_budget_un_archive(client, csrf, conn):
     b = conn.execute(
-        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not b:
         pytest.skip()
@@ -1418,7 +1851,8 @@ def test_period_close(client, csrf, conn):
     resp = _post(client, csrf, f"/accounting-periods/{int(p[0])}/close", {})
     assert resp.status_code in (302, 303)
     st = conn.execute(
-        "SELECT is_closed FROM accounting_periods WHERE id=?", (int(p[0]),),
+        "SELECT is_closed FROM accounting_periods WHERE id=?",
+        (int(p[0]),),
     ).fetchone()
     assert st and int(st[0]) == 1
 
@@ -1434,7 +1868,8 @@ def test_period_reopen(client, csrf, conn):
     resp = _post(client, csrf, f"/accounting-periods/{int(p[0])}/reopen", {})
     assert resp.status_code in (302, 303)
     st = conn.execute(
-        "SELECT is_closed FROM accounting_periods WHERE id=?", (int(p[0]),),
+        "SELECT is_closed FROM accounting_periods WHERE id=?",
+        (int(p[0]),),
     ).fetchone()
     assert st and int(st[0]) == 0
 
@@ -1469,16 +1904,23 @@ def test_lot_ownership_end(client, csrf, conn):
     own = conn.execute(
         "SELECT lo.id, lo.lot_id FROM lot_ownership lo "
         "JOIN lots l ON l.id = lo.lot_id "
-        "WHERE l.lot_number=? AND lo.end_date IS NULL LIMIT 1", (lot_no,),
+        "WHERE l.lot_number=? AND lo.end_date IS NULL LIMIT 1",
+        (lot_no,),
     ).fetchone()
     if not own:
         pytest.skip("Depends on lots_owners_link.")
-    resp = _post(client, csrf, f"/lots/{int(own[1])}/owners/{int(own[0])}/end", {
-        "end_date": "2026-06-30",
-    })
+    resp = _post(
+        client,
+        csrf,
+        f"/lots/{int(own[1])}/owners/{int(own[0])}/end",
+        {
+            "end_date": "2026-06-30",
+        },
+    )
     assert resp.status_code in (302, 303)
     after = conn.execute(
-        "SELECT end_date FROM lot_ownership WHERE id=?", (int(own[0]),),
+        "SELECT end_date FROM lot_ownership WHERE id=?",
+        (int(own[0]),),
     ).fetchone()
     assert after and after[0] == "2026-06-30"
 
@@ -1488,14 +1930,20 @@ def test_lot_ownership_edit_dates(client, csrf, conn):
     own = conn.execute(
         "SELECT lo.id, lo.lot_id FROM lot_ownership lo "
         "JOIN lots l ON l.id = lo.lot_id "
-        "WHERE l.lot_number=? LIMIT 1", (f"HP-{MARKER[-6:]}",),
+        "WHERE l.lot_number=? LIMIT 1",
+        (f"HP-{MARKER[-6:]}",),
     ).fetchone()
     if not own:
         pytest.skip()
-    resp = _post(client, csrf, f"/lots/{int(own[1])}/owners/{int(own[0])}/edit-dates", {
-        "start_date": "2026-01-15",
-        "end_date": "2026-06-15",
-    })
+    resp = _post(
+        client,
+        csrf,
+        f"/lots/{int(own[1])}/owners/{int(own[0])}/edit-dates",
+        {
+            "start_date": "2026-01-15",
+            "end_date": "2026-06-15",
+        },
+    )
     assert resp.status_code in (302, 303)
 
 
@@ -1507,16 +1955,22 @@ def test_renter_end(client, csrf, conn):
     ).fetchone()
     if not r:
         pytest.skip()
-    resp = _post(client, csrf, f"/renters/{int(r[0])}/end", {
-        "end_date": "2026-06-30",
-    })
+    resp = _post(
+        client,
+        csrf,
+        f"/renters/{int(r[0])}/end",
+        {
+            "end_date": "2026-06-30",
+        },
+    )
     assert resp.status_code in (302, 303)
 
 
 # ── 68. Reserve transfer delete ────────────────────────────────────────
 def test_reserve_transfer_delete(client, csrf, conn):
     t = conn.execute(
-        "SELECT id FROM reserve_transfers WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM reserve_transfers WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not t:
         pytest.skip()
@@ -1527,7 +1981,8 @@ def test_reserve_transfer_delete(client, csrf, conn):
 # ── 69. Reserve study asset delete ─────────────────────────────────────
 def test_reserve_study_asset_delete(client, csrf, conn):
     a = conn.execute(
-        "SELECT id FROM reserve_assets WHERE component LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM reserve_assets WHERE component LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not a:
         pytest.skip()
@@ -1562,7 +2017,8 @@ def test_transaction_rules_delete(client, csrf, conn):
 # ── 72. Board member delete ────────────────────────────────────────────
 def test_board_members_delete(client, csrf, conn):
     m = conn.execute(
-        "SELECT id FROM board_members WHERE full_name LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM board_members WHERE full_name LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not m:
         pytest.skip()
@@ -1596,7 +2052,8 @@ def test_period_delete(client, csrf, conn):
 # ── 75. Budget delete (must be last for our HP budget) ────────────────
 def test_budget_delete(client, csrf, conn):
     b = conn.execute(
-        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM budgets WHERE notes LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not b:
         pytest.skip()
@@ -1607,7 +2064,8 @@ def test_budget_delete(client, csrf, conn):
 # ── 76. Dashboard config delete-card ───────────────────────────────────
 def test_dashboard_config_delete_card(client, csrf, conn):
     c = conn.execute(
-        "SELECT id FROM dashboard_cards WHERE title LIKE ? LIMIT 1", (f"%{MARKER}%",),
+        "SELECT id FROM dashboard_cards WHERE title LIKE ? LIMIT 1",
+        (f"%{MARKER}%",),
     ).fetchone()
     if not c:
         pytest.skip()

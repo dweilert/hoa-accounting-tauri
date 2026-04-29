@@ -94,39 +94,39 @@ class OwnerPages:
                     body_html="<h1>Owner not found</h1>",
                 )
             values = {
-                "owner_type":   row["owner_type"]   or "PERSON",
+                "owner_type": row["owner_type"] or "PERSON",
                 "display_name": row["display_name"] or "",
-                "first_name":   row["first_name"]   or "",
-                "last_name":    row["last_name"]     or "",
-                "entity_name":  row["entity_name"]  or "",
-                "email":        row["email"]         or "",
-                "phone":        row["phone"]         or "",
-                "home_phone":   row["home_phone"]    or "",
-                "notes":        row["notes"]         or "",
+                "first_name": row["first_name"] or "",
+                "last_name": row["last_name"] or "",
+                "entity_name": row["entity_name"] or "",
+                "email": row["email"] or "",
+                "phone": row["phone"] or "",
+                "home_phone": row["home_phone"] or "",
+                "notes": row["notes"] or "",
             }
         else:
             values = form_values or {}
 
-        heading    = "Edit Owner" if is_edit else "Add Owner"
+        heading = "Edit Owner" if is_edit else "Add Owner"
         breadcrumb = "Master Data · Owners"
         ctx = {
             **_BASE_CTX,
-            "heading":       heading,
-            "breadcrumb":    breadcrumb,
-            "org":           org or {},
-            "theme":         theme,
-            "is_edit":       is_edit,
-            "owner_id":      owner_id,
+            "heading": heading,
+            "breadcrumb": breadcrumb,
+            "org": org or {},
+            "theme": theme,
+            "is_edit": is_edit,
+            "owner_id": owner_id,
             "values": {
-                "owner_type":   values.get("owner_type",   "PERSON"),
+                "owner_type": values.get("owner_type", "PERSON"),
                 "display_name": values.get("display_name", ""),
-                "first_name":   values.get("first_name",   ""),
-                "last_name":    values.get("last_name",    ""),
-                "entity_name":  values.get("entity_name",  ""),
-                "email":        values.get("email",        ""),
-                "phone":        values.get("phone",        ""),
-                "home_phone":   values.get("home_phone",   ""),
-                "notes":        values.get("notes",        ""),
+                "first_name": values.get("first_name", ""),
+                "last_name": values.get("last_name", ""),
+                "entity_name": values.get("entity_name", ""),
+                "email": values.get("email", ""),
+                "phone": values.get("phone", ""),
+                "home_phone": values.get("home_phone", ""),
+                "notes": values.get("notes", ""),
             },
             "error_message": error_message,
         }
@@ -146,24 +146,26 @@ class OwnerPages:
         theme: str,
     ) -> tuple[str | None, OwnerPageResponse | None]:
         try:
-            owner_type   = _require(form_data.get("owner_type",   ""), "Owner Type")
+            owner_type = _require(form_data.get("owner_type", ""), "Owner Type")
             display_name = _require(form_data.get("display_name", ""), "Display Name")
             self.repo.insert_owner(
                 owner_type=owner_type,
                 display_name=display_name,
-                first_name=_opt(form_data.get("first_name",  "")),
-                last_name=_opt(form_data.get("last_name",   "")),
+                first_name=_opt(form_data.get("first_name", "")),
+                last_name=_opt(form_data.get("last_name", "")),
                 entity_name=_opt(form_data.get("entity_name", "")),
-                email=_opt(form_data.get("email",       "")),
-                phone=_opt(form_data.get("phone",       "")),
+                email=_opt(form_data.get("email", "")),
+                phone=_opt(form_data.get("phone", "")),
                 home_phone=_opt(form_data.get("home_phone", "")),
-                notes=_opt(form_data.get("notes",       "")),
+                notes=_opt(form_data.get("notes", "")),
             )
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
-                form_values=form_data, error_message=str(exc),
+                org=org,
+                theme=theme,
+                form_values=form_data,
+                error_message=str(exc),
             )
         except Exception:
             self.conn.rollback()
@@ -181,25 +183,27 @@ class OwnerPages:
         theme: str,
     ) -> tuple[str | None, OwnerPageResponse | None]:
         try:
-            owner_type   = _require(form_data.get("owner_type",   ""), "Owner Type")
+            owner_type = _require(form_data.get("owner_type", ""), "Owner Type")
             display_name = _require(form_data.get("display_name", ""), "Display Name")
             self.repo.update_owner(
                 owner_id=owner_id,
                 owner_type=owner_type,
                 display_name=display_name,
-                first_name=_opt(form_data.get("first_name",  "")),
-                last_name=_opt(form_data.get("last_name",   "")),
+                first_name=_opt(form_data.get("first_name", "")),
+                last_name=_opt(form_data.get("last_name", "")),
                 entity_name=_opt(form_data.get("entity_name", "")),
-                email=_opt(form_data.get("email",       "")),
-                phone=_opt(form_data.get("phone",       "")),
+                email=_opt(form_data.get("email", "")),
+                phone=_opt(form_data.get("phone", "")),
                 home_phone=_opt(form_data.get("home_phone", "")),
-                notes=_opt(form_data.get("notes",       "")),
+                notes=_opt(form_data.get("notes", "")),
             )
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
-                owner_id=owner_id, form_values=form_data,
+                org=org,
+                theme=theme,
+                owner_id=owner_id,
+                form_values=form_data,
                 error_message=str(exc),
             )
         except Exception:
@@ -221,7 +225,9 @@ class OwnerPages:
             self.conn.commit()
         except Exception as exc:
             return None, self.render_form(
-                org=org, theme=theme,
-                owner_id=owner_id, error_message=str(exc),
+                org=org,
+                theme=theme,
+                owner_id=owner_id,
+                error_message=str(exc),
             )
         return "/owners?msg=Owner+deactivated.", None

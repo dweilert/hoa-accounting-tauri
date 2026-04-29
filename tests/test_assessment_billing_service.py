@@ -51,8 +51,9 @@ def test_bill_all_happy_path():
     rows = conn.execute(
         "SELECT lot_id, amount, description FROM assessments ORDER BY lot_id"
     ).fetchall()
-    assert [(r["lot_id"], Decimal(str(r["amount"])), r["description"])
-            for r in rows] == [
+    assert [
+        (r["lot_id"], Decimal(str(r["amount"])), r["description"]) for r in rows
+    ] == [
         (1, Decimal("100.00"), "April dues"),
         (2, Decimal("100.00"), "April dues"),
     ]

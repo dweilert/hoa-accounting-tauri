@@ -46,7 +46,11 @@ class ReserveStudyRepository:
             """,
             (
                 study_year,
-                str(reserve_balance_override) if reserve_balance_override is not None else None,
+                (
+                    str(reserve_balance_override)
+                    if reserve_balance_override is not None
+                    else None
+                ),
                 str(annual_contribution),
                 str(contribution_growth_rate),
                 str(investment_return_rate),
@@ -60,13 +64,11 @@ class ReserveStudyRepository:
     # ── Assets ────────────────────────────────────────────────────────
 
     def list_assets(self) -> list[sqlite3.Row]:
-        return self.conn.execute(
-            """
+        return self.conn.execute("""
             SELECT * FROM reserve_assets
             WHERE active_flag = 1
             ORDER BY sort_order, asset_group, component
-            """
-        ).fetchall()
+            """).fetchall()
 
     def get_asset(self, asset_id: int) -> sqlite3.Row | None:
         return self.conn.execute(  # type: ignore[no-any-return]
@@ -94,8 +96,14 @@ class ReserveStudyRepository:
                     (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM reserve_assets))
             """,
             (
-                asset_group, component, install_year, useful_life_years,
-                condition, str(replacement_cost), str(annual_inflation), notes,
+                asset_group,
+                component,
+                install_year,
+                useful_life_years,
+                condition,
+                str(replacement_cost),
+                str(annual_inflation),
+                notes,
             ),
         )
         return cur.lastrowid  # type: ignore[return-value]
@@ -128,9 +136,15 @@ class ReserveStudyRepository:
             WHERE id = ?
             """,
             (
-                asset_group, component, install_year, useful_life_years,
-                condition, str(replacement_cost), str(annual_inflation),
-                notes, asset_id,
+                asset_group,
+                component,
+                install_year,
+                useful_life_years,
+                condition,
+                str(replacement_cost),
+                str(annual_inflation),
+                notes,
+                asset_id,
             ),
         )
 
@@ -143,13 +157,11 @@ class ReserveStudyRepository:
     # ── Scenarios ─────────────────────────────────────────────────────
 
     def list_scenarios(self) -> list[sqlite3.Row]:
-        return self.conn.execute(
-            """
+        return self.conn.execute("""
             SELECT * FROM reserve_study_scenarios
             WHERE active_flag = 1
             ORDER BY sort_order, scenario_name
-            """
-        ).fetchall()
+            """).fetchall()
 
     def get_scenario(self, scenario_id: int) -> sqlite3.Row | None:
         return self.conn.execute(  # type: ignore[no-any-return]
@@ -197,7 +209,14 @@ class ReserveStudyRepository:
                 updated_at     = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (scenario_name, description, str(emergency_cost), expected_year, notes, scenario_id),
+            (
+                scenario_name,
+                description,
+                str(emergency_cost),
+                expected_year,
+                notes,
+                scenario_id,
+            ),
         )
 
     def deactivate_scenario(self, scenario_id: int) -> None:
@@ -211,8 +230,7 @@ class ReserveStudyRepository:
     def get_reserve_fund_balance(self) -> Decimal:
         """Sum of all RESERVE fund bank-account balances using the cash-basis
         flow on bank_accounts (the GL was retired in migration 0061)."""
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             SELECT
                 COALESCE(SUM(ba.opening_balance), 0)
                 + COALESCE((SELECT SUM(p.amount) FROM payments p
@@ -227,6 +245,5 @@ class ReserveStudyRepository:
                 AS balance
             FROM bank_accounts ba
             WHERE ba.fund_code = 'RESERVE' AND ba.active_flag = 1
-            """
-        ).fetchone()
+            """).fetchone()
         return Decimal(str(row["balance"] if row and row["balance"] is not None else 0))

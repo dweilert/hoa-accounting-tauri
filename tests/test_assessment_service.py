@@ -53,8 +53,11 @@ def test_post_assessment_rejects_zero_amount():
     with pytest.raises(ValidationError):
         _svc(conn).post_assessment(
             entry_date="2026-01-10",
-            lot_id=ids.lot1_id, owner_id=ids.owner1_id,
-            amount="0.00", description="Bad", category_id=ids.cat_dues_id,
+            lot_id=ids.lot1_id,
+            owner_id=ids.owner1_id,
+            amount="0.00",
+            description="Bad",
+            category_id=ids.cat_dues_id,
         )
 
 
@@ -63,8 +66,11 @@ def test_post_assessment_rejects_negative_amount():
     with pytest.raises(ValidationError):
         _svc(conn).post_assessment(
             entry_date="2026-01-10",
-            lot_id=ids.lot1_id, owner_id=ids.owner1_id,
-            amount="-50", description="Bad", category_id=ids.cat_dues_id,
+            lot_id=ids.lot1_id,
+            owner_id=ids.owner1_id,
+            amount="-50",
+            description="Bad",
+            category_id=ids.cat_dues_id,
         )
 
 
@@ -73,8 +79,11 @@ def test_post_assessment_rejects_unknown_lot():
     with pytest.raises(NotFoundError):
         _svc(conn).post_assessment(
             entry_date="2026-01-10",
-            lot_id=9999, owner_id=ids.owner1_id,
-            amount="100", description="x", category_id=ids.cat_dues_id,
+            lot_id=9999,
+            owner_id=ids.owner1_id,
+            amount="100",
+            description="x",
+            category_id=ids.cat_dues_id,
         )
 
 
@@ -83,6 +92,9 @@ def test_post_assessment_rejects_unknown_owner():
     with pytest.raises(NotFoundError):
         _svc(conn).post_assessment(
             entry_date="2026-01-10",
-            lot_id=ids.lot1_id, owner_id=9999,
-            amount="100", description="x", category_id=ids.cat_dues_id,
+            lot_id=ids.lot1_id,
+            owner_id=9999,
+            amount="100",
+            description="x",
+            category_id=ids.cat_dues_id,
         )

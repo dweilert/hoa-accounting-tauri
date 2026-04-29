@@ -93,10 +93,10 @@ class AccountingPeriodPages:
             "org": org or {},
             "theme": theme,
             "values": {
-                "period_name":   (form_values or {}).get("period_name", ""),
-                "start_date":    (form_values or {}).get("start_date", ""),
-                "end_date":      (form_values or {}).get("end_date", ""),
-                "fiscal_year":   (form_values or {}).get("fiscal_year", ""),
+                "period_name": (form_values or {}).get("period_name", ""),
+                "start_date": (form_values or {}).get("start_date", ""),
+                "end_date": (form_values or {}).get("end_date", ""),
+                "fiscal_year": (form_values or {}).get("fiscal_year", ""),
                 "fiscal_period": (form_values or {}).get("fiscal_period", ""),
             },
             "error_message": error_message,
@@ -122,7 +122,9 @@ class AccountingPeriodPages:
             start_date = _require(form_data.get("start_date", ""), "Start Date")
             end_date = _require(form_data.get("end_date", ""), "End Date")
             fiscal_year_raw = _require(form_data.get("fiscal_year", ""), "Fiscal Year")
-            fiscal_period_raw = _require(form_data.get("fiscal_period", ""), "Fiscal Period")
+            fiscal_period_raw = _require(
+                form_data.get("fiscal_period", ""), "Fiscal Period"
+            )
 
             if start_date > end_date:
                 raise ValidationError("Start Date must be on or before End Date.")
@@ -133,9 +135,7 @@ class AccountingPeriodPages:
                 raise ValidationError("Fiscal Period must be between 1 and 12.")
 
             if self.repo.period_name_exists(period_name):
-                raise ValidationError(
-                    f"Period {period_name!r} already exists."
-                )
+                raise ValidationError(f"Period {period_name!r} already exists.")
 
             self.repo.insert_period(
                 period_name=period_name,
@@ -147,7 +147,8 @@ class AccountingPeriodPages:
             self.conn.commit()
         except (ValidationError, ValueError) as exc:
             return None, self.render_add_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -210,7 +211,8 @@ class AccountingPeriodPages:
             self.conn.commit()
         except (ValidationError, ValueError) as exc:
             return None, self.render_generate_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -266,7 +268,8 @@ class AccountingPeriodPages:
     ) -> tuple[str | None, PeriodPageResponse | None]:
         if self.repo.has_journal_entries(period_id):
             return None, self.render_list(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error_message=(
                     "Cannot delete a period that has posted transactions. "
                     "Close it instead."

@@ -26,16 +26,12 @@ class PeriodsRepository(BaseRepository):
 
     def list_periods(self) -> list[sqlite3.Row]:
         """Return all periods ordered newest-first."""
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT id, period_name, start_date, end_date,
                        fiscal_year, fiscal_period, is_closed, closed_at
                 FROM accounting_periods
                 ORDER BY start_date DESC
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_period(self, period_id: int) -> sqlite3.Row | None:
         """Return one period row or None."""
@@ -143,6 +139,4 @@ class PeriodsRepository(BaseRepository):
 
     def delete_period(self, period_id: int) -> None:
         """Hard-delete a period with no journal entries."""
-        self.conn.execute(
-            "DELETE FROM accounting_periods WHERE id = ?", (period_id,)
-        )
+        self.conn.execute("DELETE FROM accounting_periods WHERE id = ?", (period_id,))

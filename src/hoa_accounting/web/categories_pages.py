@@ -60,8 +60,8 @@ class CategoriesPages:
             d = dict(r)
             breakdown = self.repo.usage_breakdown(int(d["id"]))
             d["transactions_count"] = breakdown["transactions"]
-            d["other_count"]        = breakdown["other"]
-            d["usage_count"]        = breakdown["total"]
+            d["other_count"] = breakdown["other"]
+            d["usage_count"] = breakdown["total"]
             categories.append(d)
         ctx = {
             **_BASE_CTX,
@@ -96,7 +96,8 @@ class CategoriesPages:
             "category_id": None,
             "fund_codes": _FUND_CODES,
             "category_types": _CATEGORY_TYPES,
-            "values": form_values or {
+            "values": form_values
+            or {
                 "code": "",
                 "name": "",
                 "category_type": "EXPENSE",
@@ -116,8 +117,11 @@ class CategoriesPages:
 
     # ── Add (POST) ────────────────────────────────────────────────────────
 
-    def handle_add(self, form: dict[str, Any], *, org: dict[str, Any], theme: str) -> CategoriesPageResponse:
+    def handle_add(
+        self, form: dict[str, Any], *, org: dict[str, Any], theme: str
+    ) -> CategoriesPageResponse:
         from flask import redirect
+
         try:
             code = _req(form.get("code"), "Code").upper()
             name = _req(form.get("name"), "Name")
@@ -147,6 +151,7 @@ class CategoriesPages:
                 error_message=str(exc),
             )
         from flask import redirect as _redir
+
         resp = _redir("/categories?flash=Category+added.")
         return CategoriesPageResponse(
             status_code=resp.status_code,
@@ -231,6 +236,7 @@ class CategoriesPages:
                 error_message=str(exc),
             )
         from flask import redirect as _redir
+
         resp = _redir("/categories?flash=Category+saved.")
         return CategoriesPageResponse(
             status_code=resp.status_code,

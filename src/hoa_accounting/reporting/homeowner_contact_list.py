@@ -19,8 +19,7 @@ class HomeownerContactListReportService:
         else:
             order_clause = "sort_name, first_name"
 
-        rows = self.conn.execute(
-            f"""
+        rows = self.conn.execute(f"""
             SELECT
                 'OWNER'                           AS role,
                 COALESCE(o.first_name, '')        AS first_name,
@@ -49,8 +48,7 @@ class HomeownerContactListReportService:
             WHERE lr.end_date IS NULL
 
             ORDER BY {order_clause}
-            """
-        ).fetchall()
+            """).fetchall()
 
         report_rows = [
             HomeownerContactRow(

@@ -152,8 +152,16 @@ class PaymentsRepository(BaseRepository):
                        bank_account_id = ?, notes = ?, category_id = ?
                  WHERE id = ?
                 """,
-                (receipt_number, payment_date, payment_method, reference_number,
-                 bank_account_id, notes, category_id, payment_id),
+                (
+                    receipt_number,
+                    payment_date,
+                    payment_method,
+                    reference_number,
+                    bank_account_id,
+                    notes,
+                    category_id,
+                    payment_id,
+                ),
             )
         else:
             self.conn.execute(
@@ -164,8 +172,17 @@ class PaymentsRepository(BaseRepository):
                        bank_account_id = ?, notes = ?, category_id = ?
                  WHERE id = ?
                 """,
-                (receipt_number, payment_date, amount, payment_method,
-                 reference_number, bank_account_id, notes, category_id, payment_id),
+                (
+                    receipt_number,
+                    payment_date,
+                    amount,
+                    payment_method,
+                    reference_number,
+                    bank_account_id,
+                    notes,
+                    category_id,
+                    payment_id,
+                ),
             )
         self.conn.commit()
 

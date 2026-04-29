@@ -25,7 +25,6 @@ from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.repositories.lot_renters_repo import LotRentersRepository
 from hoa_accounting.web.lot_renters_pages import LotRentersPages
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────
 
 
@@ -56,8 +55,12 @@ def _seed(conn: sqlite3.Connection) -> tuple[int, int]:
     return 1, 1
 
 
-_ORG = {"name": "Test HOA", "environment": "test",
-        "fiscal_year_start_month": 1, "theme": "warm"}
+_ORG = {
+    "name": "Test HOA",
+    "environment": "test",
+    "fiscal_year_start_month": 1,
+    "theme": "warm",
+}
 
 
 # ── render_list ────────────────────────────────────────────────────────
@@ -73,8 +76,12 @@ def test_render_list_empty_state(conn: sqlite3.Connection) -> None:
 def test_render_list_shows_current_renter(conn: sqlite3.Connection) -> None:
     lot_id, _ = _seed(conn)
     LotRentersRepository(conn).insert_renter(
-        lot_id=lot_id, display_name="Bob Tenant", first_name="Bob",
-        last_name="Tenant", email="bob@example.com", phone="555-1234",
+        lot_id=lot_id,
+        display_name="Bob Tenant",
+        first_name="Bob",
+        last_name="Tenant",
+        email="bob@example.com",
+        phone="555-1234",
         start_date="2025-01-01",
     )
     conn.commit()
@@ -91,8 +98,13 @@ def test_render_list_shows_ended_renter_with_end_date(
     lot_id, _ = _seed(conn)
     repo = LotRentersRepository(conn)
     renter_id = repo.insert_renter(
-        lot_id=lot_id, display_name="Old Tenant", first_name=None,
-        last_name=None, email=None, phone=None, start_date="2024-01-01",
+        lot_id=lot_id,
+        display_name="Old Tenant",
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
+        start_date="2024-01-01",
     )
     repo.end_tenancy(renter_id=renter_id, end_date="2024-12-31")
     conn.commit()
@@ -129,8 +141,12 @@ def test_render_add_form_shows_lot_dropdown(conn: sqlite3.Connection) -> None:
 def test_render_edit_form_prefilled(conn: sqlite3.Connection) -> None:
     lot_id, _ = _seed(conn)
     renter_id = LotRentersRepository(conn).insert_renter(
-        lot_id=lot_id, display_name="Jane Tenant", first_name="Jane",
-        last_name="Tenant", email="jane@example.com", phone="555-9999",
+        lot_id=lot_id,
+        display_name="Jane Tenant",
+        first_name="Jane",
+        last_name="Tenant",
+        email="jane@example.com",
+        phone="555-9999",
         start_date="2025-06-01",
     )
     conn.commit()
@@ -145,9 +161,7 @@ def test_render_edit_form_prefilled(conn: sqlite3.Connection) -> None:
 
 
 def test_render_edit_form_unknown_returns_404(conn: sqlite3.Connection) -> None:
-    resp = LotRentersPages(conn).render_form(
-        org=_ORG, theme="warm", renter_id=999
-    )
+    resp = LotRentersPages(conn).render_form(org=_ORG, theme="warm", renter_id=999)
     assert resp.status_code == 404
 
 
@@ -181,7 +195,8 @@ def test_handle_add_missing_display_name_returns_error(
     lot_id, _ = _seed(conn)
     redirect_url, form_resp = LotRentersPages(conn).handle_add(
         form_data={"lot_id": str(lot_id), "start_date": "2026-01-01"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -193,7 +208,8 @@ def test_handle_add_missing_lot_returns_error(conn: sqlite3.Connection) -> None:
     _seed(conn)
     redirect_url, form_resp = LotRentersPages(conn).handle_add(
         form_data={"display_name": "Jane", "start_date": "2026-01-01"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -206,8 +222,13 @@ def test_handle_add_missing_lot_returns_error(conn: sqlite3.Connection) -> None:
 def test_handle_edit_success_redirects(conn: sqlite3.Connection) -> None:
     lot_id, _ = _seed(conn)
     renter_id = LotRentersRepository(conn).insert_renter(
-        lot_id=lot_id, display_name="Old Name", first_name=None,
-        last_name=None, email=None, phone=None, start_date="2025-01-01",
+        lot_id=lot_id,
+        display_name="Old Name",
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
+        start_date="2025-01-01",
     )
     conn.commit()
 
@@ -220,7 +241,8 @@ def test_handle_edit_success_redirects(conn: sqlite3.Connection) -> None:
             "phone": "555-0001",
             "email": "new@example.com",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url == "/renters?msg=Renter+updated."
     assert form_resp is None
@@ -235,15 +257,21 @@ def test_handle_edit_missing_display_name_returns_error(
 ) -> None:
     lot_id, _ = _seed(conn)
     renter_id = LotRentersRepository(conn).insert_renter(
-        lot_id=lot_id, display_name="Test", first_name=None,
-        last_name=None, email=None, phone=None, start_date="2025-01-01",
+        lot_id=lot_id,
+        display_name="Test",
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
+        start_date="2025-01-01",
     )
     conn.commit()
 
     redirect_url, form_resp = LotRentersPages(conn).handle_edit(
         renter_id=renter_id,
         form_data={"lot_id": str(lot_id), "start_date": "2025-01-01"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -256,15 +284,21 @@ def test_handle_edit_missing_display_name_returns_error(
 def test_handle_end_success_redirects(conn: sqlite3.Connection) -> None:
     lot_id, _ = _seed(conn)
     renter_id = LotRentersRepository(conn).insert_renter(
-        lot_id=lot_id, display_name="Bob Tenant", first_name=None,
-        last_name=None, email=None, phone=None, start_date="2025-01-01",
+        lot_id=lot_id,
+        display_name="Bob Tenant",
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
+        start_date="2025-01-01",
     )
     conn.commit()
 
     redirect_url, form_resp = LotRentersPages(conn).handle_end(
         renter_id=renter_id,
         form_data={"end_date": "2026-03-31"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url == "/renters?msg=Tenancy+ended."
     assert form_resp is None
@@ -274,13 +308,21 @@ def test_handle_end_success_redirects(conn: sqlite3.Connection) -> None:
 def test_handle_end_missing_date_returns_error(conn: sqlite3.Connection) -> None:
     lot_id, _ = _seed(conn)
     renter_id = LotRentersRepository(conn).insert_renter(
-        lot_id=lot_id, display_name="Bob Tenant", first_name=None,
-        last_name=None, email=None, phone=None, start_date="2025-01-01",
+        lot_id=lot_id,
+        display_name="Bob Tenant",
+        first_name=None,
+        last_name=None,
+        email=None,
+        phone=None,
+        start_date="2025-01-01",
     )
     conn.commit()
 
     redirect_url, form_resp = LotRentersPages(conn).handle_end(
-        renter_id=renter_id, form_data={}, org=_ORG, theme="warm",
+        renter_id=renter_id,
+        form_data={},
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None

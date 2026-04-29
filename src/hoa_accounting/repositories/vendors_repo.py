@@ -50,17 +50,13 @@ class VendorsRepository(BaseRepository):
         if active_only:
             predicates.append("active_flag = 1")
         where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
-        return list(
-            self.conn.execute(
-                f"""
+        return list(self.conn.execute(f"""
                 SELECT id, vendor_name, contact_name, email, phone,
                        city, state, postal_code, active_flag
                 FROM vendors
                 {where_sql}
                 ORDER BY vendor_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_vendor(self, vendor_id: int) -> sqlite3.Row | None:
         """Return a single vendor row by id, or None."""
@@ -96,8 +92,18 @@ class VendorsRepository(BaseRepository):
                  address_1, address_2, city, state, postal_code, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (vendor_name, contact_name, email, phone,
-             address_1, address_2, city, state, postal_code, notes),
+            (
+                vendor_name,
+                contact_name,
+                email,
+                phone,
+                address_1,
+                address_2,
+                city,
+                state,
+                postal_code,
+                notes,
+            ),
         )
         return int(cur.lastrowid or 0)
 
@@ -127,9 +133,20 @@ class VendorsRepository(BaseRepository):
                    updated_at = CURRENT_TIMESTAMP
              WHERE id = ?
             """,
-            (vendor_name, contact_name, email, phone,
-             address_1, address_2, city, state, postal_code, notes,
-             1 if active_flag else 0, vendor_id),
+            (
+                vendor_name,
+                contact_name,
+                email,
+                phone,
+                address_1,
+                address_2,
+                city,
+                state,
+                postal_code,
+                notes,
+                1 if active_flag else 0,
+                vendor_id,
+            ),
         )
 
     def has_bills(self, vendor_id: int) -> bool:
@@ -232,8 +249,15 @@ class VendorsRepository(BaseRepository):
                        updated_at = CURRENT_TIMESTAMP
                  WHERE id = ?
                 """,
-                (invoice_number, invoice_date, due_date, fund_code,
-                 description, category_id, vendor_bill_id),
+                (
+                    invoice_number,
+                    invoice_date,
+                    due_date,
+                    fund_code,
+                    description,
+                    category_id,
+                    vendor_bill_id,
+                ),
             )
         else:
             self.conn.execute(
@@ -244,8 +268,16 @@ class VendorsRepository(BaseRepository):
                        category_id = ?, updated_at = CURRENT_TIMESTAMP
                  WHERE id = ?
                 """,
-                (invoice_number, invoice_date, due_date, amount, fund_code,
-                 description, category_id, vendor_bill_id),
+                (
+                    invoice_number,
+                    invoice_date,
+                    due_date,
+                    amount,
+                    fund_code,
+                    description,
+                    category_id,
+                    vendor_bill_id,
+                ),
             )
         self.conn.commit()
 

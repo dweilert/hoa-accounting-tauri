@@ -8,8 +8,18 @@ from decimal import Decimal
 from .base import BaseRepository
 
 _MONTH_NAMES = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
 ]
 
 
@@ -20,14 +30,12 @@ class BudgetsRepository(BaseRepository):
 
     def list_budgets(self) -> list[sqlite3.Row]:
         """Return all budgets newest fiscal year first."""
-        return self.conn.execute(
-            """
+        return self.conn.execute("""
             SELECT id, fiscal_year, fund_code, status, notes,
                    created_at, updated_at
             FROM budgets
             ORDER BY fiscal_year DESC, fund_code ASC
-            """
-        ).fetchall()
+            """).fetchall()
 
     def get_budget(self, budget_id: int) -> sqlite3.Row | None:
         """Return a budget header row, or None."""
@@ -64,9 +72,7 @@ class BudgetsRepository(BaseRepository):
             (budget_id,),
         ).fetchall()
 
-    def find_budget(
-        self, fiscal_year: int, fund_code: str
-    ) -> sqlite3.Row | None:
+    def find_budget(self, fiscal_year: int, fund_code: str) -> sqlite3.Row | None:
         """Return a budget by year + fund, or None."""
         return self.conn.execute(  # type: ignore[no-any-return]
             "SELECT id, fiscal_year, fund_code, status FROM budgets "
@@ -76,15 +82,13 @@ class BudgetsRepository(BaseRepository):
 
     def list_expense_categories(self) -> list[sqlite3.Row]:
         """Return active EXPENSE categories ordered by sort_order then name."""
-        return self.conn.execute(
-            """
+        return self.conn.execute("""
             SELECT id, code, name, group_name, fund_code
             FROM categories
             WHERE category_type = 'EXPENSE'
               AND active_flag = 1
             ORDER BY sort_order, name
-            """
-        ).fetchall()
+            """).fetchall()
 
     # ── Mutations ─────────────────────────────────────────────────────
 
@@ -104,9 +108,7 @@ class BudgetsRepository(BaseRepository):
         )
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
-    def update_budget_notes(
-        self, budget_id: int, *, notes: str
-    ) -> None:
+    def update_budget_notes(self, budget_id: int, *, notes: str) -> None:
         self.conn.execute(
             """
             UPDATE budgets

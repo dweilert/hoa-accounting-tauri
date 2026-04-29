@@ -29,7 +29,6 @@ from pathlib import Path
 
 import pytest
 
-
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SRC_ROOT = _REPO_ROOT / "src" / "hoa_accounting"
 
@@ -86,7 +85,9 @@ def test_mypy_strict_subset() -> None:
 
     proc = subprocess.run(
         [
-            sys.executable, "-m", "mypy",
+            sys.executable,
+            "-m",
+            "mypy",
             "--ignore-missing-imports",
             "--strict-optional",
             str(_SRC_ROOT),

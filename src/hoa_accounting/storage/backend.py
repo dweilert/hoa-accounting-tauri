@@ -22,7 +22,9 @@ from typing import Protocol, runtime_checkable
 class StorageBackend(Protocol):
     """Upload a PDF and return a reference URL or path string."""
 
-    def upload(self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf") -> str:
+    def upload(
+        self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf"
+    ) -> str:
         """Store *pdf_bytes* under *key* and return a reference to it."""
         ...
 
@@ -56,10 +58,13 @@ class S3StorageBackend:
             "s3",
             region_name=region,
             aws_access_key_id=aws_access_key_id or os.environ.get("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=aws_secret_access_key or os.environ.get("AWS_SECRET_ACCESS_KEY"),
+            aws_secret_access_key=aws_secret_access_key
+            or os.environ.get("AWS_SECRET_ACCESS_KEY"),
         )
 
-    def upload(self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf") -> str:
+    def upload(
+        self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf"
+    ) -> str:
         self._s3.put_object(
             Bucket=self._bucket,
             Key=key,
@@ -81,7 +86,9 @@ class LocalFileBackend:
         self._dir = Path(output_dir)
         self._dir.mkdir(parents=True, exist_ok=True)
 
-    def upload(self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf") -> str:
+    def upload(
+        self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf"
+    ) -> str:
         dest = self._dir / Path(key).name
         dest.write_bytes(pdf_bytes)
         return str(dest)

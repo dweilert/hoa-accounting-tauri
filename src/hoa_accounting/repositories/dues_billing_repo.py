@@ -82,5 +82,12 @@ class DuesBillingRepository:
                 (cycle_type, period_label, period_year, period_sequence, amount, owner_count)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (cycle_type, period_label, period_year, period_sequence, str(amount), owner_count),
+            (
+                cycle_type,
+                period_label,
+                period_year,
+                period_sequence,
+                str(amount),
+                owner_count,
+            ),
         )

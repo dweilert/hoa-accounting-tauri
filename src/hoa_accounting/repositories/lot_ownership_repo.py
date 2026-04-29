@@ -82,9 +82,7 @@ class LotOwnershipRepository(BaseRepository):
             ).fetchall()
         )
 
-    def get_current_ownership_by_owner(
-        self, owner_id: int
-    ) -> sqlite3.Row | None:
+    def get_current_ownership_by_owner(self, owner_id: int) -> sqlite3.Row | None:
         """Return the most recent current lot_ownership row for an owner, or None.
 
         An owner can have multiple current lots; this returns one for callers

@@ -31,7 +31,7 @@ def _fetch_transactions(
     *,
     start_date: str,
     end_date: str,
-    order: str,   # "ASC" or "DESC"
+    order: str,  # "ASC" or "DESC"
 ) -> list[sqlite3.Row]:
     """UNION across all source transaction tables."""
     outer_conditions = []
@@ -42,7 +42,9 @@ def _fetch_transactions(
     if end_date:
         outer_conditions.append("txn_date <= ?")
         params.append(end_date)
-    outer_where = ("WHERE " + " AND ".join(outer_conditions)) if outer_conditions else ""
+    outer_where = (
+        ("WHERE " + " AND ".join(outer_conditions)) if outer_conditions else ""
+    )
 
     return conn.execute(
         f"""
@@ -134,13 +136,13 @@ def _fetch_transactions(
 
 
 _TYPE_PILL_CLASS = {
-    "Vendor Bill":        "pill--warn",
-    "Income":             "pill--ok",
-    "Assessment":         "pill--info",
-    "Payment":            "pill--ok",
-    "Reserve Funding":    "pill--info",
+    "Vendor Bill": "pill--warn",
+    "Income": "pill--ok",
+    "Assessment": "pill--info",
+    "Payment": "pill--ok",
+    "Reserve Funding": "pill--info",
     "Reserve Withdrawal": "pill--warn",
-    "Reserve Transfer":   "pill--muted",
+    "Reserve Transfer": "pill--muted",
 }
 
 _MONEY_OUT = {"Vendor Bill", "Reserve Funding"}
@@ -178,12 +180,12 @@ class AllLedgerPages:
         )
 
         rows: list[dict[str, Any]] = []
-        total_in  = Decimal("0.00")
+        total_in = Decimal("0.00")
         total_out = Decimal("0.00")
 
         for r in raw:
             txn_type = str(r["txn_type"])
-            amount   = Decimal(str(r["amount"]))
+            amount = Decimal(str(r["amount"]))
             money_out = txn_type in _MONEY_OUT
 
             if money_out:
@@ -191,32 +193,34 @@ class AllLedgerPages:
             else:
                 total_in += amount
 
-            rows.append({
-                "txn_date":      r["txn_date"],
-                "txn_type":      txn_type,
-                "pill_class":    _TYPE_PILL_CLASS.get(txn_type, "pill--muted"),
-                "party":         str(r["party"] or ""),
-                "category_name": str(r["category_name"] or ""),
-                "amount":        str(amount),
-                "money_out":     money_out,
-                "memo":          str(r["memo"] or ""),
-                "fund_code":     str(r["fund_code"] or ""),
-            })
+            rows.append(
+                {
+                    "txn_date": r["txn_date"],
+                    "txn_type": txn_type,
+                    "pill_class": _TYPE_PILL_CLASS.get(txn_type, "pill--muted"),
+                    "party": str(r["party"] or ""),
+                    "category_name": str(r["category_name"] or ""),
+                    "amount": str(amount),
+                    "money_out": money_out,
+                    "memo": str(r["memo"] or ""),
+                    "fund_code": str(r["fund_code"] or ""),
+                }
+            )
 
         ctx = {
-            "active_nav":  "transactions",
-            "page_key":    "all-transactions",
-            "breadcrumb":  "Transactions",
-            "heading":     "All Transactions",
-            "org":         org or {},
-            "theme":       theme,
-            "rows":        rows,
-            "row_count":   len(rows),
-            "total_in":    str(total_in),
-            "total_out":   str(total_out),
-            "start_date":  start,
-            "end_date":    end,
-            "sort":        sort.lower(),
+            "active_nav": "transactions",
+            "page_key": "all-transactions",
+            "breadcrumb": "Transactions",
+            "heading": "All Transactions",
+            "org": org or {},
+            "theme": theme,
+            "rows": rows,
+            "row_count": len(rows),
+            "total_in": str(total_in),
+            "total_out": str(total_out),
+            "start_date": start,
+            "end_date": end,
+            "sort": sort.lower(),
         }
         return LedgerResponse(
             status_code=HTTPStatus.OK,

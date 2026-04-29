@@ -7,6 +7,7 @@ from enum import StrEnum
 
 class FundCode(StrEnum):
     """Supported fund codes."""
+
     OPERATING = "OPERATING"
     RESERVE = "RESERVE"
     SPECIAL = "SPECIAL"
@@ -14,6 +15,7 @@ class FundCode(StrEnum):
 
 class PaymentMethod(StrEnum):
     """Supported owner payment methods."""
+
     CHECK = "CHECK"
     ACH = "ACH"
     CASH = "CASH"
@@ -23,6 +25,7 @@ class PaymentMethod(StrEnum):
 
 class SourceType(StrEnum):
     """Supported journal source types."""
+
     ASSESSMENT = "ASSESSMENT"
     PAYMENT = "PAYMENT"
     VENDOR_BILL = "VENDOR_BILL"

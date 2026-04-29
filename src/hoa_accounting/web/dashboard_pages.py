@@ -25,14 +25,14 @@ CARD_COLORS = [
 ]
 
 REPORT_CHOICES = [
-    ("ytd-expense-summary",   "Expense Summary"),
-    ("income-by-date",        "Income Summary"),
-    ("expenses-by-date",      "Expenses by Date"),
-    ("vendor-expenses",       "Vendor Payment History"),
-    ("expenses-vs-budget",    "Budget vs Actual"),
-    ("ar-aging",              "AR Aging"),
-    ("owner-ledger",          "Owner Ledger"),
-    ("homeowner-contact-list","Homeowner Contact List"),
+    ("ytd-expense-summary", "Expense Summary"),
+    ("income-by-date", "Income Summary"),
+    ("expenses-by-date", "Expenses by Date"),
+    ("vendor-expenses", "Vendor Payment History"),
+    ("expenses-vs-budget", "Budget vs Actual"),
+    ("ar-aging", "AR Aging"),
+    ("owner-ledger", "Owner Ledger"),
+    ("homeowner-contact-list", "Homeowner Contact List"),
 ]
 
 
@@ -43,7 +43,9 @@ class PageResponse:
 
 
 class DashboardPages:
-    def __init__(self, conn: sqlite3.Connection, fiscal_year: int, fy_start_month: int = 1) -> None:
+    def __init__(
+        self, conn: sqlite3.Connection, fiscal_year: int, fy_start_month: int = 1
+    ) -> None:
         self._conn = conn
         self._repo = DashboardRepository(conn)
         self._fiscal_year = fiscal_year
@@ -54,21 +56,32 @@ class DashboardPages:
 
     # ── Dashboard home ─────────────────────────────────────────────────
 
-    def render_dashboard(self, org: dict[str, Any], theme: str, setup_complete: bool = False) -> PageResponse:
+    def render_dashboard(
+        self, org: dict[str, Any], theme: str, setup_complete: bool = False
+    ) -> PageResponse:
         profile = self._repo.get_hoa_profile()
         bank_tiles = self._repo.get_bank_tiles()
         last_recon = self._repo.get_last_reconciliation()
-        budget_tile = self._repo.get_budget_tile(self._fiscal_year, self._fy_start_month)
-        budget_cat_tile = self._repo.get_budget_category_tile(self._fiscal_year, self._fy_start_month)
+        budget_tile = self._repo.get_budget_tile(
+            self._fiscal_year, self._fy_start_month
+        )
+        budget_cat_tile = self._repo.get_budget_category_tile(
+            self._fiscal_year, self._fy_start_month
+        )
         last_auto_backup = self._repo.get_last_auto_backup()
         cards = self._repo.get_dashboard_cards()
         nudges = self._repo.get_next_action_nudges()
 
-        hoa_name = (profile["legal_name"] if profile else org.get("legal_name", org.get("name", "")))
+        hoa_name = (
+            profile["legal_name"]
+            if profile
+            else org.get("legal_name", org.get("name", ""))
+        )
 
         return self._render(
             "home.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             active_nav="home",
             heading="Dashboard",
             hoa_name=hoa_name,
@@ -85,13 +98,18 @@ class DashboardPages:
 
     # ── System Settings ────────────────────────────────────────────────
 
-    def render_settings(self, org: dict[str, Any], theme: str,
-                        flash: str | None = None,
-                        error: str | None = None) -> PageResponse:
+    def render_settings(
+        self,
+        org: dict[str, Any],
+        theme: str,
+        flash: str | None = None,
+        error: str | None = None,
+    ) -> PageResponse:
         profile = self._repo.get_hoa_profile()
         return self._render(
             "system_settings.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="system-settings",
             heading="System Settings",
             profile=profile,
@@ -101,24 +119,37 @@ class DashboardPages:
 
     _VALID_THEMES = {"warm", "slate", "sage", "ocean", "sand", "dusk"}
 
-    def handle_save_settings(self, form: dict[str, Any], org: dict[str, Any], theme: str) -> tuple[str | None, PageResponse | None]:
+    def handle_save_settings(
+        self, form: dict[str, Any], org: dict[str, Any], theme: str
+    ) -> tuple[str | None, PageResponse | None]:
         legal_name = form.get("legal_name", "").strip()
         display_name = form.get("display_name", "").strip()
         new_theme = form.get("theme", theme).strip()
         if new_theme not in self._VALID_THEMES:
             new_theme = theme
         if not legal_name:
-            return None, self.render_settings(org, new_theme, error="Full HOA name is required.")
+            return None, self.render_settings(
+                org, new_theme, error="Full HOA name is required."
+            )
         if not display_name:
-            return None, self.render_settings(org, new_theme, error="Abbreviated name is required.")
+            return None, self.render_settings(
+                org, new_theme, error="Abbreviated name is required."
+            )
         raw_dues = form.get("default_assessment_amount", "0.00").strip() or "0.00"
         try:
             from decimal import Decimal, InvalidOperation
+
             new_dues = str(Decimal(raw_dues).quantize(Decimal("0.01")))
         except (ValueError, InvalidOperation):
             new_dues = "0.00"
         new_freq = form.get("default_billing_frequency", "annual")
-        self._repo.save_hoa_profile(legal_name, display_name, theme=new_theme, default_assessment_amount=new_dues, default_billing_frequency=new_freq)
+        self._repo.save_hoa_profile(
+            legal_name,
+            display_name,
+            theme=new_theme,
+            default_assessment_amount=new_dues,
+            default_billing_frequency=new_freq,
+        )
         # Keep the in-memory org_context in sync so the sidebar / topbar pick
         # up the new names without a server restart.
         org["name"] = display_name
@@ -130,22 +161,27 @@ class DashboardPages:
 
     # ── Card Catalog ───────────────────────────────────────────────────
 
-    def render_card_catalog(self, org: dict[str, Any], theme: str,
-                             flash: str | None = None,
-                             error: str | None = None) -> PageResponse:
+    def render_card_catalog(
+        self,
+        org: dict[str, Any],
+        theme: str,
+        flash: str | None = None,
+        error: str | None = None,
+    ) -> PageResponse:
         cards = self._repo.get_all_catalog_cards()
         layout_cards = self._repo.get_dashboard_cards()
         alert_settings = self._repo.get_alert_settings_list()
         card_types = [
-            ("NAV",       "Navigation link"),
-            ("REPORT",    "Report"),
-            ("COMMENT",   "Comment / note"),
-            ("SECTION",   "Section header / divider"),
+            ("NAV", "Navigation link"),
+            ("REPORT", "Report"),
+            ("COMMENT", "Comment / note"),
+            ("SECTION", "Section header / divider"),
             ("FINANCIAL", "Financial summary tile"),
         ]
         return self._render(
             "dashboard_config.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="dashboard-config",
             heading="Dashboard Configuration",
             cards=cards,
@@ -158,10 +194,14 @@ class DashboardPages:
             error=error,
         )
 
-    def handle_save_card(self, form: dict[str, Any], org: dict[str, Any], theme: str) -> tuple[str | None, PageResponse | None]:
+    def handle_save_card(
+        self, form: dict[str, Any], org: dict[str, Any], theme: str
+    ) -> tuple[str | None, PageResponse | None]:
         title = form.get("title", "").strip()
         if not title:
-            return None, self.render_card_catalog(org, theme, error="Title is required.")
+            return None, self.render_card_catalog(
+                org, theme, error="Title is required."
+            )
         card_id_raw = form.get("card_id", "").strip()
         card_id = int(card_id_raw) if card_id_raw else None
         new_id = self._repo.upsert_card(
@@ -185,7 +225,9 @@ class DashboardPages:
             return "/dashboard-config?msg=Section+bar+added.", None
         return "/dashboard-config?msg=Card+saved.", None
 
-    def handle_delete_card(self, card_id: int, org: dict[str, Any], theme: str) -> tuple[str | None, PageResponse | None]:
+    def handle_delete_card(
+        self, card_id: int, org: dict[str, Any], theme: str
+    ) -> tuple[str | None, PageResponse | None]:
         self._repo.delete_card(card_id)
         self._conn.commit()
         return "/dashboard-config?msg=Card+deleted.", None

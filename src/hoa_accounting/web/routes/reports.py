@@ -42,16 +42,15 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
     # Reports blueprint requires the page service. ``RouteContext`` types it
     # ``Any | None`` because not every entry point needs it; here we assert
     # presence so handler bodies don't need per-call None guards.
-    assert ctx.report_page_service is not None, (
-        "Reports blueprint requires ctx.report_page_service"
-    )
+    assert (
+        ctx.report_page_service is not None
+    ), "Reports blueprint requires ctx.report_page_service"
     report_page_service = ctx.report_page_service
 
     def _open_db() -> sqlite3.Connection:
         return ctx.open_db()
 
     # ── Global search ─────────────────────────────────────────────────────
-
 
     @bp.get("/search")
     def search_page() -> ResponseReturnValue:
@@ -62,9 +61,9 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
             org=org_context,
             theme=theme,
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     # ── Delinquency report ────────────────────────────────────────────────
 
@@ -73,28 +72,30 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
         resp = ARPages(conn).render_delinquency_report(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     # Bill Templates retired — recurring bills are now created automatically
     # by OFX transaction rules (action_type=recurring_bill / vendor_bill_match)
     # whenever a matching bank line lands in Pending Validation.
 
-
     # ── Ledger reports: all-accounts views ───────────────────────────
-
 
     @bp.get("/ledger/transactions")
     def all_transactions() -> ResponseReturnValue:
         pages = ctx.open_pages(AllLedgerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_all_transactions(
-            org=org_context, theme=theme,
+            org=org_context,
+            theme=theme,
             start_date=(request.args.get("start") or "").strip(),
             end_date=(request.args.get("end") or "").strip(),
             sort=(request.args.get("sort") or "asc").strip(),
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.get("/ledger/by-account")
     def ledger_by_account() -> ResponseReturnValue:
@@ -102,8 +103,6 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
         qs = request.query_string.decode()
         target = "/ledger/transactions" + (f"?{qs}" if qs else "")
         return redirect(target, 301)
-
-
 
     def _load_report_lookup_options() -> dict[str, Any]:
         """Load dropdown options for report parameter fields from the DB."""
@@ -113,8 +112,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
         try:
             conn = _open_db()
             try:
-                owners = conn.execute(
-                    """
+                owners = conn.execute("""
                     SELECT o.id, o.display_name,
                            COALESCE(l.lot_number, '') AS lot_number
                     FROM owners o
@@ -123,11 +121,9 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
                     LEFT JOIN lots l ON l.id = lo.lot_id
                     WHERE o.active_flag = 1
                     ORDER BY CAST(l.lot_number AS REAL), l.lot_number, o.display_name
-                    """
-                ).fetchall()
+                    """).fetchall()
 
-                lots = conn.execute(
-                    """
+                lots = conn.execute("""
                     SELECT l.id, l.lot_number,
                            COALESCE(l.street_address_1, '') AS address,
                            COALESCE(o.display_name, '') AS owner_name
@@ -139,17 +135,14 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
                     WHERE l.active_flag = 1
                     GROUP BY l.id
                     ORDER BY CAST(l.lot_number AS REAL), l.lot_number
-                    """
-                ).fetchall()
+                    """).fetchall()
 
                 # Chart of Accounts retired — these dropdowns are gone.
-                vendors = conn.execute(
-                    """
+                vendors = conn.execute("""
                     SELECT id, vendor_name FROM vendors
                     WHERE active_flag = 1
                     ORDER BY vendor_name
-                    """
-                ).fetchall()
+                    """).fetchall()
 
                 def _owner_label(row: object) -> str:
                     lot = str(row["lot_number"]).strip()  # type: ignore[index]
@@ -165,12 +158,13 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
                         parts.append(addr)
                     if owner:
                         parts.append(f"({owner})")
-                    return " – ".join(parts[:2]) + (" " + parts[2] if len(parts) > 2 else "")
+                    return " – ".join(parts[:2]) + (
+                        " " + parts[2] if len(parts) > 2 else ""
+                    )
 
                 return {
                     "lot_id": [
-                        {"value": str(r["id"]), "label": _lot_label(r)}
-                        for r in lots
+                        {"value": str(r["id"]), "label": _lot_label(r)} for r in lots
                     ],
                     "owner_id": [
                         {"value": str(r["id"]), "label": _owner_label(r)}
@@ -182,17 +176,20 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
                     ],
                     "fund_code": [
                         {"value": "OPERATING", "label": "Operating"},
-                        {"value": "RESERVE",   "label": "Reserve"},
-                        {"value": "SPECIAL",   "label": "Special"},
+                        {"value": "RESERVE", "label": "Reserve"},
+                        {"value": "SPECIAL", "label": "Special"},
                     ],
                     "sort_by": [
-                        {"value": "name",    "label": "Name (last, first)"},
+                        {"value": "name", "label": "Name (last, first)"},
                         {"value": "address", "label": "Address"},
                     ],
                     "years_mode": [
-                        {"value": "current",           "label": "Current year only"},
-                        {"value": "prev_current",      "label": "Prior year + Current year"},
-                        {"value": "prev_current_next", "label": "Prior + Current + Next year"},
+                        {"value": "current", "label": "Current year only"},
+                        {"value": "prev_current", "label": "Prior year + Current year"},
+                        {
+                            "value": "prev_current_next",
+                            "label": "Prior + Current + Next year",
+                        },
                     ],
                 }
             finally:
@@ -226,7 +223,5 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
                 lookup_options=_load_report_lookup_options(),
             )
         )
-
-
 
     return bp

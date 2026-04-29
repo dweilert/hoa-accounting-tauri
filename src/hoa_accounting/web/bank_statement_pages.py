@@ -122,8 +122,14 @@ class BankStatementPages:
               )
             ORDER BY item_date ASC
             """,
-            (bank_account_id, bank_account_id, bank_account_id,
-             bank_account_id, bank_account_id, bank_account_id),
+            (
+                bank_account_id,
+                bank_account_id,
+                bank_account_id,
+                bank_account_id,
+                bank_account_id,
+                bank_account_id,
+            ),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -162,8 +168,7 @@ class BankStatementPages:
         return [int(r["id"]) for r in rows]
 
     def _load_rules(self) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT r.id, r.rule_name, r.description_contains,
                    r.match_type, r.match_memo, r.match_amount, r.bank_account_id,
                    r.action_type, r.category_id, r.vendor_id, r.lot_id,
@@ -176,8 +181,7 @@ class BankStatementPages:
             LEFT JOIN vendors    v ON v.id = r.vendor_id
             WHERE r.active_flag = 1
             ORDER BY r.id
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
     def _next_receipt_number(self, payment_date: str) -> str:
@@ -224,7 +228,9 @@ class BankStatementPages:
         action = str(rule.get("action_type") or "")
         amount = Decimal(str(txn_row["amount"]))
         txn_date = txn_row["transaction_date"]
-        description = (rule.get("default_memo") or txn_row.get("description") or "").strip()
+        description = (
+            rule.get("default_memo") or txn_row.get("description") or ""
+        ).strip()
         category_id = rule.get("category_id")
         category_id_int = int(category_id) if category_id else None
 
@@ -401,7 +407,9 @@ class BankStatementPages:
         source_m = match_transactions(transactions, items, skip_indices=rule_skips)
         source_and_rule = rule_skips | set(source_m.keys())
         batch_m = find_batch_matches(
-            transactions, batches, skip_indices=source_and_rule,
+            transactions,
+            batches,
+            skip_indices=source_and_rule,
         )
         return rule_m, source_m, batch_m
 
@@ -412,19 +420,22 @@ class BankStatementPages:
         content-based key for legacy ``ParsedTransaction`` callers during
         cutover."""
         from hoa_accounting.web.bank_ingest import CanonicalBankTxn
+
         if isinstance(txn, CanonicalBankTxn):
             return txn.dedup_key(bank_account_id)
         # Legacy ParsedTransaction — compute the same hash from its fields
         # so mixed callers produce identical keys.
-        raw = "|".join([
-            str(bank_account_id),
-            txn.transaction_date.isoformat(),
-            str(txn.amount),
-            txn.description or "",
-            txn.memo or "",
-            (txn.transaction_type or "").upper(),
-            "",  # check_number not available on ParsedTransaction
-        ])
+        raw = "|".join(
+            [
+                str(bank_account_id),
+                txn.transaction_date.isoformat(),
+                str(txn.amount),
+                txn.description or "",
+                txn.memo or "",
+                (txn.transaction_type or "").upper(),
+                "",  # check_number not available on ParsedTransaction
+            ]
+        )
         return "h:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def _insert_bank_txn(
@@ -481,14 +492,21 @@ class BankStatementPages:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                bank_account_id, batch_id,
+                bank_account_id,
+                batch_id,
                 txn.transaction_date.isoformat(),
-                txn.description, txn.memo, str(txn.amount),
-                txn.fitid, txn.transaction_type,
+                txn.description,
+                txn.memo,
+                str(txn.amount),
+                txn.fitid,
+                txn.transaction_type,
                 recon_status,
-                match_type, rule_id,
-                matched_source_type, matched_source_id,
-                dedup_key, "UNVALIDATED",
+                match_type,
+                rule_id,
+                matched_source_type,
+                matched_source_id,
+                dedup_key,
+                "UNVALIDATED",
             ),
         )
         if cur.rowcount == 1:
@@ -508,10 +526,13 @@ class BankStatementPages:
                AND validation_status = 'UNVALIDATED'
             """,
             (
-                match_type, rule_id,
-                matched_source_type, matched_source_id,
+                match_type,
+                rule_id,
+                matched_source_type,
+                matched_source_id,
                 recon_status,
-                bank_account_id, dedup_key,
+                bank_account_id,
+                dedup_key,
             ),
         )
         return False
@@ -545,9 +566,14 @@ class BankStatementPages:
             VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)
             """,
             (
-                bank_account_id, reconciliation_id, filename,
-                file_format, len(transactions), match_count,
-                file_bytes, json.dumps(csv_col_map),
+                bank_account_id,
+                reconciliation_id,
+                filename,
+                file_format,
+                len(transactions),
+                match_count,
+                file_bytes,
+                json.dumps(csv_col_map),
             ),
         )
         batch_id = int(cur.lastrowid)  # type: ignore[arg-type]
@@ -615,7 +641,9 @@ class BankStatementPages:
         # bank_transaction_links audit row, and bumping the rule's match
         # counter all need to land or none of them do.
         with transaction(self._conn):
-            result = self._apply_rule(dict(row), dict(rule), bank_account_id=bank_account_id)
+            result = self._apply_rule(
+                dict(row), dict(rule), bank_account_id=bank_account_id
+            )
             if result is None:
                 return False
             source_type, source_id = result
@@ -664,8 +692,7 @@ class BankStatementPages:
         # upload time and never updated as the user validates rows, so
         # relying on them showed batches as PENDING with 0 matched even
         # after every row was processed.
-        rows = self._conn.execute(
-            """
+        rows = self._conn.execute("""
             SELECT b.id, b.bank_account_id, b.source_filename, b.file_format,
                    b.transaction_count,
                    COALESCE((SELECT COUNT(*) FROM bank_transactions bt
@@ -688,12 +715,13 @@ class BankStatementPages:
             WHERE b.reconciliation_id IS NULL
             ORDER BY b.imported_at DESC
             LIMIT 50
-            """
-        ).fetchall()
+            """).fetchall()
         return [dict(r) for r in rows]
 
     def render_agnostic_upload_form(
-        self, org: dict[str, Any], theme: str,
+        self,
+        org: dict[str, Any],
+        theme: str,
         error: str | None = None,
         success: str | None = None,
     ) -> PageResponse:
@@ -702,7 +730,8 @@ class BankStatementPages:
         batches = self._get_all_batches()
         return self._render(
             "bank_import.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="bank-import",
             bank_accounts=bank_accounts,
             batches=batches,
@@ -727,7 +756,8 @@ class BankStatementPages:
         accounts; other adapters target a single selected account.
         """
         from hoa_accounting.web.bank_ingest import (
-            canonical_from_parsed, dispatch,
+            canonical_from_parsed,
+            dispatch,
         )
 
         def _err(msg: str) -> tuple[None, PageResponse, list[str]]:
@@ -755,21 +785,29 @@ class BankStatementPages:
 
             for acctid, parsed_txns in account_sections:
                 last4 = acctid[-4:] if acctid else ""
-                row = self._conn.execute(
-                    "SELECT id, account_name FROM bank_accounts WHERE account_last4 = ?", (last4,)
-                ).fetchone() if last4 else None
+                row = (
+                    self._conn.execute(
+                        "SELECT id, account_name FROM bank_accounts WHERE account_last4 = ?",
+                        (last4,),
+                    ).fetchone()
+                    if last4
+                    else None
+                )
                 if row is None:
                     skipped.append(acctid or "(no ACCTID)")
                     continue
 
                 matched_bank_id = int(row["id"])
-                canonical = [canonical_from_parsed(p, p.transaction_type)
-                             for p in parsed_txns]
+                canonical = [
+                    canonical_from_parsed(p, p.transaction_type) for p in parsed_txns
+                ]
                 batch_id = self._store_pending_batch(
                     reconciliation_id=None,
                     bank_account_id=matched_bank_id,
-                    filename=filename, file_format="OFX",
-                    file_bytes=file_bytes, csv_col_map={},
+                    filename=filename,
+                    file_format="OFX",
+                    file_bytes=file_bytes,
+                    csv_col_map={},
                     transactions=canonical,  # type: ignore[arg-type]  # TODO: _store_pending_batch wants ParsedTransaction; canonical is CanonicalBankTxn — field-name mismatch (transaction_date vs posted_at) means this path errors at runtime if it reaches _insert_bank_txn. Untested; needs a Protocol or real conversion before relying on this branch.
                     items=self._get_unmatched_items(matched_bank_id),
                     batches=self._get_unmatched_batches(matched_bank_id),
@@ -785,11 +823,13 @@ class BankStatementPages:
             acct_names = ", ".join(name for _, _, name in created)
             total_txns = sum(
                 self._conn.execute(
-                    "SELECT transaction_count FROM bank_import_batches WHERE id = ?", (b_id,)
+                    "SELECT transaction_count FROM bank_import_batches WHERE id = ?",
+                    (b_id,),
                 ).fetchone()["transaction_count"]
                 for b_id, _, _ in created
             )
             from urllib.parse import quote
+
             msg = f"Imported {total_txns} transactions into {acct_names}."
             warnings: list[str] = []
             if skipped:
@@ -814,7 +854,9 @@ class BankStatementPages:
         # upload) parses silently. A truly new shape is stashed and the
         # user is redirected into the mapping wizard.
         from hoa_accounting.web.bank_ingest import (
-            fingerprint_csv_headers, lookup_csv_mapping, read_csv_headers,
+            fingerprint_csv_headers,
+            lookup_csv_mapping,
+            read_csv_headers,
             stash_upload,
         )
 
@@ -834,14 +876,19 @@ class BankStatementPages:
                 # user saves a mapping, the save-mapping endpoint replays
                 # the upload with the new mapping in hand.
                 token = stash_upload(
-                    self._conn, csv_bank_account_id,
-                    filename or "upload.csv", file_bytes,
+                    self._conn,
+                    csv_bank_account_id,
+                    filename or "upload.csv",
+                    file_bytes,
                 )
                 headers = ",".join(read_csv_headers(file_bytes)[:6])
-                preview = (f"This CSV from {ba['account_name']} uses a column layout "
-                           f"we haven't seen before ({headers}…). Map its columns "
-                           f"to the canonical fields to continue.")
+                preview = (
+                    f"This CSV from {ba['account_name']} uses a column layout "
+                    f"we haven't seen before ({headers}…). Map its columns "
+                    f"to the canonical fields to continue."
+                )
                 from urllib.parse import quote
+
                 return (
                     f"/admin/import?prefill_type=bank_statement_csv"
                     f"&stash={token}&bank_account_id={csv_bank_account_id}"
@@ -858,19 +905,23 @@ class BankStatementPages:
         batch_id = self._store_pending_batch(
             reconciliation_id=None,
             bank_account_id=csv_bank_account_id,
-            filename=filename, file_format=adapter_name.upper(),
-            file_bytes=file_bytes, csv_col_map={},
+            filename=filename,
+            file_format=adapter_name.upper(),
+            file_bytes=file_bytes,
+            csv_col_map={},
             transactions=canonical,  # type: ignore[arg-type]  # TODO: _store_pending_batch wants ParsedTransaction; canonical is CanonicalBankTxn — field-name mismatch (transaction_date vs posted_at) means this path errors at runtime if it reaches _insert_bank_txn. Untested; needs a Protocol or real conversion before relying on this branch.
             items=self._get_unmatched_items(csv_bank_account_id),
             batches=self._get_unmatched_batches(csv_bank_account_id),
             rules=rules,
         )
         from urllib.parse import quote
+
         msg = f"Imported {len(canonical)} transactions into {ba['account_name']}."
         return (
             f"/bank-transactions/pending?bank_account_id={csv_bank_account_id}"
             f"&import_msg={quote(msg)}",
-            None, [],
+            None,
+            [],
         )
 
     def render_standalone_upload_form(
@@ -882,15 +933,23 @@ class BankStatementPages:
     ) -> PageResponse:
         ba = self._get_bank_account(bank_account_id)
         if not ba:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Bank account not found.",
-                "page_key": "bank-accounts",
-            }))
+            return PageResponse(
+                404,
+                render_template(
+                    "error.html",
+                    {
+                        "org": org,
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": "Bank account not found.",
+                        "page_key": "bank-accounts",
+                    },
+                ),
+            )
         return self._render(
             "bank_statement_upload.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="bank-import",
             bank_account=dict(ba),
             recon=None,
@@ -910,17 +969,26 @@ class BankStatementPages:
     ) -> tuple[str | None, PageResponse | None]:
         ba = self._get_bank_account(bank_account_id)
         if not ba:
-            return None, PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Bank account not found.",
-                "page_key": "bank-accounts",
-            }))
+            return None, PageResponse(
+                404,
+                render_template(
+                    "error.html",
+                    {
+                        "org": org,
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": "Bank account not found.",
+                        "page_key": "bank-accounts",
+                    },
+                ),
+            )
 
         try:
             file_format = detect_format(file_bytes)
         except ParseError as e:
-            return None, self.render_standalone_upload_form(bank_account_id, org, theme, error=str(e))
+            return None, self.render_standalone_upload_form(
+                bank_account_id, org, theme, error=str(e)
+            )
 
         rules = self._load_rules()
 
@@ -930,11 +998,15 @@ class BankStatementPages:
                 account_sections = parse_ofx_by_account(file_bytes)
             except Exception as exc:
                 return None, self.render_standalone_upload_form(
-                    bank_account_id, org, theme,
+                    bank_account_id,
+                    org,
+                    theme,
                     error=f"Could not read OFX file: {exc}",
                 )
 
-            created_batches: list[tuple[int, int, str]] = []  # (batch_id, ba_id, account_name)
+            created_batches: list[tuple[int, int, str]] = (
+                []
+            )  # (batch_id, ba_id, account_name)
             skipped_acctids: list[str] = []
 
             for acctid, transactions in account_sections:
@@ -978,8 +1050,7 @@ class BankStatementPages:
             if not created_batches:
                 msg = (
                     "No recognized bank accounts found in this OFX file. "
-                    "Unrecognized account IDs: "
-                    + ", ".join(skipped_acctids)
+                    "Unrecognized account IDs: " + ", ".join(skipped_acctids)
                 )
                 return None, self.render_standalone_upload_form(
                     bank_account_id, org, theme, error=msg
@@ -988,6 +1059,7 @@ class BankStatementPages:
             # Land on Pending Validation, scoped to the account that
             # received transactions when the file is single-account.
             from urllib.parse import quote
+
             total_txns = sum(
                 self._conn.execute(
                     "SELECT transaction_count FROM bank_import_batches WHERE id = ?",
@@ -1016,7 +1088,9 @@ class BankStatementPages:
                 transactions, _headers, csv_col_map = parse_csv(file_bytes)
             except Exception as exc:
                 return None, self.render_standalone_upload_form(
-                    bank_account_id, org, theme,
+                    bank_account_id,
+                    org,
+                    theme,
                     error=f"Could not read CSV file: {exc}",
                 )
             if not csv_map_is_usable(csv_col_map):
@@ -1035,7 +1109,10 @@ class BankStatementPages:
                 rules=rules,
             )
             from urllib.parse import quote
-            msg = f"Imported {len(transactions)} transactions into {ba['account_name']}."
+
+            msg = (
+                f"Imported {len(transactions)} transactions into {ba['account_name']}."
+            )
             return (
                 f"/bank-transactions/pending?bank_account_id={bank_account_id}"
                 f"&import_msg={quote(msg)}",
@@ -1052,12 +1129,19 @@ class BankStatementPages:
     ) -> PageResponse:
         ba = self._get_bank_account(bank_account_id)
         if not ba:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Bank account not found.",
-                "page_key": "bank-accounts",
-            }))
+            return PageResponse(
+                404,
+                render_template(
+                    "error.html",
+                    {
+                        "org": org,
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": "Bank account not found.",
+                        "page_key": "bank-accounts",
+                    },
+                ),
+            )
 
         batch = self._conn.execute(
             """
@@ -1069,12 +1153,19 @@ class BankStatementPages:
             (batch_id, bank_account_id),
         ).fetchone()
         if not batch:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Import batch not found.",
-                "page_key": "bank-accounts",
-            }))
+            return PageResponse(
+                404,
+                render_template(
+                    "error.html",
+                    {
+                        "org": org,
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": "Import batch not found.",
+                        "page_key": "bank-accounts",
+                    },
+                ),
+            )
 
         txn_rows = self._conn.execute(
             """
@@ -1102,7 +1193,9 @@ class BankStatementPages:
         for row in txn_rows:
             d = dict(row)
             if d["match_type"] == "RULE":
-                d["has_period"] = self._period_for_date(d["transaction_date"]) is not None
+                d["has_period"] = (
+                    self._period_for_date(d["transaction_date"]) is not None
+                )
             d["rule_action_type"] = d.get("action_type") or ""
             annotated.append(d)
 
@@ -1120,9 +1213,9 @@ class BankStatementPages:
                     pass
 
         counts = {
-            "rule":      sum(1 for a in annotated if a["match_type"] == "RULE"),
-            "gl":        sum(1 for a in annotated if a["match_type"] == "GL"),
-            "batch":     sum(1 for a in annotated if a["match_type"] == "BATCH"),
+            "rule": sum(1 for a in annotated if a["match_type"] == "RULE"),
+            "gl": sum(1 for a in annotated if a["match_type"] == "GL"),
+            "batch": sum(1 for a in annotated if a["match_type"] == "BATCH"),
             "unmatched": sum(1 for a in annotated if a["match_type"] == "UNMATCHED"),
         }
 
@@ -1130,7 +1223,8 @@ class BankStatementPages:
 
         return self._render(
             "bank_statement_standalone_preview.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="bank-import",
             bank_account=dict(ba),
             batch=dict(batch),
@@ -1164,7 +1258,10 @@ class BankStatementPages:
         ).fetchone()
         if not fb or not fb["file_content"]:
             resp = self.render_standalone_batch_preview(
-                bank_account_id, batch_id, org, theme,
+                bank_account_id,
+                batch_id,
+                org,
+                theme,
                 error="File data not found — please re-upload.",
             )
             return None, resp
@@ -1182,7 +1279,10 @@ class BankStatementPages:
             transactions, _headers, resolved = parse_csv(fb["file_content"], col_map)
         except Exception as exc:
             resp = self.render_standalone_batch_preview(
-                bank_account_id, batch_id, org, theme,
+                bank_account_id,
+                batch_id,
+                org,
+                theme,
                 error=f"Could not re-parse CSV: {exc}",
             )
             return None, resp
@@ -1282,7 +1382,17 @@ class BankStatementPages:
         return f"/bank-accounts/{bank_account_id}/import-statement"
 
     # DEBIT-type OFX transaction types (money out) → search vendor bills
-    _DEBIT_TYPES = {"DEBIT", "CHECK", "PAYMENT", "ATM", "POS", "SRVCHG", "FEE", "DIRECTDEBIT", "REPEATPMT"}
+    _DEBIT_TYPES = {
+        "DEBIT",
+        "CHECK",
+        "PAYMENT",
+        "ATM",
+        "POS",
+        "SRVCHG",
+        "FEE",
+        "DIRECTDEBIT",
+        "REPEATPMT",
+    }
 
     def handle_standalone_find(
         self,
@@ -1351,7 +1461,9 @@ class BankStatementPages:
                     f"WHERE lo.lot_id IN ({placeholders}) AND lo.end_date IS NULL",
                     lot_ids,
                 ):
-                    lot_owner_names.setdefault(r["lot_id"], []).append(r["display_name"])
+                    lot_owner_names.setdefault(r["lot_id"], []).append(
+                        r["display_name"]
+                    )
 
             # Collect rule-matched transactions: text words + amount for each.
             rule_records: list[dict[str, Any]] = []
@@ -1364,7 +1476,9 @@ class BankStatementPages:
                 words: set[str] = set()
                 for fld in (r["description"], r["memo"]):
                     if fld:
-                        words.update(w for w in re.findall(r"\b\w+\b", fld.lower()) if len(w) > 2)
+                        words.update(
+                            w for w in re.findall(r"\b\w+\b", fld.lower()) if len(w) > 2
+                        )
                 rule_records.append({"words": words, "amount": r["amount"]})
 
             # Text from the current OFX transaction itself.
@@ -1379,15 +1493,18 @@ class BankStatementPages:
             def _token_hits_words(tok: str, words: set[str]) -> bool:
                 """True if tok exactly matches a word, or either is a prefix of the other."""
                 return any(
-                    tok == w or tok.startswith(w) or w.startswith(tok)
-                    for w in words
+                    tok == w or tok.startswith(w) or w.startswith(tok) for w in words
                 )
 
             def _any_token_matches_texts(tokens: list[str], texts: list[str]) -> bool:
-                return bool(tokens and any(
-                    re.search(r"\b" + re.escape(tok) + r"\b", txt)
-                    for tok in tokens for txt in texts
-                ))
+                return bool(
+                    tokens
+                    and any(
+                        re.search(r"\b" + re.escape(tok) + r"\b", txt)
+                        for tok in tokens
+                        for txt in texts
+                    )
+                )
 
             for c in candidates:
                 # Include all co-owners of the same lot for name matching
@@ -1396,21 +1513,26 @@ class BankStatementPages:
                 # A rule-matched transaction handles this payment when:
                 #   1. a co-owner name token appears in the rule transaction text, AND
                 #   2. the rule transaction amount matches the payment amount.
-                c["rule_handled"] = bool(tokens and any(
-                    abs(rec["amount"] - c["amount"]) < 0.015
-                    and any(_token_hits_words(tok, rec["words"]) for tok in tokens)
-                    for rec in rule_records
-                ))
+                c["rule_handled"] = bool(
+                    tokens
+                    and any(
+                        abs(rec["amount"] - c["amount"]) < 0.015
+                        and any(_token_hits_words(tok, rec["words"]) for tok in tokens)
+                        for rec in rule_records
+                    )
+                )
                 c["in_description"] = _any_token_matches_texts(tokens, curr_texts)
-                c["date_match"] = (c["payment_date"] == date_str)
+                c["date_match"] = c["payment_date"] == date_str
                 c["exact_match"] = abs(c["amount"] - target) < 0.015
 
             # Sort: same-date first, then by date, rule_handled last within each group
-            candidates.sort(key=lambda c: (
-                0 if c["date_match"] else 1,
-                c["payment_date"],
-                1 if c["rule_handled"] else 0,
-            ))
+            candidates.sort(
+                key=lambda c: (
+                    0 if c["date_match"] else 1,
+                    c["payment_date"],
+                    1 if c["rule_handled"] else 0,
+                )
+            )
 
             # Subset-sum on non-handled candidates first; fall back to all
             primary = [c for c in candidates if not c["rule_handled"]]
@@ -1425,11 +1547,13 @@ class BankStatementPages:
                 for combo in itertools.combinations(pool, r):
                     checked += 1
                     if abs(sum(p["amount"] for p in combo) - target) < 0.015:
-                        combos.append({
-                            "ids": [p["id"] for p in combo],
-                            "owner_names": [p["owner_name"] or "—" for p in combo],
-                            "total": round(sum(p["amount"] for p in combo), 2),
-                        })
+                        combos.append(
+                            {
+                                "ids": [p["id"] for p in combo],
+                                "owner_names": [p["owner_name"] or "—" for p in combo],
+                                "total": round(sum(p["amount"] for p in combo), 2),
+                            }
+                        )
                         if len(combos) >= 5:
                             outer_done = True
                             break
@@ -1444,7 +1568,6 @@ class BankStatementPages:
                 "candidates": candidates,
                 "combinations": combos,
             }
-
 
     def handle_apply_find_match(
         self,
@@ -1497,7 +1620,6 @@ class BankStatementPages:
         self._conn.commit()
         return {"ok": True}
 
-
     def render_standalone_batch_list(
         self,
         bank_account_id: int,
@@ -1506,12 +1628,19 @@ class BankStatementPages:
     ) -> PageResponse:
         ba = self._get_bank_account(bank_account_id)
         if not ba:
-            return PageResponse(404, render_template("error.html", {
-                "org": org, "theme": theme,
-                "heading": "Not Found",
-                "message": "Bank account not found.",
-                "page_key": "bank-accounts",
-            }))
+            return PageResponse(
+                404,
+                render_template(
+                    "error.html",
+                    {
+                        "org": org,
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": "Bank account not found.",
+                        "page_key": "bank-accounts",
+                    },
+                ),
+            )
 
         # Match-count and status are computed live from bank_transactions —
         # the stored columns are written once at upload time and don't reflect
@@ -1543,13 +1672,15 @@ class BankStatementPages:
         applied_id = None
         try:
             from flask import request as _req
+
             applied_id = _req.args.get("applied", type=int)
         except Exception:
             pass
 
         return self._render(
             "bank_statement_import_list.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="bank-import",
             bank_account=dict(ba),
             batches=[dict(b) for b in batches],

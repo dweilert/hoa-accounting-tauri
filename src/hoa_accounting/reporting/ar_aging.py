@@ -183,9 +183,11 @@ class ARAgingReportService:
                     owner_id=int(row["owner_id"]),
                     owner_name=str(row["owner_name"]),
                     lot_id=int(row["lot_id"]) if row["lot_id"] is not None else None,
-                    lot_number=str(row["lot_number"])
-                    if row["lot_number"] is not None
-                    else None,
+                    lot_number=(
+                        str(row["lot_number"])
+                        if row["lot_number"] is not None
+                        else None
+                    ),
                     assessment_id=int(row["assessment_id"]),
                     assessment_date=str(row["assessment_date"]),
                     due_date=due_date,

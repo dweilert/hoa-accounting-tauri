@@ -7,7 +7,11 @@ import json
 from dataclasses import dataclass, field as dc_field
 from datetime import date as _date
 
-from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS, ReportDefinition, get_report_definition
+from hoa_accounting.web.report_catalog import (
+    REPORT_DEFINITIONS,
+    ReportDefinition,
+    get_report_definition,
+)
 
 
 @dataclass(frozen=True)
@@ -194,9 +198,9 @@ def _build_report_catalog_cards(selected_report: str) -> list[ReportCatalogCardV
 def _date_field_default(field_name: str) -> str:
     year = _date.today().year
     defaults = {
-        "from_date":   f"{year}-01-01",
-        "to_date":     f"{year}-12-31",
-        "year":        str(year),
+        "from_date": f"{year}-01-01",
+        "to_date": f"{year}-12-31",
+        "year": str(year),
         "fiscal_year": str(year),
     }
     return defaults.get(field_name, "")
@@ -235,11 +239,11 @@ def _build_raw_json(api_payload: dict[str, object] | None) -> str:
 def _example_query_for_report(report_name: str) -> str:
     examples = {
         "ytd-expense-summary": "&from_date=2026-01-01&to_date=2026-12-31",
-        "income-by-date":      "&from_date=2026-01-01&to_date=2026-12-31",
-        "expenses-by-date":    "&from_date=2026-01-01&to_date=2026-12-31",
-        "vendor-expenses":     "&from_date=2026-01-01&to_date=2026-12-31",
-        "expenses-vs-budget":  "&fiscal_year=2026&fund_code=operating",
-        "owner-ledger":        "&lot_id=1&year=2026",
-        "ar-aging":            "&as_of_date=2026-03-31",
+        "income-by-date": "&from_date=2026-01-01&to_date=2026-12-31",
+        "expenses-by-date": "&from_date=2026-01-01&to_date=2026-12-31",
+        "vendor-expenses": "&from_date=2026-01-01&to_date=2026-12-31",
+        "expenses-vs-budget": "&fiscal_year=2026&fund_code=operating",
+        "owner-ledger": "&lot_id=1&year=2026",
+        "ar-aging": "&as_of_date=2026-03-31",
     }
     return examples.get(report_name, "")

@@ -121,26 +121,31 @@ class ReconciliationPages:
         # Validate
         if not bank_account_id_raw or not bank_account_id_raw.isdigit():
             return None, self.render_new_form(
-                org, theme,
+                org,
+                theme,
                 error="Please select a bank account.",
                 values=form_data,
             )
         if not statement_date:
             return None, self.render_new_form(
-                org, theme,
+                org,
+                theme,
                 error="Statement date is required.",
                 values=form_data,
             )
         balance = self._parse_amount(statement_balance_raw)
         if balance is None:
             return None, self.render_new_form(
-                org, theme,
+                org,
+                theme,
                 error="Statement ending balance must be a number.",
                 values=form_data,
             )
 
         beginning_balance_raw = form_data.get("beginning_balance", "").strip()
-        beginning_balance = self._parse_amount(beginning_balance_raw) if beginning_balance_raw else None
+        beginning_balance = (
+            self._parse_amount(beginning_balance_raw) if beginning_balance_raw else None
+        )
 
         bank_account_id = int(bank_account_id_raw)
 
@@ -152,7 +157,8 @@ class ReconciliationPages:
         ).fetchone()
         if existing:
             return None, self.render_new_form(
-                org, theme,
+                org,
+                theme,
                 error="A reconciliation for this account and statement date already exists.",
                 values=form_data,
             )
@@ -161,7 +167,9 @@ class ReconciliationPages:
             bank_account_id=bank_account_id,
             statement_ending_date=statement_date,
             statement_ending_balance=str(balance),
-            statement_beginning_balance=str(beginning_balance) if beginning_balance is not None else None,
+            statement_beginning_balance=(
+                str(beginning_balance) if beginning_balance is not None else None
+            ),
         )
         return f"/reconciliations/{recon_id}", None
 
@@ -233,7 +241,10 @@ class ReconciliationPages:
         source_type = str(form_data.get("source_type") or "").strip().upper()
         source_id_raw = form_data.get("source_id", "")
         if source_type not in {
-            "PAYMENT", "INCOME_BATCH", "BILL_PAYMENT", "RESERVE_TRANSFER"
+            "PAYMENT",
+            "INCOME_BATCH",
+            "BILL_PAYMENT",
+            "RESERVE_TRANSFER",
         }:
             return 400, json.dumps({"error": "Invalid source_type"})
         if not str(source_id_raw).isdigit():

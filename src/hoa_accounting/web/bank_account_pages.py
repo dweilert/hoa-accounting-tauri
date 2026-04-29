@@ -166,7 +166,8 @@ class BankAccountPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -214,7 +215,8 @@ class BankAccountPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 bank_account_id=bank_account_id,
                 form_values=form_data,
                 error_message=str(exc),
@@ -243,7 +245,8 @@ class BankAccountPages:
             self.conn.commit()
         except ValidationError as exc:
             return None, self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 bank_account_id=bank_account_id,
                 error_message=str(exc),
             )

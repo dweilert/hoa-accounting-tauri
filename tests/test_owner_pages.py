@@ -30,7 +30,6 @@ from hoa_accounting.repositories.lot_ownership_repo import LotOwnershipRepositor
 from hoa_accounting.repositories.owners_repo import OwnersRepository
 from hoa_accounting.web.owner_pages import OwnerPages
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────
 
 
@@ -80,8 +79,12 @@ def _assign(
     return int(cur.lastrowid)
 
 
-_ORG = {"name": "Test HOA", "environment": "test",
-        "fiscal_year_start_month": 1, "theme": "warm"}
+_ORG = {
+    "name": "Test HOA",
+    "environment": "test",
+    "fiscal_year_start_month": 1,
+    "theme": "warm",
+}
 
 
 # ── render_list ────────────────────────────────────────────────────────
@@ -134,9 +137,13 @@ def test_handle_add_missing_display_name_returns_error(
 ) -> None:
     lot_id = _seed_lot(conn)
     redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={"owner_type": "PERSON", "lot_id": str(lot_id),
-                   "start_date": "2026-01-01"},
-        org=_ORG, theme="warm",
+        form_data={
+            "owner_type": "PERSON",
+            "lot_id": str(lot_id),
+            "start_date": "2026-01-01",
+        },
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -149,9 +156,13 @@ def test_handle_add_missing_owner_type_returns_error(
 ) -> None:
     lot_id = _seed_lot(conn)
     redirect_url, form_resp = OwnerPages(conn).handle_add(
-        form_data={"display_name": "Test", "lot_id": str(lot_id),
-                   "start_date": "2026-01-01"},
-        org=_ORG, theme="warm",
+        form_data={
+            "display_name": "Test",
+            "lot_id": str(lot_id),
+            "start_date": "2026-01-01",
+        },
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -169,7 +180,8 @@ def test_handle_edit_success_redirects(conn: sqlite3.Connection) -> None:
             "phone": "555-9999",
             "email": "new@example.com",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url == "/owners?msg=Owner+updated."
     assert form_resp is None
@@ -187,7 +199,8 @@ def test_handle_edit_missing_display_name_returns_error(
     redirect_url, form_resp = OwnerPages(conn).handle_edit(
         owner_id=owner_id,
         form_data={"owner_type": "PERSON"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None

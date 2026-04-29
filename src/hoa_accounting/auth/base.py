@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable, Any
 
-ROLE_ADMIN   = "admin"
+ROLE_ADMIN = "admin"
 ROLE_REPORTS = "reports"
 
 

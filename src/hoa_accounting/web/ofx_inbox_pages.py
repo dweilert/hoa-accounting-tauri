@@ -33,21 +33,20 @@ from urllib.error import URLError
 from hoa_accounting.web.bank_statement_pages import BankStatementPages
 from hoa_accounting.web.template_engine import render_template
 
-
 _log = logging.getLogger(__name__)
 
 # Daemon lives on localhost only; both proxy calls short-time out.
 _FETCHER_BASE_URL = "http://127.0.0.1:17866"
-_FETCHER_ENQUEUE_TIMEOUT = 5.0   # seconds — /fetch returns 202 fast
-_FETCHER_STATUS_TIMEOUT  = 2.0   # seconds — /status is a quick read
+_FETCHER_ENQUEUE_TIMEOUT = 5.0  # seconds — /fetch returns 202 fast
+_FETCHER_STATUS_TIMEOUT = 2.0  # seconds — /status is a quick read
 
 # Consider the daemon dead when heartbeat.txt is older than this.
 _HEARTBEAT_STALE_SECONDS = 180
 
 # File names the fetcher writes at the inbox root.
-_HEARTBEAT_FILE   = "heartbeat.txt"
-_LAST_SUCCESS    = "last_success.txt"
-_LAST_FAILURE    = "last_failure.txt"
+_HEARTBEAT_FILE = "heartbeat.txt"
+_LAST_SUCCESS = "last_success.txt"
+_LAST_FAILURE = "last_failure.txt"
 
 
 @dataclass(frozen=True)
@@ -111,11 +110,15 @@ def _list_inbox_files(root: Path) -> list[dict[str, Any]]:
             st = entry.stat()
         except OSError:
             continue
-        items.append({
-            "filename": entry.name,
-            "mtime": datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds"),
-            "size": st.st_size,
-        })
+        items.append(
+            {
+                "filename": entry.name,
+                "mtime": datetime.fromtimestamp(st.st_mtime).isoformat(
+                    timespec="seconds"
+                ),
+                "size": st.st_size,
+            }
+        )
     return items
 
 
@@ -168,8 +171,8 @@ class OFXInboxPages:
         files = _list_inbox_files(root)
         archived = _archive_filenames(root)
         heartbeat = _parse_status_file(root / _HEARTBEAT_FILE)
-        success   = _parse_status_file(root / _LAST_SUCCESS)
-        failure   = _parse_status_file(root / _LAST_FAILURE)
+        success = _parse_status_file(root / _LAST_SUCCESS)
+        failure = _parse_status_file(root / _LAST_FAILURE)
 
         # Banner precedence: heartbeat red/neutral → last_failure yellow →
         # last_success green.
@@ -276,7 +279,9 @@ class OFXInboxPages:
 
     # ── Webhook ─────────────────────────────────────────────────────
 
-    def handle_ofx_ready(self, *, payload: dict[str, Any], org: dict[str, Any] | None) -> tuple[int, str]:
+    def handle_ofx_ready(
+        self, *, payload: dict[str, Any], org: dict[str, Any] | None
+    ) -> tuple[int, str]:
         """Process a webhook POST from the fetcher.
 
         Returns (http_status, body) for the caller to turn into a Flask
@@ -313,7 +318,9 @@ class OFXInboxPages:
         if safe is None:
             _log.warning(
                 "ofx_ready: rejected path %r — not inside inbox %s (job %s)",
-                claimed_path, root, job_id,
+                claimed_path,
+                root,
+                job_id,
             )
             return 200, ""
 
@@ -331,6 +338,7 @@ class OFXInboxPages:
         """Background worker: import one OFX and archive on success."""
         try:
             from hoa_accounting.db.connection import connect_sqlite
+
             # Background thread owns its own connection — sqlite3 objects
             # aren't shareable across threads.
             conn = connect_sqlite(db_path) if db_path else self.conn
@@ -344,12 +352,15 @@ class OFXInboxPages:
                 _move_to_archive(ofx_path, root)
                 _log.info(
                     "ofx-import: %s → archived (%d batches, %d transactions)",
-                    ofx_path.name, result["batches"], result["transactions"],
+                    ofx_path.name,
+                    result["batches"],
+                    result["transactions"],
                 )
             else:
                 _log.warning(
                     "ofx-import: %s left in inbox — %s",
-                    ofx_path.name, result["error"],
+                    ofx_path.name,
+                    result["error"],
                 )
         except Exception:
             _log.exception("ofx-import: unhandled error on %s", ofx_path.name)
@@ -368,8 +379,12 @@ class OFXInboxPages:
         try:
             file_bytes = ofx_path.read_bytes()
         except OSError as exc:
-            return {"ok": False, "batches": 0, "transactions": 0,
-                    "error": f"read failed: {exc}"}
+            return {
+                "ok": False,
+                "batches": 0,
+                "transactions": 0,
+                "error": f"read failed: {exc}",
+            }
 
         pages = BankStatementPages(conn)
         org = getattr(g, "org", {}) or {}
@@ -385,8 +400,12 @@ class OFXInboxPages:
         if form_resp is not None:
             # Agnostic upload returns a page-response on error (unknown
             # ACCTID, parse failure, etc.). Treat as a file-level failure.
-            return {"ok": False, "batches": 0, "transactions": 0,
-                    "error": "agnostic upload rejected the file (see fetcher page for details)"}
+            return {
+                "ok": False,
+                "batches": 0,
+                "transactions": 0,
+                "error": "agnostic upload rejected the file (see fetcher page for details)",
+            }
 
         # Surface skipped-account warnings prominently — without this they
         # were silently dropped and the user would never know an OFX
@@ -414,7 +433,10 @@ class OFXInboxPages:
     # ── Manual import (from the inbox page) ────────────────────────
 
     def handle_import_one(
-        self, *, filename: str, org: dict[str, Any] | None,
+        self,
+        *,
+        filename: str,
+        org: dict[str, Any] | None,
     ) -> tuple[str, str]:
         """Synchronous import of a single file, clicked from the page.
 
@@ -435,12 +457,15 @@ class OFXInboxPages:
                 f"{result['transactions']} transaction(s).",
             )
         return (
-            "/ofx-inbox?err=" + str(result['error']).replace(' ', '+'),
+            "/ofx-inbox?err=" + str(result["error"]).replace(" ", "+"),
             f"Import failed for {filename}: {result['error']}",
         )
 
     def handle_delete(
-        self, *, filename: str, org: dict[str, Any] | None,
+        self,
+        *,
+        filename: str,
+        org: dict[str, Any] | None,
     ) -> tuple[str, str]:
         """Delete a pending OFX file without importing it.
 
@@ -465,8 +490,10 @@ class OFXInboxPages:
         try:
             safe.unlink()
         except OSError as exc:
-            return ("/ofx-inbox?err=" + str(exc).replace(" ", "+"),
-                    f"Could not delete {filename}: {exc}")
+            return (
+                "/ofx-inbox?err=" + str(exc).replace(" ", "+"),
+                f"Could not delete {filename}: {exc}",
+            )
         return (
             "/ofx-inbox?msg=Deleted+" + filename,
             f"Deleted {filename} (was not imported).",
@@ -501,7 +528,9 @@ class OFXInboxPages:
 
     # ── Fetcher proxy (server-side HTTP to 127.0.0.1:17866) ────────
 
-    def proxy_fetch(self, *, mode: str = "headless") -> tuple[int, dict[str, Any] | str]:
+    def proxy_fetch(
+        self, *, mode: str = "headless"
+    ) -> tuple[int, dict[str, Any] | str]:
         """POST to the fetcher daemon. ``mode`` is 'headless' or 'headed'.
 
         Returns (http_status, body_json_or_text). The page shows the
@@ -515,6 +544,7 @@ class OFXInboxPages:
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
+
 
 def _move_to_archive(ofx_path: Path, root: Path) -> Path:
     """Move an imported OFX into archive/<YYYY>/<MM>/<name>.
@@ -538,7 +568,9 @@ def _move_to_archive(ofx_path: Path, root: Path) -> Path:
 def _post_to_fetcher(endpoint: str) -> tuple[int, dict[str, Any] | str]:
     url = _FETCHER_BASE_URL + endpoint
     req = urlrequest.Request(
-        url, data=b"", method="POST",
+        url,
+        data=b"",
+        method="POST",
         headers={"Content-Type": "application/json"},
     )
     try:
@@ -554,7 +586,9 @@ def _post_to_fetcher(endpoint: str) -> tuple[int, dict[str, Any] | str]:
         return 500, f"fetcher error: {exc}"
 
 
-def _get_from_fetcher(endpoint: str, *, timeout: float) -> tuple[int, dict[str, Any] | str]:
+def _get_from_fetcher(
+    endpoint: str, *, timeout: float
+) -> tuple[int, dict[str, Any] | str]:
     url = _FETCHER_BASE_URL + endpoint
     try:
         with urlrequest.urlopen(url, timeout=timeout) as resp:

@@ -29,7 +29,9 @@ class BackupService:
         self._backup_dir = Path(backup_config.get("dir", "backups")).expanduser()
         self._max_keep = int(backup_config.get("max_keep", _DEFAULT_MAX_KEEP))
         self._s3_bucket = (backup_config.get("s3_bucket") or "").strip()
-        self._s3_prefix = (backup_config.get("s3_prefix") or "db-backups/").rstrip("/") + "/"
+        self._s3_prefix = (backup_config.get("s3_prefix") or "db-backups/").rstrip(
+            "/"
+        ) + "/"
 
     def run(self, conn: sqlite3.Connection) -> str | None:
         """Create a backup, rotate old ones, upload to S3 if configured.
@@ -68,14 +70,19 @@ class BackupService:
             )
             conn.commit()
         except Exception:
-            log.warning("Could not record backup metadata to startup_backups table", exc_info=True)
+            log.warning(
+                "Could not record backup metadata to startup_backups table",
+                exc_info=True,
+            )
 
         self._rotate_local()
 
         if self._s3_bucket:
             self._upload_s3(dest_path, filename)
 
-        log.info("Startup backup written: %s (%.1f MB)", dest_path, file_size / 1_048_576)
+        log.info(
+            "Startup backup written: %s (%.1f MB)", dest_path, file_size / 1_048_576
+        )
         return filename
 
     def _rotate_local(self) -> None:
@@ -91,6 +98,7 @@ class BackupService:
     def _upload_s3(self, local_path: Path, filename: str) -> None:
         try:
             import boto3
+
             s3 = boto3.client("s3")
             key = self._s3_prefix + filename
             s3.upload_file(str(local_path), self._s3_bucket, key)
@@ -102,10 +110,13 @@ class BackupService:
     def _rotate_s3(self) -> None:
         try:
             import boto3
+
             s3 = boto3.client("s3")
             paginator = s3.get_paginator("list_objects_v2")
             objects: list[Any] = []
-            for page in paginator.paginate(Bucket=self._s3_bucket, Prefix=self._s3_prefix):
+            for page in paginator.paginate(
+                Bucket=self._s3_bucket, Prefix=self._s3_prefix
+            ):
                 objects.extend(
                     o for o in page.get("Contents", []) if o["Key"].endswith(".db")
                 )

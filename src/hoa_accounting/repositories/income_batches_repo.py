@@ -108,7 +108,14 @@ class IncomeBatchesRepository(BaseRepository):
                    notes = ?, category_id = ?
              WHERE id = ?
             """,
-            (posting_date, bank_account_id, income_description, total_amount,
-             notes, category_id, income_batch_id),
+            (
+                posting_date,
+                bank_account_id,
+                income_description,
+                total_amount,
+                notes,
+                category_id,
+                income_batch_id,
+            ),
         )
         self.conn.commit()

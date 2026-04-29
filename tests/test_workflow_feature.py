@@ -22,6 +22,7 @@ def _make_conn() -> sqlite3.Connection:
 
 # ── WorkflowAdminService: card CRUD ──────────────────────────────────────────
 
+
 class TestWorkflowCardCRUD:
     def test_add_card_stored_in_db(self):
         conn = _make_conn()
@@ -29,11 +30,18 @@ class TestWorkflowCardCRUD:
 
         svc = WorkflowAdminService(conn)
         card_id = svc.add_card(
-            section_id=10, num_label="T1", icon="🧪",
-            title="Test Card", description="desc",
-            href="/test", link_label="Go", color="teal",
+            section_id=10,
+            num_label="T1",
+            icon="🧪",
+            title="Test Card",
+            description="desc",
+            href="/test",
+            link_label="Go",
+            color="teal",
         )
-        row = conn.execute("SELECT * FROM workflow_cards WHERE id=?", (card_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM workflow_cards WHERE id=?", (card_id,)
+        ).fetchone()
         assert row is not None
         assert row["title"] == "Test Card"
         assert row["section_id"] == 10
@@ -47,11 +55,18 @@ class TestWorkflowCardCRUD:
 
         svc = WorkflowAdminService(conn)
         card_id = svc.add_card(
-            section_id=10, num_label="", icon="📋",
-            title="Manual Task", description="",
-            href="", link_label="", color="slate",
+            section_id=10,
+            num_label="",
+            icon="📋",
+            title="Manual Task",
+            description="",
+            href="",
+            link_label="",
+            color="slate",
         )
-        row = conn.execute("SELECT href FROM workflow_cards WHERE id=?", (card_id,)).fetchone()
+        row = conn.execute(
+            "SELECT href FROM workflow_cards WHERE id=?", (card_id,)
+        ).fetchone()
         assert row["href"] == "#"
 
     def test_update_card_changes_fields(self):
@@ -60,9 +75,15 @@ class TestWorkflowCardCRUD:
 
         svc = WorkflowAdminService(conn)
         svc.update_card(
-            card_id=100, section_id=10, num_label="1",
-            icon="🏠", title="Updated Title", description="Updated desc",
-            href="/updated", link_label="Updated", color="blue",
+            card_id=100,
+            section_id=10,
+            num_label="1",
+            icon="🏠",
+            title="Updated Title",
+            description="Updated desc",
+            href="/updated",
+            link_label="Updated",
+            color="blue",
         )
         row = conn.execute("SELECT * FROM workflow_cards WHERE id=100").fetchone()
         assert row["title"] == "Updated Title"
@@ -75,12 +96,19 @@ class TestWorkflowCardCRUD:
 
         svc = WorkflowAdminService(conn)
         card_id = svc.add_card(
-            section_id=10, num_label="", icon="",
-            title="To Delete", description="",
-            href="", link_label="", color="slate",
+            section_id=10,
+            num_label="",
+            icon="",
+            title="To Delete",
+            description="",
+            href="",
+            link_label="",
+            color="slate",
         )
         svc.delete_card(card_id)
-        gone = conn.execute("SELECT id FROM workflow_cards WHERE id=?", (card_id,)).fetchone()
+        gone = conn.execute(
+            "SELECT id FROM workflow_cards WHERE id=?", (card_id,)
+        ).fetchone()
         assert gone is None
 
     def test_delete_system_card_is_protected(self):
@@ -90,7 +118,9 @@ class TestWorkflowCardCRUD:
 
         svc = WorkflowAdminService(conn)
         svc.delete_card(100)  # Card 100 is a system card
-        still_there = conn.execute("SELECT id FROM workflow_cards WHERE id=100").fetchone()
+        still_there = conn.execute(
+            "SELECT id FROM workflow_cards WHERE id=100"
+        ).fetchone()
         assert still_there is not None
 
     def test_get_card_returns_dict(self):
@@ -111,6 +141,7 @@ class TestWorkflowCardCRUD:
 
 
 # ── WorkflowAdminService: card toggle and move ────────────────────────────────
+
 
 class TestWorkflowCardToggleAndMove:
     def test_toggle_card_flips_is_active(self):
@@ -160,9 +191,12 @@ class TestWorkflowCardToggleAndMove:
         from hoa_accounting.web.workflow_pages import WorkflowAdminService
 
         svc = WorkflowAdminService(conn)
-        max_sort_before = conn.execute(
-            "SELECT MAX(sort_order) FROM workflow_cards WHERE section_id=12"
-        ).fetchone()[0] or 0
+        max_sort_before = (
+            conn.execute(
+                "SELECT MAX(sort_order) FROM workflow_cards WHERE section_id=12"
+            ).fetchone()[0]
+            or 0
+        )
 
         svc.move_card(110, 12)
         new_sort = conn.execute(
@@ -172,6 +206,7 @@ class TestWorkflowCardToggleAndMove:
 
 
 # ── WorkflowAdminService: card reorder ───────────────────────────────────────
+
 
 class TestWorkflowCardReorder:
     def test_reorder_up_swaps_with_previous(self):
@@ -245,6 +280,7 @@ class TestWorkflowCardReorder:
 
 # ── WorkflowAdminService: sections ───────────────────────────────────────────
 
+
 class TestWorkflowSections:
     def test_add_section_appears_in_admin_view(self):
         conn = _make_conn()
@@ -305,13 +341,16 @@ class TestWorkflowSections:
 
 # ── WorkflowAdminService: tabs ────────────────────────────────────────────────
 
+
 class TestWorkflowTabs:
     def test_add_tab_appears_in_admin_view(self):
         conn = _make_conn()
         from hoa_accounting.web.workflow_pages import WorkflowAdminService
 
         svc = WorkflowAdminService(conn)
-        svc.add_tab(tab_key="custom", icon="🔧", label="Custom Tab", description="For testing")
+        svc.add_tab(
+            tab_key="custom", icon="🔧", label="Custom Tab", description="For testing"
+        )
         tabs = svc.load_admin_view()
         keys = [t["tab_key"] for t in tabs]
         assert "custom" in keys
@@ -335,7 +374,9 @@ class TestWorkflowTabs:
 
         svc = WorkflowAdminService(conn)
         # Add a non-system tab to toggle
-        tab_id = svc.add_tab(tab_key="togtest", icon="", label="Toggle Tab", description="")
+        tab_id = svc.add_tab(
+            tab_key="togtest", icon="", label="Toggle Tab", description=""
+        )
         before = conn.execute(
             "SELECT is_active FROM workflow_tabs WHERE id=?", (tab_id,)
         ).fetchone()["is_active"]
@@ -367,6 +408,7 @@ class TestWorkflowTabs:
 
 
 # ── WorkflowAdminService: load_admin_view ────────────────────────────────────
+
 
 class TestWorkflowLoadAdminView:
     def test_load_admin_view_includes_inactive_items(self):
@@ -402,6 +444,7 @@ class TestWorkflowLoadAdminView:
 
 # ── WorkflowAdminPages: handler redirect strings ─────────────────────────────
 
+
 class TestWorkflowAdminPageHandlers:
     def _form(self, data: dict) -> dict:
         return data  # handlers call form.get() — a plain dict works
@@ -410,11 +453,19 @@ class TestWorkflowAdminPageHandlers:
         conn = _make_conn()
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
-        url = WorkflowAdminPages(conn).handle_add_card({
-            "section_id": "10", "tab_id": "1",
-            "num_label": "T", "icon": "🔧", "title": "Handler Card",
-            "description": "", "href": "", "link_label": "", "color": "teal",
-        })
+        url = WorkflowAdminPages(conn).handle_add_card(
+            {
+                "section_id": "10",
+                "tab_id": "1",
+                "num_label": "T",
+                "icon": "🔧",
+                "title": "Handler Card",
+                "description": "",
+                "href": "",
+                "link_label": "",
+                "color": "teal",
+            }
+        )
         assert url.startswith("/admin/workflow-guide?tab=1")
         assert "flash=" in url
 
@@ -422,21 +473,39 @@ class TestWorkflowAdminPageHandlers:
         conn = _make_conn()
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
-        url = WorkflowAdminPages(conn).handle_update_card({
-            "card_id": "100", "tab_id": "1", "section_id": "10",
-            "num_label": "1", "icon": "🏠", "title": "Updated",
-            "description": "", "href": "", "link_label": "", "color": "blue",
-        })
+        url = WorkflowAdminPages(conn).handle_update_card(
+            {
+                "card_id": "100",
+                "tab_id": "1",
+                "section_id": "10",
+                "num_label": "1",
+                "icon": "🏠",
+                "title": "Updated",
+                "description": "",
+                "href": "",
+                "link_label": "",
+                "color": "blue",
+            }
+        )
         assert "scrollto=100" in url
 
     def test_handle_delete_card_redirects(self):
         conn = _make_conn()
-        from hoa_accounting.web.workflow_pages import WorkflowAdminPages, WorkflowAdminService
+        from hoa_accounting.web.workflow_pages import (
+            WorkflowAdminPages,
+            WorkflowAdminService,
+        )
 
         # Add a custom card to delete
         card_id = WorkflowAdminService(conn).add_card(
-            section_id=10, num_label="", icon="", title="To Delete",
-            description="", href="", link_label="", color="slate",
+            section_id=10,
+            num_label="",
+            icon="",
+            title="To Delete",
+            description="",
+            href="",
+            link_label="",
+            color="slate",
         )
         url = WorkflowAdminPages(conn).handle_delete_card(
             {"card_id": str(card_id), "tab_id": "1"}
@@ -465,5 +534,7 @@ class TestWorkflowAdminPageHandlers:
         conn = _make_conn()
         from hoa_accounting.web.workflow_pages import WorkflowAdminPages
 
-        url = WorkflowAdminPages(conn).handle_add_tab({"label": "", "icon": "", "description": ""})
+        url = WorkflowAdminPages(conn).handle_add_tab(
+            {"label": "", "icon": "", "description": ""}
+        )
         assert "flash=" in url

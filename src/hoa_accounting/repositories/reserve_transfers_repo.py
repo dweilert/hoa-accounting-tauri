@@ -90,9 +90,7 @@ class ReserveTransfersRepository(BaseRepository):
 
     def get_bank_accounts_by_fund(self) -> dict[str, list[sqlite3.Row]]:
         """Return active bank accounts grouped by fund code."""
-        rows = list(
-            self.conn.execute(
-                """
+        rows = list(self.conn.execute("""
                 SELECT
                     ba.id    AS bank_account_id,
                     ba.account_name,
@@ -102,9 +100,7 @@ class ReserveTransfersRepository(BaseRepository):
                 FROM bank_accounts ba
                 WHERE ba.active_flag = 1
                 ORDER BY ba.fund_code, ba.account_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
         result: dict[str, list[sqlite3.Row]] = {}
         for row in rows:
             result.setdefault(row["fund_code"], []).append(row)
@@ -112,8 +108,7 @@ class ReserveTransfersRepository(BaseRepository):
 
     def get_reserve_balance(self) -> str:
         """Return the current cash balance of all RESERVE bank accounts."""
-        row = self.conn.execute(
-            """
+        row = self.conn.execute("""
             SELECT
                 COALESCE(SUM(ba.opening_balance), 0)
                 + COALESCE((SELECT SUM(p.amount) FROM payments p
@@ -128,8 +123,7 @@ class ReserveTransfersRepository(BaseRepository):
                 AS balance
             FROM bank_accounts ba
             WHERE ba.fund_code = 'RESERVE' AND ba.active_flag = 1
-            """
-        ).fetchone()
+            """).fetchone()
         if row and row["balance"] is not None:
             return f"{Decimal(str(row['balance'])):,.2f}"
         return "0.00"

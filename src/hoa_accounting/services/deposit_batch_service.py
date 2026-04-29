@@ -92,12 +92,16 @@ class DepositBatchService:
         """Post a deposit batch atomically."""
         with transaction(self.conn):
             if not rows:
-                raise ValidationError("A deposit batch must contain at least one payment.")
+                raise ValidationError(
+                    "A deposit batch must contain at least one payment."
+                )
 
             try:
                 parsed_method = PaymentMethod(payment_method.upper())
             except ValueError as exc:
-                raise ValidationError(f"Invalid payment method: {payment_method}") from exc
+                raise ValidationError(
+                    f"Invalid payment method: {payment_method}"
+                ) from exc
 
             resolved: list[_ResolvedRow] = []
             total = Decimal("0.00")
@@ -225,7 +229,9 @@ class DepositBatchService:
             candidates = list(self.assessments_repo.list_open_for_owner(owner_id))
             if charge_type_filter:
                 allowed = set(charge_type_filter)
-                candidates = [a for a in candidates if (a["charge_type"] or "DUES") in allowed]
+                candidates = [
+                    a for a in candidates if (a["charge_type"] or "DUES") in allowed
+                ]
 
         for a in candidates:
             if remaining <= Decimal("0.00"):

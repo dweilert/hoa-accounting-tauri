@@ -61,16 +61,19 @@ class SearchPages:
                 self._search_assessments(term),
             ]
 
-        html = render_template(self.TEMPLATE, {
-            "org": org,
-            "theme": theme,
-            "page_key": "search",
-            "active_nav": "",
-            "search_q": q,
-            "q": q,
-            "groups": groups,
-            "total_hits": sum(g.total for g in groups),
-        })
+        html = render_template(
+            self.TEMPLATE,
+            {
+                "org": org,
+                "theme": theme,
+                "page_key": "search",
+                "active_nav": "",
+                "search_q": q,
+                "q": q,
+                "groups": groups,
+                "total_hits": sum(g.total for g in groups),
+            },
+        )
         return SearchPageResponse(status_code=HTTPStatus.OK, body_html=html)
 
     # ── Category queries ───────────────────────────────────────────────
@@ -90,12 +93,14 @@ class SearchPages:
             (term, term, term, MAX_PER_GROUP),
         ).fetchall()
         for r in rows:
-            hits.append(SearchHit(
-                title=f"{r['icon']} {r['name']}" if r["icon"] else r["name"],
-                subtitle=r["description"],
-                url=r["href"],
-                badge=r["category"],
-            ))
+            hits.append(
+                SearchHit(
+                    title=f"{r['icon']} {r['name']}" if r["icon"] else r["name"],
+                    subtitle=r["description"],
+                    url=r["href"],
+                    badge=r["category"],
+                )
+            )
 
         # Workflow cards (already in DB, always current)
         if len(hits) < MAX_PER_GROUP:
@@ -113,15 +118,19 @@ class SearchPages:
                 (term, term, term, remaining),
             ).fetchall()
             for r in wf_rows:
-                hits.append(SearchHit(
-                    title=f"{r['icon']} {r['title']}" if r["icon"] else r["title"],
-                    subtitle=r["description"] or "",
-                    url=r["href"],
-                    badge=f"Workflow · {r['tab_label']}",
-                ))
+                hits.append(
+                    SearchHit(
+                        title=f"{r['icon']} {r['title']}" if r["icon"] else r["title"],
+                        subtitle=r["description"] or "",
+                        url=r["href"],
+                        badge=f"Workflow · {r['tab_label']}",
+                    )
+                )
 
         total = len(hits)
-        return SearchGroup(label="Pages & Features", hits=hits[:MAX_PER_GROUP], total=total)
+        return SearchGroup(
+            label="Pages & Features", hits=hits[:MAX_PER_GROUP], total=total
+        )
 
     def _search_owners(self, term: str) -> SearchGroup:
         rows = self._conn.execute(
@@ -193,10 +202,15 @@ class SearchPages:
         hits = [
             SearchHit(
                 title=f"Lot {r['lot_number']}",
-                subtitle=" · ".join(filter(None, [
-                    r["street_address_1"],
-                    r["owners"],
-                ])),
+                subtitle=" · ".join(
+                    filter(
+                        None,
+                        [
+                            r["street_address_1"],
+                            r["owners"],
+                        ],
+                    )
+                ),
                 url=f"/lots/{r['id']}/edit",
             )
             for r in rows[:MAX_PER_GROUP]
@@ -264,11 +278,24 @@ class SearchPages:
         hits = [
             SearchHit(
                 title=f"Payment {format_currency(r['amount'])} — {r['owner_name'] or 'Unknown'}",
-                subtitle=" · ".join(filter(None, [
-                    r["payment_date"],
-                    f"Receipt {r['receipt_number']}" if r["receipt_number"] else "",
-                    f"Ref {r['reference_number']}" if r["reference_number"] else "",
-                ])),
+                subtitle=" · ".join(
+                    filter(
+                        None,
+                        [
+                            r["payment_date"],
+                            (
+                                f"Receipt {r['receipt_number']}"
+                                if r["receipt_number"]
+                                else ""
+                            ),
+                            (
+                                f"Ref {r['reference_number']}"
+                                if r["reference_number"]
+                                else ""
+                            ),
+                        ],
+                    )
+                ),
                 url="/deposits",
             )
             for r in rows[:MAX_PER_GROUP]
@@ -307,11 +334,16 @@ class SearchPages:
         hits = [
             SearchHit(
                 title=f"{format_currency(r['amount'])} — {r['description'] or r['charge_type']}",
-                subtitle=" · ".join(filter(None, [
-                    r["assessment_date"],
-                    f"Lot {r['lot_number']}" if r["lot_number"] else "",
-                    r["owner_name"],
-                ])),
+                subtitle=" · ".join(
+                    filter(
+                        None,
+                        [
+                            r["assessment_date"],
+                            f"Lot {r['lot_number']}" if r["lot_number"] else "",
+                            r["owner_name"],
+                        ],
+                    )
+                ),
                 url="/assessments/bill",
                 badge=r["status"] or "",
             )

@@ -29,42 +29,41 @@ from hoa_accounting.web.bank_statement_import import (
     parse_ofx_by_account,
 )
 
-
 # ── Canonical transaction type vocabulary ──────────────────────────────────
 
 # Every adapter emits one of these. Everything downstream pattern-matches
 # against this short list; bank-specific values (OFX TRNTYPE = 'SRVCHG',
 # CSV 'Point of Sale', etc.) are squashed at the adapter boundary.
 CANONICAL_TRN_TYPES = {
-    "DEBIT",    # generic debit / withdrawal
-    "CREDIT",   # generic credit / deposit
-    "FEE",      # bank fee, service charge, NSF
-    "CHECK",    # check paid (has check_number)
-    "ACH",      # ACH / electronic transfer either direction
-    "TRANSFER", # intra-bank transfer between accounts
-    "INTEREST", # interest credited or debited
-    "OTHER",    # fallback when the source gives no usable hint
+    "DEBIT",  # generic debit / withdrawal
+    "CREDIT",  # generic credit / deposit
+    "FEE",  # bank fee, service charge, NSF
+    "CHECK",  # check paid (has check_number)
+    "ACH",  # ACH / electronic transfer either direction
+    "TRANSFER",  # intra-bank transfer between accounts
+    "INTEREST",  # interest credited or debited
+    "OTHER",  # fallback when the source gives no usable hint
 }
 
 # OFX TRNTYPE → canonical mapping. Missing entries fall through to OTHER.
 _OFX_TRNTYPE_MAP: dict[str, str] = {
-    "CREDIT":        "CREDIT",
-    "DEBIT":         "DEBIT",
-    "DEP":           "CREDIT",
-    "DIRECTDEP":     "ACH",
-    "DIRECTDEBIT":   "ACH",
-    "REPEATPMT":     "ACH",
-    "PAYMENT":       "ACH",
-    "XFER":          "TRANSFER",
-    "CHECK":         "CHECK",
-    "FEE":           "FEE",
-    "SRVCHG":        "FEE",
-    "INT":           "INTEREST",
-    "DIV":           "INTEREST",
-    "ATM":           "DEBIT",
-    "POS":           "DEBIT",
-    "CASH":          "DEBIT",
-    "OTHER":         "OTHER",
+    "CREDIT": "CREDIT",
+    "DEBIT": "DEBIT",
+    "DEP": "CREDIT",
+    "DIRECTDEP": "ACH",
+    "DIRECTDEBIT": "ACH",
+    "REPEATPMT": "ACH",
+    "PAYMENT": "ACH",
+    "XFER": "TRANSFER",
+    "CHECK": "CHECK",
+    "FEE": "FEE",
+    "SRVCHG": "FEE",
+    "INT": "INTEREST",
+    "DIV": "INTEREST",
+    "ATM": "DEBIT",
+    "POS": "DEBIT",
+    "CASH": "DEBIT",
+    "OTHER": "OTHER",
 }
 
 
@@ -84,6 +83,7 @@ def normalize_trn_type(raw: str) -> str:
 
 # ── Canonical record ────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class CanonicalBankTxn:
     """One bank line in the format the rest of the system speaks.
@@ -93,13 +93,15 @@ class CanonicalBankTxn:
     """
 
     posted_at: date
-    amount: Decimal                  # signed: + = deposit, − = debit
+    amount: Decimal  # signed: + = deposit, − = debit
     description: str
     memo: str
-    transaction_type: str            # ∈ CANONICAL_TRN_TYPES
-    check_number: str = ""           # when a check or ref number is visible
-    external_ref: str = ""           # FITID or bank-assigned id, audit only
-    raw: dict[str, Any] = field(default_factory=dict[str, Any], compare=False, hash=False)
+    transaction_type: str  # ∈ CANONICAL_TRN_TYPES
+    check_number: str = ""  # when a check or ref number is visible
+    external_ref: str = ""  # FITID or bank-assigned id, audit only
+    raw: dict[str, Any] = field(
+        default_factory=dict[str, Any], compare=False, hash=False
+    )
 
     # Compatibility accessors — the rule matcher and legacy paths still
     # refer to a few ``ParsedTransaction``-era field names. Keep them
@@ -130,15 +132,17 @@ class CanonicalBankTxn:
         with no distinguishing field are accepted as a rare, low-impact
         cost — callers can surface them at reconciliation if they matter.
         """
-        blob = "|".join([
-            str(bank_account_id),
-            self.posted_at.isoformat(),
-            str(self.amount),
-            self.description or "",
-            self.memo or "",
-            self.transaction_type or "",
-            self.check_number or "",
-        ])
+        blob = "|".join(
+            [
+                str(bank_account_id),
+                self.posted_at.isoformat(),
+                str(self.amount),
+                self.description or "",
+                self.memo or "",
+                self.transaction_type or "",
+                self.check_number or "",
+            ]
+        )
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
     def dedup_key(self, bank_account_id: int) -> str:
@@ -147,6 +151,7 @@ class CanonicalBankTxn:
 
 
 # ── Adapter protocol + registry ─────────────────────────────────────────────
+
 
 class BankFileAdapter(Protocol):
     """Every ingest source (OFX, CSV-flavor-X, manual, …) implements this."""
@@ -224,6 +229,7 @@ def dispatch(content: bytes) -> DispatchResult:
 
 # ── Built-in adapters (wrappers over existing parsers) ─────────────────────
 
+
 def canonical_from_parsed(
     p: ParsedTransaction,
     source_raw_type: str,
@@ -294,10 +300,10 @@ class CSVAdapter:
     # hands us canonical keys; parse_csv still speaks its own vocabulary.
     _CANONICAL_TO_LEGACY = {
         "transaction_date": "date",
-        "amount":           "amount",
-        "amount_debit":     "debit",
-        "amount_credit":    "credit",
-        "description":      "description",
+        "amount": "amount",
+        "amount_debit": "debit",
+        "amount_credit": "credit",
+        "description": "description",
     }
 
     def parse(
@@ -329,23 +335,51 @@ register_adapter(CSVAdapter())
 # adapter reads via ``mapping[canonical_field] = csv_header``. Kept here
 # so the mapping wizard and the ingest adapter agree on the vocabulary.
 CANONICAL_CSV_FIELDS: list[dict[str, Any]] = [
-    {"name": "transaction_date", "label": "Date",        "required": True,
-     "note": "YYYY-MM-DD, MM/DD/YYYY, or similar"},
-    {"name": "amount",           "label": "Amount",      "required": True,
-     "note": "Signed: negative = debit. Use 'amount_debit'/'amount_credit' "
-             "if the bank splits them into separate columns."},
-    {"name": "amount_debit",     "label": "Debit Amount","required": False,
-     "note": "Optional. Use only when the bank splits debit/credit columns."},
-    {"name": "amount_credit",    "label": "Credit Amount","required": False,
-     "note": "Optional. Use only when the bank splits debit/credit columns."},
-    {"name": "description",      "label": "Description", "required": True},
-    {"name": "memo",             "label": "Memo",        "required": False},
-    {"name": "transaction_type", "label": "Type",        "required": False,
-     "note": "Will be normalized to DEBIT/CREDIT/FEE/CHECK/ACH/…"},
-    {"name": "check_number",     "label": "Check Number","required": False,
-     "note": "Optional. Helps disambiguate same-day same-amount lines."},
-    {"name": "external_ref",     "label": "Reference",   "required": False,
-     "note": "Optional. Bank-provided transaction id; audit-only."},
+    {
+        "name": "transaction_date",
+        "label": "Date",
+        "required": True,
+        "note": "YYYY-MM-DD, MM/DD/YYYY, or similar",
+    },
+    {
+        "name": "amount",
+        "label": "Amount",
+        "required": True,
+        "note": "Signed: negative = debit. Use 'amount_debit'/'amount_credit' "
+        "if the bank splits them into separate columns.",
+    },
+    {
+        "name": "amount_debit",
+        "label": "Debit Amount",
+        "required": False,
+        "note": "Optional. Use only when the bank splits debit/credit columns.",
+    },
+    {
+        "name": "amount_credit",
+        "label": "Credit Amount",
+        "required": False,
+        "note": "Optional. Use only when the bank splits debit/credit columns.",
+    },
+    {"name": "description", "label": "Description", "required": True},
+    {"name": "memo", "label": "Memo", "required": False},
+    {
+        "name": "transaction_type",
+        "label": "Type",
+        "required": False,
+        "note": "Will be normalized to DEBIT/CREDIT/FEE/CHECK/ACH/…",
+    },
+    {
+        "name": "check_number",
+        "label": "Check Number",
+        "required": False,
+        "note": "Optional. Helps disambiguate same-day same-amount lines.",
+    },
+    {
+        "name": "external_ref",
+        "label": "Reference",
+        "required": False,
+        "note": "Optional. Bank-provided transaction id; audit-only.",
+    },
 ]
 
 
@@ -353,6 +387,7 @@ def read_csv_headers(content: bytes) -> list[str]:
     """Return the first non-empty row of a CSV file as a list of headers."""
     import csv as _csv
     import io as _io
+
     text = content.decode("utf-8-sig", errors="replace")
     for row in _csv.reader(_io.StringIO(text)):
         if any(cell.strip() for cell in row):
@@ -374,7 +409,9 @@ def fingerprint_csv_headers(content: bytes) -> str:
 
 
 def lookup_csv_mapping(
-    conn: sqlite3.Connection, bank_account_id: int, fingerprint: str,
+    conn: sqlite3.Connection,
+    bank_account_id: int,
+    fingerprint: str,
 ) -> dict[str, Any] | None:
     row = conn.execute(
         "SELECT mapping_json FROM bank_account_file_formats "
@@ -405,13 +442,13 @@ def save_csv_mapping(
         DO UPDATE SET mapping_json = excluded.mapping_json,
                       sample_headers_json = excluded.sample_headers_json
         """,
-        (bank_account_id, fingerprint,
-         json.dumps(mapping), json.dumps(sample_headers)),
+        (bank_account_id, fingerprint, json.dumps(mapping), json.dumps(sample_headers)),
     )
     conn.commit()
 
 
 # ── Stash: short-lived holding area for uploaded files ─────────────────────
+
 
 def stash_upload(
     conn: sqlite3.Connection,
@@ -438,7 +475,8 @@ def stash_upload(
 
 
 def peek_stash(
-    conn: sqlite3.Connection, token: str,
+    conn: sqlite3.Connection,
+    token: str,
 ) -> tuple[int, str, bytes] | None:
     """Return ``(bank_account_id, filename, file_content)`` without deleting.
     Used by the wizard page to fetch the CSV for preview/mapping."""
@@ -452,7 +490,8 @@ def peek_stash(
 
 
 def consume_stash(
-    conn: sqlite3.Connection, token: str,
+    conn: sqlite3.Connection,
+    token: str,
 ) -> tuple[int, str, bytes] | None:
     """Fetch and remove a stash entry. Returns None if the token is invalid
     or already consumed."""

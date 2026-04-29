@@ -53,7 +53,9 @@ class ResaleFeePages:
 
     # ── helpers ─────────────────────────────────────────────────────────
 
-    def _resolve_income_account(self, account_number: str) -> tuple[int | None, str]:  # noqa: ARG002
+    def _resolve_income_account(
+        self, account_number: str
+    ) -> tuple[int | None, str]:  # noqa: ARG002
         """Return (category_id, label) for the RESALE_FEE category."""
         row = self.conn.execute(
             "SELECT id, code, name, active_flag FROM categories WHERE code = 'RESALE_FEE'"
@@ -130,7 +132,9 @@ class ResaleFeePages:
         form_values: dict[str, Any] | None = None,
     ) -> ResaleFeePageResponse:
         fv = form_values or {}
-        income_account_id, income_label = self._resolve_income_account(income_account_number)
+        income_account_id, income_label = self._resolve_income_account(
+            income_account_number
+        )
         if income_account_id is None:
             error_message = error_message or income_label
 
@@ -201,7 +205,8 @@ class ResaleFeePages:
     ) -> tuple[str | None, ResaleFeePageResponse | None]:
         def _err(msg: str) -> tuple[None, ResaleFeePageResponse]:
             return None, self.render_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 default_amount=default_amount,
                 income_account_number=income_account_number,
                 error_message=msg,
@@ -252,6 +257,7 @@ class ResaleFeePages:
             return _err(str(exc))
 
         from urllib.parse import quote
+
         msg = f"Resale certificate fee of {format_currency(amount)} posted for Lot {lot['lot_number']}."
         return f"/resale-fee?msg={quote(msg)}", None
 
@@ -270,7 +276,8 @@ class ResaleFeePages:
             # Re-render the Receiving page (payments) with the error banner
             # so the user stays where they submitted from.
             return None, self.render_payments_page(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 error_message=msg,
             )
 
@@ -338,6 +345,7 @@ class ResaleFeePages:
             return _err(str(exc))
 
         from urllib.parse import quote
+
         msg = (
             f"Payment of {format_currency(amount)} recorded for Lot {assessment['lot_number']} "
             f"(receipt {receipt_number})."

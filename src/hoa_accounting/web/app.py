@@ -86,6 +86,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     if db_path:
         from hoa_accounting.bootstrap.audit_triggers import install_audit_triggers
         from hoa_accounting.bootstrap.backup_service import BackupService
+
         boot_conn = connect_sqlite(str(db_path))
         try:
             # Recreate audit triggers before migrations so any stale trigger
@@ -98,6 +99,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 BackupService(str(db_path), backup_cfg).run(boot_conn)
             # Clear per-session alert dismissals so alerts reappear on each app start
             from hoa_accounting.repositories.dashboard_repo import DashboardRepository
+
             DashboardRepository(boot_conn).clear_alert_dismissals()
         finally:
             boot_conn.close()
@@ -110,6 +112,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     raw_config: dict[str, Any] = {}
     try:
         import yaml  # type: ignore[import-untyped]
+
         with open(resolved_config_path) as _f:
             raw_config = yaml.safe_load(_f) or {}
     except Exception:
@@ -120,6 +123,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     else:
         from hoa_accounting.auth.factory import AuthManager, AuthConfig
         from hoa_accounting.auth.local import LocalBackend
+
         auth_manager = AuthManager(AuthConfig(), LocalBackend(":memory:"))
 
     _DEFAULT_SECRET = "change-me-to-a-random-secret"
@@ -144,6 +148,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     def _attach_org() -> None:
         from hoa_accounting.web.auth_pages import _get_current_user
         from flask import session as _session
+
         g.org = org_context
         # In TESTING mode, auto-seat an admin session so test_client tests
         # don't need to call _login_as_admin manually. Production runs
@@ -159,11 +164,18 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         g.current_user = _get_current_user()
 
     # ── Setup wizard ──────────────────────────────────────────────────────
-    _SETUP_PATHS = {"/setup", "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment"}
+    _SETUP_PATHS = {
+        "/setup",
+        "/setup/admin",
+        "/setup/login",
+        "/setup/identity",
+        "/setup/assessment",
+    }
 
     @app.before_request
     def _setup_guard() -> ResponseReturnValue | None:
         from flask import redirect as _redir
+
         if request.path in _SETUP_PATHS or request.path.startswith("/static"):
             return None
         if needs_setup(str(db_path)):
@@ -182,6 +194,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     from hoa_accounting.web.routes.admin import make_admin_blueprint
     from hoa_accounting.web.routes.dashboard import make_dashboard_blueprint
     from hoa_accounting.web.routes.api import make_api_blueprint
+
     ctx = RouteContext(org_context=org_context, report_page_service=report_page_service)
     app.register_blueprint(make_setup_blueprint(ctx))
     app.register_blueprint(make_categories_blueprint(ctx))
@@ -200,6 +213,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
 
     # ── User management routes ────────────────────────────────────────────
     from hoa_accounting.web.user_management_pages import UserManagementPages
+
     UserManagementPages(auth_manager).register(app)
 
     install_error_handler(app, org_context)
@@ -210,6 +224,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         # This route is only here as a fallback if the Flask app is ever
         # initialised without a discoverable static folder.
         from flask import send_from_directory
+
         static_dir = Path(__file__).resolve().parent / "static"
         return send_from_directory(static_dir, "app.css")
 
@@ -239,7 +254,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
                 conn.close()
             finally:
                 g.db = None
-
 
     # ── Page routes ───────────────────────────────────────────────────────
 

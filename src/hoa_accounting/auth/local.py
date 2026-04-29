@@ -15,11 +15,13 @@ _log = logging.getLogger(__name__)
 
 def hash_password(password: str) -> str:
     import bcrypt
+
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def _check_password(plain: str, hashed: str) -> bool:
     import bcrypt
+
     try:
         return bcrypt.checkpw(plain.encode(), hashed.encode())
     except Exception as exc:
@@ -111,15 +113,24 @@ class LocalBackend:
         ).fetchone()
         return dict(row) if row else None
 
-    def create_user(self, email: str, display_name: str, role: str, password: str) -> int:
+    def create_user(
+        self, email: str, display_name: str, role: str, password: str
+    ) -> int:
         cur = self._conn.execute(
             "INSERT INTO local_users (email, display_name, role, password_hash) VALUES (?, ?, ?, ?)",
-            (email.strip().lower(), display_name.strip(), role, hash_password(password)),
+            (
+                email.strip().lower(),
+                display_name.strip(),
+                role,
+                hash_password(password),
+            ),
         )
         self._conn.commit()
         return cur.lastrowid  # type: ignore[return-value]
 
-    def update_user(self, user_id: int, display_name: str, role: str, is_active: bool) -> None:
+    def update_user(
+        self, user_id: int, display_name: str, role: str, is_active: bool
+    ) -> None:
         self._conn.execute(
             "UPDATE local_users SET display_name = ?, role = ?, is_active = ? WHERE id = ?",
             (display_name.strip(), role, 1 if is_active else 0, user_id),
@@ -155,5 +166,7 @@ class LocalBackend:
         self._conn.commit()
 
     def delete_override(self, override_id: int) -> None:
-        self._conn.execute("DELETE FROM local_role_overrides WHERE id = ?", (override_id,))
+        self._conn.execute(
+            "DELETE FROM local_role_overrides WHERE id = ?", (override_id,)
+        )
         self._conn.commit()

@@ -11,7 +11,6 @@ import json
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
-
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 
@@ -35,6 +34,7 @@ def render_template(template_name: str, context: dict[str, Any] | None = None) -
     """Render a named template with the provided context."""
     import secrets as _secrets
     from flask import g, session
+
     ctx = dict(context or {})
     try:
         ctx.setdefault("current_user", getattr(g, "current_user", None))

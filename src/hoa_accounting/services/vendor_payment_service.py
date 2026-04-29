@@ -68,7 +68,7 @@ class VendorPaymentService:
             ).fetchone()
             if paid_row is not None:
                 bill_amount = Decimal(str(paid_row["bill_amount"]))
-                paid       = Decimal(str(paid_row["paid"]))
+                paid = Decimal(str(paid_row["paid"]))
                 new_status = "PAID" if paid >= bill_amount else "PARTIAL"
                 self.conn.execute(
                     "UPDATE vendor_bills SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",

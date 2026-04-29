@@ -24,61 +24,164 @@ from http import HTTPStatus
 
 from hoa_accounting.web.template_engine import render_template
 
-
 # ── Exportable data sets ─────────────────────────────────────────────────────
 
 EXPORT_GROUPS: list[dict[str, Any]] = [
     {
         "title": "Master Data",
         "types": [
-            {"key": "hoa_profile",      "label": "HOA Profile",            "filename": "hoa_profile"},
-            {"key": "board_members",    "label": "Board Members",          "filename": "board_members"},
-            {"key": "categories",       "label": "Categories (Chart)",     "filename": "categories"},
-            {"key": "owners",           "label": "Owners",                 "filename": "owners"},
-            {"key": "lots",             "label": "Lots",                   "filename": "lots"},
-            {"key": "lot_ownership",    "label": "Lot Ownership History",  "filename": "lot_ownership"},
-            {"key": "renters",          "label": "Renters",                "filename": "renters"},
-            {"key": "vendors",          "label": "Vendors",                "filename": "vendors"},
-            {"key": "bank_accounts",    "label": "Bank Accounts",          "filename": "bank_accounts"},
-            {"key": "budgets",          "label": "Budgets",                "filename": "budgets"},
-            {"key": "budget_lines",     "label": "Budget Line Detail",     "filename": "budget_lines"},
-            {"key": "assessment_rules", "label": "Assessment Rules",       "filename": "assessment_rules"},
-            {"key": "bill_templates",   "label": "Recurring Bill Templates","filename": "bill_templates"},
+            {"key": "hoa_profile", "label": "HOA Profile", "filename": "hoa_profile"},
+            {
+                "key": "board_members",
+                "label": "Board Members",
+                "filename": "board_members",
+            },
+            {
+                "key": "categories",
+                "label": "Categories (Chart)",
+                "filename": "categories",
+            },
+            {"key": "owners", "label": "Owners", "filename": "owners"},
+            {"key": "lots", "label": "Lots", "filename": "lots"},
+            {
+                "key": "lot_ownership",
+                "label": "Lot Ownership History",
+                "filename": "lot_ownership",
+            },
+            {"key": "renters", "label": "Renters", "filename": "renters"},
+            {"key": "vendors", "label": "Vendors", "filename": "vendors"},
+            {
+                "key": "bank_accounts",
+                "label": "Bank Accounts",
+                "filename": "bank_accounts",
+            },
+            {"key": "budgets", "label": "Budgets", "filename": "budgets"},
+            {
+                "key": "budget_lines",
+                "label": "Budget Line Detail",
+                "filename": "budget_lines",
+            },
+            {
+                "key": "assessment_rules",
+                "label": "Assessment Rules",
+                "filename": "assessment_rules",
+            },
+            {
+                "key": "bill_templates",
+                "label": "Recurring Bill Templates",
+                "filename": "bill_templates",
+            },
         ],
     },
     {
         "title": "Transactions & Financials",
         "types": [
-            {"key": "assessments",           "label": "Assessments / Charges",                "filename": "assessments"},
-            {"key": "payments",              "label": "Payments Received",                     "filename": "payments"},
-            {"key": "payment_applications",  "label": "Payment Applications (charge detail)",  "filename": "payment_applications"},
-            {"key": "owner_adjustments",     "label": "Owner Adjustments (credits/write-offs)","filename": "owner_adjustments"},
-            {"key": "dues_billing_history",  "label": "Dues Billing History",                  "filename": "dues_billing_history"},
-            {"key": "vendor_bills",          "label": "Vendor Bills",                          "filename": "vendor_bills"},
-            {"key": "bill_payments",         "label": "Bill Payments",                         "filename": "bill_payments"},
-            {"key": "deposit_batches",       "label": "Deposit Batches",                       "filename": "deposit_batches"},
-            {"key": "non_dues_income",       "label": "Non-Dues Income",                       "filename": "non_dues_income"},
-            {"key": "bank_transactions",     "label": "Bank Transactions (canonical feed)",    "filename": "bank_transactions"},
-            {"key": "bank_transaction_links","label": "Bank Transaction Links",                "filename": "bank_transaction_links"},
-            {"key": "bank_transaction_rules","label": "Bank Transaction Rules",                "filename": "bank_transaction_rules"},
+            {
+                "key": "assessments",
+                "label": "Assessments / Charges",
+                "filename": "assessments",
+            },
+            {"key": "payments", "label": "Payments Received", "filename": "payments"},
+            {
+                "key": "payment_applications",
+                "label": "Payment Applications (charge detail)",
+                "filename": "payment_applications",
+            },
+            {
+                "key": "owner_adjustments",
+                "label": "Owner Adjustments (credits/write-offs)",
+                "filename": "owner_adjustments",
+            },
+            {
+                "key": "dues_billing_history",
+                "label": "Dues Billing History",
+                "filename": "dues_billing_history",
+            },
+            {
+                "key": "vendor_bills",
+                "label": "Vendor Bills",
+                "filename": "vendor_bills",
+            },
+            {
+                "key": "bill_payments",
+                "label": "Bill Payments",
+                "filename": "bill_payments",
+            },
+            {
+                "key": "deposit_batches",
+                "label": "Deposit Batches",
+                "filename": "deposit_batches",
+            },
+            {
+                "key": "non_dues_income",
+                "label": "Non-Dues Income",
+                "filename": "non_dues_income",
+            },
+            {
+                "key": "bank_transactions",
+                "label": "Bank Transactions (canonical feed)",
+                "filename": "bank_transactions",
+            },
+            {
+                "key": "bank_transaction_links",
+                "label": "Bank Transaction Links",
+                "filename": "bank_transaction_links",
+            },
+            {
+                "key": "bank_transaction_rules",
+                "label": "Bank Transaction Rules",
+                "filename": "bank_transaction_rules",
+            },
         ],
     },
     {
         "title": "Historical & Operational",
         "types": [
-            {"key": "bank_reconciliations",  "label": "Bank Reconciliations",   "filename": "bank_reconciliations"},
-            {"key": "reserve_transfers",     "label": "Reserve Transfers",       "filename": "reserve_transfers"},
-            {"key": "opening_balances",      "label": "Opening Balances",        "filename": "opening_balances"},
-            {"key": "accounting_periods",    "label": "Accounting Periods",      "filename": "accounting_periods"},
+            {
+                "key": "bank_reconciliations",
+                "label": "Bank Reconciliations",
+                "filename": "bank_reconciliations",
+            },
+            {
+                "key": "reserve_transfers",
+                "label": "Reserve Transfers",
+                "filename": "reserve_transfers",
+            },
+            {
+                "key": "opening_balances",
+                "label": "Opening Balances",
+                "filename": "opening_balances",
+            },
+            {
+                "key": "accounting_periods",
+                "label": "Accounting Periods",
+                "filename": "accounting_periods",
+            },
         ],
     },
     {
         "title": "Reserve Study",
         "types": [
-            {"key": "reserve_assets",            "label": "Reserve Assets",             "filename": "reserve_assets"},
-            {"key": "reserve_components",        "label": "Reserve Components",         "filename": "reserve_components"},
-            {"key": "reserve_study_assumptions", "label": "Reserve Study Assumptions",  "filename": "reserve_study_assumptions"},
-            {"key": "reserve_study_scenarios",   "label": "Reserve Study Scenarios",    "filename": "reserve_study_scenarios"},
+            {
+                "key": "reserve_assets",
+                "label": "Reserve Assets",
+                "filename": "reserve_assets",
+            },
+            {
+                "key": "reserve_components",
+                "label": "Reserve Components",
+                "filename": "reserve_components",
+            },
+            {
+                "key": "reserve_study_assumptions",
+                "label": "Reserve Study Assumptions",
+                "filename": "reserve_study_assumptions",
+            },
+            {
+                "key": "reserve_study_scenarios",
+                "label": "Reserve Study Scenarios",
+                "filename": "reserve_study_scenarios",
+            },
         ],
     },
 ]
@@ -237,7 +340,6 @@ QUERIES: dict[str, str] = {
         JOIN vendors v ON v.id = bt.vendor_id
         ORDER BY bt.template_name
     """,
-
     # ── Transactions & Financials ────────────────────────────────────────
     "assessments": """
         SELECT
@@ -444,7 +546,6 @@ QUERIES: dict[str, str] = {
         LEFT JOIN lots          l  ON l.id  = r.lot_id
         ORDER BY r.rule_name
     """,
-
     # ── Historical & Operational ─────────────────────────────────────────
     "bank_reconciliations": """
         SELECT
@@ -510,7 +611,6 @@ QUERIES: dict[str, str] = {
         FROM accounting_periods
         ORDER BY fiscal_year, fiscal_period
     """,
-
     # ── Reserve Study ────────────────────────────────────────────────────
     "reserve_assets": """
         SELECT
@@ -559,6 +659,7 @@ QUERIES: dict[str, str] = {
 
 # ── File-building helpers ────────────────────────────────────────────────────
 
+
 def _build_file(headers: list[str], rows: list[tuple[Any, ...]]) -> str:
     """
     Return the CSV file content as a string.
@@ -579,6 +680,7 @@ def _build_file(headers: list[str], rows: list[tuple[Any, ...]]) -> str:
 
 
 # ── Page service ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ExportPageResponse:

@@ -29,19 +29,18 @@ from hoa_accounting.services.deposit_batch_service import DepositRow
 from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.template_engine import render_template
 
-
 # Map category code → row behavior + which open charges this category
 # drains when the row is an owner payment.
 #
 # Categories not listed here default to behavior="other" (non-owner
 # income — no lot picker, no charge drain).
 CATEGORY_BEHAVIOR: dict[str, dict[str, Any]] = {
-    "DUES":             {"behavior": "regular",  "charge_types": ("DUES", "LATE_FEE")},
-    "LATE_FEE":         {"behavior": "regular",  "charge_types": ("DUES", "LATE_FEE")},
-    "RESALE_FEE":       {"behavior": "specific", "charge_types": ("RESALE_FEE",)},
-    "BANK_INTEREST":    {"behavior": "other",    "charge_types": ()},
-    "RESERVE_INTEREST": {"behavior": "other",    "charge_types": ()},
-    "OTHER_INCOME":     {"behavior": "other",    "charge_types": ()},
+    "DUES": {"behavior": "regular", "charge_types": ("DUES", "LATE_FEE")},
+    "LATE_FEE": {"behavior": "regular", "charge_types": ("DUES", "LATE_FEE")},
+    "RESALE_FEE": {"behavior": "specific", "charge_types": ("RESALE_FEE",)},
+    "BANK_INTEREST": {"behavior": "other", "charge_types": ()},
+    "RESERVE_INTEREST": {"behavior": "other", "charge_types": ()},
+    "OTHER_INCOME": {"behavior": "other", "charge_types": ()},
 }
 
 
@@ -73,14 +72,12 @@ class RecordDepositPages:
         prior_memo: str = "",
         prior_rows: list[dict[str, Any]] | None = None,
     ) -> PageResponse:
-        accounts = self._conn.execute(
-            """
+        accounts = self._conn.execute("""
             SELECT id, account_name, account_last4, account_type
             FROM bank_accounts
             WHERE active_flag = 1 OR active_flag IS NULL
             ORDER BY account_name
-            """
-        ).fetchall()
+            """).fetchall()
         # Default the bank dropdown to the operating account so the
         # treasurer doesn't have to pick it on every deposit.
         default_bank_id: int | None = None
@@ -97,8 +94,7 @@ class RecordDepositPages:
         # among current (end_date IS NULL) ownerships. Show first + last name
         # in the dropdown; fall back to display_name for entity-style owners
         # that have no first/last set.
-        lots = self._conn.execute(
-            """
+        lots = self._conn.execute("""
             SELECT
                 l.id,
                 l.lot_number,
@@ -119,16 +115,13 @@ class RecordDepositPages:
                    )
             LEFT JOIN owners o ON o.id = lo.owner_id
             ORDER BY l.lot_number
-            """
-        ).fetchall()
-        cat_rows = self._conn.execute(
-            """
+            """).fetchall()
+        cat_rows = self._conn.execute("""
             SELECT id, code, name, group_name
             FROM categories
             WHERE active_flag = 1 AND category_type = 'INCOME'
             ORDER BY sort_order, name
-            """
-        ).fetchall()
+            """).fetchall()
         # Decorate each category with its behavior + charge_types so the
         # template's JS can swap row UI by reading data attributes.
         categories: list[dict[str, Any]] = []
@@ -137,14 +130,16 @@ class RecordDepositPages:
                 str(c["code"] or "").upper(),
                 {"behavior": "other", "charge_types": ()},
             )
-            categories.append({
-                "id": c["id"],
-                "code": c["code"] or "",
-                "name": c["name"] or "",
-                "group_name": c["group_name"] or "",
-                "behavior": spec["behavior"],
-                "charge_types": ",".join(spec["charge_types"]),
-            })
+            categories.append(
+                {
+                    "id": c["id"],
+                    "code": c["code"] or "",
+                    "name": c["name"] or "",
+                    "group_name": c["group_name"] or "",
+                    "behavior": spec["behavior"],
+                    "charge_types": ",".join(spec["charge_types"]),
+                }
+            )
 
         ctx = {
             "heading": "Record Deposit",
@@ -194,12 +189,10 @@ class RecordDepositPages:
 
         # Build a quick lookup from category id → (code, behavior, charge_types).
         cat_lookup: dict[int, dict[str, Any]] = {}
-        for c in self._conn.execute(
-            """
+        for c in self._conn.execute("""
             SELECT id, code FROM categories
             WHERE active_flag = 1 AND category_type = 'INCOME'
-            """
-        ).fetchall():
+            """).fetchall():
             cat_spec = CATEGORY_BEHAVIOR.get(
                 str(c["code"] or "").upper(),
                 {"behavior": "other", "charge_types": ()},
@@ -216,7 +209,9 @@ class RecordDepositPages:
 
         for idx, r in enumerate(rows, start=1):
             cat_raw = (r.get("category_id") or "").strip()
-            amount_raw = (r.get("amount") or "").strip().replace(",", "").replace("$", "")
+            amount_raw = (
+                (r.get("amount") or "").strip().replace(",", "").replace("$", "")
+            )
             lot_raw = (r.get("lot_id") or "").strip()
             ids_raw = (r.get("assessment_ids") or "").strip()
 
@@ -257,13 +252,15 @@ class RecordDepositPages:
                 if not lot_raw.isdigit():
                     errors.append(f"Row {idx}: pick a lot.")
                     continue
-                owner_rows.append(DepositRow(
-                    lot_id=int(lot_raw),
-                    amount=amount,
-                    reference_number=ref or None,
-                    memo=memo_row or None,
-                    charge_type_filter=spec["charge_types"],
-                ))
+                owner_rows.append(
+                    DepositRow(
+                        lot_id=int(lot_raw),
+                        amount=amount,
+                        reference_number=ref or None,
+                        memo=memo_row or None,
+                        charge_type_filter=spec["charge_types"],
+                    )
+                )
             elif behavior == "specific":
                 if not lot_raw.isdigit():
                     errors.append(f"Row {idx}: pick a lot.")
@@ -275,29 +272,35 @@ class RecordDepositPages:
                         if piece.isdigit():
                             ids.append(int(piece))
                 if ids:
-                    owner_rows.append(DepositRow(
-                        lot_id=int(lot_raw),
-                        amount=amount,
-                        reference_number=ref or None,
-                        memo=memo_row or None,
-                        apply_to_assessment_ids=tuple(ids),
-                    ))
+                    owner_rows.append(
+                        DepositRow(
+                            lot_id=int(lot_raw),
+                            amount=amount,
+                            reference_number=ref or None,
+                            memo=memo_row or None,
+                            apply_to_assessment_ids=tuple(ids),
+                        )
+                    )
                 else:
                     # No specific charges ticked — drain matching-type
                     # open charges oldest-first (e.g. resale fees only).
-                    owner_rows.append(DepositRow(
-                        lot_id=int(lot_raw),
-                        amount=amount,
-                        reference_number=ref or None,
-                        memo=memo_row or None,
-                        charge_type_filter=spec["charge_types"],
-                    ))
+                    owner_rows.append(
+                        DepositRow(
+                            lot_id=int(lot_raw),
+                            amount=amount,
+                            reference_number=ref or None,
+                            memo=memo_row or None,
+                            charge_type_filter=spec["charge_types"],
+                        )
+                    )
             else:  # "other"
-                other_rows.append({
-                    "amount": amount,
-                    "category_id": cat_id,
-                    "description": memo_row or "Non-owner income",
-                })
+                other_rows.append(
+                    {
+                        "amount": amount,
+                        "category_id": cat_id,
+                        "description": memo_row or "Non-owner income",
+                    }
+                )
 
         if errors:
             return "/deposit", " ".join(errors)
@@ -342,7 +345,12 @@ class RecordDepositPages:
                     """INSERT INTO deposit_batches
                        (deposit_date, bank_account_id, total_amount, notes)
                        VALUES (?, ?, ?, ?)""",
-                    (deposit_date, int(bank_account_id), str(other_total), memo or None),
+                    (
+                        deposit_date,
+                        int(bank_account_id),
+                        str(other_total),
+                        memo or None,
+                    ),
                 )
                 deposit_batch_id = int(cur.lastrowid or 0)
                 # Attach the income_batches we just created to this new batch.

@@ -17,7 +17,6 @@ from hoa_accounting.config.models import (
 )
 from hoa_accounting.exceptions import ValidationError
 
-
 _T = TypeVar("_T")
 
 

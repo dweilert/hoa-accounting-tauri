@@ -28,14 +28,17 @@ def install_error_handler(app: Flask, org_context: dict[str, Any]) -> None:
         show_traceback = org_context.get("environment") == "local"
         trace_str = traceback.format_exc() if show_traceback else None
         theme = str(org_context.get("theme", "warm"))
-        html = render_template("error_500.html", {
-            "active_nav": "",
-            "page_key": "",
-            "breadcrumb": "",
-            "org": org_context,
-            "theme": theme,
-            "error_type": type(exc).__name__,
-            "error_message": str(exc),
-            "traceback": trace_str,
-        })
+        html = render_template(
+            "error_500.html",
+            {
+                "active_nav": "",
+                "page_key": "",
+                "breadcrumb": "",
+                "org": org_context,
+                "theme": theme,
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "traceback": trace_str,
+            },
+        )
         return Response(html, status=500, mimetype="text/html; charset=utf-8")

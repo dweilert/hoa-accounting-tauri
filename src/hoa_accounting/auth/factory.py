@@ -15,13 +15,14 @@ _COGNITO_RECHECK_INTERVAL = 60  # seconds between reachability probes
 def _cognito_reachable(region: str, user_pool_id: str) -> bool:
     """Quick TCP/HTTP probe of the Cognito JWKS endpoint (2 s timeout)."""
     import urllib.request
+
     url = (
         f"https://cognito-idp.{region}.amazonaws.com"
         f"/{user_pool_id}/.well-known/jwks.json"
     )
     try:
         with urllib.request.urlopen(url, timeout=2) as resp:
-                return resp.status == 200  # type: ignore[no-any-return]
+            return resp.status == 200  # type: ignore[no-any-return]
     except Exception:
         return False
 
@@ -77,7 +78,10 @@ class AuthManager:
 
     def _check_cognito_reachable(self) -> bool:
         now = time.monotonic()
-        if self._cognito_reachable is None or (now - self._cognito_checked_at) > _COGNITO_RECHECK_INTERVAL:
+        if (
+            self._cognito_reachable is None
+            or (now - self._cognito_checked_at) > _COGNITO_RECHECK_INTERVAL
+        ):
             cognito_cfg = self._cfg.cognito
             self._cognito_reachable = _cognito_reachable(
                 cognito_cfg.get("region", "us-east-1"),
@@ -110,8 +114,11 @@ def build_auth_manager(raw_config: dict[str, Any], db_path: str) -> AuthManager:
 
     cognito_backend = None
     cognito_cfg = cfg.cognito
-    if cfg.backend in ("cognito", "cognito_with_local_fallback") and cognito_cfg.get("user_pool_id"):
+    if cfg.backend in ("cognito", "cognito_with_local_fallback") and cognito_cfg.get(
+        "user_pool_id"
+    ):
         from hoa_accounting.auth.cognito import CognitoBackend
+
         cognito_backend = CognitoBackend(
             user_pool_id=cognito_cfg.get("user_pool_id", ""),
             client_id=cognito_cfg.get("client_id", ""),

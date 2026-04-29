@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from hoa_accounting.exceptions import ClosedPeriodError, ValidationError
-from hoa_accounting.repositories.reserve_transfers_repo import ReserveTransfersRepository
+from hoa_accounting.repositories.reserve_transfers_repo import (
+    ReserveTransfersRepository,
+)
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 
@@ -20,7 +22,7 @@ class PageResponse:
 
 
 _TYPE_LABELS = {
-    "FUND":     "Fund Reserve  (Operating → Reserve)",
+    "FUND": "Fund Reserve  (Operating → Reserve)",
     "WITHDRAW": "Reserve Withdrawal  (Reserve → Operating)",
 }
 
@@ -38,12 +40,22 @@ class ReserveTransferPages:
     def _render(self, template: str, **ctx: Any) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
-    def _render_error(self, status: int, msg: str, org: dict[str, Any], theme: str) -> PageResponse:
-        return PageResponse(status, render_template("error.html", {
-            "org": org, "theme": theme,
-            "heading": "Error", "message": msg,
-            "page_key": "reserve-transfers",
-        }))
+    def _render_error(
+        self, status: int, msg: str, org: dict[str, Any], theme: str
+    ) -> PageResponse:
+        return PageResponse(
+            status,
+            render_template(
+                "error.html",
+                {
+                    "org": org,
+                    "theme": theme,
+                    "heading": "Error",
+                    "message": msg,
+                    "page_key": "reserve-transfers",
+                },
+            ),
+        )
 
     # ── List ───────────────────────────────────────────────────────────
 
@@ -65,7 +77,8 @@ class ReserveTransferPages:
         reserve_balance = self._repo.get_reserve_balance()
         return self._render(
             "reserve_transfers_list.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="reserve-transfers",
             heading="Reserve Transfers",
             rows=rows,
@@ -90,7 +103,8 @@ class ReserveTransferPages:
     ) -> PageResponse:
         return self._render(
             "reserve_transfer_new.html",
-            org=org, theme=theme,
+            org=org,
+            theme=theme,
             page_key="reserve-transfers",
             heading="New Reserve Transfer",
             error=error,
@@ -128,8 +142,14 @@ class ReserveTransferPages:
         if transfer_type == "WITHDRAW" and not purpose:
             return _err("Purpose is required for reserve withdrawals.")
 
-        memo = purpose or notes or (
-            "Fund Reserve transfer" if transfer_type == "FUND" else "Reserve withdrawal"
+        memo = (
+            purpose
+            or notes
+            or (
+                "Fund Reserve transfer"
+                if transfer_type == "FUND"
+                else "Reserve withdrawal"
+            )
         )
 
         try:

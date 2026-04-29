@@ -25,7 +25,6 @@ from hoa_accounting.bootstrap.migrator import Migrator
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.web.lot_pages import LotPages
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────
 
 
@@ -66,8 +65,12 @@ def _seed_owner_on_lot(conn: sqlite3.Connection, lot_id: int) -> int:
     return owner_id
 
 
-_ORG = {"name": "Test HOA", "environment": "test",
-        "fiscal_year_start_month": 1, "theme": "warm"}
+_ORG = {
+    "name": "Test HOA",
+    "environment": "test",
+    "fiscal_year_start_month": 1,
+    "theme": "warm",
+}
 
 
 # ── render_list ────────────────────────────────────────────────────────
@@ -138,7 +141,8 @@ def test_handle_add_success(conn: sqlite3.Connection) -> None:
             "state": "TX",
             "postal_code": "78702",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url == "/lots?msg=Lot+added."
     assert form_resp is None
@@ -151,7 +155,8 @@ def test_handle_add_missing_lot_number_returns_error(
 ) -> None:
     redirect_url, form_resp = LotPages(conn).handle_add(
         form_data={"street_address_1": "10 Main St"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -165,7 +170,8 @@ def test_handle_add_duplicate_lot_number_returns_error(
     _seed_lot(conn, "L-1")
     redirect_url, form_resp = LotPages(conn).handle_add(
         form_data={"lot_number": "L-1"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -188,7 +194,8 @@ def test_handle_edit_success(conn: sqlite3.Connection) -> None:
             "postal_code": "75201",
             "active_flag": "1",
         },
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is not None and "Lot+updated" in redirect_url
     assert form_resp is None
@@ -202,7 +209,8 @@ def test_handle_edit_can_keep_same_lot_number(conn: sqlite3.Connection) -> None:
     redirect_url, form_resp = LotPages(conn).handle_edit(
         lot_id=lot_id,
         form_data={"lot_number": "L-1", "street_address_1": "Same", "active_flag": "1"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is not None and "Lot+updated" in redirect_url
     assert form_resp is None
@@ -216,7 +224,8 @@ def test_handle_edit_duplicate_lot_number_other_lot_returns_error(
     redirect_url, form_resp = LotPages(conn).handle_edit(
         lot_id=lot2_id,
         form_data={"lot_number": "L-1", "active_flag": "1"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None
@@ -229,7 +238,8 @@ def test_handle_edit_deactivate_lot(conn: sqlite3.Connection) -> None:
     LotPages(conn).handle_edit(
         lot_id=lot_id,
         form_data={"lot_number": "L-1", "active_flag": "0"},
-        org=_ORG, theme="warm",
+        org=_ORG,
+        theme="warm",
     )
     row = LotsRepository(conn).get_lot(lot_id)
     assert row["active_flag"] == 0
@@ -241,7 +251,9 @@ def test_handle_edit_deactivate_lot(conn: sqlite3.Connection) -> None:
 def test_handle_delete_success(conn: sqlite3.Connection) -> None:
     lot_id = _seed_lot(conn, "L-99")
     redirect_url, form_resp = LotPages(conn).handle_delete(
-        lot_id=lot_id, org=_ORG, theme="warm",
+        lot_id=lot_id,
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url == "/lots?msg=Lot+deleted."
     assert form_resp is None
@@ -254,7 +266,9 @@ def test_handle_delete_with_current_owner_returns_error(
     lot_id = _seed_lot(conn)
     _seed_owner_on_lot(conn, lot_id)
     redirect_url, form_resp = LotPages(conn).handle_delete(
-        lot_id=lot_id, org=_ORG, theme="warm",
+        lot_id=lot_id,
+        org=_ORG,
+        theme="warm",
     )
     assert redirect_url is None
     assert form_resp is not None

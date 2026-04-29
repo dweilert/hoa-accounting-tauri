@@ -15,29 +15,59 @@ class UserManagementPages:
         self._am = auth_manager
 
     def register(self, app: Flask) -> None:
-        app.add_url_rule("/system/users", "users_list",
-                         require_admin(self._list), methods=["GET"])
-        app.add_url_rule("/system/users/new", "users_new",
-                         require_admin(self._new), methods=["GET", "POST"])
-        app.add_url_rule("/system/users/<int:uid>/edit", "users_edit",
-                         require_admin(self._edit), methods=["GET", "POST"])
-        app.add_url_rule("/system/users/<int:uid>/password", "users_password",
-                         require_admin(self._set_password), methods=["POST"])
-        app.add_url_rule("/system/users/<int:uid>/delete", "users_delete",
-                         require_admin(self._delete), methods=["POST"])
-        app.add_url_rule("/system/overrides", "overrides_list",
-                         require_admin(self._overrides), methods=["GET", "POST"])
-        app.add_url_rule("/system/overrides/<int:oid>/delete", "overrides_delete",
-                         require_admin(self._delete_override), methods=["POST"])
+        app.add_url_rule(
+            "/system/users", "users_list", require_admin(self._list), methods=["GET"]
+        )
+        app.add_url_rule(
+            "/system/users/new",
+            "users_new",
+            require_admin(self._new),
+            methods=["GET", "POST"],
+        )
+        app.add_url_rule(
+            "/system/users/<int:uid>/edit",
+            "users_edit",
+            require_admin(self._edit),
+            methods=["GET", "POST"],
+        )
+        app.add_url_rule(
+            "/system/users/<int:uid>/password",
+            "users_password",
+            require_admin(self._set_password),
+            methods=["POST"],
+        )
+        app.add_url_rule(
+            "/system/users/<int:uid>/delete",
+            "users_delete",
+            require_admin(self._delete),
+            methods=["POST"],
+        )
+        app.add_url_rule(
+            "/system/overrides",
+            "overrides_list",
+            require_admin(self._overrides),
+            methods=["GET", "POST"],
+        )
+        app.add_url_rule(
+            "/system/overrides/<int:oid>/delete",
+            "overrides_delete",
+            require_admin(self._delete_override),
+            methods=["POST"],
+        )
 
     # ── Context helper ────────────────────────────────────────────────────
 
     def _ctx(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         from flask import g
+
         ctx = {
             "active_nav": "system",
             "page_key": "users",
-            "theme": getattr(g, "org", {}).get("theme", "warm") if hasattr(g, "org") else "warm",
+            "theme": (
+                getattr(g, "org", {}).get("theme", "warm")
+                if hasattr(g, "org")
+                else "warm"
+            ),
             "org": getattr(g, "org", {}),
             "breadcrumb": "System",
         }
@@ -49,10 +79,15 @@ class UserManagementPages:
 
     def _list(self) -> Any:
         users = self._am.local.list_users()
-        return render_template("users_list.html", self._ctx({
-            "users": users,
-            "flash": request.args.get("flash"),
-        }))
+        return render_template(
+            "users_list.html",
+            self._ctx(
+                {
+                    "users": users,
+                    "flash": request.args.get("flash"),
+                }
+            ),
+        )
 
     # ── New user ──────────────────────────────────────────────────────────
 
@@ -77,12 +112,17 @@ class UserManagementPages:
                 self._am.local.create_user(email, display_name, role, password)
                 return redirect("/system/users?flash=created")
 
-        return render_template("user_form.html", self._ctx({
-            "form_action": "/system/users/new",
-            "form_title": "Add User",
-            "user": None,
-            "error": error,
-        }))
+        return render_template(
+            "user_form.html",
+            self._ctx(
+                {
+                    "form_action": "/system/users/new",
+                    "form_title": "Add User",
+                    "user": None,
+                    "error": error,
+                }
+            ),
+        )
 
     # ── Edit user ─────────────────────────────────────────────────────────
 
@@ -99,12 +139,17 @@ class UserManagementPages:
             self._am.local.update_user(uid, display_name, role, is_active)
             return redirect("/system/users?flash=saved")
 
-        return render_template("user_form.html", self._ctx({
-            "form_action": f"/system/users/{uid}/edit",
-            "form_title": "Edit User",
-            "user": user,
-            "error": error,
-        }))
+        return render_template(
+            "user_form.html",
+            self._ctx(
+                {
+                    "form_action": f"/system/users/{uid}/edit",
+                    "form_title": "Edit User",
+                    "user": user,
+                    "error": error,
+                }
+            ),
+        )
 
     # ── Set password ──────────────────────────────────────────────────────
 
@@ -139,12 +184,17 @@ class UserManagementPages:
                     return redirect("/system/overrides?flash=saved")
 
         overrides = self._am.local.list_overrides()
-        return render_template("role_overrides.html", self._ctx({
-            "page_key": "overrides",
-            "overrides": overrides,
-            "flash": request.args.get("flash"),
-            "error": error,
-        }))
+        return render_template(
+            "role_overrides.html",
+            self._ctx(
+                {
+                    "page_key": "overrides",
+                    "overrides": overrides,
+                    "flash": request.args.get("flash"),
+                    "error": error,
+                }
+            ),
+        )
 
     def _delete_override(self, oid: int) -> Any:
         self._am.local.delete_override(oid)

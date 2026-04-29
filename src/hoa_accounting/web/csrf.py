@@ -10,21 +10,22 @@ from __future__ import annotations
 
 from flask import Flask, Response, abort, request, session
 
-
 # Routes exempted from CSRF. Each must justify why:
 #   - ``/login``, ``/logout``, ``/auth/callback`` — pre-session; no token can exist yet.
 #   - ``/setup/*`` — first-time setup wizard; runs before any session is established.
 #   - ``/api/ofx-ready`` — fetcher daemon webhook; localhost-only + path-validated in handler.
-_CSRF_EXEMPT = frozenset({
-    "/login",
-    "/logout",
-    "/auth/callback",
-    "/setup/admin",
-    "/setup/login",
-    "/setup/identity",
-    "/setup/assessment",
-    "/api/ofx-ready",
-})
+_CSRF_EXEMPT = frozenset(
+    {
+        "/login",
+        "/logout",
+        "/auth/callback",
+        "/setup/admin",
+        "/setup/login",
+        "/setup/identity",
+        "/setup/assessment",
+        "/api/ofx-ready",
+    }
+)
 
 
 def install_csrf_guard(app: Flask) -> None:
@@ -38,9 +39,8 @@ def install_csrf_guard(app: Flask) -> None:
         if request.path in _CSRF_EXEMPT:
             return None
         expected = session.get("_csrf_token")
-        provided = (
-            request.form.get("_csrf_token")
-            or request.headers.get("X-CSRF-Token")
+        provided = request.form.get("_csrf_token") or request.headers.get(
+            "X-CSRF-Token"
         )
         if not expected or expected != provided:
             abort(403)

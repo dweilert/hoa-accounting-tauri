@@ -42,22 +42,24 @@ class BudgetSummaryReportService:
         total_amounts = [Decimal("0.00")] * n
         for gc in group_order:
             g_rows = group_map[gc]
-            sub = [
-                q2(sum(r.year_amounts[i] for r in g_rows))
-                for i in range(n)
-            ]
+            sub = [q2(sum(r.year_amounts[i] for r in g_rows)) for i in range(n)]
             sub_pct = [self._pct_change(sub[i], sub[i + 1]) for i in range(n - 1)]
-            groups.append(BudgetSummaryGroup(
-                group_code=gc,
-                rows=g_rows,
-                subtotal_amounts=sub,
-                subtotal_pct_changes=sub_pct,
-            ))
+            groups.append(
+                BudgetSummaryGroup(
+                    group_code=gc,
+                    rows=g_rows,
+                    subtotal_amounts=sub,
+                    subtotal_pct_changes=sub_pct,
+                )
+            )
             for i in range(n):
                 total_amounts[i] += sub[i]
 
         total_amounts = [q2(a) for a in total_amounts]
-        total_pct = [self._pct_change(total_amounts[i], total_amounts[i + 1]) for i in range(n - 1)]
+        total_pct = [
+            self._pct_change(total_amounts[i], total_amounts[i + 1])
+            for i in range(n - 1)
+        ]
 
         return BudgetSummaryReport(
             years=years,
@@ -108,13 +110,17 @@ class BudgetSummaryReportService:
             amounts = [q2(row[f"amt_{i}"]) for i in range(n)]
             if all(a == Decimal("0.00") for a in amounts):
                 continue
-            pct_changes = [self._pct_change(amounts[i], amounts[i + 1]) for i in range(n - 1)]
-            result.append(BudgetSummaryRow(
-                category_name=str(row["category_name"]),
-                group_code=str(row["group_code"]),
-                year_amounts=amounts,
-                pct_changes=pct_changes,
-            ))
+            pct_changes = [
+                self._pct_change(amounts[i], amounts[i + 1]) for i in range(n - 1)
+            ]
+            result.append(
+                BudgetSummaryRow(
+                    category_name=str(row["category_name"]),
+                    group_code=str(row["group_code"]),
+                    year_amounts=amounts,
+                    pct_changes=pct_changes,
+                )
+            )
         return result
 
     def _pct_change(self, old: Decimal, new: Decimal) -> str:

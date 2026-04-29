@@ -13,8 +13,7 @@ class CategoriesReportService:
         self.conn = conn
 
     def generate(self) -> CategoriesReport:
-        rows = self.conn.execute(
-            """
+        rows = self.conn.execute("""
             SELECT code, name, category_type,
                    COALESCE(group_name, '')  AS group_name,
                    fund_code,
@@ -23,8 +22,7 @@ class CategoriesReportService:
                    COALESCE(description, '') AS description
             FROM categories
             ORDER BY category_type, name COLLATE NOCASE
-            """
-        ).fetchall()
+            """).fetchall()
 
         report_rows: list[CategoriesReportRow] = []
         for row in rows:

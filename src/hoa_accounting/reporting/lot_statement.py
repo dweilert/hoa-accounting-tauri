@@ -86,9 +86,9 @@ class LotStatementReportService:
             """,
             (lot_id,),
         ).fetchone()
-        presystem_dues    = q2(ob_presystem["dues_amount"]   if ob_presystem else 0)
-        presystem_assess  = q2(ob_presystem["assess_amount"] if ob_presystem else 0)
-        presystem_total   = presystem_dues + presystem_assess
+        presystem_dues = q2(ob_presystem["dues_amount"] if ob_presystem else 0)
+        presystem_assess = q2(ob_presystem["assess_amount"] if ob_presystem else 0)
+        presystem_total = presystem_dues + presystem_assess
 
         # ── Opening balance ───────────────────────────────────────────────────
         # = pre-system balance + charges before this year (non-voided assessments
@@ -123,11 +123,11 @@ class LotStatementReportService:
                 ), 0)
                 AS opening_balance
             """,
-            (lot_id, from_date,
-             lot_id, from_date,
-             lot_id, from_date),
+            (lot_id, from_date, lot_id, from_date, lot_id, from_date),
         ).fetchone()
-        opening_balance = q2((ob_row["opening_balance"] if ob_row else 0) + presystem_total)
+        opening_balance = q2(
+            (ob_row["opening_balance"] if ob_row else 0) + presystem_total
+        )
 
         # ── Opening balance breakdown by charge type ──────────────────────────
         # Net balance per charge type = billed before year - payments applied
@@ -176,17 +176,21 @@ class LotStatementReportService:
         # Pre-system lines first, then in-system calculated lines
         opening_balance_lines: list[OpeningBalanceLine] = []
         if presystem_dues:
-            opening_balance_lines.append(OpeningBalanceLine(
-                charge_type="OB_DUES",
-                label="Prior Balance — Dues",
-                amount=presystem_dues,
-            ))
+            opening_balance_lines.append(
+                OpeningBalanceLine(
+                    charge_type="OB_DUES",
+                    label="Prior Balance — Dues",
+                    amount=presystem_dues,
+                )
+            )
         if presystem_assess:
-            opening_balance_lines.append(OpeningBalanceLine(
-                charge_type="OB_ASSESSMENT",
-                label="Prior Balance — Assessment",
-                amount=presystem_assess,
-            ))
+            opening_balance_lines.append(
+                OpeningBalanceLine(
+                    charge_type="OB_ASSESSMENT",
+                    label="Prior Balance — Assessment",
+                    amount=presystem_assess,
+                )
+            )
         opening_balance_lines += [
             OpeningBalanceLine(
                 charge_type=str(r["charge_type"]),
@@ -281,9 +285,15 @@ class LotStatementReportService:
             ORDER BY sort_key
             """,
             (
-                lot_id, from_date, to_date,    # assessments
-                lot_id, from_date, to_date,    # payments
-                lot_id, from_date, to_date,    # adjustments
+                lot_id,
+                from_date,
+                to_date,  # assessments
+                lot_id,
+                from_date,
+                to_date,  # payments
+                lot_id,
+                from_date,
+                to_date,  # adjustments
             ),
         ).fetchall()
 

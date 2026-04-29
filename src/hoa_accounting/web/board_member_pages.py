@@ -28,12 +28,10 @@ class BoardMemberPages:
     def render_list(
         self, *, org: dict[str, Any], theme: str, flash_message: str = ""
     ) -> BoardMemberPageResponse:
-        rows = self.conn.execute(
-            """SELECT id, full_name, title, email, phone,
+        rows = self.conn.execute("""SELECT id, full_name, title, email, phone,
                       start_date, end_date, is_active, notes
                FROM board_members
-               ORDER BY is_active DESC, title, full_name"""
-        ).fetchall()
+               ORDER BY is_active DESC, title, full_name""").fetchall()
         ctx = {
             "heading": "Board Members",
             "org": org,
@@ -75,12 +73,15 @@ class BoardMemberPages:
 
     # ── Add ──────────────────────────────────────────────────────────────
 
-    def handle_add(self, *, form: dict[str, Any], org: dict[str, Any], theme: str) -> tuple[str | None, BoardMemberPageResponse | None]:
+    def handle_add(
+        self, *, form: dict[str, Any], org: dict[str, Any], theme: str
+    ) -> tuple[str | None, BoardMemberPageResponse | None]:
         full_name = (form.get("full_name") or "").strip()
         title = (form.get("title") or "").strip()
         if not full_name or not title:
             resp = self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 member=dict(form),
                 error_message="Full Name and Title are required.",
             )
@@ -132,7 +133,8 @@ class BoardMemberPages:
             merged = dict(form)
             merged["id"] = member_id
             resp = self.render_form(
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 member=merged,
                 error_message="Full Name and Title are required.",
             )

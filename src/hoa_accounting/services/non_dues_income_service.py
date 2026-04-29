@@ -67,9 +67,7 @@ class NonDuesIncomeService:
         """Post a non-dues income batch atomically."""
         with transaction(self.conn):
             if not rows:
-                raise ValidationError(
-                    "An income batch must contain at least one row."
-                )
+                raise ValidationError("An income batch must contain at least one row.")
             if not (income_description or "").strip():
                 raise ValidationError("Income description is required.")
 

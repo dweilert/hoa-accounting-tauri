@@ -114,10 +114,10 @@ def _build_owner_ledger_summary(data: dict[str, object]) -> dict[str, Any]:
     owners = [
         {
             "display_name": str(o.get("display_name", "")),
-            "first_name":   str(o.get("first_name", "")),
-            "last_name":    str(o.get("last_name", "")),
-            "email":        str(o.get("email", "")),
-            "phone":        str(o.get("phone", "")),
+            "first_name": str(o.get("first_name", "")),
+            "last_name": str(o.get("last_name", "")),
+            "email": str(o.get("email", "")),
+            "phone": str(o.get("phone", "")),
         }
         for o in raw_owners
     ]
@@ -125,8 +125,8 @@ def _build_owner_ledger_summary(data: dict[str, object]) -> dict[str, Any]:
     opening_balance_lines = [
         {
             "charge_type": str(line.get("charge_type", "")),
-            "label":       str(line.get("label", "")),
-            "amount":      str(line.get("amount", "")),
+            "label": str(line.get("label", "")),
+            "amount": str(line.get("amount", "")),
         }
         for line in raw_ob_lines
     ]
@@ -207,20 +207,22 @@ def _build_ytd_expense_summary(data: dict[str, object]) -> dict[str, Any]:
     for group in groups_raw:
         group_code = str(group.get("group_code", ""))
         for row in _safe_dict_list(group.get("rows")):
-            flat_rows.append({
-                "account_number": str(row.get("account_number", "")),
-                "account_name":   str(row.get("account_name", "")),
-                "group_code":     group_code,
-                "ytd_amount":     str(row.get("ytd_amount", "")),
-                "comment":        str(row.get("comment", "")),
-            })
+            flat_rows.append(
+                {
+                    "account_number": str(row.get("account_number", "")),
+                    "account_name": str(row.get("account_name", "")),
+                    "group_code": group_code,
+                    "ytd_amount": str(row.get("ytd_amount", "")),
+                    "comment": str(row.get("comment", "")),
+                }
+            )
     return {
         "summary_template": "partials/summary_ytd_expense.html",
         "summary": {
-            "from_date":    str(data.get("from_date", "")),
-            "to_date":      str(data.get("to_date", "")),
-            "grand_total":  str(data.get("grand_total", "")),
-            "rows":         flat_rows,
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
+            "grand_total": str(data.get("grand_total", "")),
+            "rows": flat_rows,
         },
     }
 
@@ -241,7 +243,6 @@ def _build_account_section(section: object) -> dict[str, Any]:
             for row in rows
         ]
     }
-
 
 
 def _build_expenses_by_date_summary(data: dict[str, object]) -> dict[str, Any]:
@@ -279,14 +280,14 @@ def _build_income_by_date_summary(data: dict[str, object]) -> dict[str, Any]:
             "grand_total": str(data.get("grand_total", "")),
             "rows": [
                 {
-                    "entry_date":   str(row.get("entry_date", "")),
-                    "source":       str(row.get("source", "")),
-                    "lot_number":   str(row.get("lot_number", "")),
+                    "entry_date": str(row.get("entry_date", "")),
+                    "source": str(row.get("source", "")),
+                    "lot_number": str(row.get("lot_number", "")),
                     "account_code": str(row.get("account_code", "")),
                     "account_name": str(row.get("account_name", "")),
-                    "memo":         str(row.get("memo", "")),
-                    "comment":      str(row.get("comment", "")),
-                    "amount":       str(row.get("amount", "")),
+                    "memo": str(row.get("memo", "")),
+                    "comment": str(row.get("comment", "")),
+                    "amount": str(row.get("amount", "")),
                 }
                 for row in rows
             ],
@@ -299,24 +300,24 @@ def _build_bank_transactions_summary(data: dict[str, object]) -> dict[str, Any]:
     return {
         "summary_template": "partials/summary_bank_transactions.html",
         "summary": {
-            "from_date":         str(data.get("from_date", "")),
-            "to_date":           str(data.get("to_date", "")),
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
             "bank_account_name": str(data.get("bank_account_name") or "All accounts"),
-            "total_in":          str(data.get("total_in", "")),
-            "total_out":         str(data.get("total_out", "")),
+            "total_in": str(data.get("total_in", "")),
+            "total_out": str(data.get("total_out", "")),
             "rows": [
                 {
-                    "transaction_date":    str(row.get("transaction_date", "")),
-                    "bank_account":        str(row.get("bank_account", "")),
-                    "description":         str(row.get("description", "")),
-                    "memo":                str(row.get("memo", "")),
-                    "amount":              str(row.get("amount", "")),
-                    "transaction_type":    str(row.get("transaction_type", "")),
-                    "match_type":          str(row.get("match_type", "")),
+                    "transaction_date": str(row.get("transaction_date", "")),
+                    "bank_account": str(row.get("bank_account", "")),
+                    "description": str(row.get("description", "")),
+                    "memo": str(row.get("memo", "")),
+                    "amount": str(row.get("amount", "")),
+                    "transaction_type": str(row.get("transaction_type", "")),
+                    "match_type": str(row.get("match_type", "")),
                     "matched_source_type": str(row.get("matched_source_type", "")),
-                    "matched_source_id":   str(row.get("matched_source_id", "")),
-                    "validation_status":   str(row.get("validation_status", "")),
-                    "rule_name":           str(row.get("rule_name", "")),
+                    "matched_source_id": str(row.get("matched_source_id", "")),
+                    "validation_status": str(row.get("validation_status", "")),
+                    "rule_name": str(row.get("rule_name", "")),
                 }
                 for row in rows
             ],
@@ -330,15 +331,17 @@ def _build_categories_summary(data: dict[str, object]) -> dict[str, Any]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         ct = str(r.get("category_type", "OTHER"))
-        grouped.setdefault(ct, []).append({
-            "code":          str(r.get("code", "")),
-            "name":          str(r.get("name", "")),
-            "group_name":    str(r.get("group_name", "")),
-            "fund_code":     str(r.get("fund_code", "")),
-            "sort_order":    str(r.get("sort_order", "")),
-            "active":        str(r.get("active", "")),
-            "description":   str(r.get("description", "")),
-        })
+        grouped.setdefault(ct, []).append(
+            {
+                "code": str(r.get("code", "")),
+                "name": str(r.get("name", "")),
+                "group_name": str(r.get("group_name", "")),
+                "fund_code": str(r.get("fund_code", "")),
+                "sort_order": str(r.get("sort_order", "")),
+                "active": str(r.get("active", "")),
+                "description": str(r.get("description", "")),
+            }
+        )
     # Stable ordering: INCOME, EXPENSE, TRANSFER, then anything else.
     ordered = [t for t in ("INCOME", "EXPENSE", "TRANSFER") if t in grouped]
     ordered += [t for t in grouped if t not in ordered]
@@ -357,29 +360,29 @@ def _build_deposits_summary(data: dict[str, object]) -> dict[str, Any]:
     return {
         "summary_template": "partials/summary_deposits.html",
         "summary": {
-            "from_date":   str(data.get("from_date", "")),
-            "to_date":     str(data.get("to_date", "")),
+            "from_date": str(data.get("from_date", "")),
+            "to_date": str(data.get("to_date", "")),
             "grand_total": str(data.get("grand_total", "")),
             "rows": [
                 {
-                    "batch_id":             str(row.get("batch_id", "")),
-                    "deposit_date":         str(row.get("deposit_date", "")),
-                    "bank_account":         str(row.get("bank_account", "")),
-                    "bank_account_last4":   str(row.get("bank_account_last4", "")),
-                    "total_amount":         str(row.get("total_amount", "")),
-                    "journal_entry":        str(row.get("journal_entry", "")),
-                    "memo":                 str(row.get("memo", "")),
-                    "owner_payment_count":  str(row.get("owner_payment_count", "")),
-                    "owner_payment_total":  str(row.get("owner_payment_total", "")),
-                    "other_source_count":   str(row.get("other_source_count", "")),
-                    "other_source_total":   str(row.get("other_source_total", "")),
+                    "batch_id": str(row.get("batch_id", "")),
+                    "deposit_date": str(row.get("deposit_date", "")),
+                    "bank_account": str(row.get("bank_account", "")),
+                    "bank_account_last4": str(row.get("bank_account_last4", "")),
+                    "total_amount": str(row.get("total_amount", "")),
+                    "journal_entry": str(row.get("journal_entry", "")),
+                    "memo": str(row.get("memo", "")),
+                    "owner_payment_count": str(row.get("owner_payment_count", "")),
+                    "owner_payment_total": str(row.get("owner_payment_total", "")),
+                    "other_source_count": str(row.get("other_source_count", "")),
+                    "other_source_total": str(row.get("other_source_total", "")),
                     "lines": [
                         {
-                            "line_type":   str(line.get("line_type", "")),
+                            "line_type": str(line.get("line_type", "")),
                             "description": str(line.get("description", "")),
-                            "detail":      str(line.get("detail", "")),
-                            "reference":   str(line.get("reference", "")),
-                            "amount":      str(line.get("amount", "")),
+                            "detail": str(line.get("detail", "")),
+                            "reference": str(line.get("reference", "")),
+                            "amount": str(line.get("amount", "")),
                         }
                         for line in _safe_dict_list(row.get("lines"))
                     ],
@@ -442,26 +445,29 @@ def _build_expenses_vs_budget_summary(data: dict[str, object]) -> dict[str, Any]
     groups: list[dict[str, Any]] = []
     for group in groups_raw:
         rows = _safe_dict_list(group.get("rows"))
-        groups.append({
-            "group_code": str(group.get("group_code", "")),
-            "group_budget": str(group.get("group_budget", "")),
-            "group_actual": str(group.get("group_actual", "")),
-            "group_variance": str(group.get("group_variance", "")),
-            "rows": [
-                {
-                    "category_name": str(row.get("category_name", "")),
-                    "group_code": str(row.get("group_code", "")),
-                    "budget_amount": str(row.get("budget_amount", "")),
-                    "actual_amount": str(row.get("actual_amount", "")),
-                    "variance": str(row.get("variance", "")),
-                }
-                for row in rows
-            ],
-        })
+        groups.append(
+            {
+                "group_code": str(group.get("group_code", "")),
+                "group_budget": str(group.get("group_budget", "")),
+                "group_actual": str(group.get("group_actual", "")),
+                "group_variance": str(group.get("group_variance", "")),
+                "rows": [
+                    {
+                        "category_name": str(row.get("category_name", "")),
+                        "group_code": str(row.get("group_code", "")),
+                        "budget_amount": str(row.get("budget_amount", "")),
+                        "actual_amount": str(row.get("actual_amount", "")),
+                        "variance": str(row.get("variance", "")),
+                    }
+                    for row in rows
+                ],
+            }
+        )
     # ``expected_pct`` = how much of the year SHOULD be spent by today, used
     # by the partial to color the % Used column. When the report is for a
     # past or future fiscal year, peg at 100% (past) or 0% (future).
     from datetime import date as _date
+
     today = _date.today()
     fy = int(data.get("fiscal_year") or 0)  # type: ignore[call-overload]
     if fy and today.year > fy:
@@ -501,25 +507,29 @@ def _build_budget_summary_summary(data: dict[str, object]) -> dict[str, Any]:
     for g in _safe_dict_list(data.get("groups")):
         rows = []
         for row in _safe_dict_list(g.get("rows")):
-            rows.append({
-                "category_name": str(row.get("category_name", "")),
-                "group_code":    str(row.get("group_code", "")),
-                "year_amounts":  [str(a) for a in (row.get("year_amounts") or [])],  # type: ignore[attr-defined]
-                "pct_changes":   list(row.get("pct_changes") or []),  # type: ignore[call-overload]
-            })
-        groups.append({
-            "group_code":           str(g.get("group_code", "")),
-            "rows":                 rows,
-            "subtotal_amounts":     [str(a) for a in (g.get("subtotal_amounts") or [])],  # type: ignore[attr-defined]
-            "subtotal_pct_changes": list(g.get("subtotal_pct_changes") or []),  # type: ignore[call-overload]
-        })
+            rows.append(
+                {
+                    "category_name": str(row.get("category_name", "")),
+                    "group_code": str(row.get("group_code", "")),
+                    "year_amounts": [str(a) for a in (row.get("year_amounts") or [])],  # type: ignore[attr-defined]
+                    "pct_changes": list(row.get("pct_changes") or []),  # type: ignore[call-overload]
+                }
+            )
+        groups.append(
+            {
+                "group_code": str(g.get("group_code", "")),
+                "rows": rows,
+                "subtotal_amounts": [str(a) for a in (g.get("subtotal_amounts") or [])],  # type: ignore[attr-defined]
+                "subtotal_pct_changes": list(g.get("subtotal_pct_changes") or []),  # type: ignore[call-overload]
+            }
+        )
     return {
         "summary_template": "partials/summary_budget_summary.html",
         "summary": {
-            "years":              years,
-            "groups":             groups,
-            "total_amounts":      total_amounts,
-            "total_pct_changes":  total_pct_changes,
+            "years": years,
+            "groups": groups,
+            "total_amounts": total_amounts,
+            "total_pct_changes": total_pct_changes,
         },
     }
 

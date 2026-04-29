@@ -29,7 +29,11 @@ from hoa_accounting.services.deposit_batch_service import DepositRow
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.format import format_money
-from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
+from hoa_accounting.validators.forms import (
+    parse_int as _parse_int,
+    parse_positive_decimal as _parse_positive_decimal,
+    require as _require,
+)
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,7 @@ class DepositBatchPages:
             {
                 "id": r["id"],
                 "deposit_date": r["deposit_date"],
-                "total_amount": format_money(r['total_amount']),
+                "total_amount": format_money(r["total_amount"]),
                 "bank_account": r["bank_account_name"],
                 "institution": r["institution_name"],
                 "entry_number": r["entry_number"] or "",
@@ -122,7 +126,7 @@ class DepositBatchPages:
             {
                 "id": r["id"],
                 "label": f"{r['account_name']} · {r['institution_name']}"
-                         + (f" (…{r['account_last4']})" if r["account_last4"] else ""),
+                + (f" (…{r['account_last4']})" if r["account_last4"] else ""),
             }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
         ]
@@ -185,7 +189,8 @@ class DepositBatchPages:
         # Now filter out entirely-blank rows (no amount AND no lot). This
         # lets the treasurer leave pre-filled empty scratchpad rows.
         active_rows = [
-            r for r in submitted_rows
+            r
+            for r in submitted_rows
             if (r.get("amount") or "").strip() or (r.get("lot_id") or "").strip()
         ]
 
@@ -211,7 +216,8 @@ class DepositBatchPages:
                     DepositRow(
                         lot_id=lot_id,
                         amount=amount,
-                        reference_number=(r.get("reference_number") or "").strip() or None,
+                        reference_number=(r.get("reference_number") or "").strip()
+                        or None,
                         memo=(r.get("memo") or "").strip() or None,
                     )
                 )
@@ -247,5 +253,3 @@ def _lot_label(row: sqlite3.Row) -> str:
         bits.append(street)
     bits.append(owner)
     return " · ".join(bits)
-
-

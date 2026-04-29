@@ -75,9 +75,7 @@ class LotRentersRepository(BaseRepository):
         from the lots table. Within each group (current / ended), ordered by
         lot_number then start_date descending.
         """
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT
                     r.id, r.lot_id, r.display_name, r.first_name, r.last_name,
                     r.email, r.phone, r.start_date, r.end_date, r.notes,
@@ -90,9 +88,7 @@ class LotRentersRepository(BaseRepository):
                     l.lot_number COLLATE NOCASE,
                     r.start_date DESC,
                     r.id DESC
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_renter(self, renter_id: int) -> sqlite3.Row | None:
         """Return a single renter row by id, or None."""
@@ -132,8 +128,15 @@ class LotRentersRepository(BaseRepository):
              WHERE id = ?
             """,
             (
-                lot_id, display_name, first_name, last_name,
-                email, phone, start_date, notes, renter_id,
+                lot_id,
+                display_name,
+                first_name,
+                last_name,
+                email,
+                phone,
+                start_date,
+                notes,
+                renter_id,
             ),
         )
 

@@ -181,7 +181,14 @@ class AssessmentsRepository(BaseRepository):
                        updated_at = CURRENT_TIMESTAMP
                  WHERE id = ?
                 """,
-                (assessment_date, due_date, amount, description, category_id, assessment_id),
+                (
+                    assessment_date,
+                    due_date,
+                    amount,
+                    description,
+                    category_id,
+                    assessment_id,
+                ),
             )
         self.conn.commit()
 

@@ -16,9 +16,7 @@ class OwnersRepository(BaseRepository):
         Each row is one owner; lot_numbers is a comma-separated string of the
         lot numbers the owner currently holds (empty string if none).
         """
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT o.id, o.owner_type, o.display_name, o.first_name,
                        o.last_name, o.entity_name, o.email, o.phone,
                        o.active_flag,
@@ -31,9 +29,7 @@ class OwnersRepository(BaseRepository):
                 FROM owners o
                 WHERE o.active_flag = 1
                 ORDER BY o.display_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_owner(self, owner_id: int) -> sqlite3.Row | None:
         """Return a single owner row by id, or None."""
@@ -69,8 +65,17 @@ class OwnersRepository(BaseRepository):
                  entity_name, email, phone, home_phone, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (owner_type, display_name, first_name, last_name,
-             entity_name, email, phone, home_phone, notes),
+            (
+                owner_type,
+                display_name,
+                first_name,
+                last_name,
+                entity_name,
+                email,
+                phone,
+                home_phone,
+                notes,
+            ),
         )
         return int(cur.lastrowid or 0)
 
@@ -97,8 +102,18 @@ class OwnersRepository(BaseRepository):
                    home_phone = ?, notes = ?
              WHERE id = ?
             """,
-            (owner_type, display_name, first_name, last_name,
-             entity_name, email, phone, home_phone, notes, owner_id),
+            (
+                owner_type,
+                display_name,
+                first_name,
+                last_name,
+                entity_name,
+                email,
+                phone,
+                home_phone,
+                notes,
+                owner_id,
+            ),
         )
 
     def has_current_lot(self, owner_id: int) -> bool:
@@ -134,15 +149,11 @@ class OwnersRepository(BaseRepository):
         if active_only:
             predicates.append("active_flag = 1")
         where_sql = f"WHERE {' AND '.join(predicates)}" if predicates else ""
-        return list(
-            self.conn.execute(
-                f"""
+        return list(self.conn.execute(f"""
                 SELECT id, owner_type, display_name, first_name, last_name,
                        entity_name, email, phone,
                        city, state, postal_code, active_flag
                 FROM owners
                 {where_sql}
                 ORDER BY display_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())

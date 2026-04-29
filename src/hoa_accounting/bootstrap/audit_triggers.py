@@ -26,8 +26,7 @@ def _trig(
 ) -> None:
     conn.execute(f"DROP TRIGGER IF EXISTS {name}")
     conn.execute(
-        f"CREATE TRIGGER {name} "
-        f"{timing} {event} ON {table} BEGIN {body} END"
+        f"CREATE TRIGGER {name} " f"{timing} {event} ON {table} BEGIN {body} END"
     )
 
 
@@ -64,12 +63,30 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_assess_old = _j_assess_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_assessments_insert", "AFTER", "INSERT", "assessments",
-          _ins("assessments", "NEW.id", _j_assess_new))
-    _trig(conn, "audit_assessments_update", "AFTER", "UPDATE", "assessments",
-          _upd("assessments", "NEW.id", _j_assess_old, _j_assess_new))
-    _trig(conn, "audit_assessments_delete", "BEFORE", "DELETE", "assessments",
-          _del("assessments", "OLD.id", _j_assess_old))
+    _trig(
+        conn,
+        "audit_assessments_insert",
+        "AFTER",
+        "INSERT",
+        "assessments",
+        _ins("assessments", "NEW.id", _j_assess_new),
+    )
+    _trig(
+        conn,
+        "audit_assessments_update",
+        "AFTER",
+        "UPDATE",
+        "assessments",
+        _upd("assessments", "NEW.id", _j_assess_old, _j_assess_new),
+    )
+    _trig(
+        conn,
+        "audit_assessments_delete",
+        "BEFORE",
+        "DELETE",
+        "assessments",
+        _del("assessments", "OLD.id", _j_assess_old),
+    )
 
     # ── payments ───────────────────────────────────────────────────────────
     _j_pay_new = (
@@ -80,12 +97,30 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_pay_old = _j_pay_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_payments_insert", "AFTER", "INSERT", "payments",
-          _ins("payments", "NEW.id", _j_pay_new))
-    _trig(conn, "audit_payments_update", "AFTER", "UPDATE", "payments",
-          _upd("payments", "NEW.id", _j_pay_old, _j_pay_new))
-    _trig(conn, "audit_payments_delete", "BEFORE", "DELETE", "payments",
-          _del("payments", "OLD.id", _j_pay_old))
+    _trig(
+        conn,
+        "audit_payments_insert",
+        "AFTER",
+        "INSERT",
+        "payments",
+        _ins("payments", "NEW.id", _j_pay_new),
+    )
+    _trig(
+        conn,
+        "audit_payments_update",
+        "AFTER",
+        "UPDATE",
+        "payments",
+        _upd("payments", "NEW.id", _j_pay_old, _j_pay_new),
+    )
+    _trig(
+        conn,
+        "audit_payments_delete",
+        "BEFORE",
+        "DELETE",
+        "payments",
+        _del("payments", "OLD.id", _j_pay_old),
+    )
 
     # ── payment_applications ───────────────────────────────────────────────
     _j_pa_new = (
@@ -94,10 +129,22 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_pa_old = _j_pa_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_payment_applications_insert", "AFTER", "INSERT", "payment_applications",
-          _ins("payment_applications", "NEW.id", _j_pa_new))
-    _trig(conn, "audit_payment_applications_delete", "BEFORE", "DELETE", "payment_applications",
-          _del("payment_applications", "OLD.id", _j_pa_old))
+    _trig(
+        conn,
+        "audit_payment_applications_insert",
+        "AFTER",
+        "INSERT",
+        "payment_applications",
+        _ins("payment_applications", "NEW.id", _j_pa_new),
+    )
+    _trig(
+        conn,
+        "audit_payment_applications_delete",
+        "BEFORE",
+        "DELETE",
+        "payment_applications",
+        _del("payment_applications", "OLD.id", _j_pa_old),
+    )
 
     # ── owner_adjustments ──────────────────────────────────────────────────
     _j_oa_new = (
@@ -107,12 +154,30 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_oa_old = _j_oa_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_owner_adjustments_insert", "AFTER", "INSERT", "owner_adjustments",
-          _ins("owner_adjustments", "NEW.id", _j_oa_new))
-    _trig(conn, "audit_owner_adjustments_update", "AFTER", "UPDATE", "owner_adjustments",
-          _upd("owner_adjustments", "NEW.id", _j_oa_old, _j_oa_new))
-    _trig(conn, "audit_owner_adjustments_delete", "BEFORE", "DELETE", "owner_adjustments",
-          _del("owner_adjustments", "OLD.id", _j_oa_old))
+    _trig(
+        conn,
+        "audit_owner_adjustments_insert",
+        "AFTER",
+        "INSERT",
+        "owner_adjustments",
+        _ins("owner_adjustments", "NEW.id", _j_oa_new),
+    )
+    _trig(
+        conn,
+        "audit_owner_adjustments_update",
+        "AFTER",
+        "UPDATE",
+        "owner_adjustments",
+        _upd("owner_adjustments", "NEW.id", _j_oa_old, _j_oa_new),
+    )
+    _trig(
+        conn,
+        "audit_owner_adjustments_delete",
+        "BEFORE",
+        "DELETE",
+        "owner_adjustments",
+        _del("owner_adjustments", "OLD.id", _j_oa_old),
+    )
 
     # ── lots ───────────────────────────────────────────────────────────────
     _j_lot_new = (
@@ -122,12 +187,30 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_lot_old = _j_lot_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_lots_insert", "AFTER", "INSERT", "lots",
-          _ins("lots", "NEW.id", _j_lot_new))
-    _trig(conn, "audit_lots_update", "AFTER", "UPDATE", "lots",
-          _upd("lots", "NEW.id", _j_lot_old, _j_lot_new))
-    _trig(conn, "audit_lots_delete", "BEFORE", "DELETE", "lots",
-          _del("lots", "OLD.id", _j_lot_old))
+    _trig(
+        conn,
+        "audit_lots_insert",
+        "AFTER",
+        "INSERT",
+        "lots",
+        _ins("lots", "NEW.id", _j_lot_new),
+    )
+    _trig(
+        conn,
+        "audit_lots_update",
+        "AFTER",
+        "UPDATE",
+        "lots",
+        _upd("lots", "NEW.id", _j_lot_old, _j_lot_new),
+    )
+    _trig(
+        conn,
+        "audit_lots_delete",
+        "BEFORE",
+        "DELETE",
+        "lots",
+        _del("lots", "OLD.id", _j_lot_old),
+    )
 
     # ── owners ─────────────────────────────────────────────────────────────
     _j_own_new = (
@@ -137,12 +220,30 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_own_old = _j_own_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_owners_insert", "AFTER", "INSERT", "owners",
-          _ins("owners", "NEW.id", _j_own_new))
-    _trig(conn, "audit_owners_update", "AFTER", "UPDATE", "owners",
-          _upd("owners", "NEW.id", _j_own_old, _j_own_new))
-    _trig(conn, "audit_owners_delete", "BEFORE", "DELETE", "owners",
-          _del("owners", "OLD.id", _j_own_old))
+    _trig(
+        conn,
+        "audit_owners_insert",
+        "AFTER",
+        "INSERT",
+        "owners",
+        _ins("owners", "NEW.id", _j_own_new),
+    )
+    _trig(
+        conn,
+        "audit_owners_update",
+        "AFTER",
+        "UPDATE",
+        "owners",
+        _upd("owners", "NEW.id", _j_own_old, _j_own_new),
+    )
+    _trig(
+        conn,
+        "audit_owners_delete",
+        "BEFORE",
+        "DELETE",
+        "owners",
+        _del("owners", "OLD.id", _j_own_old),
+    )
 
     # ── lot_ownership ──────────────────────────────────────────────────────
     _j_lo_new = (
@@ -152,12 +253,30 @@ def install_audit_triggers(conn: sqlite3.Connection) -> None:
     )
     _j_lo_old = _j_lo_new.replace("NEW.", "OLD.")
 
-    _trig(conn, "audit_lot_ownership_insert", "AFTER", "INSERT", "lot_ownership",
-          _ins("lot_ownership", "NEW.id", _j_lo_new))
-    _trig(conn, "audit_lot_ownership_update", "AFTER", "UPDATE", "lot_ownership",
-          _upd("lot_ownership", "NEW.id", _j_lo_old, _j_lo_new))
-    _trig(conn, "audit_lot_ownership_delete", "BEFORE", "DELETE", "lot_ownership",
-          _del("lot_ownership", "OLD.id", _j_lo_old))
+    _trig(
+        conn,
+        "audit_lot_ownership_insert",
+        "AFTER",
+        "INSERT",
+        "lot_ownership",
+        _ins("lot_ownership", "NEW.id", _j_lo_new),
+    )
+    _trig(
+        conn,
+        "audit_lot_ownership_update",
+        "AFTER",
+        "UPDATE",
+        "lot_ownership",
+        _upd("lot_ownership", "NEW.id", _j_lo_old, _j_lo_new),
+    )
+    _trig(
+        conn,
+        "audit_lot_ownership_delete",
+        "BEFORE",
+        "DELETE",
+        "lot_ownership",
+        _del("lot_ownership", "OLD.id", _j_lo_old),
+    )
 
     # journal_entries triggers removed — table retired in migration 0061.
 

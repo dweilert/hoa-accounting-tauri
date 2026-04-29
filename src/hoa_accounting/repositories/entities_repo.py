@@ -6,14 +6,16 @@ from hoa_accounting.exceptions import ValidationError
 
 from .base import BaseRepository
 
-_ALLOWED_TABLES: frozenset[str] = frozenset({
-    "lots",
-    "owners",
-    "vendors",
-    "bank_accounts",
-    "vendor_bills",
-    "accounts",
-})
+_ALLOWED_TABLES: frozenset[str] = frozenset(
+    {
+        "lots",
+        "owners",
+        "vendors",
+        "bank_accounts",
+        "vendor_bills",
+        "accounts",
+    }
+)
 
 
 class EntitiesRepository(BaseRepository):

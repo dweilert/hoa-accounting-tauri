@@ -25,7 +25,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
     # ── Audit log pages ──────────────────────────────────────────────
 
-
     @bp.get("/admin/audit-log")
     def audit_log_page() -> ResponseReturnValue:
         pages = ctx.open_pages(AuditLogPages)
@@ -40,27 +39,28 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
             date_to=(request.args.get("date_to") or "").strip(),
             page=max(1, int(request.args.get("page") or 1)),
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     # ── Import pages ──────────────────────────────────────────────────
-
 
     @bp.get("/admin/import")
     def import_page() -> ResponseReturnValue:
         pages = ctx.open_pages(ImportPages)
         theme = str(org_context.get("theme", "warm"))
         ba_raw = request.args.get("bank_account_id", "")
-        resp  = pages.render_page(
-            org=org_context, theme=theme,
+        resp = pages.render_page(
+            org=org_context,
+            theme=theme,
             prefill_type=request.args.get("prefill_type", ""),
             stash_token=request.args.get("stash", ""),
             bank_account_id=int(ba_raw) if ba_raw.isdigit() else None,
             note=request.args.get("note", ""),
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/bank-import/save-mapping")
     def bank_import_save_mapping() -> ResponseReturnValue:
@@ -70,10 +70,13 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         from flask import redirect
         from urllib.parse import quote
         from hoa_accounting.web.bank_ingest import (
-            consume_stash, fingerprint_csv_headers, read_csv_headers,
+            consume_stash,
+            fingerprint_csv_headers,
+            read_csv_headers,
             save_csv_mapping,
         )
         import json as _json
+
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
 
@@ -83,7 +86,9 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
             return redirect("/bank-transactions/pending?err=Invalid+mapping", code=303)
         stash_token = (request.form.get("stash_token") or "").strip()
         if not stash_token:
-            return redirect("/bank-transactions/pending?err=Missing+stash+token", code=303)
+            return redirect(
+                "/bank-transactions/pending?err=Missing+stash+token", code=303
+            )
 
         stash = consume_stash(conn, stash_token)
         if stash is None:
@@ -102,11 +107,14 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         # lookup inside handle_agnostic_upload will find the new row and
         # parse silently.
         from hoa_accounting.web.bank_statement_pages import BankStatementPages
+
         pages = BankStatementPages(conn)
         url, page_resp, _warnings = pages.handle_agnostic_upload(
-            file_bytes=content, filename=filename or "upload.csv",
+            file_bytes=content,
+            filename=filename or "upload.csv",
             csv_bank_account_id=bank_account_id,
-            org=org_context, theme=theme,
+            org=org_context,
+            theme=theme,
         )
         if url:
             # Success: drop them on the Pending Validation queue scoped to
@@ -117,53 +125,57 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                 code=303,
             )
         assert page_resp is not None
-        return Response(page_resp.body_html, status=page_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            page_resp.body_html,
+            status=page_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.get("/admin/import/run")
     def import_run_redirect() -> ResponseReturnValue:
         from flask import redirect
+
         return redirect("/admin/import", code=303)
 
     @bp.post("/admin/import/run")
     def import_run() -> ResponseReturnValue:
         pages = ctx.open_pages(ImportPages)
         theme = str(org_context.get("theme", "warm"))
-        resp  = pages.handle_run(
-            data_type   = request.form.get("data_type",   ""),
-            mapping_json= request.form.get("mapping",     "{}"),
-            csv_content = request.form.get("csv_content", ""),
-            file_name   = request.form.get("file_name",   "unknown.csv"),
-            org         = org_context,
-            theme       = theme,
+        resp = pages.handle_run(
+            data_type=request.form.get("data_type", ""),
+            mapping_json=request.form.get("mapping", "{}"),
+            csv_content=request.form.get("csv_content", ""),
+            file_name=request.form.get("file_name", "unknown.csv"),
+            org=org_context,
+            theme=theme,
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/admin/import/validate")
     def import_validate() -> ResponseReturnValue:
         import json as _json
-        pages  = ctx.open_pages(ImportPages)
-        result = pages.handle_validate(
-            data_type    = request.form.get("data_type",    ""),
-            mapping_json = request.form.get("mapping",      "{}"),
-            csv_content  = request.form.get("csv_content",  ""),
-            filter_field = request.form.get("filter_field", ""),
-        )
-        return Response(_json.dumps(result), status=200,
-                        mimetype="application/json")
 
+        pages = ctx.open_pages(ImportPages)
+        result = pages.handle_validate(
+            data_type=request.form.get("data_type", ""),
+            mapping_json=request.form.get("mapping", "{}"),
+            csv_content=request.form.get("csv_content", ""),
+            filter_field=request.form.get("filter_field", ""),
+        )
+        return Response(_json.dumps(result), status=200, mimetype="application/json")
 
     # ── Export pages ─────────────────────────────────────────────────
-
 
     @bp.get("/admin/export")
     def export_page() -> ResponseReturnValue:
         pages = ctx.open_pages(ExportPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(org=org_context, theme=theme)
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/admin/export/download")
     def export_download() -> ResponseReturnValue:
@@ -172,11 +184,15 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         if not selected:
             theme = str(org_context.get("theme", "warm"))
             resp = pages.render_page(
-                org=org_context, theme=theme,
+                org=org_context,
+                theme=theme,
                 error_message="Please select at least one data set to export.",
             )
-            return Response(resp.body_html, status=resp.status_code,
-                            mimetype="text/html; charset=utf-8")
+            return Response(
+                resp.body_html,
+                status=resp.status_code,
+                mimetype="text/html; charset=utf-8",
+            )
         zip_bytes = pages.build_zip(selected)
         return Response(
             zip_bytes,
@@ -184,7 +200,6 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
             mimetype="application/zip",
             headers={"Content-Disposition": 'attachment; filename="hoa-download.zip"'},
         )
-
 
     # ── Database admin pages ─────────────────────────────────────────
 
@@ -201,19 +216,24 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.get("/setup/categories-interview")
     def categories_interview() -> ResponseReturnValue:
         from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
+
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
         flash = (request.args.get("msg") or "").replace("+", " ").strip()
         resp = CategoryWizardPages(conn).render(
-            org=org_context, theme=theme, flash_message=flash,
+            org=org_context,
+            theme=theme,
+            flash_message=flash,
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/setup/categories-interview")
     def categories_interview_submit() -> ResponseReturnValue:
         from flask import redirect
         from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
+
         conn = _open_db()
         codes = request.form.getlist("codes")
         url, _ = CategoryWizardPages(conn).handle_submit(selected_codes=codes)
@@ -224,12 +244,14 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(
-            org=org_context, theme=theme,
+            org=org_context,
+            theme=theme,
             flash_message=(request.args.get("msg") or "").strip(),
             error_message=(request.args.get("error") or "").strip(),
         )
-        return Response(resp.body_html, status=resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
 
     @bp.post("/admin/database/check")
     def database_health_check() -> ResponseReturnValue:
@@ -237,48 +259,66 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         theme = str(org_context.get("theme", "warm"))
         _, form_resp = pages.handle_check(org=org_context, theme=theme)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.post("/admin/database/reindex")
     def database_reindex() -> ResponseReturnValue:
         from flask import redirect
+
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_reindex(org=org_context, theme=theme)
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.post("/admin/database/vacuum")
     def database_vacuum() -> ResponseReturnValue:
         from flask import redirect
+
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         redirect_url, form_resp = pages.handle_vacuum(org=org_context, theme=theme)
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.post("/admin/database/wal-checkpoint")
     def database_wal_checkpoint() -> ResponseReturnValue:
         from flask import redirect
+
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_wal_checkpoint(org=org_context, theme=theme)
+        redirect_url, form_resp = pages.handle_wal_checkpoint(
+            org=org_context, theme=theme
+        )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     @bp.get("/admin/database/backup")
     def database_backup() -> ResponseReturnValue:
         import json as _json
+
         pages = _open_db_admin_pages()
         data, filename, stats = pages.handle_backup()
         return Response(
@@ -296,22 +336,24 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
     @bp.post("/admin/database/restore-preview")
     def database_restore_preview() -> ResponseReturnValue:
         import json as _json
+
         pages = _open_db_admin_pages()
         backup_file = request.files.get("backup_file")
         if not backup_file:
             return Response(
                 _json.dumps({"ok": False, "error": "No file received."}),
-                status=400, mimetype="application/json",
+                status=400,
+                mimetype="application/json",
             )
         result = pages.handle_restore_preview(backup_file.read())
         status = 200 if result.get("ok") else 400
-        return Response(_json.dumps(result), status=status,
-                        mimetype="application/json")
+        return Response(_json.dumps(result), status=status, mimetype="application/json")
 
     @bp.post("/admin/database/restore")
     def database_restore() -> ResponseReturnValue:
         import json as _json
         from flask import redirect
+
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         # JS callers send X-Restore-Fetch: 1 and expect JSON back.
@@ -320,15 +362,25 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         if not backup_file:
             if wants_json:
                 return Response(
-                    _json.dumps({"ok": False, "error": "No backup file received — please try again."}),
-                    status=400, mimetype="application/json",
+                    _json.dumps(
+                        {
+                            "ok": False,
+                            "error": "No backup file received — please try again.",
+                        }
+                    ),
+                    status=400,
+                    mimetype="application/json",
                 )
             resp = pages.render_page(
-                org=org_context, theme=theme,
+                org=org_context,
+                theme=theme,
                 error_message="No backup file received — please try again.",
             )
-            return Response(resp.body_html, status=resp.status_code,
-                            mimetype="text/html; charset=utf-8")
+            return Response(
+                resp.body_html,
+                status=resp.status_code,
+                mimetype="text/html; charset=utf-8",
+            )
         file_bytes = backup_file.read()
         redirect_url, form_resp, error_msg = pages.handle_restore(
             file_bytes, org=org_context, theme=theme
@@ -336,18 +388,27 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         if wants_json:
             if redirect_url is not None:
                 return Response(
-                    _json.dumps({"ok": True, "message": "Database restored successfully. All previous data has been replaced with the backup."}),
-                    status=200, mimetype="application/json",
+                    _json.dumps(
+                        {
+                            "ok": True,
+                            "message": "Database restored successfully. All previous data has been replaced with the backup.",
+                        }
+                    ),
+                    status=200,
+                    mimetype="application/json",
                 )
             return Response(
                 _json.dumps({"ok": False, "error": error_msg or "Restore failed."}),
-                status=400, mimetype="application/json",
+                status=400,
+                mimetype="application/json",
             )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
         assert form_resp is not None
-        return Response(form_resp.body_html, status=form_resp.status_code,
-                        mimetype="text/html; charset=utf-8")
-
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
 
     return bp

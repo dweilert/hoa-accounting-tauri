@@ -67,7 +67,9 @@ def build_seeded_conn() -> tuple[sqlite3.Connection, SeedIds]:
     )
 
     # ── Lots + owners + ownership ──────────────────────────────────
-    conn.execute("INSERT INTO lots (id, lot_number, active_flag) VALUES (1,'L-1',1),(2,'L-2',1)")
+    conn.execute(
+        "INSERT INTO lots (id, lot_number, active_flag) VALUES (1,'L-1',1),(2,'L-2',1)"
+    )
     conn.execute(
         "INSERT INTO owners (id, owner_type, display_name, first_name, last_name, "
         "active_flag) VALUES (1,'PERSON','Alice Park','Alice','Park',1),"
@@ -105,24 +107,32 @@ def build_seeded_conn() -> tuple[sqlite3.Connection, SeedIds]:
         cur = conn.execute(
             "INSERT INTO categories (code, name, category_type, fund_code, active_flag) "
             "VALUES (?, ?, ?, 'OPERATING', 1)",
-            (code, code.replace("_", " ").title(),
-             "EXPENSE" if code in {"LANDSCAPE", "UTILITIES"} else "INCOME"),
+            (
+                code,
+                code.replace("_", " ").title(),
+                "EXPENSE" if code in {"LANDSCAPE", "UTILITIES"} else "INCOME",
+            ),
         )
         return int(cur.lastrowid)
 
-    cat_dues_id      = _cat("DUES")
-    cat_late_id      = _cat("LATE_FEES")
-    cat_resale_id    = _cat("RESALE_FEE")
+    cat_dues_id = _cat("DUES")
+    cat_late_id = _cat("LATE_FEES")
+    cat_resale_id = _cat("RESALE_FEE")
     cat_landscape_id = _cat("LANDSCAPE")
     cat_utilities_id = _cat("UTILITIES")
 
     conn.commit()
     return conn, SeedIds(
-        user_id=1, period_id=1,
-        lot1_id=1, lot2_id=2,
-        owner1_id=1, owner2_id=2,
-        vendor1_id=1, vendor2_id=2,
-        bank_op_id=1, bank_res_id=2,
+        user_id=1,
+        period_id=1,
+        lot1_id=1,
+        lot2_id=2,
+        owner1_id=1,
+        owner2_id=2,
+        vendor1_id=1,
+        vendor2_id=2,
+        bank_op_id=1,
+        bank_res_id=2,
         cat_dues_id=cat_dues_id,
         cat_late_id=cat_late_id,
         cat_resale_id=cat_resale_id,

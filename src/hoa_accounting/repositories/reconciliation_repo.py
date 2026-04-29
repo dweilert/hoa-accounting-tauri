@@ -31,9 +31,7 @@ class ReconciliationRepository(BaseRepository):
 
     def list_reconciliations(self) -> list[sqlite3.Row]:
         """Return all reconciliations, newest statement date first."""
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT
                     br.id,
                     br.bank_account_id,
@@ -50,9 +48,7 @@ class ReconciliationRepository(BaseRepository):
                 FROM bank_reconciliations br
                 JOIN bank_accounts ba ON ba.id = br.bank_account_id
                 ORDER BY br.statement_ending_date DESC, br.id DESC
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_reconciliation(self, reconciliation_id: int) -> sqlite3.Row | None:
         """Return one reconciliation with bank-account details, or None."""
@@ -120,9 +116,7 @@ class ReconciliationRepository(BaseRepository):
 
     def list_active_bank_accounts(self) -> list[sqlite3.Row]:
         """Return active bank accounts for the new-recon form."""
-        return list(
-            self.conn.execute(
-                """
+        return list(self.conn.execute("""
                 SELECT
                     ba.id,
                     ba.account_name,
@@ -136,9 +130,7 @@ class ReconciliationRepository(BaseRepository):
                 FROM bank_accounts ba
                 WHERE ba.active_flag = 1
                 ORDER BY ba.account_name COLLATE NOCASE
-                """
-            ).fetchall()
-        )
+                """).fetchall())
 
     def get_working_rows(self, reconciliation_id: int) -> list[sqlite3.Row]:
         """Return every single-entry record posted against this bank account
@@ -329,9 +321,7 @@ class ReconciliationRepository(BaseRepository):
             return {}
 
         statement = Decimal(str(recon["statement_ending_balance"]))
-        opening, _ = self.get_expected_beginning_balance(
-            int(recon["bank_account_id"])
-        )
+        opening, _ = self.get_expected_beginning_balance(int(recon["bank_account_id"]))
 
         rows = self.get_working_rows(reconciliation_id)
         book_balance = opening
@@ -392,9 +382,7 @@ class ReconciliationRepository(BaseRepository):
         self.conn.commit()
         return int(cur.lastrowid)  # type: ignore[arg-type]
 
-    def _resolve_bank_txn_ids(
-        self, source_type: str, source_id: int
-    ) -> list[int]:
+    def _resolve_bank_txn_ids(self, source_type: str, source_id: int) -> list[int]:
         """Return bank_transaction_ids that represent a ledger record.
 
         Resolution order — both paths are checked, and every match is
@@ -422,8 +410,7 @@ class ReconciliationRepository(BaseRepository):
              WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
                AND ? = 'PAYMENT' AND p.id = ?
             """,
-            (source_type, source_id, source_type, source_id,
-             source_type, source_id),
+            (source_type, source_id, source_type, source_id, source_type, source_id),
         ).fetchall()
         return [int(r[0]) for r in rows]
 

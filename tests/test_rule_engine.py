@@ -184,7 +184,9 @@ def test_first_matching_rule_wins():
         _rule(id=20, rule_name="Specific", description_contains="Acme Bill"),
     ]
     matches = apply_rules([_txn(description="Acme Bill")], rules)
-    assert matches[0]["id"] == 10  # generic first → wins despite "Specific" being a tighter fit
+    assert (
+        matches[0]["id"] == 10
+    )  # generic first → wins despite "Specific" being a tighter fit
 
 
 def test_more_specific_rule_first_takes_precedence():

@@ -31,7 +31,6 @@ from typing import Any
 
 from hoa_accounting.web.template_engine import render_template
 
-
 # ── Table definitions ────────────────────────────────────────────────────────
 # Drives both the JS mapper UI (field list, labels, required flags) and the
 # Python validation + insert logic (types, enum values, reference lookups).
@@ -46,14 +45,51 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 0,
         "requires": [],
         "fields": [
-            {"name": "code",          "label": "Code",          "required": True,  "type": "text",    "key": True,  "note": "Must be unique, e.g. DUES, LANDSCAPING"},
-            {"name": "name",          "label": "Name",          "required": True,  "type": "text"},
-            {"name": "category_type", "label": "Category Type", "required": True,  "type": "enum",    "values": ["INCOME","EXPENSE","TRANSFER"]},
-            {"name": "fund_code",     "label": "Fund Code",     "required": False, "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
-            {"name": "group_name",    "label": "Group",         "required": False, "type": "text"},
-            {"name": "sort_order",    "label": "Sort Order",    "required": False, "type": "integer", "note": "Lower numbers appear first; default 0"},
-            {"name": "active",        "label": "Active",        "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
-            {"name": "description",   "label": "Description",   "required": False, "type": "text"},
+            {
+                "name": "code",
+                "label": "Code",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique, e.g. DUES, LANDSCAPING",
+            },
+            {"name": "name", "label": "Name", "required": True, "type": "text"},
+            {
+                "name": "category_type",
+                "label": "Category Type",
+                "required": True,
+                "type": "enum",
+                "values": ["INCOME", "EXPENSE", "TRANSFER"],
+            },
+            {
+                "name": "fund_code",
+                "label": "Fund Code",
+                "required": False,
+                "type": "enum",
+                "values": ["OPERATING", "RESERVE", "SPECIAL"],
+                "note": "Default OPERATING",
+            },
+            {"name": "group_name", "label": "Group", "required": False, "type": "text"},
+            {
+                "name": "sort_order",
+                "label": "Sort Order",
+                "required": False,
+                "type": "integer",
+                "note": "Lower numbers appear first; default 0",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
+            {
+                "name": "description",
+                "label": "Description",
+                "required": False,
+                "type": "text",
+            },
         ],
     },
     "owners": {
@@ -61,20 +97,69 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 2,
         "requires": [],
         "fields": [
-            {"name": "owner_type",        "label": "Owner Type",          "required": True,  "type": "enum",    "values": ["PERSON","ENTITY","TRUST"]},
-            {"name": "display_name",      "label": "Display Name",        "required": True,  "type": "text",    "key": True,  "note": "Must be unique — used to link ownership records"},
-            {"name": "first_name",        "label": "First Name",          "required": False, "type": "text"},
-            {"name": "last_name",         "label": "Last Name",           "required": False, "type": "text"},
-            {"name": "entity_name",       "label": "Entity / Trust Name", "required": False, "type": "text"},
-            {"name": "mailing_address_1", "label": "Address Line 1",      "required": False, "type": "text"},
-            {"name": "mailing_address_2", "label": "Address Line 2",      "required": False, "type": "text"},
-            {"name": "city",              "label": "City",                "required": False, "type": "text"},
-            {"name": "state",             "label": "State",               "required": False, "type": "text"},
-            {"name": "postal_code",       "label": "Postal Code",         "required": False, "type": "text"},
-            {"name": "phone",             "label": "Phone",               "required": False, "type": "text"},
-            {"name": "email",             "label": "Email",               "required": False, "type": "text"},
-            {"name": "active",            "label": "Active",              "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
-            {"name": "notes",             "label": "Notes",               "required": False, "type": "text"},
+            {
+                "name": "owner_type",
+                "label": "Owner Type",
+                "required": True,
+                "type": "enum",
+                "values": ["PERSON", "ENTITY", "TRUST"],
+            },
+            {
+                "name": "display_name",
+                "label": "Display Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique — used to link ownership records",
+            },
+            {
+                "name": "first_name",
+                "label": "First Name",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "last_name",
+                "label": "Last Name",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "entity_name",
+                "label": "Entity / Trust Name",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "mailing_address_1",
+                "label": "Address Line 1",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "mailing_address_2",
+                "label": "Address Line 2",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "city", "label": "City", "required": False, "type": "text"},
+            {"name": "state", "label": "State", "required": False, "type": "text"},
+            {
+                "name": "postal_code",
+                "label": "Postal Code",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "phone", "label": "Phone", "required": False, "type": "text"},
+            {"name": "email", "label": "Email", "required": False, "type": "text"},
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "vendors": {
@@ -82,17 +167,50 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 3,
         "requires": [],
         "fields": [
-            {"name": "vendor_name",  "label": "Vendor Name",    "required": True,  "type": "text", "key": True,  "note": "Must be unique"},
-            {"name": "contact_name", "label": "Contact Name",   "required": False, "type": "text"},
-            {"name": "email",        "label": "Email",          "required": False, "type": "text"},
-            {"name": "phone",        "label": "Phone",          "required": False, "type": "text"},
-            {"name": "address_1",    "label": "Address Line 1", "required": False, "type": "text"},
-            {"name": "address_2",    "label": "Address Line 2", "required": False, "type": "text"},
-            {"name": "city",         "label": "City",           "required": False, "type": "text"},
-            {"name": "state",        "label": "State",          "required": False, "type": "text"},
-            {"name": "postal_code",  "label": "Postal Code",    "required": False, "type": "text"},
-            {"name": "active",       "label": "Active",         "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
-            {"name": "notes",        "label": "Notes",          "required": False, "type": "text"},
+            {
+                "name": "vendor_name",
+                "label": "Vendor Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique",
+            },
+            {
+                "name": "contact_name",
+                "label": "Contact Name",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "email", "label": "Email", "required": False, "type": "text"},
+            {"name": "phone", "label": "Phone", "required": False, "type": "text"},
+            {
+                "name": "address_1",
+                "label": "Address Line 1",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "address_2",
+                "label": "Address Line 2",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "city", "label": "City", "required": False, "type": "text"},
+            {"name": "state", "label": "State", "required": False, "type": "text"},
+            {
+                "name": "postal_code",
+                "label": "Postal Code",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "budgets": {
@@ -100,10 +218,31 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 4,
         "requires": [],
         "fields": [
-            {"name": "fiscal_year", "label": "Fiscal Year", "required": True,  "type": "integer", "key": True,  "note": "Combined with Fund Code — must be unique together"},
-            {"name": "fund_code",   "label": "Fund Code",   "required": True,  "type": "enum",    "key": True,  "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Combined with Fiscal Year — must be unique together"},
-            {"name": "status",      "label": "Status",      "required": True,  "type": "enum",    "values": ["DRAFT","APPROVED","ARCHIVED"]},
-            {"name": "notes",       "label": "Notes",       "required": False, "type": "text"},
+            {
+                "name": "fiscal_year",
+                "label": "Fiscal Year",
+                "required": True,
+                "type": "integer",
+                "key": True,
+                "note": "Combined with Fund Code — must be unique together",
+            },
+            {
+                "name": "fund_code",
+                "label": "Fund Code",
+                "required": True,
+                "type": "enum",
+                "key": True,
+                "values": ["OPERATING", "RESERVE", "SPECIAL"],
+                "note": "Combined with Fiscal Year — must be unique together",
+            },
+            {
+                "name": "status",
+                "label": "Status",
+                "required": True,
+                "type": "enum",
+                "values": ["DRAFT", "APPROVED", "ARCHIVED"],
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "lots": {
@@ -111,14 +250,47 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 5,
         "requires": [],
         "fields": [
-            {"name": "lot_number",        "label": "Lot Number",     "required": True,  "type": "text", "key": True,  "note": "Must be unique"},
-            {"name": "street_address_1",  "label": "Address Line 1", "required": False, "type": "text"},
-            {"name": "street_address_2",  "label": "Address Line 2", "required": False, "type": "text"},
-            {"name": "city",              "label": "City",           "required": False, "type": "text"},
-            {"name": "state",             "label": "State",          "required": False, "type": "text"},
-            {"name": "postal_code",       "label": "Postal Code",    "required": False, "type": "text"},
-            {"name": "legal_description", "label": "Legal Desc.",    "required": False, "type": "text"},
-            {"name": "active",            "label": "Active",         "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+            {
+                "name": "lot_number",
+                "label": "Lot Number",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique",
+            },
+            {
+                "name": "street_address_1",
+                "label": "Address Line 1",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "street_address_2",
+                "label": "Address Line 2",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "city", "label": "City", "required": False, "type": "text"},
+            {"name": "state", "label": "State", "required": False, "type": "text"},
+            {
+                "name": "postal_code",
+                "label": "Postal Code",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "legal_description",
+                "label": "Legal Desc.",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
         ],
     },
     "bank_accounts": {
@@ -126,12 +298,48 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 6,
         "requires": [],
         "fields": [
-            {"name": "account_name",     "label": "Account Name",      "required": True,  "type": "text", "key": True,  "note": "Must be unique"},
-            {"name": "institution_name", "label": "Bank / Institution", "required": True,  "type": "text"},
-            {"name": "account_last4",    "label": "Last 4 Digits",      "required": False, "type": "text"},
-            {"name": "account_type",     "label": "Account Type",       "required": True,  "type": "enum",    "values": ["CHECKING","SAVINGS","MONEY_MARKET","OTHER"]},
-            {"name": "fund_code",        "label": "Fund Code",          "required": False, "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
-            {"name": "active",           "label": "Active",             "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+            {
+                "name": "account_name",
+                "label": "Account Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique",
+            },
+            {
+                "name": "institution_name",
+                "label": "Bank / Institution",
+                "required": True,
+                "type": "text",
+            },
+            {
+                "name": "account_last4",
+                "label": "Last 4 Digits",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "account_type",
+                "label": "Account Type",
+                "required": True,
+                "type": "enum",
+                "values": ["CHECKING", "SAVINGS", "MONEY_MARKET", "OTHER"],
+            },
+            {
+                "name": "fund_code",
+                "label": "Fund Code",
+                "required": False,
+                "type": "enum",
+                "values": ["OPERATING", "RESERVE", "SPECIAL"],
+                "note": "Default OPERATING",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
         ],
     },
     "renters": {
@@ -139,15 +347,48 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 8,
         "requires": ["Lots"],
         "fields": [
-            {"name": "lot_number",      "label": "Lot Number",     "required": True,  "type": "text",    "note": "Must match an existing lot"},
-            {"name": "display_name",    "label": "Display Name",   "required": True,  "type": "text"},
-            {"name": "first_name",      "label": "First Name",     "required": False, "type": "text"},
-            {"name": "last_name",       "label": "Last Name",      "required": False, "type": "text"},
-            {"name": "email",           "label": "Email",          "required": False, "type": "text"},
-            {"name": "phone",           "label": "Phone",          "required": False, "type": "text"},
-            {"name": "start_date",      "label": "Start Date",     "required": False, "type": "date",    "note": "YYYY-MM-DD"},
-            {"name": "end_date",        "label": "End Date",       "required": False, "type": "date",    "note": "YYYY-MM-DD"},
-            {"name": "notes",           "label": "Notes",          "required": False, "type": "text"},
+            {
+                "name": "lot_number",
+                "label": "Lot Number",
+                "required": True,
+                "type": "text",
+                "note": "Must match an existing lot",
+            },
+            {
+                "name": "display_name",
+                "label": "Display Name",
+                "required": True,
+                "type": "text",
+            },
+            {
+                "name": "first_name",
+                "label": "First Name",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "last_name",
+                "label": "Last Name",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "email", "label": "Email", "required": False, "type": "text"},
+            {"name": "phone", "label": "Phone", "required": False, "type": "text"},
+            {
+                "name": "start_date",
+                "label": "Start Date",
+                "required": False,
+                "type": "date",
+                "note": "YYYY-MM-DD",
+            },
+            {
+                "name": "end_date",
+                "label": "End Date",
+                "required": False,
+                "type": "date",
+                "note": "YYYY-MM-DD",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "lot_ownership": {
@@ -155,10 +396,37 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 7,
         "requires": ["Lots", "Owners"],
         "fields": [
-            {"name": "lot_number",        "label": "Lot Number",      "required": True,  "type": "text",    "key": True,  "note": "Combined key — must match an existing lot"},
-            {"name": "owner_name",        "label": "Owner Name",      "required": True,  "type": "text",    "key": True,  "note": "Combined key — must match owner's display name"},
-            {"name": "start_date",        "label": "Start Date",      "required": True,  "type": "date",    "key": True,  "note": "Combined key — YYYY-MM-DD"},
-            {"name": "end_date",          "label": "End Date",        "required": False, "type": "date",    "note": "YYYY-MM-DD, blank = current owner"},
+            {
+                "name": "lot_number",
+                "label": "Lot Number",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Combined key — must match an existing lot",
+            },
+            {
+                "name": "owner_name",
+                "label": "Owner Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Combined key — must match owner's display name",
+            },
+            {
+                "name": "start_date",
+                "label": "Start Date",
+                "required": True,
+                "type": "date",
+                "key": True,
+                "note": "Combined key — YYYY-MM-DD",
+            },
+            {
+                "name": "end_date",
+                "label": "End Date",
+                "required": False,
+                "type": "date",
+                "note": "YYYY-MM-DD, blank = current owner",
+            },
         ],
     },
     "board_members": {
@@ -166,14 +434,41 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 8,
         "requires": [],
         "fields": [
-            {"name": "full_name",  "label": "Full Name",  "required": True,  "type": "text"},
-            {"name": "title",      "label": "Title",      "required": True,  "type": "text", "note": "e.g. President, Treasurer"},
-            {"name": "email",      "label": "Email",      "required": False, "type": "text"},
-            {"name": "phone",      "label": "Phone",      "required": False, "type": "text"},
-            {"name": "start_date", "label": "Start Date", "required": False, "type": "date"},
-            {"name": "end_date",   "label": "End Date",   "required": False, "type": "date"},
-            {"name": "active",     "label": "Active",     "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
-            {"name": "notes",      "label": "Notes",      "required": False, "type": "text"},
+            {
+                "name": "full_name",
+                "label": "Full Name",
+                "required": True,
+                "type": "text",
+            },
+            {
+                "name": "title",
+                "label": "Title",
+                "required": True,
+                "type": "text",
+                "note": "e.g. President, Treasurer",
+            },
+            {"name": "email", "label": "Email", "required": False, "type": "text"},
+            {"name": "phone", "label": "Phone", "required": False, "type": "text"},
+            {
+                "name": "start_date",
+                "label": "Start Date",
+                "required": False,
+                "type": "date",
+            },
+            {
+                "name": "end_date",
+                "label": "End Date",
+                "required": False,
+                "type": "date",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "assessment_rules": {
@@ -181,15 +476,62 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 10,
         "requires": ["Categories"],
         "fields": [
-            {"name": "rule_name",            "label": "Rule Name",         "required": True,  "type": "text", "key": True, "note": "Must be unique"},
-            {"name": "frequency",            "label": "Frequency",         "required": True,  "type": "enum",    "values": ["ANNUAL","SEMIANNUAL","QUARTERLY","MONTHLY","CUSTOM"]},
-            {"name": "default_amount",       "label": "Default Amount",    "required": True,  "type": "decimal"},
-            {"name": "category_code",        "label": "Category Code",     "required": False, "type": "text", "note": "Must match an existing category code (e.g. DUES). Defaults to DUES."},
-            {"name": "fund_code",            "label": "Fund Code",         "required": False, "type": "enum", "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
-            {"name": "effective_start_date", "label": "Effective Start",   "required": True,  "type": "date"},
-            {"name": "effective_end_date",   "label": "Effective End",     "required": False, "type": "date"},
-            {"name": "active",               "label": "Active",            "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
-            {"name": "notes",                "label": "Notes",             "required": False, "type": "text"},
+            {
+                "name": "rule_name",
+                "label": "Rule Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique",
+            },
+            {
+                "name": "frequency",
+                "label": "Frequency",
+                "required": True,
+                "type": "enum",
+                "values": ["ANNUAL", "SEMIANNUAL", "QUARTERLY", "MONTHLY", "CUSTOM"],
+            },
+            {
+                "name": "default_amount",
+                "label": "Default Amount",
+                "required": True,
+                "type": "decimal",
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": False,
+                "type": "text",
+                "note": "Must match an existing category code (e.g. DUES). Defaults to DUES.",
+            },
+            {
+                "name": "fund_code",
+                "label": "Fund Code",
+                "required": False,
+                "type": "enum",
+                "values": ["OPERATING", "RESERVE", "SPECIAL"],
+                "note": "Default OPERATING",
+            },
+            {
+                "name": "effective_start_date",
+                "label": "Effective Start",
+                "required": True,
+                "type": "date",
+            },
+            {
+                "name": "effective_end_date",
+                "label": "Effective End",
+                "required": False,
+                "type": "date",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "bank_transaction_rules": {
@@ -197,20 +539,110 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 11,
         "requires": ["Categories", "Bank Accounts", "Vendors", "Lots"],
         "fields": [
-            {"name": "rule_name",            "label": "Rule Name",             "required": True,  "type": "text", "key": True, "note": "Must be unique"},
-            {"name": "action_type",          "label": "Action Type",           "required": True,  "type": "enum", "values": ["recurring_bill","dues_payment","fee_income","bank_charge","direct_expense","direct_income","homeowner_batch","vendor_bill_match"]},
-            {"name": "description_contains", "label": "Description Contains",   "required": False, "type": "text", "note": "Substring to match in bank description"},
-            {"name": "match_type",           "label": "Match Type",             "required": False, "type": "text"},
-            {"name": "match_memo",           "label": "Match Memo",             "required": False, "type": "text"},
-            {"name": "match_amount",         "label": "Match Amount",           "required": False, "type": "text"},
-            {"name": "category_code",        "label": "Category Code",          "required": False, "type": "text", "note": "Must match an existing category code"},
-            {"name": "vendor_name",          "label": "Vendor Name",            "required": False, "type": "text", "note": "Must match an existing vendor name"},
-            {"name": "lot_number",           "label": "Lot Number",             "required": False, "type": "text", "note": "Must match an existing lot"},
-            {"name": "bank_account_name",    "label": "Bank Account Name",      "required": False, "type": "text", "note": "Must match an existing bank account name"},
-            {"name": "default_memo",         "label": "Default Memo",           "required": False, "type": "text"},
-            {"name": "confidence_mode",      "label": "Confidence Mode",        "required": False, "type": "text", "note": "review_first or auto_post; default review_first"},
-            {"name": "auto_post_after_n",    "label": "Auto-Post After N",      "required": False, "type": "integer", "note": "Default 3"},
-            {"name": "active",               "label": "Active",                 "required": False, "type": "boolean", "note": "Yes or No, default Yes"},
+            {
+                "name": "rule_name",
+                "label": "Rule Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique",
+            },
+            {
+                "name": "action_type",
+                "label": "Action Type",
+                "required": True,
+                "type": "enum",
+                "values": [
+                    "recurring_bill",
+                    "dues_payment",
+                    "fee_income",
+                    "bank_charge",
+                    "direct_expense",
+                    "direct_income",
+                    "homeowner_batch",
+                    "vendor_bill_match",
+                ],
+            },
+            {
+                "name": "description_contains",
+                "label": "Description Contains",
+                "required": False,
+                "type": "text",
+                "note": "Substring to match in bank description",
+            },
+            {
+                "name": "match_type",
+                "label": "Match Type",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "match_memo",
+                "label": "Match Memo",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "match_amount",
+                "label": "Match Amount",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": False,
+                "type": "text",
+                "note": "Must match an existing category code",
+            },
+            {
+                "name": "vendor_name",
+                "label": "Vendor Name",
+                "required": False,
+                "type": "text",
+                "note": "Must match an existing vendor name",
+            },
+            {
+                "name": "lot_number",
+                "label": "Lot Number",
+                "required": False,
+                "type": "text",
+                "note": "Must match an existing lot",
+            },
+            {
+                "name": "bank_account_name",
+                "label": "Bank Account Name",
+                "required": False,
+                "type": "text",
+                "note": "Must match an existing bank account name",
+            },
+            {
+                "name": "default_memo",
+                "label": "Default Memo",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "confidence_mode",
+                "label": "Confidence Mode",
+                "required": False,
+                "type": "text",
+                "note": "review_first or auto_post; default review_first",
+            },
+            {
+                "name": "auto_post_after_n",
+                "label": "Auto-Post After N",
+                "required": False,
+                "type": "integer",
+                "note": "Default 3",
+            },
+            {
+                "name": "active",
+                "label": "Active",
+                "required": False,
+                "type": "boolean",
+                "note": "Yes or No, default Yes",
+            },
         ],
     },
     "opening_balances": {
@@ -218,13 +650,32 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 12,
         "requires": ["Bank Accounts", "Lots"],
         "fields": [
-            {"name": "as_of_date",     "label": "As Of Date",     "required": True,  "type": "date", "key": True, "note": "YYYY-MM-DD"},
-            {"name": "entity_type",    "label": "Entity Type",    "required": True,  "type": "enum", "key": True,
-             "values": ["BANK_ACCOUNT", "LOT_DUES", "LOT_ASSESSMENT"],
-             "note": "BANK_ACCOUNT = cash on hand; LOT_DUES / LOT_ASSESSMENT = owner balance on a lot"},
-            {"name": "entity_key",     "label": "Entity Key",     "required": True,  "type": "text", "key": True,
-             "note": "Bank Account name for BANK_ACCOUNT; Lot # for LOT_DUES / LOT_ASSESSMENT"},
-            {"name": "amount",         "label": "Amount",         "required": True,  "type": "decimal"},
+            {
+                "name": "as_of_date",
+                "label": "As Of Date",
+                "required": True,
+                "type": "date",
+                "key": True,
+                "note": "YYYY-MM-DD",
+            },
+            {
+                "name": "entity_type",
+                "label": "Entity Type",
+                "required": True,
+                "type": "enum",
+                "key": True,
+                "values": ["BANK_ACCOUNT", "LOT_DUES", "LOT_ASSESSMENT"],
+                "note": "BANK_ACCOUNT = cash on hand; LOT_DUES / LOT_ASSESSMENT = owner balance on a lot",
+            },
+            {
+                "name": "entity_key",
+                "label": "Entity Key",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Bank Account name for BANK_ACCOUNT; Lot # for LOT_DUES / LOT_ASSESSMENT",
+            },
+            {"name": "amount", "label": "Amount", "required": True, "type": "decimal"},
         ],
     },
     "budget_lines": {
@@ -232,11 +683,45 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 9,
         "requires": ["Budgets", "Categories"],
         "fields": [
-            {"name": "fiscal_year",    "label": "Fiscal Year",   "required": True, "type": "integer", "key": True,  "note": "Combined key"},
-            {"name": "fund_code",      "label": "Fund Code",     "required": True, "type": "enum",    "key": True,  "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Combined key"},
-            {"name": "category_code",  "label": "Category Code", "required": True, "type": "text",    "key": True,  "note": "Combined key — must match an existing category code"},
-            {"name": "fiscal_period",  "label": "Fiscal Period", "required": True, "type": "integer", "key": True,  "note": "Combined key — 1–12"},
-            {"name": "budget_amount",  "label": "Budget Amount", "required": True, "type": "decimal"},
+            {
+                "name": "fiscal_year",
+                "label": "Fiscal Year",
+                "required": True,
+                "type": "integer",
+                "key": True,
+                "note": "Combined key",
+            },
+            {
+                "name": "fund_code",
+                "label": "Fund Code",
+                "required": True,
+                "type": "enum",
+                "key": True,
+                "values": ["OPERATING", "RESERVE", "SPECIAL"],
+                "note": "Combined key",
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Combined key — must match an existing category code",
+            },
+            {
+                "name": "fiscal_period",
+                "label": "Fiscal Period",
+                "required": True,
+                "type": "integer",
+                "key": True,
+                "note": "Combined key — 1–12",
+            },
+            {
+                "name": "budget_amount",
+                "label": "Budget Amount",
+                "required": True,
+                "type": "decimal",
+            },
         ],
     },
     "deposit_batches": {
@@ -244,11 +729,37 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 14,
         "requires": ["Bank Accounts"],
         "fields": [
-            {"name": "deposit_date",       "label": "Deposit Date",     "required": True,  "type": "date",    "key": True, "note": "YYYY-MM-DD"},
-            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
-            {"name": "total_amount",       "label": "Total Amount",     "required": True,  "type": "decimal", "key": True},
-            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text",    "note": "Optional — must match an existing category code"},
-            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+            {
+                "name": "deposit_date",
+                "label": "Deposit Date",
+                "required": True,
+                "type": "date",
+                "key": True,
+                "note": "YYYY-MM-DD",
+            },
+            {
+                "name": "bank_account_name",
+                "label": "Bank Account",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing bank account name",
+            },
+            {
+                "name": "total_amount",
+                "label": "Total Amount",
+                "required": True,
+                "type": "decimal",
+                "key": True,
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": False,
+                "type": "text",
+                "note": "Optional — must match an existing category code",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "assessments": {
@@ -256,15 +767,59 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 15,
         "requires": ["Lots", "Owners", "Categories"],
         "fields": [
-            {"name": "lot_number",         "label": "Lot Number",       "required": True,  "type": "text",    "key": True, "note": "Must match an existing lot"},
-            {"name": "owner_name",         "label": "Owner Name",       "required": True,  "type": "text",    "key": True, "note": "Must match an existing owner display name"},
-            {"name": "charge_type",        "label": "Charge Type",      "required": True,  "type": "enum",    "values": ["DUES","LATE_FEE","RESALE_FEE","SPECIAL","OTHER"]},
-            {"name": "assessment_date",    "label": "Assessment Date",  "required": True,  "type": "date",    "key": True, "note": "YYYY-MM-DD"},
-            {"name": "due_date",           "label": "Due Date",         "required": True,  "type": "date"},
-            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
-            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text"},
-            {"name": "status",             "label": "Status",           "required": False, "type": "enum",    "values": ["OPEN","PAID","PARTIAL","VOID","WRITTEN_OFF"], "note": "Default OPEN"},
-            {"name": "description",        "label": "Description",      "required": False, "type": "text"},
+            {
+                "name": "lot_number",
+                "label": "Lot Number",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing lot",
+            },
+            {
+                "name": "owner_name",
+                "label": "Owner Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing owner display name",
+            },
+            {
+                "name": "charge_type",
+                "label": "Charge Type",
+                "required": True,
+                "type": "enum",
+                "values": ["DUES", "LATE_FEE", "RESALE_FEE", "SPECIAL", "OTHER"],
+            },
+            {
+                "name": "assessment_date",
+                "label": "Assessment Date",
+                "required": True,
+                "type": "date",
+                "key": True,
+                "note": "YYYY-MM-DD",
+            },
+            {"name": "due_date", "label": "Due Date", "required": True, "type": "date"},
+            {"name": "amount", "label": "Amount", "required": True, "type": "decimal"},
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "status",
+                "label": "Status",
+                "required": False,
+                "type": "enum",
+                "values": ["OPEN", "PAID", "PARTIAL", "VOID", "WRITTEN_OFF"],
+                "note": "Default OPEN",
+            },
+            {
+                "name": "description",
+                "label": "Description",
+                "required": False,
+                "type": "text",
+            },
         ],
     },
     "payments": {
@@ -272,15 +827,55 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 16,
         "requires": ["Owners", "Bank Accounts"],
         "fields": [
-            {"name": "receipt_number",     "label": "Receipt Number",   "required": True,  "type": "text",    "key": True, "note": "Must be unique"},
-            {"name": "owner_name",         "label": "Owner Name",       "required": True,  "type": "text",    "note": "Must match an existing owner display name"},
-            {"name": "payment_date",       "label": "Payment Date",     "required": True,  "type": "date"},
-            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
-            {"name": "payment_method",     "label": "Payment Method",   "required": True,  "type": "enum",    "values": ["CHECK","CASH","ACH","CREDIT_CARD","OTHER"]},
-            {"name": "reference_number",   "label": "Reference Number", "required": False, "type": "text"},
-            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "note": "Must match an existing bank account name"},
-            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text"},
-            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+            {
+                "name": "receipt_number",
+                "label": "Receipt Number",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must be unique",
+            },
+            {
+                "name": "owner_name",
+                "label": "Owner Name",
+                "required": True,
+                "type": "text",
+                "note": "Must match an existing owner display name",
+            },
+            {
+                "name": "payment_date",
+                "label": "Payment Date",
+                "required": True,
+                "type": "date",
+            },
+            {"name": "amount", "label": "Amount", "required": True, "type": "decimal"},
+            {
+                "name": "payment_method",
+                "label": "Payment Method",
+                "required": True,
+                "type": "enum",
+                "values": ["CHECK", "CASH", "ACH", "CREDIT_CARD", "OTHER"],
+            },
+            {
+                "name": "reference_number",
+                "label": "Reference Number",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "bank_account_name",
+                "label": "Bank Account",
+                "required": True,
+                "type": "text",
+                "note": "Must match an existing bank account name",
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "vendor_bills": {
@@ -288,15 +883,64 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 17,
         "requires": ["Vendors", "Categories"],
         "fields": [
-            {"name": "vendor_name",        "label": "Vendor Name",      "required": True,  "type": "text",    "key": True, "note": "Must match an existing vendor"},
-            {"name": "invoice_number",     "label": "Invoice Number",   "required": True,  "type": "text",    "key": True, "note": "Unique per vendor"},
-            {"name": "invoice_date",       "label": "Invoice Date",     "required": True,  "type": "date"},
-            {"name": "due_date",           "label": "Due Date",         "required": False, "type": "date"},
-            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
-            {"name": "fund_code",          "label": "Fund Code",        "required": False, "type": "enum",    "values": ["OPERATING","RESERVE","SPECIAL"], "note": "Default OPERATING"},
-            {"name": "category_code",      "label": "Category Code",    "required": True,  "type": "text",    "note": "Must match an existing category code"},
-            {"name": "status",             "label": "Status",           "required": False, "type": "enum",    "values": ["OPEN","PAID","VOID"], "note": "Default OPEN"},
-            {"name": "description",        "label": "Description",      "required": False, "type": "text"},
+            {
+                "name": "vendor_name",
+                "label": "Vendor Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing vendor",
+            },
+            {
+                "name": "invoice_number",
+                "label": "Invoice Number",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Unique per vendor",
+            },
+            {
+                "name": "invoice_date",
+                "label": "Invoice Date",
+                "required": True,
+                "type": "date",
+            },
+            {
+                "name": "due_date",
+                "label": "Due Date",
+                "required": False,
+                "type": "date",
+            },
+            {"name": "amount", "label": "Amount", "required": True, "type": "decimal"},
+            {
+                "name": "fund_code",
+                "label": "Fund Code",
+                "required": False,
+                "type": "enum",
+                "values": ["OPERATING", "RESERVE", "SPECIAL"],
+                "note": "Default OPERATING",
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": True,
+                "type": "text",
+                "note": "Must match an existing category code",
+            },
+            {
+                "name": "status",
+                "label": "Status",
+                "required": False,
+                "type": "enum",
+                "values": ["OPEN", "PAID", "VOID"],
+                "note": "Default OPEN",
+            },
+            {
+                "name": "description",
+                "label": "Description",
+                "required": False,
+                "type": "text",
+            },
         ],
     },
     "bill_payments": {
@@ -304,13 +948,43 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 18,
         "requires": ["Vendor Bills", "Bank Accounts"],
         "fields": [
-            {"name": "vendor_name",        "label": "Vendor Name",      "required": True,  "type": "text",    "key": True, "note": "Combined key with invoice number"},
-            {"name": "invoice_number",     "label": "Invoice Number",   "required": True,  "type": "text",    "key": True, "note": "Bill must already exist"},
-            {"name": "payment_date",       "label": "Payment Date",     "required": True,  "type": "date"},
-            {"name": "amount",             "label": "Amount",           "required": True,  "type": "decimal"},
-            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "note": "Must match an existing bank account name"},
-            {"name": "check_number",       "label": "Check Number",     "required": False, "type": "text"},
-            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+            {
+                "name": "vendor_name",
+                "label": "Vendor Name",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Combined key with invoice number",
+            },
+            {
+                "name": "invoice_number",
+                "label": "Invoice Number",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Bill must already exist",
+            },
+            {
+                "name": "payment_date",
+                "label": "Payment Date",
+                "required": True,
+                "type": "date",
+            },
+            {"name": "amount", "label": "Amount", "required": True, "type": "decimal"},
+            {
+                "name": "bank_account_name",
+                "label": "Bank Account",
+                "required": True,
+                "type": "text",
+                "note": "Must match an existing bank account name",
+            },
+            {
+                "name": "check_number",
+                "label": "Check Number",
+                "required": False,
+                "type": "text",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "non_dues_income": {
@@ -318,12 +992,42 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 19,
         "requires": ["Bank Accounts", "Categories"],
         "fields": [
-            {"name": "posting_date",       "label": "Posting Date",     "required": True,  "type": "date",    "key": True},
-            {"name": "bank_account_name",  "label": "Bank Account",     "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
-            {"name": "category_code",      "label": "Category Code",    "required": False, "type": "text",    "note": "Optional"},
-            {"name": "income_description", "label": "Description",      "required": True,  "type": "text",    "key": True},
-            {"name": "total_amount",       "label": "Total Amount",     "required": True,  "type": "decimal"},
-            {"name": "notes",              "label": "Notes",            "required": False, "type": "text"},
+            {
+                "name": "posting_date",
+                "label": "Posting Date",
+                "required": True,
+                "type": "date",
+                "key": True,
+            },
+            {
+                "name": "bank_account_name",
+                "label": "Bank Account",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing bank account name",
+            },
+            {
+                "name": "category_code",
+                "label": "Category Code",
+                "required": False,
+                "type": "text",
+                "note": "Optional",
+            },
+            {
+                "name": "income_description",
+                "label": "Description",
+                "required": True,
+                "type": "text",
+                "key": True,
+            },
+            {
+                "name": "total_amount",
+                "label": "Total Amount",
+                "required": True,
+                "type": "decimal",
+            },
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
     "reserve_transfers": {
@@ -331,19 +1035,46 @@ TABLE_DEFS: dict[str, dict[str, Any]] = {
         "order": 20,
         "requires": ["Bank Accounts"],
         "fields": [
-            {"name": "transfer_date",        "label": "Transfer Date",      "required": True,  "type": "date",    "key": True},
-            {"name": "from_bank_account",    "label": "From Bank Account",  "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
-            {"name": "to_bank_account",      "label": "To Bank Account",    "required": True,  "type": "text",    "key": True, "note": "Must match an existing bank account name"},
-            {"name": "amount",               "label": "Amount",             "required": True,  "type": "decimal"},
-            {"name": "transfer_type",        "label": "Transfer Type",      "required": False, "type": "text",    "note": "e.g. CONTRIBUTION, FUNDING, OTHER"},
-            {"name": "purpose",              "label": "Purpose",            "required": False, "type": "text"},
-            {"name": "notes",                "label": "Notes",              "required": False, "type": "text"},
+            {
+                "name": "transfer_date",
+                "label": "Transfer Date",
+                "required": True,
+                "type": "date",
+                "key": True,
+            },
+            {
+                "name": "from_bank_account",
+                "label": "From Bank Account",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing bank account name",
+            },
+            {
+                "name": "to_bank_account",
+                "label": "To Bank Account",
+                "required": True,
+                "type": "text",
+                "key": True,
+                "note": "Must match an existing bank account name",
+            },
+            {"name": "amount", "label": "Amount", "required": True, "type": "decimal"},
+            {
+                "name": "transfer_type",
+                "label": "Transfer Type",
+                "required": False,
+                "type": "text",
+                "note": "e.g. CONTRIBUTION, FUNDING, OTHER",
+            },
+            {"name": "purpose", "label": "Purpose", "required": False, "type": "text"},
+            {"name": "notes", "label": "Notes", "required": False, "type": "text"},
         ],
     },
 }
 
 
 # ── CSV parsing ───────────────────────────────────────────────────────────────
+
 
 def _parse_csv(content: str) -> tuple[list[str], list[list[str]]]:
     """
@@ -360,12 +1091,13 @@ def _parse_csv(content: str) -> tuple[list[str], list[list[str]]]:
     data_rows = [
         [cell.replace("&#x2C;", ",") for cell in row]
         for row in all_rows[1:]
-        if any(cell.strip() for cell in row)   # skip blank lines
+        if any(cell.strip() for cell in row)  # skip blank lines
     ]
     return headers, data_rows
 
 
 # ── Value coercion helpers ────────────────────────────────────────────────────
+
 
 def _parse_bool(v: str, default: int = 1) -> int:
     s = v.strip().lower()
@@ -378,6 +1110,7 @@ def _parse_bool(v: str, default: int = 1) -> int:
 
 # ── Response types ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ImportPageResponse:
     status_code: int
@@ -386,8 +1119,9 @@ class ImportPageResponse:
 
 # ── Page service ──────────────────────────────────────────────────────────────
 
+
 class ImportPages:
-    TEMPLATE        = "import.html"
+    TEMPLATE = "import.html"
     RESULT_TEMPLATE = "import_result.html"
 
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -412,14 +1146,16 @@ class ImportPages:
         # TABLE_DEFS permanently) because its submit path doesn't insert
         # rows — it saves a column map and re-runs ingest.
         from hoa_accounting.web.bank_ingest import (
-            CANONICAL_CSV_FIELDS, peek_stash,
+            CANONICAL_CSV_FIELDS,
+            peek_stash,
         )
+
         defs = dict(TABLE_DEFS)
         defs["bank_statement_csv"] = {
-            "label":    "Bank Statement (CSV)",
-            "order":    99,
+            "label": "Bank Statement (CSV)",
+            "order": 99,
             "requires": [],
-            "fields":   CANONICAL_CSV_FIELDS,
+            "fields": CANONICAL_CSV_FIELDS,
             "save_only": True,
             "submit_url": "/bank-import/save-mapping",
         }
@@ -436,20 +1172,20 @@ class ImportPages:
 
         ordered = sorted(defs.items(), key=lambda kv: kv[1]["order"])
         ctx = {
-            "heading":         "Import Data",
-            "breadcrumb":      "System",
-            "org":             org or {},
-            "theme":           theme,
-            "page_key":        "import",
+            "heading": "Import Data",
+            "breadcrumb": "System",
+            "org": org or {},
+            "theme": theme,
+            "page_key": "import",
             "table_defs_json": json.dumps(defs),
-            "import_order":    [(k, v) for k, v in ordered],
-            "error_message":   error_message,
-            "prefill_type":    prefill_type,
-            "stash_token":     stash_token,
+            "import_order": [(k, v) for k, v in ordered],
+            "error_message": error_message,
+            "prefill_type": prefill_type,
+            "stash_token": stash_token,
             "bank_account_id": bank_account_id or "",
-            "prefill_csv":     prefill_csv,
+            "prefill_csv": prefill_csv,
             "prefill_filename": prefill_filename,
-            "note":            note,
+            "note": note,
         }
         return ImportPageResponse(
             status_code=HTTPStatus.OK,
@@ -469,22 +1205,25 @@ class ImportPages:
         theme: str,
     ) -> ImportPageResponse:
         if data_type not in TABLE_DEFS:
-            return self.render_page(org=org, theme=theme,
-                                    error_message=f"Unknown data type '{data_type}'.")
+            return self.render_page(
+                org=org, theme=theme, error_message=f"Unknown data type '{data_type}'."
+            )
 
         try:
             mapping: dict[str, str] = json.loads(mapping_json)
         except Exception:
-            return self.render_page(org=org, theme=theme,
-                                    error_message="Could not read field mapping.")
+            return self.render_page(
+                org=org, theme=theme, error_message="Could not read field mapping."
+            )
 
         csv_headers, csv_rows = _parse_csv(csv_content)
         if not csv_rows:
-            return self.render_page(org=org, theme=theme,
-                                    error_message="The file contains no data rows.")
+            return self.render_page(
+                org=org, theme=theme, error_message="The file contains no data rows."
+            )
 
         table_def = TABLE_DEFS[data_type]
-        imported  = 0
+        imported = 0
         error_rows: list[dict[str, Any]] = []
 
         for row_num, csv_row in enumerate(csv_rows, start=2):
@@ -495,8 +1234,7 @@ class ImportPages:
             }
             # Translate via mapping to {tableField: value}
             table_row: dict[str, str] = {
-                tf: raw.get(csv_col, "")
-                for tf, csv_col in mapping.items()
+                tf: raw.get(csv_col, "") for tf, csv_col in mapping.items()
             }
 
             # Validate (no DB)
@@ -516,18 +1254,18 @@ class ImportPages:
             self.conn.commit()
 
         ctx = {
-            "heading":         "Import Results",
-            "breadcrumb":      "System",
-            "org":             org or {},
-            "theme":           theme,
-            "page_key":        "import",
+            "heading": "Import Results",
+            "breadcrumb": "System",
+            "org": org or {},
+            "theme": theme,
+            "page_key": "import",
             "data_type_label": table_def["label"],
-            "file_name":       file_name,
-            "checked_at":      datetime.now().strftime("%-I:%M:%S %p on %b %-d, %Y"),
-            "imported":        imported,
-            "failed":          len(error_rows),
-            "total":           imported + len(error_rows),
-            "error_rows":      error_rows,
+            "file_name": file_name,
+            "checked_at": datetime.now().strftime("%-I:%M:%S %p on %b %-d, %Y"),
+            "imported": imported,
+            "failed": len(error_rows),
+            "total": imported + len(error_rows),
+            "error_rows": error_rows,
         }
         return ImportPageResponse(
             status_code=HTTPStatus.OK,
@@ -542,7 +1280,7 @@ class ImportPages:
         data_type: str,
         mapping_json: str,
         csv_content: str,
-        filter_field: str = "",   # empty = all fields; non-empty = only check this column
+        filter_field: str = "",  # empty = all fields; non-empty = only check this column
     ) -> dict[str, Any]:
         """
         Validate without inserting.  Returns a dict for JSON serialization.
@@ -567,7 +1305,7 @@ class ImportPages:
             return {"total": 0, "ok_count": 0, "error_count": 0, "errors": []}
 
         table_def = TABLE_DEFS[data_type]
-        ok_count  = 0
+        ok_count = 0
         error_rows: list[dict[str, Any]] = []
 
         for row_num, csv_row in enumerate(csv_rows, start=2):
@@ -576,8 +1314,7 @@ class ImportPages:
                 for j in range(len(csv_headers))
             }
             table_row: dict[str, str] = {
-                tf: raw.get(csv_col, "")
-                for tf, csv_col in mapping.items()
+                tf: raw.get(csv_col, "") for tf, csv_col in mapping.items()
             }
 
             # Format validation (no DB)
@@ -591,25 +1328,33 @@ class ImportPages:
             # involve that field (heuristic: error text contains the field label)
             if filter_field and errs:
                 field_label = next(
-                    (f["label"] for f in table_def["fields"] if f["name"] == filter_field),
+                    (
+                        f["label"]
+                        for f in table_def["fields"]
+                        if f["name"] == filter_field
+                    ),
                     filter_field,
                 )
                 errs = [e for e in errs if filter_field in e or field_label in e]
 
             if errs:
-                error_rows.append({
-                    "row": row_num,
-                    "errors": errs,
-                    "value": table_row.get(filter_field, "") if filter_field else "",
-                })
+                error_rows.append(
+                    {
+                        "row": row_num,
+                        "errors": errs,
+                        "value": (
+                            table_row.get(filter_field, "") if filter_field else ""
+                        ),
+                    }
+                )
             else:
                 ok_count += 1
 
         return {
-            "total":       len(csv_rows),
-            "ok_count":    ok_count,
+            "total": len(csv_rows),
+            "ok_count": ok_count,
             "error_count": len(error_rows),
-            "errors":      error_rows,
+            "errors": error_rows,
         }
 
     def _check_row_db(self, data_type: str, row: dict[str, Any]) -> list[str]:
@@ -645,11 +1390,13 @@ class ImportPages:
 
     # ── Validation ───────────────────────────────────────────────────────
 
-    def _validate_row(self, table_def: dict[str, Any], row: dict[str, str]) -> list[str]:
+    def _validate_row(
+        self, table_def: dict[str, Any], row: dict[str, str]
+    ) -> list[str]:
         errs: list[str] = []
         for field in table_def["fields"]:
             name = field["name"]
-            val  = row.get(name, "").strip()
+            val = row.get(name, "").strip()
             if not val:
                 if field["required"]:
                     errs.append(f"'{field['label']}' is required but empty.")
@@ -666,7 +1413,9 @@ class ImportPages:
                 try:
                     int(val)
                 except ValueError:
-                    errs.append(f"'{field['label']}': \"{val}\" must be a whole number.")
+                    errs.append(
+                        f"'{field['label']}': \"{val}\" must be a whole number."
+                    )
             elif ftype == "decimal":
                 try:
                     Decimal(val)
@@ -726,7 +1475,7 @@ class ImportPages:
         if self.conn.execute(
             "SELECT 1 FROM categories WHERE code=?", (code,)
         ).fetchone():
-            return [f"Category code \"{code}\" already exists."]
+            return [f'Category code "{code}" already exists.']
         ct = self._v(row, "category_type", "").upper()
         fund = self._v(row, "fund_code", "OPERATING").upper() or "OPERATING"
         try:
@@ -756,7 +1505,7 @@ class ImportPages:
         if self.conn.execute(
             "SELECT 1 FROM owners WHERE display_name=?", (dn,)
         ).fetchone():
-            return [f"Owner \"{dn}\" already exists."]
+            return [f'Owner "{dn}" already exists.']
         self.conn.execute(
             """INSERT INTO owners
                (owner_type, display_name, first_name, last_name, entity_name,
@@ -787,7 +1536,7 @@ class ImportPages:
         if self.conn.execute(
             "SELECT 1 FROM vendors WHERE vendor_name=?", (vn,)
         ).fetchone():
-            return [f"Vendor \"{vn}\" already exists."]
+            return [f'Vendor "{vn}" already exists.']
         self.conn.execute(
             """INSERT INTO vendors
                (vendor_name, contact_name, email, phone,
@@ -825,10 +1574,8 @@ class ImportPages:
 
     def _insert_lots(self, row: dict[str, Any]) -> list[str]:
         ln = self._v(row, "lot_number")
-        if self.conn.execute(
-            "SELECT 1 FROM lots WHERE lot_number=?", (ln,)
-        ).fetchone():
-            return [f"Lot \"{ln}\" already exists."]
+        if self.conn.execute("SELECT 1 FROM lots WHERE lot_number=?", (ln,)).fetchone():
+            return [f'Lot "{ln}" already exists.']
         self.conn.execute(
             """INSERT INTO lots
                (lot_number, street_address_1, street_address_2,
@@ -878,14 +1625,14 @@ class ImportPages:
             "SELECT id FROM lots WHERE lot_number=?", (lot_num,)
         ).fetchone()
         if not lot_row:
-            return [f"Lot \"{lot_num}\" not found. Import Lots first."]
+            return [f'Lot "{lot_num}" not found. Import Lots first.']
 
         owner_name = self._v(row, "owner_name")
-        owner_row  = self.conn.execute(
+        owner_row = self.conn.execute(
             "SELECT id FROM owners WHERE display_name=?", (owner_name,)
         ).fetchone()
         if not owner_row:
-            return [f"Owner \"{owner_name}\" not found. Import Owners first."]
+            return [f'Owner "{owner_name}" not found. Import Owners first.']
 
         sd = self._v(row, "start_date")
         if self.conn.execute(
@@ -972,12 +1719,13 @@ class ImportPages:
         )
         return []
 
-
     # ── Transactional imports (mid-year migration) ─────────────────────
 
-    def _lookup(self, table: str, key_col: str, value: str, label: str | None = None) -> Any:
+    def _lookup(
+        self, table: str, key_col: str, value: str, label: str | None = None
+    ) -> Any:
         if not value:
-            return None, [f'{label or key_col} is required.']
+            return None, [f"{label or key_col} is required."]
         row = self.conn.execute(
             f"SELECT id FROM {table} WHERE {key_col}=?", (value,)
         ).fetchone()
@@ -986,8 +1734,12 @@ class ImportPages:
         return int(row[0]), []
 
     def _insert_deposit_batches(self, row: dict[str, Any]) -> list[str]:
-        bank_id, errs = self._lookup("bank_accounts", "account_name",
-                                     self._v(row, "bank_account_name"), "Bank account")
+        bank_id, errs = self._lookup(
+            "bank_accounts",
+            "account_name",
+            self._v(row, "bank_account_name"),
+            "Bank account",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         cat_code = (self._v(row, "category_code", "") or "").upper()
@@ -1017,12 +1769,14 @@ class ImportPages:
         return []
 
     def _insert_assessments(self, row: dict[str, Any]) -> list[str]:
-        lot_id, errs = self._lookup("lots", "lot_number",
-                                    self._v(row, "lot_number"), "Lot")
+        lot_id, errs = self._lookup(
+            "lots", "lot_number", self._v(row, "lot_number"), "Lot"
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
-        owner_id, errs = self._lookup("owners", "display_name",
-                                      self._v(row, "owner_name"), "Owner")
+        owner_id, errs = self._lookup(
+            "owners", "display_name", self._v(row, "owner_name"), "Owner"
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         cat_id = None
@@ -1052,8 +1806,17 @@ class ImportPages:
                (lot_id, owner_id, charge_type, assessment_date, due_date,
                 amount, status, category_id, description)
                VALUES (?,?,?,?,?,?,?,?,?)""",
-            (lot_id, owner_id, charge_type, assessment_date, due_date,
-             str(amt), status, cat_id, self._v(row, "description")),
+            (
+                lot_id,
+                owner_id,
+                charge_type,
+                assessment_date,
+                due_date,
+                str(amt),
+                status,
+                cat_id,
+                self._v(row, "description"),
+            ),
         )
         return []
 
@@ -1065,12 +1828,17 @@ class ImportPages:
             "SELECT 1 FROM payments WHERE receipt_number=?", (receipt,)
         ).fetchone():
             return [f'Receipt "{receipt}" already exists.']
-        owner_id, errs = self._lookup("owners", "display_name",
-                                      self._v(row, "owner_name"), "Owner")
+        owner_id, errs = self._lookup(
+            "owners", "display_name", self._v(row, "owner_name"), "Owner"
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
-        bank_id, errs = self._lookup("bank_accounts", "account_name",
-                                     self._v(row, "bank_account_name"), "Bank account")
+        bank_id, errs = self._lookup(
+            "bank_accounts",
+            "account_name",
+            self._v(row, "bank_account_name"),
+            "Bank account",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         cat_id = None
@@ -1090,20 +1858,32 @@ class ImportPages:
                (receipt_number, owner_id, payment_date, amount, payment_method,
                 reference_number, bank_account_id, category_id, notes)
                VALUES (?,?,?,?,?,?,?,?,?)""",
-            (receipt, owner_id, self._v(row, "payment_date"), str(amt), method,
-             self._v(row, "reference_number"), bank_id, cat_id,
-             self._v(row, "notes")),
+            (
+                receipt,
+                owner_id,
+                self._v(row, "payment_date"),
+                str(amt),
+                method,
+                self._v(row, "reference_number"),
+                bank_id,
+                cat_id,
+                self._v(row, "notes"),
+            ),
         )
         return []
 
     def _insert_vendor_bills(self, row: dict[str, Any]) -> list[str]:
-        vendor_id, errs = self._lookup("vendors", "vendor_name",
-                                       self._v(row, "vendor_name"), "Vendor")
+        vendor_id, errs = self._lookup(
+            "vendors", "vendor_name", self._v(row, "vendor_name"), "Vendor"
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
-        cat_id, errs = self._lookup("categories", "UPPER(code)",
-                                    (self._v(row, "category_code", "") or "").upper(),
-                                    "Category")
+        cat_id, errs = self._lookup(
+            "categories",
+            "UPPER(code)",
+            (self._v(row, "category_code", "") or "").upper(),
+            "Category",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         invoice = self._v(row, "invoice_number")
@@ -1125,9 +1905,17 @@ class ImportPages:
                (vendor_id, invoice_number, invoice_date, due_date, amount,
                 fund_code, status, description, category_id)
                VALUES (?,?,?,?,?,?,?,?,?)""",
-            (vendor_id, invoice, self._v(row, "invoice_date"),
-             self._v(row, "due_date") or None, str(amt), fund, status,
-             self._v(row, "description"), cat_id),
+            (
+                vendor_id,
+                invoice,
+                self._v(row, "invoice_date"),
+                self._v(row, "due_date") or None,
+                str(amt),
+                fund,
+                status,
+                self._v(row, "description"),
+                cat_id,
+            ),
         )
         return []
 
@@ -1142,8 +1930,12 @@ class ImportPages:
         ).fetchone()
         if not bill:
             return [f'Bill "{inv}" for vendor "{vn}" not found.']
-        bank_id, errs = self._lookup("bank_accounts", "account_name",
-                                     self._v(row, "bank_account_name"), "Bank account")
+        bank_id, errs = self._lookup(
+            "bank_accounts",
+            "account_name",
+            self._v(row, "bank_account_name"),
+            "Bank account",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         try:
@@ -1161,14 +1953,24 @@ class ImportPages:
                (vendor_bill_id, payment_date, amount, bank_account_id,
                 check_number, notes)
                VALUES (?,?,?,?,?,?)""",
-            (int(bill[0]), self._v(row, "payment_date"), str(amt), bank_id,
-             self._v(row, "check_number"), self._v(row, "notes")),
+            (
+                int(bill[0]),
+                self._v(row, "payment_date"),
+                str(amt),
+                bank_id,
+                self._v(row, "check_number"),
+                self._v(row, "notes"),
+            ),
         )
         return []
 
     def _insert_non_dues_income(self, row: dict[str, Any]) -> list[str]:
-        bank_id, errs = self._lookup("bank_accounts", "account_name",
-                                     self._v(row, "bank_account_name"), "Bank account")
+        bank_id, errs = self._lookup(
+            "bank_accounts",
+            "account_name",
+            self._v(row, "bank_account_name"),
+            "Bank account",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         cat_id = None
@@ -1190,24 +1992,33 @@ class ImportPages:
                   AND income_description=? AND total_amount=?""",
             (posting_date, bank_id, desc, str(total)),
         ).fetchone():
-            return ["A batch with this date / bank / description / amount already exists."]
+            return [
+                "A batch with this date / bank / description / amount already exists."
+            ]
         self.conn.execute(
             """INSERT INTO income_batches
                (posting_date, bank_account_id, income_description,
                 total_amount, notes, category_id)
                VALUES (?,?,?,?,?,?)""",
-            (posting_date, bank_id, desc, str(total),
-             self._v(row, "notes"), cat_id),
+            (posting_date, bank_id, desc, str(total), self._v(row, "notes"), cat_id),
         )
         return []
 
     def _insert_reserve_transfers(self, row: dict[str, Any]) -> list[str]:
-        from_id, errs = self._lookup("bank_accounts", "account_name",
-                                     self._v(row, "from_bank_account"), "From bank account")
+        from_id, errs = self._lookup(
+            "bank_accounts",
+            "account_name",
+            self._v(row, "from_bank_account"),
+            "From bank account",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
-        to_id, errs = self._lookup("bank_accounts", "account_name",
-                                   self._v(row, "to_bank_account"), "To bank account")
+        to_id, errs = self._lookup(
+            "bank_accounts",
+            "account_name",
+            self._v(row, "to_bank_account"),
+            "To bank account",
+        )
         if errs:
             return errs  # type: ignore[no-any-return]
         if from_id == to_id:
@@ -1229,9 +2040,15 @@ class ImportPages:
                (transfer_date, from_bank_account_id, to_bank_account_id,
                 amount, transfer_type, purpose, notes)
                VALUES (?,?,?,?,?,?,?)""",
-            (transfer_date, from_id, to_id, str(amt),
-             (self._v(row, "transfer_type", "") or "").upper() or None,
-             self._v(row, "purpose"), self._v(row, "notes")),
+            (
+                transfer_date,
+                from_id,
+                to_id,
+                str(amt),
+                (self._v(row, "transfer_type", "") or "").upper() or None,
+                self._v(row, "purpose"),
+                self._v(row, "notes"),
+            ),
         )
         return []
 
@@ -1257,7 +2074,9 @@ class ImportPages:
         rn = self._v(row, "rule_name")
         if not rn:
             return ["Rule Name is required."]
-        if self.conn.execute("SELECT 1 FROM assessment_rules WHERE rule_name=?", (rn,)).fetchone():
+        if self.conn.execute(
+            "SELECT 1 FROM assessment_rules WHERE rule_name=?", (rn,)
+        ).fetchone():
             return [f'Rule "{rn}" already exists.']
         cat_code = (self._v(row, "category_code", "DUES") or "DUES").upper()
         cat_row = self.conn.execute(
@@ -1293,34 +2112,40 @@ class ImportPages:
         rn = self._v(row, "rule_name")
         if not rn:
             return ["Rule Name is required."]
-        if self.conn.execute("SELECT 1 FROM bank_transaction_rules WHERE rule_name=?", (rn,)).fetchone():
-            return [f"Rule \"{rn}\" already exists."]
+        if self.conn.execute(
+            "SELECT 1 FROM bank_transaction_rules WHERE rule_name=?", (rn,)
+        ).fetchone():
+            return [f'Rule "{rn}" already exists.']
 
         def _lookup(table: str, col: str, val: Any) -> int | None:
             if not val:
                 return None
-            r = self.conn.execute(f"SELECT id FROM {table} WHERE {col}=?", (val,)).fetchone()
+            r = self.conn.execute(
+                f"SELECT id FROM {table} WHERE {col}=?", (val,)
+            ).fetchone()
             return r[0] if r else None
 
         cat_code = self._v(row, "category_code", "")
         cat_id = None
         if cat_code:
-            r = self.conn.execute("SELECT id FROM categories WHERE UPPER(code)=UPPER(?)", (cat_code,)).fetchone()
+            r = self.conn.execute(
+                "SELECT id FROM categories WHERE UPPER(code)=UPPER(?)", (cat_code,)
+            ).fetchone()
             if not r:
-                return [f"Category code \"{cat_code}\" not found."]
+                return [f'Category code "{cat_code}" not found.']
             cat_id = r[0]
         vname = self._v(row, "vendor_name", "")
         vendor_id = _lookup("vendors", "vendor_name", vname)
         if vname and vendor_id is None:
-            return [f"Vendor \"{vname}\" not found."]
+            return [f'Vendor "{vname}" not found.']
         lnum = self._v(row, "lot_number", "")
         lot_id = _lookup("lots", "lot_number", lnum)
         if lnum and lot_id is None:
-            return [f"Lot \"{lnum}\" not found."]
+            return [f'Lot "{lnum}" not found.']
         baname = self._v(row, "bank_account_name", "")
         ba_id = _lookup("bank_accounts", "account_name", baname)
         if baname and ba_id is None:
-            return [f"Bank account \"{baname}\" not found."]
+            return [f'Bank account "{baname}" not found.']
         try:
             apan = int(self._v(row, "auto_post_after_n", "3") or "3")
         except ValueError:
@@ -1354,7 +2179,9 @@ class ImportPages:
     def _insert_opening_balances(self, row: dict[str, Any]) -> list[str]:
         et = self._v(row, "entity_type", "").upper()
         if et not in ("BANK_ACCOUNT", "LOT_DUES", "LOT_ASSESSMENT"):
-            return ['Entity Type must be "BANK_ACCOUNT", "LOT_DUES", or "LOT_ASSESSMENT".']
+            return [
+                'Entity Type must be "BANK_ACCOUNT", "LOT_DUES", or "LOT_ASSESSMENT".'
+            ]
         key = self._v(row, "entity_key", "")
         if et == "BANK_ACCOUNT":
             r = self.conn.execute(
@@ -1375,7 +2202,9 @@ class ImportPages:
             "SELECT 1 FROM opening_balances WHERE entity_type=? AND entity_id=?",
             (et, entity_id),
         ).fetchone():
-            return ["This entity already has an opening balance — delete it first to re-import."]
+            return [
+                "This entity already has an opening balance — delete it first to re-import."
+            ]
         try:
             amt = Decimal(self._v(row, "amount", "0"))
         except (InvalidOperation, ValueError):

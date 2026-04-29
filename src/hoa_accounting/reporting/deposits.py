@@ -119,8 +119,12 @@ class DepositsReportService:
 
         for row in owner_rows:
             owner = (row["owner_name"] or "").strip()
-            lot = (row["lot_number"] or "")
-            desc = f"Lot {lot} · {owner}" if lot and owner else (owner or f"Lot {lot}".strip())
+            lot = row["lot_number"] or ""
+            desc = (
+                f"Lot {lot} · {owner}"
+                if lot and owner
+                else (owner or f"Lot {lot}".strip())
+            )
             lines.append(
                 DepositsReportLine(
                     line_type="OWNER",

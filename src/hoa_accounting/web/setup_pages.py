@@ -14,6 +14,7 @@ def _connect(db_path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
+
 from flask import Response, redirect, request, session
 from flask.typing import ResponseReturnValue
 
@@ -24,13 +25,14 @@ from hoa_accounting.web.template_engine import render_template as _render
 # Steps in order — each maps to a session key tracking completion
 STEPS = ["admin", "login", "identity", "assessment"]
 STEP_LABELS = {
-    "admin":      "Create Admin Account",
-    "login":      "Confirm Your Login",
-    "identity":   "HOA Identity",
+    "admin": "Create Admin Account",
+    "login": "Confirm Your Login",
+    "identity": "HOA Identity",
     "assessment": "Assessment & Accounts",
 }
 
 BILLING_FREQUENCIES = ["monthly", "quarterly", "semi-annual", "annual"]
+
 
 def needs_setup(db_path: str) -> bool:
     """Return True when no local users exist (first launch)."""
@@ -45,15 +47,18 @@ def needs_setup(db_path: str) -> bool:
 
 def _render_setup(step: str, ctx: dict[str, Any] | None = None) -> str:
     current_index = STEPS.index(step)
-    return _render("setup.html", {
-        "step": step,
-        "step_index": current_index + 1,
-        "step_total": len(STEPS),
-        "step_label": STEP_LABELS[step],
-        "steps": STEPS,
-        "step_labels": STEP_LABELS,
-        **(ctx or {}),
-    })
+    return _render(
+        "setup.html",
+        {
+            "step": step,
+            "step_index": current_index + 1,
+            "step_total": len(STEPS),
+            "step_label": STEP_LABELS[step],
+            "steps": STEPS,
+            "step_labels": STEP_LABELS,
+            **(ctx or {}),
+        },
+    )
 
 
 class SetupPages:
@@ -90,7 +95,10 @@ class SetupPages:
             errors.append("Passwords do not match.")
 
         if errors:
-            return Response(_render_setup("admin", {"errors": errors, "form": form}), mimetype="text/html")
+            return Response(
+                _render_setup("admin", {"errors": errors, "form": form}),
+                mimetype="text/html",
+            )
 
         self._auth.create_user(email, display_name, "admin", password)
         session["setup_step"] = "login"
@@ -106,10 +114,18 @@ class SetupPages:
 
         user = self._auth.authenticate(email, password)
         if not user:
-            return Response(_render_setup("login", {
-                "errors": ["Login failed. Please check your email and password."],
-                "form": form,
-            }), mimetype="text/html")
+            return Response(
+                _render_setup(
+                    "login",
+                    {
+                        "errors": [
+                            "Login failed. Please check your email and password."
+                        ],
+                        "form": form,
+                    },
+                ),
+                mimetype="text/html",
+            )
 
         _set_current_user(user)
         session["setup_step"] = "identity"
@@ -130,7 +146,10 @@ class SetupPages:
             errors.append("Abbreviated name is required.")
 
         if errors:
-            return Response(_render_setup("identity", {"errors": errors, "form": form}), mimetype="text/html")
+            return Response(
+                _render_setup("identity", {"errors": errors, "form": form}),
+                mimetype="text/html",
+            )
 
         try:
             conn = _connect(self._db_path)
@@ -149,10 +168,16 @@ class SetupPages:
             conn.commit()
             conn.close()
         except Exception as exc:
-            return Response(_render_setup("identity", {
-                "errors": [f"Could not save — please try again. ({exc})"],
-                "form": form,
-            }), mimetype="text/html")
+            return Response(
+                _render_setup(
+                    "identity",
+                    {
+                        "errors": [f"Could not save — please try again. ({exc})"],
+                        "form": form,
+                    },
+                ),
+                mimetype="text/html",
+            )
 
         self._org["name"] = display_name
         self._org["legal_name"] = legal_name
@@ -186,10 +211,16 @@ class SetupPages:
             conn.commit()
             conn.close()
         except Exception as exc:
-            return Response(_render_setup("assessment", {
-                "errors": [f"Could not save — please try again. ({exc})"],
-                "form": form,
-            }), mimetype="text/html")
+            return Response(
+                _render_setup(
+                    "assessment",
+                    {
+                        "errors": [f"Could not save — please try again. ({exc})"],
+                        "form": form,
+                    },
+                ),
+                mimetype="text/html",
+            )
 
         self._org["default_assessment_amount"] = amount
         self._org["default_billing_frequency"] = frequency

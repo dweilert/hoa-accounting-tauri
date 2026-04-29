@@ -73,5 +73,8 @@ def load_org_context(config_path: Path) -> dict[str, Any]:
         "resale_fee_default_amount": getattr(
             config.accounting, "resale_fee_default_amount", "175.00"
         ),
-        "backup_config": (yaml.safe_load(Path(config_path).read_text()) or {}).get("backup") or {},
+        "backup_config": (yaml.safe_load(Path(config_path).read_text()) or {}).get(
+            "backup"
+        )
+        or {},
     }

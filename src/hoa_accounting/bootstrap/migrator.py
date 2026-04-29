@@ -35,18 +35,18 @@ class Migrator:
     """Apply ordered SQL migration files to a SQLite connection."""
 
     def __init__(self, migrations_dir: Path | str | None = None) -> None:
-        self.migrations_dir = Path(migrations_dir) if migrations_dir else _DEFAULT_MIGRATIONS_DIR
+        self.migrations_dir = (
+            Path(migrations_dir) if migrations_dir else _DEFAULT_MIGRATIONS_DIR
+        )
 
     def ensure_schema_version_table(self, conn: sqlite3.Connection) -> None:
         """Create schema_version if it doesn't already exist."""
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
                 version TEXT PRIMARY KEY,
                 applied_at TEXT NOT NULL
             )
-            """
-        )
+            """)
         conn.commit()
 
     def applied_versions(self, conn: sqlite3.Connection) -> set[str]:

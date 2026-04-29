@@ -56,7 +56,9 @@ class YtdExpenseSummaryReportService:
             (from_date, to_date),
         ).fetchall()
 
-        category_rows_by_group: dict[str, list[YtdExpenseCategoryRow]] = defaultdict(list)
+        category_rows_by_group: dict[str, list[YtdExpenseCategoryRow]] = defaultdict(
+            list
+        )
         group_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
         group_counts: dict[str, int] = defaultdict(int)
         grand_total = Decimal("0.00")

@@ -11,7 +11,6 @@ from decimal import Decimal
 
 from hoa_accounting.validators.format import format_currency, format_money
 
-
 # ── format_money ──────────────────────────────────────────────────────
 
 

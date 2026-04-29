@@ -90,23 +90,26 @@ class AuditLogPages:
 
         total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
-        html = render_template(self.TEMPLATE, {
-            "org": org,
-            "theme": theme,
-            "page_key": "audit-log",
-            "active_nav": "system",
-            "breadcrumb": "System",
-            "rows": [dict(r) for r in rows],
-            "total": total,
-            "page": page,
-            "total_pages": total_pages,
-            "page_size": PAGE_SIZE,
-            "table_names": table_names,
-            "actions": actions,
-            "table_filter": table_filter,
-            "action_filter": action_filter,
-            "user_filter": user_filter,
-            "date_from": date_from,
-            "date_to": date_to,
-        })
+        html = render_template(
+            self.TEMPLATE,
+            {
+                "org": org,
+                "theme": theme,
+                "page_key": "audit-log",
+                "active_nav": "system",
+                "breadcrumb": "System",
+                "rows": [dict(r) for r in rows],
+                "total": total,
+                "page": page,
+                "total_pages": total_pages,
+                "page_size": PAGE_SIZE,
+                "table_names": table_names,
+                "actions": actions,
+                "table_filter": table_filter,
+                "action_filter": action_filter,
+                "user_filter": user_filter,
+                "date_from": date_from,
+                "date_to": date_to,
+            },
+        )
         return AuditLogPageResponse(status_code=HTTPStatus.OK, body_html=html)

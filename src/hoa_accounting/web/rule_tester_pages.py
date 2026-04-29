@@ -41,15 +41,13 @@ class RuleTesterPages:
     # ── Helpers ───────────────────────────────────────────────────────
 
     def _all_rules(self) -> list[dict[str, Any]]:
-        rows = self.conn.execute(
-            """
+        rows = self.conn.execute("""
             SELECT id, rule_name, description_contains, match_memo,
                    match_type, match_amount, match_amount AS amount,
                    bank_account_id, active_flag, action_type
               FROM bank_transaction_rules
              ORDER BY rule_name COLLATE NOCASE
-            """
-        ).fetchall()
+            """).fetchall()
         return [{k: r[k] for k in r.keys()} for r in rows]
 
     def _recent_txns(self, limit: int = 25) -> list[dict[str, Any]]:
@@ -98,11 +96,16 @@ class RuleTesterPages:
         elif synthetic and any(synthetic.values()):
             txn = {
                 "description": str(synthetic.get("description") or "").strip(),
-                "memo":        str(synthetic.get("memo") or "").strip(),
-                "amount":      str(synthetic.get("amount") or "0").strip() or "0",
-                "transaction_type": str(synthetic.get("transaction_type") or "").strip().upper(),
-                "bank_account_id": int(synthetic["bank_account_id"])
-                                   if synthetic.get("bank_account_id") else None,
+                "memo": str(synthetic.get("memo") or "").strip(),
+                "amount": str(synthetic.get("amount") or "0").strip() or "0",
+                "transaction_type": str(synthetic.get("transaction_type") or "")
+                .strip()
+                .upper(),
+                "bank_account_id": (
+                    int(synthetic["bank_account_id"])
+                    if synthetic.get("bank_account_id")
+                    else None
+                ),
             }
 
         # Resolve the focus rule.
@@ -113,7 +116,9 @@ class RuleTesterPages:
             if focus:
                 focus_report = diagnose(focus, txn)
                 other_matches = find_other_matches(
-                    rules, txn, exclude_rule_id=focus_rule_id,
+                    rules,
+                    txn,
+                    exclude_rule_id=focus_rule_id,
                 )
         elif txn and not focus_rule_id:
             # No focus rule chosen: just show every rule that matches.

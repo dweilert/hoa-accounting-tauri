@@ -17,7 +17,11 @@ from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.factory import ServiceFactory
 from hoa_accounting.web.template_engine import render_template
 from hoa_accounting.validators.format import format_currency, format_money
-from hoa_accounting.validators.forms import parse_int as _parse_int, parse_positive_decimal as _parse_positive_decimal, require as _require
+from hoa_accounting.validators.forms import (
+    parse_int as _parse_int,
+    parse_positive_decimal as _parse_positive_decimal,
+    require as _require,
+)
 
 
 @dataclass(frozen=True)
@@ -68,7 +72,7 @@ class VendorBillPages:
                 "invoice_number": r["invoice_number"],
                 "invoice_date": r["invoice_date"],
                 "due_date": r["due_date"] or "",
-                "amount": format_money(r['amount']),
+                "amount": format_money(r["amount"]),
                 "fund_code": r["fund_code"],
                 "status": r["status"],
                 "vendor_name": r["vendor_name"],
@@ -134,9 +138,11 @@ class VendorBillPages:
             )
         ]
         bank_accounts = [
-            {"id": r["id"],
-             "name": r["account_name"],
-             "label": f"{r['account_name']} (···{r['account_last4'] or '????'})"}
+            {
+                "id": r["id"],
+                "name": r["account_name"],
+                "label": f"{r['account_name']} (···{r['account_last4'] or '????'})",
+            }
             for r in BankAccountsRepository(self.conn).list_bank_accounts()
             if r["active_flag"]
         ]
@@ -206,23 +212,27 @@ class VendorBillPages:
         if bill is None:
             return VendorBillFormResponse(
                 status_code=HTTPStatus.NOT_FOUND,
-                body_html=render_template("error.html", {
-                    "org": org or {}, "theme": theme,
-                    "heading": "Not Found",
-                    "message": f"Vendor bill #{vendor_bill_id} not found.",
-                    "page_key": "vendor-bills",
-                }),
+                body_html=render_template(
+                    "error.html",
+                    {
+                        "org": org or {},
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": f"Vendor bill #{vendor_bill_id} not found.",
+                        "page_key": "vendor-bills",
+                    },
+                ),
             )
         has_payment = repo.vendor_bill_has_payments(vendor_bill_id)
 
         defaults = {
             "invoice_number": bill["invoice_number"],
-            "invoice_date":   bill["invoice_date"],
-            "due_date":       bill["due_date"] or "",
-            "amount":         format_money(bill['amount']),
-            "fund_code":      bill["fund_code"],
-            "category_id":    str(bill["category_id"] or ""),
-            "description":    bill["description"] or "",
+            "invoice_date": bill["invoice_date"],
+            "due_date": bill["due_date"] or "",
+            "amount": format_money(bill["amount"]),
+            "fund_code": bill["fund_code"],
+            "category_id": str(bill["category_id"] or ""),
+            "description": bill["description"] or "",
         }
         values = dict(defaults)
         if form_values:
@@ -270,18 +280,24 @@ class VendorBillPages:
             return ("/vendor-bills", None)
         has_payment = repo.vendor_bill_has_payments(vendor_bill_id)
         try:
-            invoice_number = _require(form_data.get("invoice_number", ""), "Invoice number")
+            invoice_number = _require(
+                form_data.get("invoice_number", ""), "Invoice number"
+            )
             invoice_date = _require(form_data.get("invoice_date", ""), "Invoice date")
             fund_code = _require(form_data.get("fund_code", ""), "Fund")
             description = (form_data.get("description", "") or "").strip()
             due_date_raw = (form_data.get("due_date", "") or "").strip()
             due_date = due_date_raw or None
-            category_id = _parse_int(form_data.get("category_id", ""), "Expense category")
+            category_id = _parse_int(
+                form_data.get("category_id", ""), "Expense category"
+            )
 
             if has_payment:
                 amount_to_write: str | None = None
             else:
-                amount_dec = _parse_positive_decimal(form_data.get("amount", ""), "Amount")
+                amount_dec = _parse_positive_decimal(
+                    form_data.get("amount", ""), "Amount"
+                )
                 amount_to_write = str(amount_dec)
 
             repo.update_vendor_bill(
@@ -297,7 +313,8 @@ class VendorBillPages:
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_edit(
                 vendor_bill_id,
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=str(exc),
             )
@@ -308,7 +325,8 @@ class VendorBillPages:
                 message = f"Database error: {exc}"
             resp = self.render_edit(
                 vendor_bill_id,
-                org=org, theme=theme,
+                org=org,
+                theme=theme,
                 form_values=form_data,
                 error_message=message,
             )
@@ -334,21 +352,27 @@ class VendorBillPages:
         if bill is None:
             return VendorBillFormResponse(
                 status_code=HTTPStatus.NOT_FOUND,
-                body_html=render_template("error.html", {
-                    "org": org or {}, "theme": theme,
-                    "heading": "Not Found",
-                    "message": f"Vendor bill #{vendor_bill_id} not found.",
-                    "page_key": "vendor-bills",
-                }),
+                body_html=render_template(
+                    "error.html",
+                    {
+                        "org": org or {},
+                        "theme": theme,
+                        "heading": "Not Found",
+                        "message": f"Vendor bill #{vendor_bill_id} not found.",
+                        "page_key": "vendor-bills",
+                    },
+                ),
             )
-        bill_amount = format_money(bill['amount'])
+        bill_amount = format_money(bill["amount"])
 
         if form_values and form_values.get("line_category_id"):
             cats = form_values["line_category_id"]
             amts = form_values.get("line_amount", [])
             initial_lines = [
-                {"category_id": cats[i] if i < len(cats) else "",
-                 "amount": amts[i] if i < len(amts) else ""}
+                {
+                    "category_id": cats[i] if i < len(cats) else "",
+                    "amount": amts[i] if i < len(amts) else "",
+                }
                 for i in range(max(len(cats), 1))
             ]
         else:
@@ -365,7 +389,8 @@ class VendorBillPages:
         ]
         ctx = {
             "heading": f"Split Bill · {bill['vendor_name']} · {bill['invoice_number']}",
-            "org": org or {}, "theme": theme,
+            "org": org or {},
+            "theme": theme,
             "active_nav": "transactions",
             "page_key": "vendor-bills",
             "breadcrumb": "Transactions · Vendor Bills · Split",
@@ -394,7 +419,10 @@ class VendorBillPages:
         bill = repo.get_vendor_bill(vendor_bill_id)
         if bill is None:
             return ("/vendor-bills", None)
-        form_values = {"line_category_id": line_category_ids, "line_amount": line_amounts}
+        form_values = {
+            "line_category_id": line_category_ids,
+            "line_amount": line_amounts,
+        }
         try:
             if len(line_category_ids) != len(line_amounts) or not line_category_ids:
                 raise ValidationError("Provide at least one line.")
@@ -448,13 +476,15 @@ class VendorBillPages:
                         fund_code=bill["fund_code"],
                         category_id=int(cat_id),
                     )
-                    new_payment = self.factory.vendor_payment_service().post_vendor_payment(
-                        entry_date=payment_date,
-                        vendor_bill_id=new_bill.vendor_bill_id,
-                        amount=str(line_amt),
-                        description=payment_notes,
-                        bank_account_id=bank_account_id,
-                        check_number=check_number,
+                    new_payment = (
+                        self.factory.vendor_payment_service().post_vendor_payment(
+                            entry_date=payment_date,
+                            vendor_bill_id=new_bill.vendor_bill_id,
+                            amount=str(line_amt),
+                            description=payment_notes,
+                            bank_account_id=bank_account_id,
+                            check_number=check_number,
+                        )
                     )
                     new_payment_ids.append(int(new_payment.bill_payment_id))
 
@@ -498,13 +528,18 @@ class VendorBillPages:
                 )
         except (ValidationError, NotFoundError, AccountingError) as exc:
             resp = self.render_split(
-                vendor_bill_id, org=org, theme=theme,
-                form_values=form_values, error_message=str(exc),
+                vendor_bill_id,
+                org=org,
+                theme=theme,
+                form_values=form_values,
+                error_message=str(exc),
             )
             return (None, resp)
         except sqlite3.IntegrityError as exc:
             resp = self.render_split(
-                vendor_bill_id, org=org, theme=theme,
+                vendor_bill_id,
+                org=org,
+                theme=theme,
                 form_values=form_values,
                 error_message=f"Database error: {exc}",
             )
@@ -522,12 +557,16 @@ class VendorBillPages:
         theme: str,
     ) -> tuple[str | None, VendorBillFormResponse | None]:
         try:
-            invoice_number = _require(form_data.get("invoice_number", ""), "Invoice number")
+            invoice_number = _require(
+                form_data.get("invoice_number", ""), "Invoice number"
+            )
             invoice_date = _require(form_data.get("invoice_date", ""), "Invoice date")
             entry_date = _require(form_data.get("entry_date", ""), "Entry date")
             amount = _parse_positive_decimal(form_data.get("amount", ""), "Amount")
             vendor_id = _parse_int(form_data.get("vendor_id", ""), "Vendor")
-            category_id = _parse_int(form_data.get("category_id", ""), "Expense category")
+            category_id = _parse_int(
+                form_data.get("category_id", ""), "Expense category"
+            )
             fund_code = _require(form_data.get("fund_code", ""), "Fund")
             description = (form_data.get("description", "") or "").strip()
             due_date_raw = (form_data.get("due_date", "") or "").strip()
