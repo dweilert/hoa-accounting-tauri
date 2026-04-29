@@ -34,10 +34,10 @@ class HomeownerContactListReportService:
                 COALESCE(o.email, '')             AS email,
                 o.last_name AS sort_name
             FROM owners o
-            LEFT JOIN lot_ownership lo
+            JOIN lot_ownership lo
                    ON lo.owner_id = o.id
                   AND lo.end_date IS NULL
-            LEFT JOIN lots l ON l.id = lo.lot_id
+            JOIN lots l ON l.id = lo.lot_id
             WHERE o.active_flag = 1
 
             UNION ALL
