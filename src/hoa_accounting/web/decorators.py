@@ -33,17 +33,6 @@ def current_user() -> AuthUser | None:
     return _get_current_user()
 
 
-def require_login(f):
-    """Decorator: redirect to /login if not authenticated."""
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        user = _get_current_user()
-        if user is None:
-            return redirect(f"/login?next={request.path}")
-        return f(*args, **kwargs)
-    return wrapper
-
-
 def require_admin(f):
     """Decorator: require admin role, else 403."""
     @functools.wraps(f)

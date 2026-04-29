@@ -56,10 +56,6 @@ class BankAccountsRepository(BaseRepository):
             (bank_account_id,),
         ).fetchone()
 
-    def list_gl_account_options(self, *, exclude_bank_account_id: int | None = None) -> list:
-        # Chart of Accounts retired — bank accounts no longer link to a GL row.
-        return []
-
     _BANK_ACCOUNT_REF_TABLES: list[str] = [
         "payments",
         "bill_payments",
