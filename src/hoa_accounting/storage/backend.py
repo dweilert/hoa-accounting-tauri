@@ -28,6 +28,16 @@ class StorageBackend(Protocol):
         """Store *pdf_bytes* under *key* and return a reference to it."""
         ...
 
+    def delete_prefix(self, prefix: str) -> int:
+        """Delete every object whose key starts with *prefix*.
+
+        Used by the batch PDF service to ensure only the latest report
+        for a given lot lives in storage — stale year/owner-name files
+        get cleared before the new upload. Returns the number of keys
+        deleted (best-effort; missing prefix is not an error).
+        """
+        ...
+
 
 class S3StorageBackend:
     """Upload PDFs to an AWS S3 bucket.
@@ -78,6 +88,22 @@ class S3StorageBackend:
         )
         return url
 
+    def delete_prefix(self, prefix: str) -> int:
+        """Delete every object under *prefix*. Paginates so >1000 keys work."""
+        deleted = 0
+        paginator = self._s3.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self._bucket, Prefix=prefix):
+            contents = page.get("Contents") or []
+            if not contents:
+                continue
+            objs = [{"Key": obj["Key"]} for obj in contents]
+            self._s3.delete_objects(
+                Bucket=self._bucket,
+                Delete={"Objects": objs, "Quiet": True},
+            )
+            deleted += len(objs)
+        return deleted
+
 
 class LocalFileBackend:
     """Write PDFs to a local directory (dev / testing)."""
@@ -89,9 +115,37 @@ class LocalFileBackend:
     def upload(
         self, key: str, pdf_bytes: bytes, *, content_type: str = "application/pdf"
     ) -> str:
-        dest = self._dir / Path(key).name
+        dest = self._dir / key
+        dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(pdf_bytes)
         return str(dest)
+
+    def delete_prefix(self, prefix: str) -> int:
+        """Delete every file under self._dir whose key starts with *prefix*.
+
+        Mirrors S3 semantics: a prefix is a literal key prefix, not a
+        glob — ``owner-reports/L-1/`` removes everything inside that
+        sub-directory.
+        """
+        deleted = 0
+        # Treat prefix that ends in '/' as a directory; otherwise match
+        # any path whose relative-to-_dir str startswith() the prefix.
+        if prefix.endswith("/"):
+            target_dir = self._dir / prefix.rstrip("/")
+            if target_dir.is_dir():
+                for f in target_dir.rglob("*"):
+                    if f.is_file():
+                        f.unlink()
+                        deleted += 1
+        else:
+            for f in self._dir.rglob("*"):
+                if not f.is_file():
+                    continue
+                rel = f.relative_to(self._dir).as_posix()
+                if rel.startswith(prefix):
+                    f.unlink()
+                    deleted += 1
+        return deleted
 
 
 def default_s3_backend() -> S3StorageBackend:

@@ -135,6 +135,17 @@ class BatchPdfService:
                 s3_key = _build_s3_key(report)
                 owner_name = _owner_name(report)
 
+                # Clear any prior reports for this lot so only the latest
+                # PDF lives in storage. Handles year-stale files (e.g.
+                # 2025_*.pdf still around when 2026 runs) and name-stale
+                # files (owner renamed). Best-effort — failure to delete
+                # doesn't block the new upload.
+                lot_prefix = f"owner-reports/{report.lot_number}/"
+                try:
+                    self._backend.delete_prefix(lot_prefix)
+                except Exception:  # noqa: BLE001
+                    pass
+
                 url = self._backend.upload(s3_key, pdf_bytes)
 
                 results.append(
