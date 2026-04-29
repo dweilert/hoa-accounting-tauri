@@ -333,13 +333,19 @@ class BankStatementPages:
             if not vendor_id:
                 return None
             amt = abs(amount)
+            # Tolerance compare ±$0.01 — fuzzy on purpose so a vendor bill
+            # entered as "120.005" still matches a bank line of "120.00".
+            # Float drift is bounded for HOA-scale amounts (well under
+            # $10M), but use NUMERIC affinity rather than REAL so SQLite
+            # keeps integer-or-decimal precision when the column already
+            # stores a clean 2-dp value.
             existing = self._conn.execute(
                 """SELECT id FROM vendor_bills
                    WHERE vendor_id = ?
                      AND status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
-                     AND ABS(CAST(amount AS REAL) - ?) < 0.01
+                     AND ABS(CAST(amount AS NUMERIC) - CAST(? AS NUMERIC)) < 0.01
                    ORDER BY invoice_date ASC, id ASC LIMIT 1""",
-                (int(vendor_id), float(amt)),
+                (int(vendor_id), str(amt)),
             ).fetchone()
             if existing:
                 payment = factory.vendor_payment_service().post_vendor_payment(
@@ -384,7 +390,7 @@ class BankStatementPages:
 
     def _compute_matches(
         self,
-        transactions: list[ParsedTransaction],
+        transactions: list[Any],  # ParsedTransaction | CanonicalBankTxn
         items: list[dict[str, Any]],
         batches: list[dict[str, Any]],
         rules: list[dict[str, Any]],
@@ -441,7 +447,7 @@ class BankStatementPages:
         *,
         bank_account_id: int,
         batch_id: int,
-        txn: ParsedTransaction,
+        txn: Any,  # ParsedTransaction | CanonicalBankTxn — both shapes work via compat properties
         idx: int,
         rule_m: dict[int, dict[str, Any]],
         source_m: dict[int, tuple[str, int]],
@@ -544,7 +550,9 @@ class BankStatementPages:
         file_format: str,
         file_bytes: bytes,
         csv_col_map: dict[str, Any],
-        transactions: list[ParsedTransaction],
+        # ParsedTransaction or CanonicalBankTxn — _insert_bank_txn / apply_rules
+        # only read fields available on both shapes (or via compat properties).
+        transactions: list[Any],
         items: list[dict[str, Any]],
         batches: list[dict[str, Any]],
         rules: list[dict[str, Any]],
@@ -1404,7 +1412,10 @@ class BankStatementPages:
     ) -> dict[str, Any]:
         """Return JSON-serialisable dict with matching bills or homeowner payments."""
         try:
-            amount = float(Decimal(amount_str.lstrip("$").replace(",", "")))
+            # Keep the value as Decimal-derived TEXT — SQL compares it
+            # via CAST AS NUMERIC below, no Python-side float involved.
+            amount_dec = Decimal(amount_str.lstrip("$").replace(",", ""))
+            amount = str(amount_dec)
         except Exception:
             return {"error": "Invalid amount"}
 
@@ -1419,7 +1430,7 @@ class BankStatementPages:
                 FROM vendor_bills vb
                 JOIN vendors v ON v.id = vb.vendor_id
                 WHERE vb.status IN ('OPEN', 'PARTIAL')
-                  AND ABS(CAST(vb.amount AS REAL) - ?) < 0.015
+                  AND ABS(CAST(vb.amount AS NUMERIC) - CAST(? AS NUMERIC)) < 0.015
                 ORDER BY ABS(julianday(vb.due_date) - julianday(?))
                 """,
                 (amount, date_str),

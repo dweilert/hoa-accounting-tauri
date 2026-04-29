@@ -17,7 +17,7 @@ from typing import Any
 
 _log = logging.getLogger(__name__)
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
 
@@ -296,7 +296,9 @@ class DatabaseAdminPages:
                 return None
 
         return {
-            "backed_up_at": datetime.now().isoformat(timespec="seconds"),
+            # Stored as audit metadata — UTC so it doesn't drift with
+            # the host's local time configuration.
+            "backed_up_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "lot_count": count("lots"),
             "owner_count": count("owners"),
             "renter_count": count("lot_renters"),
@@ -356,7 +358,9 @@ class DatabaseAdminPages:
 
         Returns (file_bytes, suggested_filename).
         """
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        # Filename is UTC so two consecutive downloads can't collide on
+        # the same wall-clock minute after a server-time change.
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d_%H%M%S")
         filename = f"hoa_backup_{timestamp}.db"
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:

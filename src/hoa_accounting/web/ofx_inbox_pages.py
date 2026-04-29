@@ -551,7 +551,9 @@ def _move_to_archive(ofx_path: Path, root: Path) -> Path:
 
     Never overwrites — appends _1, _2, etc. on collision.
     """
-    now = datetime.now()
+    # Archive bucketing uses UTC so files don't shift months across DST
+    # boundaries or after a server-timezone change.
+    now = datetime.now(UTC)
     dest_dir = root / "archive" / f"{now.year}" / f"{now.month:02d}"
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / ofx_path.name

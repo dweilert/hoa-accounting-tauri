@@ -25,6 +25,7 @@ from hoa_accounting.web.bank_ingest import (
     normalize_trn_type,
 )
 from hoa_accounting.web.bank_statement_import import (
+    ParseError,
     detect_format,
     parse_ofx,
     parse_ofx_by_account,
@@ -134,3 +135,23 @@ def test_canonical_dedup_key_varies_by_bank_account(ofx_bytes: bytes) -> None:
     one = canon[0].dedup_key(bank_account_id=1)
     two = canon[0].dedup_key(bank_account_id=2)
     assert one != two
+
+
+# ── DoS guard ────────────────────────────────────────────────────────────
+
+
+def test_parse_ofx_caps_transaction_count() -> None:
+    """A file with > 100k STMTTRN blocks raises ParseError so a hostile
+    upload can't pin the parser indefinitely."""
+    block = (
+        "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20250101" "<TRNAMT>-1.00<FITID>X</STMTTRN>"
+    )
+    huge = (
+        "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>"
+        + (block * 100_001)
+        + "</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>"
+    )
+    import pytest as _pytest
+
+    with _pytest.raises(ParseError, match="more than 100,000"):
+        parse_ofx(huge)

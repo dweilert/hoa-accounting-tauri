@@ -54,8 +54,22 @@ def detect_format(content: bytes | str) -> str:
 # ── OFX parser ────────────────────────────────────────────────────────────────
 
 
+_MAX_OFX_TRANSACTIONS = 100_000
+"""Hard cap on STMTTRN blocks parsed from a single file.
+
+Real bank exports for an HOA top out around a few hundred lines per
+year per account. A file with more than 100k transactions is either
+malformed or hostile — bound the work the parser does so an
+authenticated user can't DoS the process by uploading a crafted file.
+"""
+
+
 def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
-    """Parse OFX 1.x (SGML) or OFX 2.x (XML-like) bank statement files."""
+    """Parse OFX 1.x (SGML) or OFX 2.x (XML-like) bank statement files.
+
+    Caps output at ``_MAX_OFX_TRANSACTIONS`` blocks; raises
+    :class:`ParseError` if the file claims more than that.
+    """
     text = (
         content.decode("utf-8", errors="replace")
         if isinstance(content, bytes)
@@ -71,6 +85,12 @@ def parse_ofx(content: bytes | str) -> list[ParsedTransaction]:
                 r"</BANKTRANLIST>|</STMTRS>|</OFX>|<STMTTRN\b", part, re.IGNORECASE
             )
             blocks.append(part[: end.start()] if end else part)
+
+    if len(blocks) > _MAX_OFX_TRANSACTIONS:
+        raise ParseError(
+            f"OFX file contains more than {_MAX_OFX_TRANSACTIONS:,} transactions; "
+            "refusing to parse. Split the export into smaller files and re-upload."
+        )
 
     def _field(tag: str, block: str) -> str:
         m = re.search(r"<" + tag + r">\s*([^\r\n<]+)", block, re.IGNORECASE)

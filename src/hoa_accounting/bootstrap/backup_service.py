@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,10 @@ class BackupService:
     def _do_run(self, conn: sqlite3.Connection) -> str:
         self._backup_dir.mkdir(parents=True, exist_ok=True)
 
-        ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+        # Backup filenames use UTC so they sort consistently regardless
+        # of the host timezone, and a server move never causes two
+        # consecutive backups to collide on the same wall-clock minute.
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")
         filename = f"{_FILENAME_PREFIX}{ts}.db"
         dest_path = self._backup_dir / filename
 

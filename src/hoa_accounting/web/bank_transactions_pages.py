@@ -315,8 +315,12 @@ class BankTransactionsPages:
         within ±_LINK_DATE_WINDOW_DAYS. Sign decides which tables to search
         (deposits → PAYMENT / INCOME_BATCH; debits → BILL_PAYMENT).
         """
+        from hoa_accounting.validators.common import q2_str
+
         amount = Decimal(str(txn["amount"]))
-        abs_amt = str(abs(amount))
+        # Compare via printf('%.2f', col) = ? against the quantized
+        # string — drift-free vs the old CAST AS REAL comparison.
+        abs_amt = q2_str(abs(amount))
         bank_id = int(txn["bank_account_id"])
         try:
             txn_date = date.fromisoformat(str(txn["transaction_date"]))
@@ -336,7 +340,7 @@ class BankTransactionsPages:
                 FROM payments p
                 LEFT JOIN owners o ON o.id = p.owner_id
                 WHERE p.bank_account_id = ?
-                  AND ABS(CAST(p.amount AS REAL)) = ABS(CAST(? AS REAL))
+                  AND printf('%.2f', ABS(CAST(p.amount AS NUMERIC))) = ?
                   AND p.payment_date BETWEEN ? AND ?
                 ORDER BY p.payment_date DESC
                 LIMIT 20
@@ -363,7 +367,7 @@ class BankTransactionsPages:
                        income_description
                 FROM income_batches
                 WHERE bank_account_id = ?
-                  AND ABS(CAST(total_amount AS REAL)) = ABS(CAST(? AS REAL))
+                  AND printf('%.2f', ABS(CAST(total_amount AS NUMERIC))) = ?
                   AND posting_date BETWEEN ? AND ?
                 ORDER BY posting_date DESC
                 LIMIT 20
@@ -391,7 +395,7 @@ class BankTransactionsPages:
                 LEFT JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
                 LEFT JOIN vendors v ON v.id = vb.vendor_id
                 WHERE bp.bank_account_id = ?
-                  AND ABS(CAST(bp.amount AS REAL)) = ABS(CAST(? AS REAL))
+                  AND printf('%.2f', ABS(CAST(bp.amount AS NUMERIC))) = ?
                   AND bp.payment_date BETWEEN ? AND ?
                 ORDER BY bp.payment_date DESC
                 LIMIT 20
@@ -834,7 +838,7 @@ class BankTransactionsPages:
         records and feed them through ``_store_pending_batch`` so the
         manual-entry path produces the same audit trail and validation
         queue entries as a file import."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         from hoa_accounting.web.bank_ingest import (
             CANONICAL_TRN_TYPES,
@@ -899,7 +903,9 @@ class BankTransactionsPages:
             )
 
         bsp = BankStatementPages(self._conn)
-        stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        # UTC timestamp — archive-style identifier should be tz-stable so
+        # filenames stay deterministic across server relocation / DST.
+        stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         bsp._store_pending_batch(
             reconciliation_id=None,
             bank_account_id=int(bank_account_id),
@@ -907,7 +913,11 @@ class BankTransactionsPages:
             file_format="MANUAL",
             file_bytes=b"",
             csv_col_map={},
-            transactions=canonical,  # type: ignore[arg-type]  # TODO: _store_pending_batch wants ParsedTransaction; canonical is CanonicalBankTxn — field-name mismatch (transaction_date vs posted_at) means this path errors at runtime if it reaches _insert_bank_txn. Untested; needs a Protocol or real conversion before relying on this branch.
+            # _store_pending_batch / _insert_bank_txn / _dedup_key /
+            # apply_rules all accept either ParsedTransaction or
+            # CanonicalBankTxn — the latter exposes transaction_date /
+            # fitid as compat properties so field access stays uniform.
+            transactions=canonical,
             items=bsp._get_unmatched_items(int(bank_account_id)),
             batches=bsp._get_unmatched_batches(int(bank_account_id)),
             rules=bsp._load_rules(),
