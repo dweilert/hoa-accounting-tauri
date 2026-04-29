@@ -86,7 +86,7 @@ class OwnerPages:
         is_edit = owner_id is not None
         values: dict[str, str] = {}
 
-        if is_edit and form_values is None:
+        if owner_id is not None and form_values is None:
             row = self.repo.get_owner(owner_id)
             if row is None:
                 return OwnerPageResponse(

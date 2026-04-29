@@ -72,7 +72,7 @@ class OwnersRepository(BaseRepository):
             (owner_type, display_name, first_name, last_name,
              entity_name, email, phone, home_phone, notes),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def update_owner(
         self,

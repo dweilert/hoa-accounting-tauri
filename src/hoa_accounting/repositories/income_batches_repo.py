@@ -49,7 +49,7 @@ class IncomeBatchesRepository(BaseRepository):
                 deposit_batch_id,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def list_batches(self, *, limit: int = 200) -> list[sqlite3.Row]:
         """Return recent income batches joined to their bank account and category."""

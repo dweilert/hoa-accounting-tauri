@@ -38,7 +38,7 @@ class DepositBatchesRepository(BaseRepository):
                 created_by_user_id,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def update_payment_batch_id(
         self, *, payment_id: int, deposit_batch_id: int

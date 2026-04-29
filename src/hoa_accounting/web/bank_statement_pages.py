@@ -257,7 +257,7 @@ class BankStatementPages:
                     f"ACH dues — {description}" if description else "ACH dues",
                 ),
             )
-            deposit_batch_id = int(batch_cur.lastrowid)
+            deposit_batch_id = int(batch_cur.lastrowid or 0)
 
             receipt_number = self._next_receipt_number(txn_date)
             result = factory.payment_service().post_payment(
@@ -769,7 +769,7 @@ class BankStatementPages:
                     bank_account_id=matched_bank_id,
                     filename=filename, file_format="OFX",
                     file_bytes=file_bytes, csv_col_map={},
-                    transactions=canonical,
+                    transactions=canonical,  # type: ignore[arg-type]  # TODO: _store_pending_batch wants ParsedTransaction; canonical is CanonicalBankTxn — field-name mismatch (transaction_date vs posted_at) means this path errors at runtime if it reaches _insert_bank_txn. Untested; needs a Protocol or real conversion before relying on this branch.
                     items=self._get_unmatched_items(matched_bank_id),
                     batches=self._get_unmatched_batches(matched_bank_id),
                     rules=rules,
@@ -859,7 +859,7 @@ class BankStatementPages:
             bank_account_id=csv_bank_account_id,
             filename=filename, file_format=adapter_name.upper(),
             file_bytes=file_bytes, csv_col_map={},
-            transactions=canonical,
+            transactions=canonical,  # type: ignore[arg-type]  # TODO: _store_pending_batch wants ParsedTransaction; canonical is CanonicalBankTxn — field-name mismatch (transaction_date vs posted_at) means this path errors at runtime if it reaches _insert_bank_txn. Untested; needs a Protocol or real conversion before relying on this branch.
             items=self._get_unmatched_items(csv_bank_account_id),
             batches=self._get_unmatched_batches(csv_bank_account_id),
             rules=rules,

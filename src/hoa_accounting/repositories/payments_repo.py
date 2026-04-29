@@ -50,7 +50,7 @@ class PaymentsRepository(BaseRepository):
                 deposit_batch_id,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def next_receipt_number(self, payment_date: str) -> str:
         """Generate a unique receipt number for a given date.

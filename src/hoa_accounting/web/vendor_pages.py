@@ -84,7 +84,7 @@ class VendorPages:
         is_edit = vendor_id is not None
         values: dict[str, str] = {}
 
-        if is_edit and form_values is None:
+        if vendor_id is not None and form_values is None:
             row = self.repo.get_vendor(vendor_id)
             if row is None:
                 return VendorPageResponse(
@@ -103,7 +103,7 @@ class VendorPages:
                 "postal_code": row["postal_code"] or "",
                 "notes": row["notes"] or "",
                 "active_flag": str(row["active_flag"]),
-                "has_bills": "1" if self.repo.has_bills(vendor_id) else "0",
+                "has_bills": "1" if self.repo.has_bills(int(vendor_id)) else "0",
             }
         else:
             values = form_values or {}

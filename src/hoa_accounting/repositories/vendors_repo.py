@@ -99,7 +99,7 @@ class VendorsRepository(BaseRepository):
             (vendor_name, contact_name, email, phone,
              address_1, address_2, city, state, postal_code, notes),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def update_vendor(
         self,
@@ -182,7 +182,7 @@ class VendorsRepository(BaseRepository):
                 category_id,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def get_vendor_bill(self, vendor_bill_id: int) -> "sqlite3.Row | None":
         return self.conn.execute(
@@ -280,4 +280,4 @@ class VendorsRepository(BaseRepository):
                 notes,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)

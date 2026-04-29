@@ -49,6 +49,7 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
         redirect_url, page_resp = pages.handle_save_settings(request.form, org_context, theme)
         if redirect_url:
             return redirect(redirect_url)
+        assert page_resp is not None
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
 
     @bp.get("/claude-code-guide")
@@ -188,6 +189,7 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
         redirect_url, page_resp = pages.handle_save_card(request.form, org_context, theme)
         if redirect_url:
             return redirect(redirect_url)
+        assert page_resp is not None
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html")
 
     @bp.post("/dashboard-config/delete-card/<int:card_id>")
@@ -196,7 +198,7 @@ def make_dashboard_blueprint(ctx: RouteContext) -> Blueprint:
         theme = str(org_context.get("theme", "warm"))
         pages = _open_dashboard()
         redirect_url, _ = pages.handle_delete_card(card_id, org_context, theme)
-        return redirect(redirect_url)
+        return redirect(redirect_url or "/dashboard-config")
 
     @bp.post("/dashboard-config/save-layout")
     def dashboard_save_layout() -> Response:

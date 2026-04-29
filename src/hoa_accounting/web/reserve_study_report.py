@@ -70,7 +70,7 @@ def _money(v: Decimal) -> str:
 
 def _pct(v: object) -> str:
     try:
-        return f"{float(v)*100:.1f}%"
+        return f"{float(v) * 100:.1f}%"  # type: ignore[arg-type]
     except Exception:
         return "—"
 

@@ -193,7 +193,7 @@ class LotsRepository(BaseRepository):
             (lot_number, street_address_1, street_address_2,
              city, state, postal_code, legal_description),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def update_lot(
         self,

@@ -86,7 +86,7 @@ class BankAccountPages:
         is_edit = bank_account_id is not None
         values: dict[str, str] = {}
 
-        if is_edit and form_values is None:
+        if bank_account_id is not None and form_values is None:
             row = self.repo.get_bank_account(bank_account_id)
             if row is None:
                 return BankAccountPageResponse(

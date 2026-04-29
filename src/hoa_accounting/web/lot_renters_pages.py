@@ -102,7 +102,7 @@ class LotRentersPages:
         is_edit = renter_id is not None
         values: dict[str, str] = {}
 
-        if is_edit and form_values is None:
+        if renter_id is not None and form_values is None:
             row = self.repo.get_renter(renter_id)
             if row is None:
                 return RenterPageResponse(

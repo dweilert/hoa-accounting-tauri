@@ -233,6 +233,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         _, form_resp = pages.handle_check(org=org_context, theme=theme)
+        assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
@@ -244,6 +245,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         redirect_url, form_resp = pages.handle_reindex(org=org_context, theme=theme)
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
+        assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
@@ -255,6 +257,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         redirect_url, form_resp = pages.handle_vacuum(org=org_context, theme=theme)
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
+        assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
@@ -266,6 +269,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         redirect_url, form_resp = pages.handle_wal_checkpoint(org=org_context, theme=theme)
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
+        assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 
@@ -338,6 +342,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
             )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)
+        assert form_resp is not None
         return Response(form_resp.body_html, status=form_resp.status_code,
                         mimetype="text/html; charset=utf-8")
 

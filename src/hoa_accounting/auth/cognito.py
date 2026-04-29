@@ -155,7 +155,7 @@ class CognitoBackend:
             )
             claims = jwt.decode(
                 id_token,
-                public_key,
+                public_key,  # type: ignore[arg-type]  # cryptography stub typed as private+public union; from_jwk returns public
                 algorithms=["RS256"],
                 audience=self._client_id,
                 issuer=issuer,

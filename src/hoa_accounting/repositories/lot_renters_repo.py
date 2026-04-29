@@ -43,7 +43,7 @@ class LotRentersRepository(BaseRepository):
                 notes,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def end_tenancy(self, *, renter_id: int, end_date: str) -> None:
         """Close out a current renter row when a tenant moves out."""

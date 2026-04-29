@@ -287,9 +287,10 @@ class ARPages:
         summaries: list[LotARSummary] = []
         for lot in lot_rows:
             lot_id = int(lot["lot_id"])
-            acc = lot_acc.get(lot_id)
-            if acc is None or acc["total"] <= Decimal("0"):
+            acc_opt = lot_acc.get(lot_id)
+            if acc_opt is None or acc_opt["total"] <= Decimal("0"):
                 continue
+            acc = acc_opt
             summaries.append(LotARSummary(
                 lot_id=lot_id,
                 lot_number=str(lot["lot_number"]),

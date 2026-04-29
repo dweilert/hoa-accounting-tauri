@@ -241,7 +241,7 @@ class DatabaseAdminPages:
         try:
             self.conn.isolation_level = None     # switch to autocommit
             self.conn.execute("VACUUM")
-            self.conn.isolation_level = ""       # restore default
+            self.conn.isolation_level = "DEFERRED"  # restore default
         except Exception as exc:
             resp = self.render_page(
                 org=org, theme=theme,

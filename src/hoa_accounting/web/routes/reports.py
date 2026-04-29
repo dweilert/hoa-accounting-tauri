@@ -36,6 +36,12 @@ def _flatten_query_params(multi_dict: Any) -> dict[str, str]:
 def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
     bp = Blueprint("reports", __name__)
     org_context = ctx.org_context
+    # Reports blueprint requires the page service. ``RouteContext`` types it
+    # ``Any | None`` because not every entry point needs it; here we assert
+    # presence so handler bodies don't need per-call None guards.
+    assert ctx.report_page_service is not None, (
+        "Reports blueprint requires ctx.report_page_service"
+    )
     report_page_service = ctx.report_page_service
 
     def _open_db():

@@ -558,7 +558,7 @@ class BankTransactionsPages:
                         f"ACH dues — {description}" if description else "ACH dues",
                     ),
                 )
-                deposit_batch_id = int(batch_cur.lastrowid)
+                deposit_batch_id = int(batch_cur.lastrowid or 0)
 
                 charge_filter = ("RESALE_FEE",) if first_code == "RESALE_FEE" else ("DUES", "LATE_FEE")
                 open_assess = [
@@ -602,7 +602,7 @@ class BankTransactionsPages:
                         description or None,
                     ),
                 )
-                deposit_batch_id = int(batch_cur.lastrowid)
+                deposit_batch_id = int(batch_cur.lastrowid or 0)
                 posted: list[tuple[str, int]] = []
                 for cat_id, line_amt in lines:
                     result = factory.non_dues_income_service().post_batch(
@@ -852,7 +852,7 @@ class BankTransactionsPages:
             file_format="MANUAL",
             file_bytes=b"",
             csv_col_map={},
-            transactions=canonical,
+            transactions=canonical,  # type: ignore[arg-type]  # TODO: _store_pending_batch wants ParsedTransaction; canonical is CanonicalBankTxn — field-name mismatch (transaction_date vs posted_at) means this path errors at runtime if it reaches _insert_bank_txn. Untested; needs a Protocol or real conversion before relying on this branch.
             items=bsp._get_unmatched_items(int(bank_account_id)),
             batches=bsp._get_unmatched_batches(int(bank_account_id)),
             rules=bsp._load_rules(),

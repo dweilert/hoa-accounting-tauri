@@ -9,7 +9,7 @@ from typing import Any
 
 def to_plain_data(value: Any) -> Any:
     """Convert DTOs and Decimal values into JSON-safe plain data."""
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return to_plain_data(asdict(value))
 
     if isinstance(value, dict):

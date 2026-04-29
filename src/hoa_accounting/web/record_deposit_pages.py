@@ -199,14 +199,14 @@ class RecordDepositPages:
             WHERE active_flag = 1 AND category_type = 'INCOME'
             """
         ).fetchall():
-            spec = CATEGORY_BEHAVIOR.get(
+            cat_spec = CATEGORY_BEHAVIOR.get(
                 str(c["code"] or "").upper(),
                 {"behavior": "other", "charge_types": ()},
             )
             cat_lookup[int(c["id"])] = {
                 "code": c["code"] or "",
-                "behavior": spec["behavior"],
-                "charge_types": spec["charge_types"],
+                "behavior": cat_spec["behavior"],
+                "charge_types": cat_spec["charge_types"],
             }
 
         owner_rows: list[DepositRow] = []
@@ -343,7 +343,7 @@ class RecordDepositPages:
                        VALUES (?, ?, ?, ?)""",
                     (deposit_date, int(bank_account_id), str(other_total), memo or None),
                 )
-                deposit_batch_id = int(cur.lastrowid)
+                deposit_batch_id = int(cur.lastrowid or 0)
                 # Attach the income_batches we just created to this new batch.
                 self._conn.execute(
                     "UPDATE income_batches SET deposit_batch_id = ? "

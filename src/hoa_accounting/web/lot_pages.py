@@ -94,7 +94,7 @@ class LotPages:
         is_edit = lot_id is not None
         values: dict[str, str] = {}
 
-        if is_edit and form_values is None:
+        if lot_id is not None and form_values is None:
             row = self.repo.get_lot(lot_id)
             if row is None:
                 return LotPageResponse(
@@ -117,7 +117,7 @@ class LotPages:
         # Build owner data for the edit view
         current_ownerships: list[dict] = []
         owner_options: list[dict] = []
-        if is_edit:
+        if lot_id is not None:
             current_ownerships = [
                 dict(r) for r in self.ownership_repo.get_current_ownerships(lot_id)
             ]

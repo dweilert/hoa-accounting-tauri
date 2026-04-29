@@ -130,7 +130,7 @@ class LotOwnershipRepository(BaseRepository):
             """,
             (lot_id, owner_id, start_date),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def update_ownership_dates(
         self,

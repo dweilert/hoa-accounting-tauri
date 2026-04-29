@@ -51,7 +51,7 @@ class AssessmentsRepository(BaseRepository):
                 category_id,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def get_for_payment_application(self, assessment_id: int):
         """Return assessment data used for payment application."""

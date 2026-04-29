@@ -116,7 +116,7 @@ class PeriodsRepository(BaseRepository):
                 """,
                 (period_name, start_date, end_date, fiscal_year, month),
             )
-            ids.append(int(cur.lastrowid))
+            ids.append(int(cur.lastrowid or 0))
         return ids
 
     def close_period(self, period_id: int, closed_at: str) -> None:

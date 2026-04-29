@@ -184,4 +184,4 @@ class ReserveTransfersRepository(BaseRepository):
                 purpose,
             ),
         )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)

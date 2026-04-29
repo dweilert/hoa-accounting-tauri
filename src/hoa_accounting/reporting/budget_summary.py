@@ -100,7 +100,7 @@ class BudgetSummaryReportService:
                 COALESCE(c.sort_order, 0)
             ORDER BY group_code, sort_order, category_name
         """
-        params: list[object] = list(years) + list(years)
+        params: list[int] = list(years) + list(years)
         db_rows = self.conn.execute(sql, params).fetchall()
 
         result: list[BudgetSummaryRow] = []

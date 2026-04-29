@@ -759,6 +759,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         )
         if redirect_url:
             return redirect(redirect_url, code=303)
+        assert page_resp is not None
         return Response(page_resp.body_html, status=page_resp.status_code, mimetype="text/html; charset=utf-8")
 
 
