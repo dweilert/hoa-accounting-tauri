@@ -14,6 +14,7 @@ routes will use Flask's ``render_template`` directly for form UX.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -502,8 +503,8 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         theme = str(org_context.get("theme", "warm"))
         conn = _open_db()
         tab_id = int(request.args.get("tab", 1))
-        edit_card_id = request.args.get("edit")
-        edit_card_id = int(edit_card_id) if edit_card_id else None
+        edit_card_raw = request.args.get("edit")
+        edit_card_id = int(edit_card_raw) if edit_card_raw else None
         flash = (request.args.get("flash") or "").replace("+", " ")
         status, html = WorkflowAdminPages(conn).render_admin(
             org=org_context, theme=theme,

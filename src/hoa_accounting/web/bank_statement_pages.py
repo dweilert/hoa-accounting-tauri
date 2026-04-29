@@ -280,14 +280,14 @@ class BankStatementPages:
         if action in ("fee_income", "direct_income"):
             if amount <= 0 or category_id_int is None:
                 return None
-            result = factory.non_dues_income_service().post_batch(
+            income_result = factory.non_dues_income_service().post_batch(
                 posting_date=txn_date,
                 bank_account_id=bank_account_id,
                 income_description=description or "Bank import",
                 rows=[IncomeRow(amount=str(amount), other_source="BANK")],
                 category_id=category_id_int,
             )
-            return ("INCOME_BATCH", result.income_batch_id)
+            return ("INCOME_BATCH", income_result.income_batch_id)
 
         # Outgoing expense — needs both a vendor and a category.
         if action in ("recurring_bill", "direct_expense", "bank_charge"):
@@ -1023,7 +1023,8 @@ class BankStatementPages:
                 file_bytes=file_bytes,
                 csv_col_map=csv_col_map,
                 transactions=transactions,
-                items=items, batches=batches,
+                items=self._get_unmatched_items(bank_account_id),
+                batches=self._get_unmatched_batches(bank_account_id),
                 rules=rules,
             )
             from urllib.parse import quote

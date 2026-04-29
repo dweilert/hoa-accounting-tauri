@@ -268,7 +268,7 @@ class ReconciliationPages:
             )
 
         self._repo.finalize_reconciliation(
-            reconciliation_id, summary["book_balance"]
+            reconciliation_id, str(summary["book_balance"])
         )
         return (
             f"/reconciliations?msg=Reconciliation+completed+successfully.",

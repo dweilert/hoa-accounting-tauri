@@ -622,14 +622,14 @@ class BankTransactionsPages:
                     invoice_date=txn["transaction_date"],
                     category_id=int(cat_id),
                 )
-                payment = factory.vendor_payment_service().post_vendor_payment(
+                vendor_payment = factory.vendor_payment_service().post_vendor_payment(
                     entry_date=txn["transaction_date"],
                     vendor_bill_id=bill.vendor_bill_id,
                     amount=str(line_amt),
                     description=description,
                     bank_account_id=int(txn["bank_account_id"]),
                 )
-                posted.append(("BILL_PAYMENT", int(payment.bill_payment_id)))
+                posted.append(("BILL_PAYMENT", int(vendor_payment.bill_payment_id)))
             primary = posted[0]
             extra = posted[1:]
 
