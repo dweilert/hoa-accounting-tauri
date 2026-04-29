@@ -1,6 +1,7 @@
 """Repository for audit logging."""
 
 from __future__ import annotations
+from typing import Any
 
 import json
 
@@ -17,8 +18,8 @@ class AuditRepository(BaseRepository):
         entity_id: int,
         action: str,
         user_id: int | None,
-        before_json: dict | None = None,
-        after_json: dict | None = None,
+        before_json: dict[str, Any] | None = None,
+        after_json: dict[str, Any] | None = None,
     ) -> None:
         """Insert an audit log row."""
         self.conn.execute(

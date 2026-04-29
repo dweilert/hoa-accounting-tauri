@@ -15,6 +15,7 @@ Creation date/time is embedded inside the PDF itself, not the filename.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -57,7 +58,7 @@ def _build_s3_key(report: LotStatementReport) -> str:
     return f"owner-reports/{report.lot_number}/{filename}"
 
 
-def _report_to_template_context(report: LotStatementReport) -> dict:
+def _report_to_template_context(report: LotStatementReport) -> dict[str, Any]:
     owners = [
         {
             "display_name": o.display_name,

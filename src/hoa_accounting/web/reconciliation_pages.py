@@ -1,6 +1,7 @@
 """Page-service for bank reconciliation."""
 
 from __future__ import annotations
+from typing import Any
 
 import json
 import sqlite3
@@ -30,7 +31,7 @@ class ReconciliationPages:
     def _render(self, template: str, **ctx) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
-    def _render_404(self, msg: str, org: dict, theme: str) -> PageResponse:
+    def _render_404(self, msg: str, org: dict[str, Any], theme: str) -> PageResponse:
         return PageResponse(
             404,
             render_template(
@@ -56,7 +57,7 @@ class ReconciliationPages:
 
     def render_list(
         self,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         flash_message: str | None = None,
         error_message: str | None = None,
@@ -78,16 +79,16 @@ class ReconciliationPages:
 
     def render_new_form(
         self,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str | None = None,
-        values: dict | None = None,
+        values: dict[str, Any] | None = None,
     ) -> PageResponse:
         bank_accounts = self._repo.list_active_bank_accounts()
 
         # Pre-compute expected beginning balance for each bank account
         # so the form can auto-populate via JS when the user picks one.
-        beginning_balances: dict[int, dict] = {}
+        beginning_balances: dict[int, dict[str, Any]] = {}
         for ba in bank_accounts:
             bal, label = self._repo.get_expected_beginning_balance(int(ba["id"]))
             beginning_balances[int(ba["id"])] = {
@@ -109,8 +110,8 @@ class ReconciliationPages:
 
     def handle_new(
         self,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         bank_account_id_raw = form_data.get("bank_account_id", "").strip()
@@ -169,7 +170,7 @@ class ReconciliationPages:
     def render_working(
         self,
         reconciliation_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         show_prior: bool = False,
         flash_message: str | None = None,
@@ -220,7 +221,7 @@ class ReconciliationPages:
     def handle_toggle(
         self,
         reconciliation_id: int,
-        form_data: dict,
+        form_data: dict[str, Any],
     ) -> tuple[int, str]:
         """Toggle a JE line's cleared state.  Returns (http_status, json_body)."""
         recon = self._repo.get_reconciliation(reconciliation_id)
@@ -253,7 +254,7 @@ class ReconciliationPages:
     def handle_finalize(
         self,
         reconciliation_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         recon = self._repo.get_reconciliation(reconciliation_id)
@@ -281,7 +282,7 @@ class ReconciliationPages:
     def handle_reopen(
         self,
         reconciliation_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         recon = self._repo.get_reconciliation(reconciliation_id)
@@ -295,7 +296,7 @@ class ReconciliationPages:
     def handle_delete(
         self,
         reconciliation_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         recon = self._repo.get_reconciliation(reconciliation_id)

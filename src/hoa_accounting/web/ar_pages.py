@@ -1,6 +1,7 @@
 """Accounts-receivable ledger — per-lot balance list and lot detail views."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -57,7 +58,7 @@ class ARPages:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
 
-    def render_list(self, *, org: dict, theme: str) -> ARPageResponse:
+    def render_list(self, *, org: dict[str, Any], theme: str) -> ARPageResponse:
         today = date.today()
 
         # Open assessment balances per individual assessment (status-based filter
@@ -78,7 +79,7 @@ class ARPages:
         ).fetchall()
 
         # Accumulate per lot
-        lot_acc: dict[int, dict] = {}
+        lot_acc: dict[int, dict[str, Any]] = {}
         for row in open_rows:
             lot_id = int(row["lot_id"])
             remaining = q2(row["remaining"])
@@ -175,7 +176,7 @@ class ARPages:
         return ARPageResponse(status_code=HTTPStatus.OK, body_html=html)
 
     def render_lot_detail(
-        self, *, lot_id: int, year: int, org: dict, theme: str
+        self, *, lot_id: int, year: int, org: dict[str, Any], theme: str
     ) -> ARPageResponse:
         from hoa_accounting.exceptions import NotFoundError
 
@@ -214,7 +215,7 @@ class ARPages:
         })
         return ARPageResponse(status_code=HTTPStatus.OK, body_html=html)
 
-    def render_delinquency_report(self, *, org: dict, theme: str) -> ARPageResponse:
+    def render_delinquency_report(self, *, org: dict[str, Any], theme: str) -> ARPageResponse:
         """Board-ready delinquency report: only lots with balance > 0, worst bucket first."""
         today = date.today()
         open_rows = self.conn.execute(
@@ -232,7 +233,7 @@ class ARPages:
             """,
         ).fetchall()
 
-        lot_acc: dict[int, dict] = {}
+        lot_acc: dict[int, dict[str, Any]] = {}
         for row in open_rows:
             lot_id = int(row["lot_id"])
             remaining = q2(row["remaining"])

@@ -17,6 +17,7 @@ Flow
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -86,7 +87,7 @@ class LateFeePages:
             return None, "LATE_FEE category is inactive."
         return int(row["id"]), f"{row['code']} · {row['name']}"
 
-    def _lot_options(self) -> list[dict]:
+    def _lot_options(self) -> list[dict[str, Any]]:
         # One row per lot. When a lot has multiple current owners we show
         # the one that sorts first by (last_name, first_name) — keeps the
         # dropdown compact and lets the user scan it alphabetically.
@@ -127,7 +128,7 @@ class LateFeePages:
             options.append({"id": r["id"], "label": label, "owner_id": r["owner_id"]})
         return options
 
-    def _load_lot_charges(self, lot_id: int, through_date: str) -> dict:
+    def _load_lot_charges(self, lot_id: int, through_date: str) -> dict[str, Any]:
         """Return open chargeable rows + late fee history for a lot."""
         lot = LotsRepository(self.conn).get_lot_with_owner(lot_id)
         if lot is None:
@@ -171,7 +172,7 @@ class LateFeePages:
     def render_page(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         lot_id: int | None = None,
         rate_pct: str = "",
@@ -199,7 +200,7 @@ class LateFeePages:
             except (TypeError, ValueError):
                 pass
 
-        lot_data: dict = {}
+        lot_data: dict[str, Any] = {}
         if lot_id:
             try:
                 rate_dec = Decimal(eff_rate)
@@ -251,7 +252,7 @@ class LateFeePages:
         self,
         *,
         form_data: dict[str, str],
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, LateFeePageResponse | None]:
         org = org or {}
@@ -295,7 +296,7 @@ class LateFeePages:
         if owner_id is None:
             return _err("This lot has no current owner.")
 
-        rows_to_post: list[dict] = []
+        rows_to_post: list[dict[str, Any]] = []
         for key, value in form_data.items():
             if not key.startswith("row_") or not key.endswith("_selected"):
                 continue

@@ -8,6 +8,7 @@ are stubbed as "coming soon".
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from hoa_accounting.db.transaction import transaction
@@ -49,7 +50,7 @@ class EditRecordsPages:
     # ── Hub ──────────────────────────────────────────────────────
 
     def render_hub(
-        self, *, org: dict | None, theme: str,
+        self, *, org: dict[str, Any] | None, theme: str,
     ) -> EditRecordsResponse:
         ctx = {
             "heading": "Edit Records",
@@ -69,7 +70,7 @@ class EditRecordsPages:
     def render_payments(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         flash_message: str = "",
         error_message: str = "",
@@ -140,8 +141,8 @@ class EditRecordsPages:
         self,
         payment_id: int,
         *,
-        form_data: dict,
-        org: dict | None,
+        form_data: dict[str, Any],
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, EditRecordsResponse | None]:
         repo = PaymentsRepository(self.conn)
@@ -202,7 +203,7 @@ class EditRecordsPages:
     def render_income(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         flash_message: str = "",
         error_message: str = "",
@@ -259,8 +260,8 @@ class EditRecordsPages:
         self,
         income_batch_id: int,
         *,
-        form_data: dict,
-        org: dict | None,
+        form_data: dict[str, Any],
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, EditRecordsResponse | None]:
         repo = IncomeBatchesRepository(self.conn)
@@ -300,7 +301,7 @@ class EditRecordsPages:
         self,
         income_batch_id: int,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         form_values: dict[str, list[str]] | None = None,
         error_message: str = "",
@@ -363,7 +364,7 @@ class EditRecordsPages:
         *,
         line_category_ids: list[str],
         line_amounts: list[str],
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, EditRecordsResponse | None]:
         from hoa_accounting.services.factory import ServiceFactory
@@ -480,7 +481,7 @@ class EditRecordsPages:
     def render_assessments(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         flash_message: str = "",
         error_message: str = "",
@@ -537,8 +538,8 @@ class EditRecordsPages:
         self,
         assessment_id: int,
         *,
-        form_data: dict,
-        org: dict | None,
+        form_data: dict[str, Any],
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, EditRecordsResponse | None]:
         repo = AssessmentsRepository(self.conn)

@@ -1,6 +1,7 @@
 """Local SQLite authentication backend."""
 
 from __future__ import annotations
+from typing import Any
 
 import logging
 import sqlite3
@@ -87,14 +88,14 @@ class LocalBackend:
 
     # ── User management ───────────────────────────────────────────────────
 
-    def list_users(self) -> list[dict]:
+    def list_users(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT id, email, display_name, role, is_active, last_login_at, created_at "
             "FROM local_users ORDER BY email"
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_user(self, user_id: int) -> dict | None:
+    def get_user(self, user_id: int) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT id, email, display_name, role, is_active, last_login_at, created_at "
             "FROM local_users WHERE id = ?",
@@ -102,7 +103,7 @@ class LocalBackend:
         ).fetchone()
         return dict(row) if row else None
 
-    def get_user_by_email(self, email: str) -> dict | None:
+    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT id, email, display_name, role, is_active FROM local_users "
             "WHERE email = ? COLLATE NOCASE",
@@ -138,7 +139,7 @@ class LocalBackend:
 
     # ── Role overrides ────────────────────────────────────────────────────
 
-    def list_overrides(self) -> list[dict]:
+    def list_overrides(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT id, email, role, note, created_at FROM local_role_overrides ORDER BY email"
         ).fetchall()

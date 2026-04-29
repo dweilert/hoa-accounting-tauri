@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import fields
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, Any
 
 import yaml
 
@@ -21,7 +21,7 @@ from hoa_accounting.exceptions import ValidationError
 _T = TypeVar("_T")
 
 
-def _build(cls: type[_T], raw: dict) -> _T:
+def _build(cls: type[_T], raw: dict[str, Any]) -> _T:
     """Construct a dataclass, ignoring any extra keys in the YAML.
 
     Lets old config.yaml files keep stale fields (e.g. retired GL account

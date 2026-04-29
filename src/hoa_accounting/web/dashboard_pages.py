@@ -1,6 +1,7 @@
 """Dashboard and System Settings page services."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -53,7 +54,7 @@ class DashboardPages:
 
     # ── Dashboard home ─────────────────────────────────────────────────
 
-    def render_dashboard(self, org: dict, theme: str, setup_complete: bool = False) -> PageResponse:
+    def render_dashboard(self, org: dict[str, Any], theme: str, setup_complete: bool = False) -> PageResponse:
         profile = self._repo.get_hoa_profile()
         bank_tiles = self._repo.get_bank_tiles()
         last_recon = self._repo.get_last_reconciliation()
@@ -84,7 +85,7 @@ class DashboardPages:
 
     # ── System Settings ────────────────────────────────────────────────
 
-    def render_settings(self, org: dict, theme: str,
+    def render_settings(self, org: dict[str, Any], theme: str,
                         flash: str | None = None,
                         error: str | None = None) -> PageResponse:
         profile = self._repo.get_hoa_profile()
@@ -100,7 +101,7 @@ class DashboardPages:
 
     _VALID_THEMES = {"warm", "slate", "sage", "ocean", "sand", "dusk"}
 
-    def handle_save_settings(self, form: dict, org: dict, theme: str) -> tuple[str | None, PageResponse | None]:
+    def handle_save_settings(self, form: dict[str, Any], org: dict[str, Any], theme: str) -> tuple[str | None, PageResponse | None]:
         legal_name = form.get("legal_name", "").strip()
         display_name = form.get("display_name", "").strip()
         new_theme = form.get("theme", theme).strip()
@@ -129,7 +130,7 @@ class DashboardPages:
 
     # ── Card Catalog ───────────────────────────────────────────────────
 
-    def render_card_catalog(self, org: dict, theme: str,
+    def render_card_catalog(self, org: dict[str, Any], theme: str,
                              flash: str | None = None,
                              error: str | None = None) -> PageResponse:
         cards = self._repo.get_all_catalog_cards()
@@ -157,7 +158,7 @@ class DashboardPages:
             error=error,
         )
 
-    def handle_save_card(self, form: dict, org: dict, theme: str) -> tuple[str | None, PageResponse | None]:
+    def handle_save_card(self, form: dict[str, Any], org: dict[str, Any], theme: str) -> tuple[str | None, PageResponse | None]:
         title = form.get("title", "").strip()
         if not title:
             return None, self.render_card_catalog(org, theme, error="Title is required.")
@@ -184,12 +185,12 @@ class DashboardPages:
             return "/dashboard-config?msg=Section+bar+added.", None
         return "/dashboard-config?msg=Card+saved.", None
 
-    def handle_delete_card(self, card_id: int, org: dict, theme: str) -> tuple[str | None, PageResponse | None]:
+    def handle_delete_card(self, card_id: int, org: dict[str, Any], theme: str) -> tuple[str | None, PageResponse | None]:
         self._repo.delete_card(card_id)
         self._conn.commit()
         return "/dashboard-config?msg=Card+deleted.", None
 
-    def handle_save_layout(self, form: dict) -> str:
+    def handle_save_layout(self, form: dict[str, Any]) -> str:
         raw = form.get("layout_order", "")
         card_ids = [int(x) for x in raw.split(",") if x.strip().isdigit()]
         self._repo.save_layout(card_ids)

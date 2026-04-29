@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -15,7 +16,7 @@ from hoa_accounting.web.report_catalog import REPORT_DEFINITIONS
 from hoa_accounting.web.ui_server import UIResponse
 
 
-def _ui_response_to_flask(response: UIResponse) -> Response:
+def _ui_response_to_flask(response: UIResponse) -> ResponseReturnValue:
     return Response(
         response.body_html,
         status=response.status_code,
@@ -51,7 +52,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/search")
-    def search_page() -> Response:
+    def search_page() -> ResponseReturnValue:
         pages = ctx.open_pages(SearchPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render(
@@ -66,7 +67,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
     # ── Delinquency report ────────────────────────────────────────────────
 
     @bp.get("/delinquency-report")
-    def delinquency_report() -> Response:
+    def delinquency_report() -> ResponseReturnValue:
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
         resp = ARPages(conn).render_delinquency_report(org=org_context, theme=theme)
@@ -81,7 +82,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/ledger/transactions")
-    def all_transactions() -> Response:
+    def all_transactions() -> ResponseReturnValue:
         pages = ctx.open_pages(AllLedgerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_all_transactions(
@@ -94,7 +95,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/ledger/by-account")
-    def ledger_by_account() -> Response:
+    def ledger_by_account() -> ResponseReturnValue:
         # Old route — redirect to the unified transactions view
         qs = request.query_string.decode()
         target = "/ledger/transactions" + (f"?{qs}" if qs else "")
@@ -102,7 +103,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
 
 
 
-    def _load_report_lookup_options() -> dict:
+    def _load_report_lookup_options() -> dict[str, Any]:
         """Load dropdown options for report parameter fields from the DB."""
         db_path = org_context.get("db_path")
         if not db_path:
@@ -198,7 +199,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
             return {}
 
     @bp.get("/reports")
-    def reports_console() -> Response:
+    def reports_console() -> ResponseReturnValue:
         _default_report = REPORT_DEFINITIONS[0].name
         selected = request.args.get("report_name", _default_report).strip()
         if not selected:
@@ -212,7 +213,7 @@ def make_reports_blueprint(ctx: RouteContext) -> Blueprint:
         )
 
     @bp.get("/run-report")
-    def run_report() -> Response:
+    def run_report() -> ResponseReturnValue:
         params = _flatten_query_params(request.args)
         report_name = params.pop("report_name", "").strip()
         return _ui_response_to_flask(

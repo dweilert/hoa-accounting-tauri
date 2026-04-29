@@ -1,13 +1,14 @@
 """Page service for managing bank transaction rules."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
 
 from hoa_accounting.web.template_engine import render_template
 
-ACTION_TYPES: dict[str, dict] = {
+ACTION_TYPES: dict[str, dict[str, Any]] = {
     "recurring_bill": {
         "label":        "Recurring Bill / Auto-Pay",
         "description":  "Utilities, insurance, landscaping, management fees",
@@ -82,7 +83,7 @@ class TransactionRulePages:
     def _render(self, template: str, **ctx) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
-    def _get_categories(self) -> list[dict]:
+    def _get_categories(self) -> list[dict[str, Any]]:
         """Return all active income/expense categories."""
         rows = self._conn.execute(
             """
@@ -95,7 +96,7 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_bank_accounts(self) -> list[dict]:
+    def _get_bank_accounts(self) -> list[dict[str, Any]]:
         """Return all bank accounts for the rule restriction dropdown."""
         rows = self._conn.execute(
             """
@@ -106,7 +107,7 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_vendors(self) -> list[dict]:
+    def _get_vendors(self) -> list[dict[str, Any]]:
         """Return active vendors for the expense-rule vendor picker."""
         rows = self._conn.execute(
             """
@@ -118,7 +119,7 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_lots(self) -> list[dict]:
+    def _get_lots(self) -> list[dict[str, Any]]:
         """Return all active lots with their current owner name(s)."""
         rows = self._conn.execute(
             """
@@ -134,7 +135,7 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_rules(self) -> list[dict]:
+    def _get_rules(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             """
             SELECT r.id, r.rule_name, r.description_contains,
@@ -164,7 +165,7 @@ class TransactionRulePages:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def render_list(self, org: dict, theme: str, return_to: str = "") -> PageResponse:
+    def render_list(self, org: dict[str, Any], theme: str, return_to: str = "") -> PageResponse:
         return self._render(
             "transaction_rules.html",
             org=org, theme=theme,
@@ -180,8 +181,8 @@ class TransactionRulePages:
 
     def handle_save(
         self,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         rule_id        = form_data.get("rule_id", "").strip()
@@ -271,7 +272,7 @@ class TransactionRulePages:
         self._conn.commit()
         return "/admin/transaction-rules", None
 
-    def _render_error(self, error: str, org: dict, theme: str) -> PageResponse:
+    def _render_error(self, error: str, org: dict[str, Any], theme: str) -> PageResponse:
         return self._render(
             "transaction_rules.html",
             org=org, theme=theme,

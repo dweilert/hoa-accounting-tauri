@@ -1,6 +1,7 @@
 """Route protection decorators and before_request guard."""
 
 from __future__ import annotations
+from typing import Any
 
 import functools
 
@@ -46,7 +47,7 @@ def require_admin(f):
     return wrapper
 
 
-def setup_auth_guard(app, org_ctx: dict) -> None:
+def setup_auth_guard(app, org_ctx: dict[str, Any]) -> None:
     """Register a before_request that enforces login + role on every route."""
 
     @app.before_request

@@ -4,6 +4,7 @@ No third-party dependencies — uses stdlib only.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import base64
 import csv
@@ -245,12 +246,12 @@ def csv_map_is_usable(col: dict[str, str]) -> bool:
 
 def apply_rules(
     transactions: list[ParsedTransaction],
-    rules: list[dict],
+    rules: list[dict[str, Any]],
     skip_indices: set[int] | None = None,
     bank_account_id: int | None = None,
-) -> dict[int, dict]:
+) -> dict[int, dict[str, Any]]:
     """Return {txn_idx: rule_dict} for the first rule where ALL set criteria match."""
-    matches: dict[int, dict] = {}
+    matches: dict[int, dict[str, Any]] = {}
     for i, txn in enumerate(transactions):
         if skip_indices and i in skip_indices:
             continue
@@ -288,7 +289,7 @@ def apply_rules(
 
 def match_transactions(
     transactions: list[ParsedTransaction],
-    items: list[dict],
+    items: list[dict[str, Any]],
     skip_indices: set[int] | None = None,
 ) -> dict[int, tuple[str, int]]:
     """Greedy best-match: bank txn index → (source_type, source_id).
@@ -337,7 +338,7 @@ def match_transactions(
 
 def find_batch_matches(
     transactions: list[ParsedTransaction],
-    batches: list[dict],
+    batches: list[dict[str, Any]],
     skip_indices: set[int] | None = None,
 ) -> dict[int, int]:
     """Match positive OFX transactions to a ``deposit_batch`` by total amount.

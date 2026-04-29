@@ -1,6 +1,7 @@
 """Generate a Reserve Fund Study Word document (.docx)."""
 
 from __future__ import annotations
+from typing import Any
 
 import io
 from datetime import date
@@ -132,7 +133,7 @@ def _chart_funding_gauge(pct_funded: float) -> io.BytesIO:
     return buf
 
 
-def _chart_balance_projection(plan_rows: list[dict]) -> io.BytesIO:
+def _chart_balance_projection(plan_rows: list[dict[str, Any]]) -> io.BytesIO:
     """Bar chart of ending reserve balance by year — green positive, red deficit."""
     years    = [r["year"] for r in plan_rows]
     balances = [float(r["ending_balance"]) for r in plan_rows]
@@ -170,7 +171,7 @@ def _chart_balance_projection(plan_rows: list[dict]) -> io.BytesIO:
     return buf
 
 
-def _chart_expenditures(plan_rows: list[dict]) -> io.BytesIO:
+def _chart_expenditures(plan_rows: list[dict[str, Any]]) -> io.BytesIO:
     """Bar chart of planned capital expenditures by year."""
     years   = [r["year"] for r in plan_rows]
     amounts = [float(r["total_spent"]) for r in plan_rows]
@@ -384,7 +385,7 @@ def generate_reserve_study_docx(
     doc.add_paragraph()
 
     # Group assets
-    groups: dict[str, list] = {}
+    groups: dict[str, list[Any]] = {}
     for a in assets:
         groups.setdefault(a["asset_group"], []).append(a)
 

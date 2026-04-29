@@ -8,6 +8,7 @@ Panels
 """
 
 from __future__ import annotations
+from typing import Any
 
 import logging
 import os
@@ -56,7 +57,7 @@ class DbStats:
 class HealthResult:
     integrity_ok: bool
     integrity_errors: list[str]
-    fk_violations: list[dict]  # table, rowid, parent, fkid
+    fk_violations: list[dict[str, Any]]  # table, rowid, parent, fkid
     checked_at: str = ""       # human-readable timestamp, e.g. "2:47:05 PM"
 
     @property
@@ -147,7 +148,7 @@ class DatabaseAdminPages:
 
     # ── Table row counts (for the stats panel) ───────────────────────────
 
-    def _table_counts(self) -> list[dict]:
+    def _table_counts(self) -> list[dict[str, Any]]:
         tables = [
             r[0] for r in self.conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
@@ -165,7 +166,7 @@ class DatabaseAdminPages:
     def render_page(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         health_result: HealthResult | None = None,
         flash_message: str = "",
@@ -200,7 +201,7 @@ class DatabaseAdminPages:
     # ── POST: health check ───────────────────────────────────────────────
 
     def handle_check(
-        self, *, org: dict | None, theme: str
+        self, *, org: dict[str, Any] | None, theme: str
     ) -> tuple[str | None, DatabaseAdminPageResponse | None]:
         result = self.run_health_check()
         resp = self.render_page(
@@ -214,7 +215,7 @@ class DatabaseAdminPages:
     # ── POST: REINDEX ────────────────────────────────────────────────────
 
     def handle_reindex(
-        self, *, org: dict | None, theme: str
+        self, *, org: dict[str, Any] | None, theme: str
     ) -> tuple[str | None, DatabaseAdminPageResponse | None]:
         try:
             self.conn.execute("REINDEX")
@@ -229,7 +230,7 @@ class DatabaseAdminPages:
     # ── POST: VACUUM ─────────────────────────────────────────────────────
 
     def handle_vacuum(
-        self, *, org: dict | None, theme: str
+        self, *, org: dict[str, Any] | None, theme: str
     ) -> tuple[str | None, DatabaseAdminPageResponse | None]:
         try:
             size_before = self._get_stats().file_size_mb
@@ -267,7 +268,7 @@ class DatabaseAdminPages:
         )
     """
 
-    def _gather_backup_stats(self) -> dict:
+    def _gather_backup_stats(self) -> dict[str, Any]:
         """Collect summary stats from the live DB to embed in the backup file."""
         def count(table: str) -> int | None:
             try:
@@ -291,7 +292,7 @@ class DatabaseAdminPages:
             "renter_count": count("lot_renters"),
         }
 
-    def _record_backup_in_live_db(self, stats: dict) -> None:
+    def _record_backup_in_live_db(self, stats: dict[str, Any]) -> None:
         """Persist the backup stats row in the live DB for display on page load."""
         try:
             self.conn.execute(self._BACKUP_METADATA_DDL)
@@ -312,7 +313,7 @@ class DatabaseAdminPages:
         except Exception:
             pass  # Never let a metadata write break the backup
 
-    def _get_last_backup(self) -> dict | None:
+    def _get_last_backup(self) -> dict[str, Any] | None:
         """Return the most recent backup_metadata row, or None if none exists."""
         try:
             self.conn.execute(self._BACKUP_METADATA_DDL)
@@ -334,7 +335,7 @@ class DatabaseAdminPages:
 
     # ── GET: Download backup ─────────────────────────────────────────────
 
-    def handle_backup(self) -> tuple[bytes, str, dict]:
+    def handle_backup(self) -> tuple[bytes, str, dict[str, Any]]:
         """Create a consistent snapshot of the live database.
 
         Uses ``sqlite3.Connection.backup()`` which honours WAL mode and
@@ -388,7 +389,7 @@ class DatabaseAdminPages:
 
     # ── POST: Restore preview (metadata only, no changes) ────────────────
 
-    def handle_restore_preview(self, file_bytes: bytes) -> dict:
+    def handle_restore_preview(self, file_bytes: bytes) -> dict[str, Any]:
         """Read metadata from a backup file without modifying anything.
 
         Returns a dict with ``ok`` bool and either stats or an ``error``
@@ -418,7 +419,7 @@ class DatabaseAdminPages:
                     }
 
                 # Read backup_metadata if present (older backups won't have it)
-                meta_row: dict = {}
+                meta_row: dict[str, Any] = {}
                 bm = conn.execute(
                     "SELECT name FROM sqlite_master "
                     "WHERE type='table' AND name='backup_metadata'"
@@ -473,7 +474,7 @@ class DatabaseAdminPages:
         self,
         file_bytes: bytes,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, "DatabaseAdminPageResponse | None", str]:
         """Validate *file_bytes* and, if valid, atomically replace the live DB.
@@ -615,7 +616,7 @@ class DatabaseAdminPages:
     # ── POST: WAL checkpoint ─────────────────────────────────────────────
 
     def handle_wal_checkpoint(
-        self, *, org: dict | None, theme: str
+        self, *, org: dict[str, Any] | None, theme: str
     ) -> tuple[str | None, DatabaseAdminPageResponse | None]:
         stats = self._get_stats()
         if stats.journal_mode != "wal":

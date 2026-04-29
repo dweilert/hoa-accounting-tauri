@@ -12,6 +12,7 @@ Routes handled:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -51,7 +52,7 @@ class BudgetPages:
     def render_list(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         flash_message: str = "",
     ) -> PageResponse:
@@ -86,10 +87,10 @@ class BudgetPages:
     def render_new_form(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str = "",
-        form_data: dict | None = None,
+        form_data: dict[str, Any] | None = None,
     ) -> PageResponse:
         fd = form_data or {}
         ctx = {
@@ -111,8 +112,8 @@ class BudgetPages:
     def handle_new(
         self,
         *,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         fiscal_year_raw = form_data.get("fiscal_year", "").strip()
@@ -161,11 +162,11 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         flash_message: str = "",
         error: str = "",
-        overrides: dict | None = None,
+        overrides: dict[str, Any] | None = None,
     ) -> PageResponse:
         budget = self._repo.get_budget(budget_id)
         if budget is None:
@@ -207,7 +208,7 @@ class BudgetPages:
 
         # Group categories by group_name (preserving sort_order ordering)
         seen_groups: list[str | None] = []
-        groups: dict[str | None, list] = {}
+        groups: dict[str | None, list[Any]] = {}
         for cat in expense_categories:
             gn = cat["group_name"]
             if gn not in groups:
@@ -270,8 +271,8 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         budget = self._repo.get_budget(budget_id)
@@ -317,7 +318,7 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         budget = self._repo.get_budget(budget_id)
@@ -337,7 +338,7 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         budget = self._repo.get_budget(budget_id)
@@ -357,7 +358,7 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         budget = self._repo.get_budget(budget_id)
@@ -375,7 +376,7 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         """Reverse an accidental Archive — flip status back to APPROVED."""
@@ -394,7 +395,7 @@ class BudgetPages:
         self,
         budget_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         budget = self._repo.get_budget(budget_id)

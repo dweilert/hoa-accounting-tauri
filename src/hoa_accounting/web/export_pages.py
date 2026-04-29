@@ -14,6 +14,7 @@ is written to disk.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import io
 import sqlite3
@@ -26,7 +27,7 @@ from hoa_accounting.web.template_engine import render_template
 
 # ── Exportable data sets ─────────────────────────────────────────────────────
 
-EXPORT_GROUPS: list[dict] = [
+EXPORT_GROUPS: list[dict[str, Any]] = [
     {
         "title": "Master Data",
         "types": [
@@ -83,7 +84,7 @@ EXPORT_GROUPS: list[dict] = [
 ]
 
 # Flat list kept for backwards-compatible iteration in build_zip.
-EXPORT_TYPES: list[dict] = [t for g in EXPORT_GROUPS for t in g["types"]]
+EXPORT_TYPES: list[dict[str, Any]] = [t for g in EXPORT_GROUPS for t in g["types"]]
 
 # Map each key → SQL that produces a flat, human-readable result set.
 QUERIES: dict[str, str] = {
@@ -558,7 +559,7 @@ QUERIES: dict[str, str] = {
 
 # ── File-building helpers ────────────────────────────────────────────────────
 
-def _build_file(headers: list[str], rows: list[tuple]) -> str:
+def _build_file(headers: list[str], rows: list[tuple[Any, ...]]) -> str:
     """
     Return the CSV file content as a string.
 
@@ -598,7 +599,7 @@ class ExportPages:
     def render_page(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         flash_message: str = "",
         error_message: str = "",

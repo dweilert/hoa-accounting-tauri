@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -22,15 +23,15 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
     # ── Reserve Study pages ───────────────────────────────────────────
 
 
-    def _rs_redirect(url: str) -> Response:
+    def _rs_redirect(url: str) -> ResponseReturnValue:
         from flask import redirect as _redir
         return _redir(url, code=303)
 
-    def _rs_resp(pr: object) -> Response:
+    def _rs_resp(pr: object) -> ResponseReturnValue:
         return Response(pr.body_html, status=pr.status_code, mimetype="text/html; charset=utf-8")
 
     @bp.get("/reserve-study")
-    def rs_summary() -> Response:
+    def rs_summary() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -38,13 +39,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                                              flash_message=flash_message))
 
     @bp.get("/reserve-study/assumptions/edit")
-    def rs_assumptions_form() -> Response:
+    def rs_assumptions_form() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_assumptions_form(org=org_context, theme=theme))
 
     @bp.post("/reserve-study/assumptions/edit")
-    def rs_assumptions_save() -> Response:
+    def rs_assumptions_save() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -58,7 +59,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return _rs_resp(form_resp)
 
     @bp.get("/reserve-study/assets")
-    def rs_assets() -> Response:
+    def rs_assets() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -66,13 +67,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                                             flash_message=flash_message))
 
     @bp.get("/reserve-study/assets/new")
-    def rs_asset_new_form() -> Response:
+    def rs_asset_new_form() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_asset_form(org=org_context, theme=theme))
 
     @bp.post("/reserve-study/assets/new")
-    def rs_asset_new_save() -> Response:
+    def rs_asset_new_save() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -86,13 +87,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return _rs_resp(form_resp)
 
     @bp.get("/reserve-study/assets/<int:asset_id>/edit")
-    def rs_asset_edit_form(asset_id: int) -> Response:
+    def rs_asset_edit_form(asset_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_asset_form(asset_id, org=org_context, theme=theme))
 
     @bp.post("/reserve-study/assets/<int:asset_id>/edit")
-    def rs_asset_edit_save(asset_id: int) -> Response:
+    def rs_asset_edit_save(asset_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -106,7 +107,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return _rs_resp(form_resp)
 
     @bp.post("/reserve-study/assets/<int:asset_id>/delete")
-    def rs_asset_delete(asset_id: int) -> Response:
+    def rs_asset_delete(asset_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -114,13 +115,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(redirect_url or "/reserve-study/assets", code=303)
 
     @bp.get("/reserve-study/funding-plan")
-    def rs_funding_plan() -> Response:
+    def rs_funding_plan() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_funding_plan(org=org_context, theme=theme))
 
     @bp.get("/reserve-study/scenarios")
-    def rs_scenarios() -> Response:
+    def rs_scenarios() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -128,13 +129,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                                                flash_message=flash_message))
 
     @bp.get("/reserve-study/scenarios/new")
-    def rs_scenario_new_form() -> Response:
+    def rs_scenario_new_form() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_scenario_form(org=org_context, theme=theme))
 
     @bp.post("/reserve-study/scenarios/new")
-    def rs_scenario_new_save() -> Response:
+    def rs_scenario_new_save() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -148,13 +149,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return _rs_resp(form_resp)
 
     @bp.get("/reserve-study/scenarios/<int:scenario_id>/edit")
-    def rs_scenario_edit_form(scenario_id: int) -> Response:
+    def rs_scenario_edit_form(scenario_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_scenario_form(scenario_id, org=org_context, theme=theme))
 
     @bp.post("/reserve-study/scenarios/<int:scenario_id>/edit")
-    def rs_scenario_edit_save(scenario_id: int) -> Response:
+    def rs_scenario_edit_save(scenario_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -168,7 +169,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return _rs_resp(form_resp)
 
     @bp.post("/reserve-study/scenarios/<int:scenario_id>/delete")
-    def rs_scenario_delete(scenario_id: int) -> Response:
+    def rs_scenario_delete(scenario_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
@@ -176,13 +177,13 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(redirect_url or "/reserve-study/scenarios", code=303)
 
     @bp.get("/reserve-study/report")
-    def rs_report_preview() -> Response:
+    def rs_report_preview() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveStudyPages)
         theme = str(org_context.get("theme", "warm"))
         return _rs_resp(pages.render_report_preview(org=org_context, theme=theme))
 
     @bp.get("/reserve-study/report/download")
-    def rs_word_report() -> Response:
+    def rs_word_report() -> ResponseReturnValue:
         import urllib.parse
         pages = ctx.open_pages(ReserveStudyPages)
         org_name = str(org_context.get("name", "HOA"))
@@ -201,7 +202,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/opening-balances")
-    def opening_balances_page() -> Response:
+    def opening_balances_page() -> ResponseReturnValue:
         pages = ctx.open_pages(OpeningBalancesPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(
@@ -213,7 +214,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/opening-balances/save")
-    def save_opening_balances() -> Response:
+    def save_opening_balances() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(OpeningBalancesPages)
         theme = str(org_context.get("theme", "warm"))
@@ -232,7 +233,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/reserve-transfers")
-    def list_reserve_transfers() -> Response:
+    def list_reserve_transfers() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveTransferPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_list(
@@ -247,7 +248,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/reserve-transfers/new")
-    def new_reserve_transfer_form() -> Response:
+    def new_reserve_transfer_form() -> ResponseReturnValue:
         pages = ctx.open_pages(ReserveTransferPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_new_form(org=org_context, theme=theme)
@@ -255,7 +256,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/reserve-transfers/new")
-    def submit_new_reserve_transfer() -> Response:
+    def submit_new_reserve_transfer() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveTransferPages)
         theme = str(org_context.get("theme", "warm"))
@@ -270,7 +271,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/reserve-transfers/<int:transfer_id>/delete")
-    def delete_reserve_transfer(transfer_id: int) -> Response:
+    def delete_reserve_transfer(transfer_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReserveTransferPages)
         theme = str(org_context.get("theme", "warm"))
@@ -288,7 +289,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/budgets")
-    def list_budgets() -> Response:
+    def list_budgets() -> ResponseReturnValue:
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -298,7 +299,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/budgets/new")
-    def new_budget_form() -> Response:
+    def new_budget_form() -> ResponseReturnValue:
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_new_form(org=org_context, theme=theme)
@@ -306,7 +307,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/new")
-    def submit_new_budget() -> Response:
+    def submit_new_budget() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
@@ -321,7 +322,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/budgets/<int:budget_id>/edit")
-    def edit_budget_form(budget_id: int) -> Response:
+    def edit_budget_form(budget_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -333,7 +334,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/<int:budget_id>/edit")
-    def submit_save_budget(budget_id: int) -> Response:
+    def submit_save_budget(budget_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
@@ -349,7 +350,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/<int:budget_id>/approve")
-    def approve_budget(budget_id: int) -> Response:
+    def approve_budget(budget_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
@@ -363,7 +364,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/<int:budget_id>/revert-to-draft")
-    def revert_budget_to_draft(budget_id: int) -> Response:
+    def revert_budget_to_draft(budget_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
@@ -377,7 +378,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/<int:budget_id>/archive")
-    def archive_budget(budget_id: int) -> Response:
+    def archive_budget(budget_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
@@ -391,7 +392,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/<int:budget_id>/un-archive")
-    def un_archive_budget(budget_id: int) -> Response:
+    def un_archive_budget(budget_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))
@@ -405,7 +406,7 @@ def make_budget_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/budgets/<int:budget_id>/delete")
-    def delete_budget(budget_id: int) -> Response:
+    def delete_budget(budget_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BudgetPages)
         theme = str(org_context.get("theme", "warm"))

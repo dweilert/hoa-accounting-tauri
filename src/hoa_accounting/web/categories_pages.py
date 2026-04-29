@@ -11,6 +11,7 @@ Routes handled:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from decimal import Decimal
@@ -49,7 +50,7 @@ class CategoriesPages:
     def render_list(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         flash_message: str = "",
     ) -> CategoriesPageResponse:
@@ -80,9 +81,9 @@ class CategoriesPages:
     def render_add_form(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
-        form_values: dict | None = None,
+        form_values: dict[str, Any] | None = None,
         error_message: str = "",
     ) -> CategoriesPageResponse:
         ctx = {
@@ -115,7 +116,7 @@ class CategoriesPages:
 
     # ── Add (POST) ────────────────────────────────────────────────────────
 
-    def handle_add(self, form: dict, *, org: dict, theme: str) -> CategoriesPageResponse:
+    def handle_add(self, form: dict[str, Any], *, org: dict[str, Any], theme: str) -> CategoriesPageResponse:
         from flask import redirect
         try:
             code = _req(form.get("code"), "Code").upper()
@@ -158,9 +159,9 @@ class CategoriesPages:
         self,
         category_id: int,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
-        form_values: dict | None = None,
+        form_values: dict[str, Any] | None = None,
         error_message: str = "",
     ) -> CategoriesPageResponse:
         row = self.repo.get_category(category_id)
@@ -201,7 +202,7 @@ class CategoriesPages:
     # ── Edit (POST) ───────────────────────────────────────────────────────
 
     def handle_edit(
-        self, category_id: int, form: dict, *, org: dict, theme: str
+        self, category_id: int, form: dict[str, Any], *, org: dict[str, Any], theme: str
     ) -> CategoriesPageResponse:
         try:
             name = _req(form.get("name"), "Name")
@@ -257,7 +258,7 @@ class CategoriesPages:
     # ── Ledger (GET) ──────────────────────────────────────────────────────
 
     def render_ledger(
-        self, category_id: int, *, org: dict, theme: str
+        self, category_id: int, *, org: dict[str, Any], theme: str
     ) -> CategoriesPageResponse:
         row = self.repo.get_category(category_id)
         if row is None:

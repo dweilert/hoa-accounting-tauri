@@ -1,6 +1,7 @@
 """UI-facing view-model builders for the web layer."""
 
 from __future__ import annotations
+from typing import Any
 
 import json
 from dataclasses import dataclass, field as dc_field
@@ -81,7 +82,7 @@ class ReportConsoleContext:
     breadcrumb: str
     selected_report: str
     theme: str
-    lookup_options: dict = dc_field(default_factory=dict)
+    lookup_options: dict[str, Any] = dc_field(default_factory=dict[str, Any])
 
 
 _DEFAULT_ORG: dict[str, object] = {
@@ -134,7 +135,7 @@ def build_report_console_context(
     error_message: str,
     api_payload: dict[str, object] | None,
     org: dict[str, object] | None = None,
-    lookup_options: dict | None = None,
+    lookup_options: dict[str, Any] | None = None,
 ) -> ReportConsoleContext:
     """Build the template context for the report console page."""
     report_def = get_report_definition(selected_report)

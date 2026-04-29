@@ -20,6 +20,7 @@ Routes:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -63,7 +64,7 @@ def _compute_funding_plan(
     assumptions: sqlite3.Row,
     assets: list[sqlite3.Row],
     opening_balance: Decimal,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return a list of dicts, one per year, for the projection table."""
     study_year = int(assumptions["study_year"])
     projection_years = int(assumptions["projection_years"])
@@ -125,10 +126,10 @@ def _compute_funding_plan(
 
 def _compute_scenario_dues_impact(
     scenario: sqlite3.Row,
-    plan_rows: list[dict],
+    plan_rows: list[dict[str, Any]],
     num_lots: int,
     study_year: int,
-) -> dict:
+) -> dict[str, Any]:
     """Return dues-increase options for a scenario."""
     cost = _q2(scenario["emergency_cost"])
     expected_year = scenario["expected_year"]
@@ -178,7 +179,7 @@ class ReserveStudyPages:
         self.conn = conn
         self._repo = ReserveStudyRepository(conn)
 
-    def _base_ctx(self, org: dict, theme: str, page_key: str = "reserve-study") -> dict:
+    def _base_ctx(self, org: dict[str, Any], theme: str, page_key: str = "reserve-study") -> dict[str, Any]:
         return {
             "active_nav": "reserve-study",
             "page_key":   page_key,
@@ -188,7 +189,7 @@ class ReserveStudyPages:
 
     # ── Summary ───────────────────────────────────────────────────────
 
-    def render_summary(self, *, org: dict, theme: str, flash_message: str = "") -> PageResponse:
+    def render_summary(self, *, org: dict[str, Any], theme: str, flash_message: str = "") -> PageResponse:
         assumptions = self._repo.get_active_assumptions()
         assets = self._repo.list_assets()
 
@@ -258,7 +259,7 @@ class ReserveStudyPages:
     # ── Assumptions edit ──────────────────────────────────────────────
 
     def render_assumptions_form(
-        self, *, org: dict, theme: str, error: str = "", form_data: dict | None = None
+        self, *, org: dict[str, Any], theme: str, error: str = "", form_data: dict[str, Any] | None = None
     ) -> PageResponse:
         assumptions = self._repo.get_active_assumptions()
         fd = form_data or {}
@@ -283,7 +284,7 @@ class ReserveStudyPages:
         return PageResponse(HTTPStatus.OK, render_template("reserve_study_assumptions.html", ctx))
 
     def handle_save_assumptions(
-        self, *, form_data: dict, org: dict, theme: str
+        self, *, form_data: dict[str, Any], org: dict[str, Any], theme: str
     ) -> tuple[str | None, PageResponse | None]:
         assumptions = self._repo.get_active_assumptions()
         if assumptions is None:
@@ -349,10 +350,10 @@ class ReserveStudyPages:
 
     # ── Asset inventory ───────────────────────────────────────────────
 
-    def render_assets(self, *, org: dict, theme: str, flash_message: str = "") -> PageResponse:
+    def render_assets(self, *, org: dict[str, Any], theme: str, flash_message: str = "") -> PageResponse:
         assets = self._repo.list_assets()
         # Group by asset_group for display
-        groups: dict[str, list] = {}
+        groups: dict[str, list[Any]] = {}
         for a in assets:
             g = a["asset_group"]
             groups.setdefault(g, []).append(dict(a))
@@ -373,10 +374,10 @@ class ReserveStudyPages:
         self,
         asset_id: int | None = None,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str = "",
-        form_data: dict | None = None,
+        form_data: dict[str, Any] | None = None,
     ) -> PageResponse:
         asset = None
         if asset_id is not None:
@@ -412,8 +413,8 @@ class ReserveStudyPages:
         self,
         asset_id: int | None,
         *,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         asset_group = form_data.get("asset_group", "").strip()
@@ -472,7 +473,7 @@ class ReserveStudyPages:
             return "/reserve-study/assets?msg=Asset+saved.", None
 
     def handle_delete_asset(
-        self, asset_id: int, *, org: dict, theme: str
+        self, asset_id: int, *, org: dict[str, Any], theme: str
     ) -> tuple[str | None, PageResponse | None]:
         self._repo.deactivate_asset(asset_id)
         self.conn.commit()
@@ -480,7 +481,7 @@ class ReserveStudyPages:
 
     # ── Funding plan ─────────────────────────────────────────────────
 
-    def render_funding_plan(self, *, org: dict, theme: str) -> PageResponse:
+    def render_funding_plan(self, *, org: dict[str, Any], theme: str) -> PageResponse:
         assumptions = self._repo.get_active_assumptions()
         assets = self._repo.list_assets()
 
@@ -509,14 +510,14 @@ class ReserveStudyPages:
 
     # ── Scenarios ─────────────────────────────────────────────────────
 
-    def render_scenarios(self, *, org: dict, theme: str, flash_message: str = "") -> PageResponse:
+    def render_scenarios(self, *, org: dict[str, Any], theme: str, flash_message: str = "") -> PageResponse:
         scenarios = self._repo.list_scenarios()
         assumptions = self._repo.get_active_assumptions()
         num_lots = int(assumptions["num_lots"]) if assumptions else 16
 
         # Compute funding plan so we can look up projected balances per scenario
         assets = self._repo.list_assets()
-        plan_rows: list[dict] = []
+        plan_rows: list[dict[str, Any]] = []
         study_year = 2026
         if assumptions is not None:
             study_year = int(assumptions["study_year"])
@@ -550,10 +551,10 @@ class ReserveStudyPages:
         self,
         scenario_id: int | None = None,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str = "",
-        form_data: dict | None = None,
+        form_data: dict[str, Any] | None = None,
     ) -> PageResponse:
         scenario = None
         if scenario_id is not None:
@@ -585,8 +586,8 @@ class ReserveStudyPages:
         self,
         scenario_id: int | None,
         *,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         scenario_name = form_data.get("scenario_name", "").strip()
@@ -625,7 +626,7 @@ class ReserveStudyPages:
             return "/reserve-study/scenarios?msg=Scenario+saved.", None
 
     def handle_delete_scenario(
-        self, scenario_id: int, *, org: dict, theme: str
+        self, scenario_id: int, *, org: dict[str, Any], theme: str
     ) -> tuple[str | None, PageResponse | None]:
         self._repo.deactivate_scenario(scenario_id)
         self.conn.commit()
@@ -633,7 +634,7 @@ class ReserveStudyPages:
 
     # ── HTML report preview ───────────────────────────────────────────
 
-    def render_report_preview(self, *, org: dict, theme: str) -> PageResponse:
+    def render_report_preview(self, *, org: dict[str, Any], theme: str) -> PageResponse:
         from datetime import date
 
         assumptions = self._repo.get_active_assumptions()
@@ -700,7 +701,7 @@ class ReserveStudyPages:
         ]
 
         # Asset groups
-        asset_groups: dict[str, list] = {}
+        asset_groups: dict[str, list[Any]] = {}
         for a in assets:
             asset_groups.setdefault(a["asset_group"], []).append(a)
 

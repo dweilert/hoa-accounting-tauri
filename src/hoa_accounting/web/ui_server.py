@@ -1,6 +1,7 @@
 """Minimal read-only web UI for report execution."""
 
 from __future__ import annotations
+from typing import Any
 
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
@@ -54,7 +55,7 @@ class ReportConsolePageService:
         *,
         selected_report: str = "trial-balance",
         org: dict[str, object] | None = None,
-        lookup_options: dict | None = None,
+        lookup_options: dict[str, Any] | None = None,
     ) -> UIResponse:
         """Render the default console page without report output."""
         return UIResponse(
@@ -75,7 +76,7 @@ class ReportConsolePageService:
         report_name: str,
         query_params: dict[str, str],
         org: dict[str, object] | None = None,
-        lookup_options: dict | None = None,
+        lookup_options: dict[str, Any] | None = None,
     ) -> UIResponse:
         """Render the page with report results."""
         api_response = self.api_service.get_report(
@@ -109,7 +110,7 @@ class ReportConsolePageService:
         api_payload: dict[str, object] | None,
         error_message: str,
         org: dict[str, object] | None = None,
-        lookup_options: dict | None = None,
+        lookup_options: dict[str, Any] | None = None,
     ) -> str:
         summary_vm = build_summary_view_model(
             selected_report=selected_report,

@@ -11,6 +11,7 @@ warning).
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import asdict, dataclass
@@ -39,7 +40,7 @@ class RuleTesterPages:
 
     # ── Helpers ───────────────────────────────────────────────────────
 
-    def _all_rules(self) -> list[dict]:
+    def _all_rules(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
             SELECT id, rule_name, description_contains, match_memo,
@@ -51,7 +52,7 @@ class RuleTesterPages:
         ).fetchall()
         return [{k: r[k] for k in r.keys()} for r in rows]
 
-    def _recent_txns(self, limit: int = 25) -> list[dict]:
+    def _recent_txns(self, limit: int = 25) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
             SELECT bt.id, bt.transaction_date, bt.description, bt.memo,
@@ -66,7 +67,7 @@ class RuleTesterPages:
         ).fetchall()
         return [{k: r[k] for k in r.keys()} for r in rows]
 
-    def _txn_by_id(self, txn_id: int) -> dict | None:
+    def _txn_by_id(self, txn_id: int) -> dict[str, Any] | None:
         row = self.conn.execute(
             """
             SELECT id, transaction_date, description, memo, amount,
@@ -82,16 +83,16 @@ class RuleTesterPages:
     def render(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         focus_rule_id: int | None = None,
         txn_id: int | None = None,
-        synthetic: dict | None = None,
+        synthetic: dict[str, Any] | None = None,
     ) -> RuleTesterResponse:
         rules = self._all_rules()
 
         # Resolve the test transaction.
-        txn: dict | None = None
+        txn: dict[str, Any] | None = None
         if txn_id:
             txn = self._txn_by_id(txn_id)
         elif synthetic and any(synthetic.values()):
@@ -141,7 +142,7 @@ class RuleTesterPages:
         )
 
 
-def _serialize(report: MatchReport) -> dict:
+def _serialize(report: MatchReport) -> dict[str, Any]:
     return {
         "rule_id": report.rule_id,
         "rule_name": report.rule_name,

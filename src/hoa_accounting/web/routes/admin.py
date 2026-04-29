@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -24,7 +25,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/admin/audit-log")
-    def audit_log_page() -> Response:
+    def audit_log_page() -> ResponseReturnValue:
         pages = ctx.open_pages(AuditLogPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render(
@@ -45,7 +46,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/admin/import")
-    def import_page() -> Response:
+    def import_page() -> ResponseReturnValue:
         pages = ctx.open_pages(ImportPages)
         theme = str(org_context.get("theme", "warm"))
         ba_raw = request.args.get("bank_account_id", "")
@@ -60,7 +61,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-import/save-mapping")
-    def bank_import_save_mapping() -> Response:
+    def bank_import_save_mapping() -> ResponseReturnValue:
         """Persist a CSV → canonical-fields map, then replay the stashed
         upload through the normal ingest path so it produces canonical
         ``bank_transactions`` rows with the new mapping applied."""
@@ -118,12 +119,12 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/admin/import/run")
-    def import_run_redirect() -> Response:
+    def import_run_redirect() -> ResponseReturnValue:
         from flask import redirect
         return redirect("/admin/import", code=303)
 
     @bp.post("/admin/import/run")
-    def import_run() -> Response:
+    def import_run() -> ResponseReturnValue:
         pages = ctx.open_pages(ImportPages)
         theme = str(org_context.get("theme", "warm"))
         resp  = pages.handle_run(
@@ -138,7 +139,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/import/validate")
-    def import_validate() -> Response:
+    def import_validate() -> ResponseReturnValue:
         import json as _json
         pages  = ctx.open_pages(ImportPages)
         result = pages.handle_validate(
@@ -155,7 +156,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/admin/export")
-    def export_page() -> Response:
+    def export_page() -> ResponseReturnValue:
         pages = ctx.open_pages(ExportPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(org=org_context, theme=theme)
@@ -163,7 +164,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/export/download")
-    def export_download() -> Response:
+    def export_download() -> ResponseReturnValue:
         pages = ctx.open_pages(ExportPages)
         selected = request.form.getlist("export_key")
         if not selected:
@@ -196,7 +197,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
     # The interview now drives the Categories table instead.
 
     @bp.get("/setup/categories-interview")
-    def categories_interview() -> Response:
+    def categories_interview() -> ResponseReturnValue:
         from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
         conn = _open_db()
         theme = str(org_context.get("theme", "warm"))
@@ -208,7 +209,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/setup/categories-interview")
-    def categories_interview_submit() -> Response:
+    def categories_interview_submit() -> ResponseReturnValue:
         from flask import redirect
         from hoa_accounting.web.category_wizard_pages import CategoryWizardPages
         conn = _open_db()
@@ -217,7 +218,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.get("/admin/database")
-    def database_admin_page() -> Response:
+    def database_admin_page() -> ResponseReturnValue:
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(
@@ -229,7 +230,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/database/check")
-    def database_health_check() -> Response:
+    def database_health_check() -> ResponseReturnValue:
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
         _, form_resp = pages.handle_check(org=org_context, theme=theme)
@@ -238,7 +239,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/database/reindex")
-    def database_reindex() -> Response:
+    def database_reindex() -> ResponseReturnValue:
         from flask import redirect
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -250,7 +251,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/database/vacuum")
-    def database_vacuum() -> Response:
+    def database_vacuum() -> ResponseReturnValue:
         from flask import redirect
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -262,7 +263,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/database/wal-checkpoint")
-    def database_wal_checkpoint() -> Response:
+    def database_wal_checkpoint() -> ResponseReturnValue:
         from flask import redirect
         pages = _open_db_admin_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -274,7 +275,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/admin/database/backup")
-    def database_backup() -> Response:
+    def database_backup() -> ResponseReturnValue:
         import json as _json
         pages = _open_db_admin_pages()
         data, filename, stats = pages.handle_backup()
@@ -291,7 +292,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         )
 
     @bp.post("/admin/database/restore-preview")
-    def database_restore_preview() -> Response:
+    def database_restore_preview() -> ResponseReturnValue:
         import json as _json
         pages = _open_db_admin_pages()
         backup_file = request.files.get("backup_file")
@@ -306,7 +307,7 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="application/json")
 
     @bp.post("/admin/database/restore")
-    def database_restore() -> Response:
+    def database_restore() -> ResponseReturnValue:
         import json as _json
         from flask import redirect
         pages = _open_db_admin_pages()

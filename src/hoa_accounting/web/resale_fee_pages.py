@@ -15,6 +15,7 @@ POST /resale-fee/post-payment
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -63,7 +64,7 @@ class ResaleFeePages:
             return None, "RESALE_FEE category is inactive."
         return int(row["id"]), f"{row['code']} · {row['name']}"
 
-    def _lot_options(self) -> list[dict]:
+    def _lot_options(self) -> list[dict[str, Any]]:
         lots = LotsRepository(self.conn).list_lots(active_only=True)
         options = []
         for r in lots:
@@ -72,7 +73,7 @@ class ResaleFeePages:
             options.append({"id": r["id"], "label": label})
         return options
 
-    def _bank_account_options(self) -> list[dict]:
+    def _bank_account_options(self) -> list[dict[str, Any]]:
         rows = BankAccountsRepository(self.conn).list_bank_accounts()
         return [
             {
@@ -83,7 +84,7 @@ class ResaleFeePages:
             if r["active_flag"]
         ]
 
-    def _open_resale_fees(self) -> list[dict]:
+    def _open_resale_fees(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             """
             SELECT
@@ -120,13 +121,13 @@ class ResaleFeePages:
     def render_page(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         default_amount: str = "175.00",
         income_account_number: str = _RESALE_FEE_ACCOUNT,
         error_message: str = "",
         flash_message: str = "",
-        form_values: dict | None = None,
+        form_values: dict[str, Any] | None = None,
     ) -> ResaleFeePageResponse:
         fv = form_values or {}
         income_account_id, income_label = self._resolve_income_account(income_account_number)
@@ -163,7 +164,7 @@ class ResaleFeePages:
     def render_payments_page(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error_message: str = "",
         flash_message: str = "",
@@ -192,8 +193,8 @@ class ResaleFeePages:
     def handle_post_charge(
         self,
         *,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
         default_amount: str,
         income_account_number: str,
@@ -259,8 +260,8 @@ class ResaleFeePages:
     def handle_post_payment(
         self,
         *,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
         default_amount: str,
         income_account_number: str,

@@ -1,6 +1,7 @@
 """Repository for dashboard data: financial summary, cards, layout, HOA profile."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -279,7 +280,7 @@ class DashboardRepository:
         except Exception:
             return {}
 
-    def get_alert_settings_list(self) -> list[dict]:
+    def get_alert_settings_list(self) -> list[dict[str, Any]]:
         """Return full alert settings rows for display in Dashboard Config."""
         try:
             rows = self._conn.execute(
@@ -335,11 +336,11 @@ class DashboardRepository:
         except Exception:
             pass
 
-    def get_next_action_nudges(self) -> list[dict]:
+    def get_next_action_nudges(self) -> list[dict[str, Any]]:
         """Return a prioritised list of actionable nudges for the dashboard."""
         settings = self.get_alert_settings()
         dismissed = self.get_dismissed_alerts()
-        nudges: list[dict] = []
+        nudges: list[dict[str, Any]] = []
 
         def _add(key: str, level: str, icon: str, text: str, href: str, link: str) -> None:
             if not settings.get(key, True):

@@ -9,6 +9,7 @@ Reads config from the 'backup' key in the app config dict:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import logging
 import sqlite3
@@ -23,7 +24,7 @@ _FILENAME_GLOB = f"{_FILENAME_PREFIX}*.db"
 
 
 class BackupService:
-    def __init__(self, db_path: str, backup_config: dict) -> None:
+    def __init__(self, db_path: str, backup_config: dict[str, Any]) -> None:
         self._db_path = db_path
         self._backup_dir = Path(backup_config.get("dir", "backups")).expanduser()
         self._max_keep = int(backup_config.get("max_keep", _DEFAULT_MAX_KEEP))

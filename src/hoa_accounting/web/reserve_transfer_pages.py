@@ -1,6 +1,7 @@
 """Page-service for reserve transfers."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -37,7 +38,7 @@ class ReserveTransferPages:
     def _render(self, template: str, **ctx) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
-    def _render_error(self, status: int, msg: str, org: dict, theme: str) -> PageResponse:
+    def _render_error(self, status: int, msg: str, org: dict[str, Any], theme: str) -> PageResponse:
         return PageResponse(status, render_template("error.html", {
             "org": org, "theme": theme,
             "heading": "Error", "message": msg,
@@ -48,7 +49,7 @@ class ReserveTransferPages:
 
     def render_list(
         self,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         type_filter: str | None = None,
         start_date: str | None = None,
@@ -82,10 +83,10 @@ class ReserveTransferPages:
 
     def render_new_form(
         self,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str | None = None,
-        values: dict | None = None,
+        values: dict[str, Any] | None = None,
     ) -> PageResponse:
         return self._render(
             "reserve_transfer_new.html",
@@ -99,8 +100,8 @@ class ReserveTransferPages:
 
     def handle_new(
         self,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         transfer_type = form_data.get("transfer_type", "").strip()
@@ -157,7 +158,7 @@ class ReserveTransferPages:
     def handle_delete(
         self,
         transfer_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         row = self._repo.get_transfer(transfer_id)

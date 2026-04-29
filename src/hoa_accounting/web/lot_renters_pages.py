@@ -10,6 +10,7 @@ Routes handled:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -51,7 +52,7 @@ class LotRentersPages:
         self.repo = LotRentersRepository(conn)
         self.lots_repo = LotsRepository(conn)
 
-    def _lot_options(self) -> list[dict]:
+    def _lot_options(self) -> list[dict[str, Any]]:
         rows = self.lots_repo.list_lots(active_only=False)
         return [
             {

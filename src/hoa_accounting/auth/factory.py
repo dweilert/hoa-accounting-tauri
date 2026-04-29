@@ -30,8 +30,8 @@ def _cognito_reachable(region: str, user_pool_id: str) -> bool:
 class AuthConfig:
     backend: str = "local"
     session_secret: str = "dev-secret-change-me"
-    cognito: dict = field(default_factory=dict)
-    group_role_map: dict = field(default_factory=dict)
+    cognito: dict[str, Any] = field(default_factory=dict[str, Any])
+    group_role_map: dict[str, Any] = field(default_factory=dict[str, Any])
     local_fallback: bool = True
 
 
@@ -96,7 +96,7 @@ class AuthManager:
         return self._local
 
 
-def build_auth_manager(raw_config: dict, db_path: str) -> AuthManager:
+def build_auth_manager(raw_config: dict[str, Any], db_path: str) -> AuthManager:
     auth_cfg_raw = raw_config.get("auth", {})
     cfg = AuthConfig(
         backend=auth_cfg_raw.get("backend", "local"),

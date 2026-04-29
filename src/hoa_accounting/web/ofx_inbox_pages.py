@@ -17,6 +17,7 @@ Key decisions baked in:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import json
 import logging
@@ -55,7 +56,7 @@ class OFXInboxResponse:
     body_html: str
 
 
-def _inbox_root(org: dict | None) -> Path:
+def _inbox_root(org: dict[str, Any] | None) -> Path:
     """Return the inbox directory, creating it on first access.
 
     Pulled from config (``ofx_inbox_path``) with a sensible default so
@@ -67,7 +68,7 @@ def _inbox_root(org: dict | None) -> Path:
     return root
 
 
-def _parse_status_file(p: Path) -> dict | None:
+def _parse_status_file(p: Path) -> dict[str, Any] | None:
     """Parse a loose key: value status file (timestamp + fields).
 
     Format is the fetcher's — grep-friendly, not strict. We accept any
@@ -99,7 +100,7 @@ def _parse_ts(raw: str | None) -> datetime | None:
         return None
 
 
-def _list_inbox_files(root: Path) -> list[dict]:
+def _list_inbox_files(root: Path) -> list[dict[str, Any]]:
     """OFX files awaiting import (sitting at the inbox root, not archive).
 
     Returns each as a dict with filename, mtime (iso), and size (bytes).
@@ -158,7 +159,7 @@ class OFXInboxPages:
     def render_inbox(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         flash_message: str = "",
         error_message: str = "",
@@ -196,11 +197,11 @@ class OFXInboxPages:
 
     def _build_banner(
         self,
-        heartbeat: dict | None,
-        success: dict | None,
-        failure: dict | None,
+        heartbeat: dict[str, Any] | None,
+        success: dict[str, Any] | None,
+        failure: dict[str, Any] | None,
         archived: set[str],
-    ) -> dict:
+    ) -> dict[str, Any]:
         now = datetime.now(tz=timezone.utc)
 
         # Heartbeat check — missing on fresh install (neutral), stale = red.
@@ -275,7 +276,7 @@ class OFXInboxPages:
 
     # ── Webhook ─────────────────────────────────────────────────────
 
-    def handle_ofx_ready(self, *, payload: dict, org: dict | None) -> tuple[int, str]:
+    def handle_ofx_ready(self, *, payload: dict[str, Any], org: dict[str, Any] | None) -> tuple[int, str]:
         """Process a webhook POST from the fetcher.
 
         Returns (http_status, body) for the caller to turn into a Flask
@@ -353,7 +354,7 @@ class OFXInboxPages:
         except Exception:
             _log.exception("ofx-import: unhandled error on %s", ofx_path.name)
 
-    def _import_one(self, conn: sqlite3.Connection, ofx_path: Path) -> dict:
+    def _import_one(self, conn: sqlite3.Connection, ofx_path: Path) -> dict[str, Any]:
         """Read + route an OFX through the existing agnostic upload path.
 
         handle_agnostic_upload splits by ACCTID and maps each section to
@@ -413,7 +414,7 @@ class OFXInboxPages:
     # ── Manual import (from the inbox page) ────────────────────────
 
     def handle_import_one(
-        self, *, filename: str, org: dict | None,
+        self, *, filename: str, org: dict[str, Any] | None,
     ) -> tuple[str, str]:
         """Synchronous import of a single file, clicked from the page.
 
@@ -439,7 +440,7 @@ class OFXInboxPages:
         )
 
     def handle_delete(
-        self, *, filename: str, org: dict | None,
+        self, *, filename: str, org: dict[str, Any] | None,
     ) -> tuple[str, str]:
         """Delete a pending OFX file without importing it.
 
@@ -471,7 +472,7 @@ class OFXInboxPages:
             f"Deleted {filename} (was not imported).",
         )
 
-    def handle_import_all(self, *, org: dict | None) -> tuple[str, str]:
+    def handle_import_all(self, *, org: dict[str, Any] | None) -> tuple[str, str]:
         """Import every unprocessed file. Keep going on per-file failure
         and report counts — as agreed."""
         root = _inbox_root(org)
@@ -500,7 +501,7 @@ class OFXInboxPages:
 
     # ── Fetcher proxy (server-side HTTP to 127.0.0.1:17866) ────────
 
-    def proxy_fetch(self, *, mode: str = "headless") -> tuple[int, dict | str]:
+    def proxy_fetch(self, *, mode: str = "headless") -> tuple[int, dict[str, Any] | str]:
         """POST to the fetcher daemon. ``mode`` is 'headless' or 'headed'.
 
         Returns (http_status, body_json_or_text). The page shows the
@@ -509,7 +510,7 @@ class OFXInboxPages:
         endpoint = "/fetch-headed" if mode == "headed" else "/fetch"
         return _post_to_fetcher(endpoint)
 
-    def proxy_status(self) -> tuple[int, dict | str]:
+    def proxy_status(self) -> tuple[int, dict[str, Any] | str]:
         return _get_from_fetcher("/status", timeout=_FETCHER_STATUS_TIMEOUT)
 
 
@@ -534,7 +535,7 @@ def _move_to_archive(ofx_path: Path, root: Path) -> Path:
     return dest
 
 
-def _post_to_fetcher(endpoint: str) -> tuple[int, dict | str]:
+def _post_to_fetcher(endpoint: str) -> tuple[int, dict[str, Any] | str]:
     url = _FETCHER_BASE_URL + endpoint
     req = urlrequest.Request(
         url, data=b"", method="POST",
@@ -553,7 +554,7 @@ def _post_to_fetcher(endpoint: str) -> tuple[int, dict | str]:
         return 500, f"fetcher error: {exc}"
 
 
-def _get_from_fetcher(endpoint: str, *, timeout: float) -> tuple[int, dict | str]:
+def _get_from_fetcher(endpoint: str, *, timeout: float) -> tuple[int, dict[str, Any] | str]:
     url = _FETCHER_BASE_URL + endpoint
     try:
         with urlrequest.urlopen(url, timeout=timeout) as resp:

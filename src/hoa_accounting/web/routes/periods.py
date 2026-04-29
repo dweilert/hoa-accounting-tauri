@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -20,7 +21,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/accounting-periods")
-    def list_periods() -> Response:
+    def list_periods() -> ResponseReturnValue:
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -30,7 +31,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/accounting-periods/add")
-    def new_period_form() -> Response:
+    def new_period_form() -> ResponseReturnValue:
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_add_form(org=org_context, theme=theme)
@@ -38,7 +39,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/accounting-periods/add")
-    def submit_new_period() -> Response:
+    def submit_new_period() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -53,7 +54,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/accounting-periods/generate")
-    def generate_year_form() -> Response:
+    def generate_year_form() -> ResponseReturnValue:
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_generate_form(org=org_context, theme=theme)
@@ -61,7 +62,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/accounting-periods/generate")
-    def submit_generate_year() -> Response:
+    def submit_generate_year() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -76,7 +77,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/accounting-periods/<int:period_id>/close")
-    def close_period(period_id: int) -> Response:
+    def close_period(period_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -90,7 +91,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/accounting-periods/<int:period_id>/reopen")
-    def reopen_period(period_id: int) -> Response:
+    def reopen_period(period_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))
@@ -104,7 +105,7 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/accounting-periods/<int:period_id>/delete")
-    def delete_period(period_id: int) -> Response:
+    def delete_period(period_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AccountingPeriodPages)
         theme = str(org_context.get("theme", "warm"))

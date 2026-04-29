@@ -4,6 +4,7 @@ Transactions are stored immediately as PENDING on upload and survive navigation.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import hashlib
 import itertools
@@ -49,7 +50,7 @@ class BankStatementPages:
     def _render(self, template: str, **ctx) -> PageResponse:
         return PageResponse(200, render_template(template, ctx))
 
-    def _get_unmatched_items(self, bank_account_id: int) -> list[dict]:
+    def _get_unmatched_items(self, bank_account_id: int) -> list[dict[str, Any]]:
         """Return single-entry records for this bank account that have no
         linked bank transaction yet (i.e. no prior OFX import has claimed
         them via ``matched_source_type`` / ``matched_source_id``).
@@ -126,7 +127,7 @@ class BankStatementPages:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_unmatched_batches(self, bank_account_id: int) -> list[dict]:
+    def _get_unmatched_batches(self, bank_account_id: int) -> list[dict[str, Any]]:
         """Return deposit batches for this bank account that no prior OFX
         import has already matched. A batch is considered matched only when
         its deposit_batch_id appears in ``bank_transactions.matched_source_id``
@@ -160,7 +161,7 @@ class BankStatementPages:
         ).fetchall()
         return [int(r["id"]) for r in rows]
 
-    def _load_rules(self) -> list[dict]:
+    def _load_rules(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             """
             SELECT r.id, r.rule_name, r.description_contains,
@@ -206,8 +207,8 @@ class BankStatementPages:
 
     def _apply_rule(
         self,
-        txn_row: dict,
-        rule: dict,
+        txn_row: dict[str, Any],
+        rule: dict[str, Any],
         bank_account_id: int,
     ) -> tuple[str, int] | None:
         """Post a single-entry record representing this bank transaction.
@@ -380,9 +381,9 @@ class BankStatementPages:
     def _compute_matches(
         self,
         transactions: list[ParsedTransaction],
-        items: list[dict],
-        batches: list[dict],
-        rules: list[dict],
+        items: list[dict[str, Any]],
+        batches: list[dict[str, Any]],
+        rules: list[dict[str, Any]],
         bank_account_id: int | None = None,
     ) -> tuple[
         dict[int, dict],
@@ -433,7 +434,7 @@ class BankStatementPages:
         batch_id: int,
         txn: ParsedTransaction,
         idx: int,
-        rule_m: dict[int, dict],
+        rule_m: dict[int, dict[str, Any]],
         source_m: dict[int, tuple[str, int]],
         batch_m: dict[int, int],
     ) -> bool:
@@ -523,11 +524,11 @@ class BankStatementPages:
         filename: str,
         file_format: str,
         file_bytes: bytes,
-        csv_col_map: dict,
+        csv_col_map: dict[str, Any],
         transactions: list[ParsedTransaction],
-        items: list[dict],
-        batches: list[dict],
-        rules: list[dict],
+        items: list[dict[str, Any]],
+        batches: list[dict[str, Any]],
+        rules: list[dict[str, Any]],
     ) -> int:
         """Insert PENDING batch + all transactions. Returns batch_id."""
         rule_m, source_m, batch_m = self._compute_matches(
@@ -593,7 +594,7 @@ class BankStatementPages:
     def _auto_post_rule_match(
         self,
         txn: ParsedTransaction,
-        rule: dict,
+        rule: dict[str, Any],
         bank_account_id: int,
     ) -> bool:
         """Post a ledger record for an auto-post rule match and mark the
@@ -650,13 +651,13 @@ class BankStatementPages:
             (bank_account_id,),
         ).fetchone()
 
-    def _get_all_bank_accounts(self) -> list[dict]:
+    def _get_all_bank_accounts(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
             "SELECT id, account_name, account_last4, institution_name FROM bank_accounts ORDER BY account_name"
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def _get_all_batches(self) -> list[dict]:
+    def _get_all_batches(self) -> list[dict[str, Any]]:
         # ``matched_count`` and ``status`` are computed LIVE from
         # bank_transactions, not read from the stale stored columns. The
         # batch row's ``matched_count`` / ``status`` are written once at
@@ -692,7 +693,7 @@ class BankStatementPages:
         return [dict(r) for r in rows]
 
     def render_agnostic_upload_form(
-        self, org: dict, theme: str,
+        self, org: dict[str, Any], theme: str,
         error: str | None = None,
         success: str | None = None,
     ) -> PageResponse:
@@ -714,7 +715,7 @@ class BankStatementPages:
         file_bytes: bytes,
         filename: str,
         csv_bank_account_id: int | None,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None, list[str]]:
         """Account-agnostic upload.
@@ -823,7 +824,7 @@ class BankStatementPages:
         if not ba:
             return _err("Selected bank account not found.")
 
-        mapping: dict | None = None
+        mapping: dict[str, Any] | None = None
         if choice.needs_mapping:
             fp = fingerprint_csv_headers(file_bytes)
             mapping = lookup_csv_mapping(self._conn, csv_bank_account_id, fp)
@@ -875,7 +876,7 @@ class BankStatementPages:
     def render_standalone_upload_form(
         self,
         bank_account_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str | None = None,
     ) -> PageResponse:
@@ -904,7 +905,7 @@ class BankStatementPages:
         bank_account_id: int,
         file_bytes: bytes,
         filename: str,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         ba = self._get_bank_account(bank_account_id)
@@ -1045,7 +1046,7 @@ class BankStatementPages:
         self,
         bank_account_id: int,
         batch_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str | None = None,
     ) -> PageResponse:
@@ -1149,8 +1150,8 @@ class BankStatementPages:
         self,
         bank_account_id: int,
         batch_id: int,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         ba = self._get_bank_account(bank_account_id)
@@ -1292,7 +1293,7 @@ class BankStatementPages:
         date_str: str,
         ofx_desc: str = "",
         ofx_memo: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Return JSON-serialisable dict with matching bills or homeowner payments."""
         try:
             amount = float(Decimal(amount_str.lstrip("$").replace(",", "")))
@@ -1353,7 +1354,7 @@ class BankStatementPages:
                     lot_owner_names.setdefault(r["lot_id"], []).append(r["display_name"])
 
             # Collect rule-matched transactions: text words + amount for each.
-            rule_records: list[dict] = []
+            rule_records: list[dict[str, Any]] = []
             for r in self._conn.execute(
                 "SELECT description, memo, CAST(amount AS REAL) AS amount "
                 "FROM bank_transactions "
@@ -1415,7 +1416,7 @@ class BankStatementPages:
             primary = [c for c in candidates if not c["rule_handled"]]
             pool = primary if primary else candidates
 
-            combos: list[dict] = []
+            combos: list[dict[str, Any]] = []
             checked = 0
             outer_done = False
             for r in range(2, len(pool) + 1):
@@ -1451,7 +1452,7 @@ class BankStatementPages:
         batch_id: int,
         txn_id: int,
         payment_ids: list[int],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Store the homeowner payment IDs that explain a batch deposit."""
         txn = self._conn.execute(
             "SELECT id FROM bank_transactions WHERE id = ? AND import_batch_id = ?",
@@ -1474,7 +1475,7 @@ class BankStatementPages:
         batch_id: int,
         txn_id: int,
         bill_ids: list[int],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Link a debit transaction to the vendor bill(s) it pays and mark them PAID."""
         txn = self._conn.execute(
             "SELECT id FROM bank_transactions WHERE id = ? AND import_batch_id = ?",
@@ -1500,7 +1501,7 @@ class BankStatementPages:
     def render_standalone_batch_list(
         self,
         bank_account_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
     ) -> PageResponse:
         ba = self._get_bank_account(bank_account_id)

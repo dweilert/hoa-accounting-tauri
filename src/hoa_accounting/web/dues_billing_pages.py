@@ -7,6 +7,7 @@ and default to the next logical period, preventing accidental skips.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -131,7 +132,7 @@ class DuesBillingPages:
 
     @staticmethod
     def _resolve_income_account(
-        conn: sqlite3.Connection, org: dict  # noqa: ARG004 — kept for signature stability
+        conn: sqlite3.Connection, org: dict[str, Any]  # noqa: ARG004 — kept for signature stability
     ) -> tuple[int | None, str]:
         """Return (category_id, display_label) for the dues income category.
 
@@ -154,7 +155,7 @@ class DuesBillingPages:
     def render_page(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         form_values: dict[str, str] | None = None,
         error_message: str = "",
@@ -238,7 +239,7 @@ class DuesBillingPages:
         self,
         *,
         form_data: dict[str, str],
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
     ) -> tuple[str | None, DuesBillingPageResponse | None]:
         def _err(msg: str) -> tuple[None, DuesBillingPageResponse]:

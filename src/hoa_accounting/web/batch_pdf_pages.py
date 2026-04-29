@@ -10,6 +10,7 @@ variables or IAM role automatically.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import datetime
 import sqlite3
@@ -30,7 +31,7 @@ class BatchPdfPages:
     def render_page(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         year: int | None = None,
         results: list[PdfResult] | None = None,
@@ -55,7 +56,7 @@ class BatchPdfPages:
     def handle_generate(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         year: int,
     ) -> str:

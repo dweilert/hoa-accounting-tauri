@@ -1,6 +1,7 @@
 """Audit log viewer — browse who changed what and when."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ class AuditLogPages:
     def render(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         table_filter: str = "",
         action_filter: str = "",
@@ -36,7 +37,7 @@ class AuditLogPages:
         page: int = 1,
     ) -> AuditLogPageResponse:
         where_clauses: list[str] = []
-        params: list = []
+        params: list[Any] = []
 
         if table_filter:
             where_clauses.append("entity_type = ?")

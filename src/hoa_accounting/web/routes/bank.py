@@ -1,8 +1,10 @@
 """Bank routes (accounts, recon, OFX, transactions, rules, deposits, AR)."""
 
 from __future__ import annotations
+from typing import Any
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -41,7 +43,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/ar/lots")
-    def ar_lots_list() -> Response:
+    def ar_lots_list() -> ResponseReturnValue:
         pages = ctx.open_pages(ARPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_list(org=org_context, theme=theme)
@@ -49,7 +51,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/ar/lots/<int:lot_id>")
-    def ar_lot_detail(lot_id: int) -> Response:
+    def ar_lot_detail(lot_id: int) -> ResponseReturnValue:
         from datetime import date as _date
         pages = ctx.open_pages(ARPages)
         theme = str(org_context.get("theme", "warm"))
@@ -70,12 +72,12 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # /income was the old "Other Income" screen; its flow is now an
     # "other source" row on the unified /deposit grid.
     @bp.get("/income")
-    def list_income() -> Response:
+    def list_income() -> ResponseReturnValue:
         from flask import redirect
         return redirect("/deposit", code=303)
 
     @bp.get("/income/new")
-    def new_income_form() -> Response:
+    def new_income_form() -> ResponseReturnValue:
         pages = ctx.open_pages(NonDuesIncomePages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -83,7 +85,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/income/new")
-    def submit_income() -> Response:
+    def submit_income() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(NonDuesIncomePages)
         theme = str(org_context.get("theme", "warm"))
@@ -104,12 +106,12 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # /deposits was the old "Record Payments" screen; collapsed into the
     # unified /deposit grid. Kept as a 303 so bookmarks survive.
     @bp.get("/deposits")
-    def list_deposits() -> Response:
+    def list_deposits() -> ResponseReturnValue:
         from flask import redirect
         return redirect("/deposit", code=303)
 
     @bp.get("/deposits/new")
-    def new_deposit_batch_form() -> Response:
+    def new_deposit_batch_form() -> ResponseReturnValue:
         pages = ctx.open_pages(DepositBatchPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -117,7 +119,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/deposits/new")
-    def submit_deposit_batch() -> Response:
+    def submit_deposit_batch() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(DepositBatchPages)
         theme = str(org_context.get("theme", "warm"))
@@ -136,7 +138,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/admin/transaction-rules")
-    def transaction_rules_list() -> Response:
+    def transaction_rules_list() -> ResponseReturnValue:
         pages = ctx.open_pages(TransactionRulePages)
         theme = str(org_context.get("theme", "warm"))
         return_to = request.args.get("return_to", "")
@@ -145,7 +147,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/transaction-rules/save")
-    def transaction_rules_save() -> Response:
+    def transaction_rules_save() -> ResponseReturnValue:
         from flask import redirect, request
         pages = ctx.open_pages(TransactionRulePages)
         theme = str(org_context.get("theme", "warm"))
@@ -160,19 +162,19 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/admin/transaction-rules/<int:rule_id>/delete")
-    def transaction_rules_delete(rule_id: int) -> Response:
+    def transaction_rules_delete(rule_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(TransactionRulePages)
         return redirect(pages.handle_delete(rule_id), code=303)
 
     @bp.post("/admin/transaction-rules/<int:rule_id>/toggle")
-    def transaction_rules_toggle(rule_id: int) -> Response:
+    def transaction_rules_toggle(rule_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(TransactionRulePages)
         return redirect(pages.handle_toggle(rule_id), code=303)
 
     @bp.get("/admin/transaction-rules/test")
-    def transaction_rules_test() -> Response:
+    def transaction_rules_test() -> ResponseReturnValue:
         from hoa_accounting.web.rule_tester_pages import RuleTesterPages
         theme = str(org_context.get("theme", "warm"))
         rule_id = request.args.get("rule_id", type=int)
@@ -196,7 +198,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # ── Standalone bank statement import ─────────────────────────────────────
 
     @bp.get("/bank-accounts/<int:bank_account_id>/import-statement")
-    def bank_import_list(bank_account_id: int) -> Response:
+    def bank_import_list(bank_account_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(BankStatementPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_standalone_batch_list(bank_account_id, org=org_context, theme=theme)
@@ -204,7 +206,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/bank-accounts/<int:bank_account_id>/import-statement/upload")
-    def bank_import_upload_form(bank_account_id: int) -> Response:
+    def bank_import_upload_form(bank_account_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(BankStatementPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_standalone_upload_form(bank_account_id, org=org_context, theme=theme)
@@ -212,7 +214,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-accounts/<int:bank_account_id>/import-statement/upload")
-    def bank_import_upload(bank_account_id: int) -> Response:
+    def bank_import_upload(bank_account_id: int) -> ResponseReturnValue:
         from flask import redirect, request
         pages = ctx.open_pages(BankStatementPages)
         theme = str(org_context.get("theme", "warm"))
@@ -244,7 +246,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # /bank-accounts/<id>/import-statement (the All Imports list).
 
     @bp.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/remap")
-    def bank_import_remap(bank_account_id: int, batch_id: int) -> Response:
+    def bank_import_remap(bank_account_id: int, batch_id: int) -> ResponseReturnValue:
         from flask import redirect, request
         pages = ctx.open_pages(BankStatementPages)
         theme = str(org_context.get("theme", "warm"))
@@ -265,14 +267,14 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # only as an import audit log.
 
     @bp.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/delete")
-    def bank_import_delete(bank_account_id: int, batch_id: int) -> Response:
+    def bank_import_delete(bank_account_id: int, batch_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BankStatementPages)
         redirect_url = pages.handle_standalone_delete(bank_account_id, batch_id)
         return redirect(redirect_url, code=303)
 
     @bp.get("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/find")
-    def bank_import_find(bank_account_id: int, batch_id: int) -> Response:
+    def bank_import_find(bank_account_id: int, batch_id: int) -> ResponseReturnValue:
         from flask import jsonify
         pages = ctx.open_pages(BankStatementPages)
         result = pages.handle_standalone_find(
@@ -288,7 +290,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/transactions/<int:txn_id>/apply-find")
-    def bank_import_apply_find(bank_account_id: int, batch_id: int, txn_id: int) -> Response:
+    def bank_import_apply_find(bank_account_id: int, batch_id: int, txn_id: int) -> ResponseReturnValue:
         from flask import jsonify
         body = request.get_json(silent=True) or {}
         pages = ctx.open_pages(BankStatementPages)
@@ -301,7 +303,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return jsonify(result)
 
     @bp.post("/bank-accounts/<int:bank_account_id>/import-statement/<int:batch_id>/transactions/<int:txn_id>/apply-bill")
-    def bank_import_apply_bill(bank_account_id: int, batch_id: int, txn_id: int) -> Response:
+    def bank_import_apply_bill(bank_account_id: int, batch_id: int, txn_id: int) -> ResponseReturnValue:
         from flask import jsonify
         body = request.get_json(silent=True) or {}
         pages = ctx.open_pages(BankStatementPages)
@@ -322,7 +324,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return OFXInboxPages(_open_db())
 
     @bp.get("/ofx-inbox")
-    def ofx_inbox_page() -> Response:
+    def ofx_inbox_page() -> ResponseReturnValue:
         pages = _open_ofx_inbox_pages()
         theme = str(org_context.get("theme", "warm"))
         flash = request.args.get("msg", "") or request.args.get("err", "")
@@ -335,7 +337,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/ofx-inbox/import")
-    def ofx_inbox_import_one() -> Response:
+    def ofx_inbox_import_one() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_ofx_inbox_pages()
@@ -352,7 +354,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(redirect_url, code=303)
 
     @bp.post("/ofx-inbox/delete")
-    def ofx_inbox_delete() -> Response:
+    def ofx_inbox_delete() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_ofx_inbox_pages()
@@ -367,7 +369,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(redirect_url, code=303)
 
     @bp.post("/ofx-inbox/import-all")
-    def ofx_inbox_import_all() -> Response:
+    def ofx_inbox_import_all() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_ofx_inbox_pages()
@@ -379,7 +381,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(redirect_url, code=303)
 
     @bp.post("/ofx-inbox/fetch")
-    def ofx_inbox_fetch() -> Response:
+    def ofx_inbox_fetch() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_ofx_inbox_pages()
@@ -389,7 +391,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(f"/ofx-inbox?{tag}={quote(msg)}", code=303)
 
     @bp.post("/ofx-inbox/fetch-headed")
-    def ofx_inbox_fetch_headed() -> Response:
+    def ofx_inbox_fetch_headed() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_ofx_inbox_pages()
@@ -399,7 +401,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(f"/ofx-inbox?{tag}={quote(msg)}", code=303)
 
     @bp.get("/ofx-inbox/status")
-    def ofx_inbox_status() -> Response:
+    def ofx_inbox_status() -> ResponseReturnValue:
         pages = _open_ofx_inbox_pages()
         status, body = pages.proxy_status()
         import json as _json
@@ -410,7 +412,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return Response(text, status=status, mimetype="application/json")
 
     @bp.post("/api/ofx-ready")
-    def ofx_ready_webhook() -> Response:
+    def ofx_ready_webhook() -> ResponseReturnValue:
         # Hardening: accept only from localhost; fetcher runs on the same
         # machine. This is belt-and-suspenders on top of path validation.
         if request.remote_addr not in ("127.0.0.1", "::1", "localhost"):
@@ -433,7 +435,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return BankTransactionsPages(_open_db())
 
     @bp.get("/bank-transactions/pending")
-    def bank_txn_pending_page() -> Response:
+    def bank_txn_pending_page() -> ResponseReturnValue:
         pages = _open_bank_txn_pages()
         theme = str(org_context.get("theme", "warm"))
         raw = request.args.get("bank_account_id", "")
@@ -455,7 +457,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/bank-transactions/dry-run")
-    def bank_txn_dry_run() -> Response:
+    def bank_txn_dry_run() -> ResponseReturnValue:
         pages = _open_bank_txn_pages()
         theme = str(org_context.get("theme", "warm"))
         ba_raw = (request.args.get("bank_account_id") or "").strip()
@@ -465,7 +467,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-transactions/accept-all")
-    def bank_txn_accept_all() -> Response:
+    def bank_txn_accept_all() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -479,7 +481,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.post("/bank-transactions/revalidate")
-    def bank_txn_revalidate() -> Response:
+    def bank_txn_revalidate() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -493,7 +495,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.post("/bank-transactions/<int:bank_txn_id>/accept")
-    def bank_txn_accept(bank_txn_id: int) -> Response:
+    def bank_txn_accept(bank_txn_id: int) -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -505,7 +507,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.get("/bank-transactions/manual")
-    def bank_txn_manual_page() -> Response:
+    def bank_txn_manual_page() -> ResponseReturnValue:
         pages = _open_bank_txn_pages()
         theme = str(org_context.get("theme", "warm"))
         raw = request.args.get("bank_account_id", "")
@@ -519,7 +521,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-transactions/manual")
-    def bank_txn_manual_submit() -> Response:
+    def bank_txn_manual_submit() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -533,7 +535,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         # walk the keys and coalesce by index.
         import re
         pat = re.compile(r"^rows\[(\d+)\]\[([a-z_]+)\]$")
-        rows_by_idx: dict[int, dict] = {}
+        rows_by_idx: dict[int, dict[str, Any]] = {}
         for key, val in request.form.items():
             m = pat.match(key)
             if not m:
@@ -554,7 +556,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.get("/bank-transactions/<int:bank_txn_id>/classify")
-    def bank_txn_classify_page(bank_txn_id: int) -> Response:
+    def bank_txn_classify_page(bank_txn_id: int) -> ResponseReturnValue:
         pages = _open_bank_txn_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_classify(
@@ -565,7 +567,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-transactions/<int:bank_txn_id>/classify/pick")
-    def bank_txn_classify_pick(bank_txn_id: int) -> Response:
+    def bank_txn_classify_pick(bank_txn_id: int) -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         from decimal import Decimal as _D, InvalidOperation as _IOp
@@ -603,7 +605,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.post("/bank-transactions/<int:bank_txn_id>/classify/link")
-    def bank_txn_classify_link(bank_txn_id: int) -> Response:
+    def bank_txn_classify_link(bank_txn_id: int) -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -625,7 +627,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.post("/bank-transactions/<int:bank_txn_id>/ignore")
-    def bank_txn_ignore(bank_txn_id: int) -> Response:
+    def bank_txn_ignore(bank_txn_id: int) -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -636,7 +638,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return redirect(url, code=303)
 
     @bp.post("/bank-transactions/<int:bank_txn_id>/unignore")
-    def bank_txn_unignore(bank_txn_id: int) -> Response:
+    def bank_txn_unignore(bank_txn_id: int) -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         pages = _open_bank_txn_pages()
@@ -654,7 +656,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return RecordDepositPages(_open_db())
 
     @bp.get("/deposit")
-    def record_deposit_page() -> Response:
+    def record_deposit_page() -> ResponseReturnValue:
         pages = _open_record_deposit_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(
@@ -666,7 +668,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/deposit")
-    def record_deposit_submit() -> Response:
+    def record_deposit_submit() -> ResponseReturnValue:
         from flask import redirect
         from urllib.parse import quote
         import re
@@ -678,7 +680,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
         # Reconstruct the grid rows from the bracketed form names.
         pat = re.compile(r"^rows\[(\d+)\]\[([a-z_]+)\]$")
-        rows_by_idx: dict[int, dict] = {}
+        rows_by_idx: dict[int, dict[str, Any]] = {}
         for key, val in request.form.items():
             m = pat.match(key)
             if not m:
@@ -688,7 +690,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
         theme = str(org_context.get("theme", "warm"))
 
-        def _rerender(err: str) -> Response:
+        def _rerender(err: str) -> ResponseReturnValue:
             resp = pages.render_form(
                 org=org_context, theme=theme, error_message=err,
                 prior_deposit_date=deposit_date,
@@ -726,7 +728,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # billing pages share a tab bar so any of them can land you elsewhere.
 
     @bp.get("/owners/bill")
-    def owners_bill_landing() -> Response:
+    def owners_bill_landing() -> ResponseReturnValue:
         from flask import redirect
         return redirect("/dues-billing", code=303)
 
@@ -734,7 +736,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
     # ── Account-agnostic bank import ─────────────────────────────────────────
 
     @bp.get("/bank-import/upload")
-    def bank_import_agnostic_form() -> Response:
+    def bank_import_agnostic_form() -> ResponseReturnValue:
         pages = ctx.open_pages(BankStatementPages)
         theme = str(org_context.get("theme", "warm"))
         success = request.args.get("msg") if request.args.get("ok") else None
@@ -742,7 +744,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
         return Response(resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-import/upload")
-    def bank_import_agnostic_upload() -> Response:
+    def bank_import_agnostic_upload() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BankStatementPages)
         theme = str(org_context.get("theme", "warm"))
@@ -771,7 +773,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/reconciliations")
-    def list_reconciliations() -> Response:
+    def list_reconciliations() -> ResponseReturnValue:
         from flask import request
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
@@ -784,7 +786,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/reconciliations/new")
-    def new_reconciliation_form() -> Response:
+    def new_reconciliation_form() -> ResponseReturnValue:
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_new_form(org=org_context, theme=theme)
@@ -792,7 +794,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/reconciliations/new")
-    def submit_new_reconciliation() -> Response:
+    def submit_new_reconciliation() -> ResponseReturnValue:
         from flask import redirect, request
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
@@ -807,7 +809,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/reconciliations/<int:reconciliation_id>")
-    def view_reconciliation(reconciliation_id: int) -> Response:
+    def view_reconciliation(reconciliation_id: int) -> ResponseReturnValue:
         from flask import request
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
@@ -821,7 +823,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/reconciliations/<int:reconciliation_id>/toggle")
-    def toggle_reconciliation_line(reconciliation_id: int) -> Response:
+    def toggle_reconciliation_line(reconciliation_id: int) -> ResponseReturnValue:
         from flask import request
         pages = ctx.open_pages(ReconciliationPages)
         status, body = pages.handle_toggle(
@@ -831,7 +833,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="application/json")
 
     @bp.post("/reconciliations/<int:reconciliation_id>/finalize")
-    def finalize_reconciliation(reconciliation_id: int) -> Response:
+    def finalize_reconciliation(reconciliation_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
@@ -845,7 +847,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/reconciliations/<int:reconciliation_id>/reopen")
-    def reopen_reconciliation(reconciliation_id: int) -> Response:
+    def reopen_reconciliation(reconciliation_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
@@ -859,7 +861,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/reconciliations/<int:reconciliation_id>/delete")
-    def delete_reconciliation(reconciliation_id: int) -> Response:
+    def delete_reconciliation(reconciliation_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(ReconciliationPages)
         theme = str(org_context.get("theme", "warm"))
@@ -877,7 +879,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/bank-accounts")
-    def list_bank_accounts() -> Response:
+    def list_bank_accounts() -> ResponseReturnValue:
         pages = ctx.open_pages(BankAccountPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -887,7 +889,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/bank-accounts/add")
-    def new_bank_account_form() -> Response:
+    def new_bank_account_form() -> ResponseReturnValue:
         pages = ctx.open_pages(BankAccountPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -895,7 +897,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-accounts/add")
-    def submit_new_bank_account() -> Response:
+    def submit_new_bank_account() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BankAccountPages)
         theme = str(org_context.get("theme", "warm"))
@@ -910,7 +912,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/bank-accounts/<int:bank_account_id>/edit")
-    def edit_bank_account_form(bank_account_id: int) -> Response:
+    def edit_bank_account_form(bank_account_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(BankAccountPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme,
@@ -919,7 +921,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-accounts/<int:bank_account_id>/edit")
-    def submit_edit_bank_account(bank_account_id: int) -> Response:
+    def submit_edit_bank_account(bank_account_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BankAccountPages)
         theme = str(org_context.get("theme", "warm"))
@@ -935,7 +937,7 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/bank-accounts/<int:bank_account_id>/delete")
-    def submit_delete_bank_account(bank_account_id: int) -> Response:
+    def submit_delete_bank_account(bank_account_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(BankAccountPages)
         theme = str(org_context.get("theme", "warm"))

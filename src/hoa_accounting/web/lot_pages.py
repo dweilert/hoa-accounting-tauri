@@ -13,6 +13,7 @@ Routes handled:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -115,8 +116,8 @@ class LotPages:
             values = form_values or {}
 
         # Build owner data for the edit view
-        current_ownerships: list[dict] = []
-        owner_options: list[dict] = []
+        current_ownerships: list[dict[str, Any]] = []
+        owner_options: list[dict[str, Any]] = []
         if lot_id is not None:
             current_ownerships = [
                 dict(r) for r in self.ownership_repo.get_current_ownerships(lot_id)

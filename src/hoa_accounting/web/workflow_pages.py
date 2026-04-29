@@ -1,6 +1,7 @@
 """Workflow Guide — DB-driven page handlers and admin service."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 
@@ -9,7 +10,7 @@ from hoa_accounting.web.template_engine import render_template
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
-def _load_guide(conn: sqlite3.Connection) -> list[dict]:
+def _load_guide(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Return full guide structure: tabs → sections → cards (active only)."""
     tabs = [dict(r) for r in conn.execute(
         "SELECT id, tab_key, icon, label, description FROM workflow_tabs "
@@ -30,7 +31,7 @@ def _load_guide(conn: sqlite3.Connection) -> list[dict]:
     return tabs
 
 
-def _load_all_sections(conn: sqlite3.Connection) -> list[dict]:
+def _load_all_sections(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """All sections with their tab label — for the move-card dropdown."""
     rows = conn.execute(
         "SELECT s.id, s.label, t.label AS tab_label, t.sort_order AS tab_sort "
@@ -47,7 +48,7 @@ class WorkflowAdminService:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def load_admin_view(self) -> list[dict]:
+    def load_admin_view(self) -> list[dict[str, Any]]:
         """Full structure including inactive items, for the admin UI."""
         tabs = [dict(r) for r in self._conn.execute(
             "SELECT id, tab_key, icon, label, description, sort_order, is_system, is_active "
@@ -69,7 +70,7 @@ class WorkflowAdminService:
             tab["sections"] = sections
         return tabs
 
-    def all_sections_for_move(self) -> list[dict]:
+    def all_sections_for_move(self) -> list[dict[str, Any]]:
         return _load_all_sections(self._conn)
 
     # Cards
@@ -192,14 +193,14 @@ class WorkflowAdminService:
         )
         self._conn.commit()
 
-    def get_card(self, card_id: int) -> dict | None:
+    def get_card(self, card_id: int) -> dict[str, Any] | None:
         row = self._conn.execute(
             "SELECT id, section_id, num_label, icon, title, description, href, link_label, color "
             "FROM workflow_cards WHERE id=?", (card_id,)
         ).fetchone()
         return dict(row) if row else None
 
-    def get_all_tabs(self) -> list[dict]:
+    def get_all_tabs(self) -> list[dict[str, Any]]:
         return [dict(r) for r in self._conn.execute(
             "SELECT id, label FROM workflow_tabs WHERE is_active=1 ORDER BY sort_order"
         ).fetchall()]
@@ -214,7 +215,7 @@ class WorkflowPages:
     def _render(self, template: str, **ctx) -> tuple[int, str]:
         return 200, render_template(template, ctx)
 
-    def render_guide(self, org: dict, theme: str) -> tuple[int, str]:
+    def render_guide(self, org: dict[str, Any], theme: str) -> tuple[int, str]:
         tabs = _load_guide(self._conn)
         return self._render(
             "workflow_guide.html",
@@ -233,7 +234,7 @@ class WorkflowAdminPages:
     def _render(self, template: str, **ctx) -> tuple[int, str]:
         return 200, render_template(template, ctx)
 
-    def render_admin(self, org: dict, theme: str, active_tab_id: int = 1,
+    def render_admin(self, org: dict[str, Any], theme: str, active_tab_id: int = 1,
                      edit_card_id: int | None = None, flash: str = "") -> tuple[int, str]:
         tabs_data = self._svc.load_admin_view()
         sections_for_move = self._svc.all_sections_for_move()

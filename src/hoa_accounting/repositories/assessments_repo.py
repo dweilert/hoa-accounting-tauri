@@ -1,6 +1,7 @@
 """Repository for assessments."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 
@@ -184,7 +185,7 @@ class AssessmentsRepository(BaseRepository):
             )
         self.conn.commit()
 
-    def list_open_for_owner(self, owner_id: int) -> list:
+    def list_open_for_owner(self, owner_id: int) -> list[Any]:
         """Return an owner's still-owed assessments in state-mandated payment order.
 
         Order: DUES first, then LATE_FEE, then LEGAL_FEE, then any other

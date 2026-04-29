@@ -18,7 +18,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Callable, Protocol
+from typing import Callable, Protocol, Any
 
 from hoa_accounting.web.bank_statement_import import (
     ParsedTransaction,
@@ -99,7 +99,7 @@ class CanonicalBankTxn:
     transaction_type: str            # ∈ CANONICAL_TRN_TYPES
     check_number: str = ""           # when a check or ref number is visible
     external_ref: str = ""           # FITID or bank-assigned id, audit only
-    raw: dict = field(default_factory=dict, compare=False, hash=False)
+    raw: dict[str, Any] = field(default_factory=dict[str, Any], compare=False, hash=False)
 
     # Compatibility accessors — the rule matcher and legacy paths still
     # refer to a few ``ParsedTransaction``-era field names. Keep them
@@ -166,7 +166,7 @@ class BankFileAdapter(Protocol):
     def parse(
         self,
         content: bytes,
-        mapping: dict | None = None,
+        mapping: dict[str, Any] | None = None,
     ) -> list[CanonicalBankTxn]:
         """Parse to canonical records. ``mapping`` is the saved column
         map for CSV-style adapters; OFX and manual adapters ignore it."""
@@ -262,7 +262,7 @@ class OFXAdapter:
     def parse(
         self,
         content: bytes,
-        mapping: dict | None = None,
+        mapping: dict[str, Any] | None = None,
     ) -> list[CanonicalBankTxn]:
         parsed = parse_ofx(content)
         return [canonical_from_parsed(p, p.transaction_type) for p in parsed]
@@ -303,7 +303,7 @@ class CSVAdapter:
     def parse(
         self,
         content: bytes,
-        mapping: dict | None = None,
+        mapping: dict[str, Any] | None = None,
     ) -> list[CanonicalBankTxn]:
         legacy_map: dict[str, str] | None = None
         if mapping:
@@ -328,7 +328,7 @@ register_adapter(CSVAdapter())
 # Canonical fields the bank-CSV mapping produces. These are what the CSV
 # adapter reads via ``mapping[canonical_field] = csv_header``. Kept here
 # so the mapping wizard and the ingest adapter agree on the vocabulary.
-CANONICAL_CSV_FIELDS: list[dict] = [
+CANONICAL_CSV_FIELDS: list[dict[str, Any]] = [
     {"name": "transaction_date", "label": "Date",        "required": True,
      "note": "YYYY-MM-DD, MM/DD/YYYY, or similar"},
     {"name": "amount",           "label": "Amount",      "required": True,
@@ -375,7 +375,7 @@ def fingerprint_csv_headers(content: bytes) -> str:
 
 def lookup_csv_mapping(
     conn: sqlite3.Connection, bank_account_id: int, fingerprint: str,
-) -> dict | None:
+) -> dict[str, Any] | None:
     row = conn.execute(
         "SELECT mapping_json FROM bank_account_file_formats "
         "WHERE bank_account_id = ? AND fingerprint = ?",
@@ -393,7 +393,7 @@ def save_csv_mapping(
     conn: sqlite3.Connection,
     bank_account_id: int,
     fingerprint: str,
-    mapping: dict,
+    mapping: dict[str, Any],
     sample_headers: list[str],
 ) -> None:
     conn.execute(

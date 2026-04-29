@@ -1,6 +1,7 @@
 """Login / logout / Cognito callback routes."""
 
 from __future__ import annotations
+from typing import Any
 
 from flask import Blueprint, redirect, request, session, url_for
 
@@ -10,10 +11,10 @@ from hoa_accounting.web.template_engine import render_template
 auth_bp = Blueprint("auth", __name__)
 
 _auth_manager = None
-_org_ctx: dict = {}
+_org_ctx: dict[str, Any] = {}
 
 
-def init_auth(auth_manager, org_context: dict) -> None:
+def init_auth(auth_manager, org_context: dict[str, Any]) -> None:
     global _auth_manager, _org_ctx
     _auth_manager = auth_manager
     _org_ctx = org_context

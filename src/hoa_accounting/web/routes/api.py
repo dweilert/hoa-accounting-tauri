@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -18,7 +19,7 @@ def make_api_blueprint(ctx: RouteContext) -> Blueprint:
     # ── API helpers ───────────────────────────────────────────────────────
 
     @bp.get("/api/lots/<int:lot_id>/open-charges")
-    def api_lot_open_charges(lot_id: int) -> Response:
+    def api_lot_open_charges(lot_id: int) -> ResponseReturnValue:
         """Return open assessments for a lot's current owner in payment-order.
 
         Used by the deposit batch form to show the treasurer what charges

@@ -1,6 +1,7 @@
 """Board Members CRUD — list, add, edit, delete."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -25,7 +26,7 @@ class BoardMemberPages:
     # ── List ─────────────────────────────────────────────────────────────
 
     def render_list(
-        self, *, org: dict, theme: str, flash_message: str = ""
+        self, *, org: dict[str, Any], theme: str, flash_message: str = ""
     ) -> BoardMemberPageResponse:
         rows = self.conn.execute(
             """SELECT id, full_name, title, email, phone,
@@ -52,9 +53,9 @@ class BoardMemberPages:
     def render_form(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
-        member: dict | None = None,
+        member: dict[str, Any] | None = None,
         error_message: str = "",
     ) -> BoardMemberPageResponse:
         ctx = {
@@ -74,7 +75,7 @@ class BoardMemberPages:
 
     # ── Add ──────────────────────────────────────────────────────────────
 
-    def handle_add(self, *, form: dict, org: dict, theme: str) -> tuple[str | None, BoardMemberPageResponse | None]:
+    def handle_add(self, *, form: dict[str, Any], org: dict[str, Any], theme: str) -> tuple[str | None, BoardMemberPageResponse | None]:
         full_name = (form.get("full_name") or "").strip()
         title = (form.get("title") or "").strip()
         if not full_name or not title:
@@ -105,7 +106,7 @@ class BoardMemberPages:
     # ── Edit ─────────────────────────────────────────────────────────────
 
     def render_edit(
-        self, member_id: int, *, org: dict, theme: str
+        self, member_id: int, *, org: dict[str, Any], theme: str
     ) -> BoardMemberPageResponse:
         row = self.conn.execute(
             "SELECT * FROM board_members WHERE id = ?", (member_id,)
@@ -118,7 +119,7 @@ class BoardMemberPages:
         return self.render_form(org=org, theme=theme, member=dict(row))
 
     def handle_edit(
-        self, member_id: int, *, form: dict, org: dict, theme: str
+        self, member_id: int, *, form: dict[str, Any], org: dict[str, Any], theme: str
     ) -> tuple[str | None, BoardMemberPageResponse | None]:
         row = self.conn.execute(
             "SELECT id FROM board_members WHERE id = ?", (member_id,)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, Any
 
 ROLE_ADMIN   = "admin"
 ROLE_REPORTS = "reports"
@@ -25,7 +25,7 @@ class AuthUser:
     def is_reports_only(self) -> bool:
         return self.role == ROLE_REPORTS
 
-    def to_session(self) -> dict:
+    def to_session(self) -> dict[str, Any]:
         return {
             "email": self.email,
             "display_name": self.display_name,
@@ -35,7 +35,7 @@ class AuthUser:
         }
 
     @staticmethod
-    def from_session(data: dict) -> "AuthUser":
+    def from_session(data: dict[str, Any]) -> "AuthUser":
         return AuthUser(
             email=data["email"],
             display_name=data.get("display_name", ""),

@@ -3,6 +3,7 @@ lots, vendors, journal entries, payments, and assessments.
 Results grouped by category; app features always appear first."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass, field
@@ -45,7 +46,7 @@ class SearchPages:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self._conn = conn
 
-    def render(self, *, q: str, org: dict, theme: str) -> SearchPageResponse:
+    def render(self, *, q: str, org: dict[str, Any], theme: str) -> SearchPageResponse:
         q = (q or "").strip()
         groups: list[SearchGroup] = []
 

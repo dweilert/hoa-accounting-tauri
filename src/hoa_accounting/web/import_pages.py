@@ -40,7 +40,7 @@ from hoa_accounting.web.template_engine import render_template
 #   1-5 have no user-data FKs — import in any order among themselves.
 #   6-9 depend on earlier tables — must come after their prerequisites.
 
-TABLE_DEFS: dict[str, dict] = {
+TABLE_DEFS: dict[str, dict[str, Any]] = {
     "categories": {
         "label": "Categories",
         "order": 0,
@@ -398,7 +398,7 @@ class ImportPages:
     def render_page(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         error_message: str = "",
         prefill_type: str = "",
@@ -465,7 +465,7 @@ class ImportPages:
         mapping_json: str,
         csv_content: str,
         file_name: str,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
     ) -> ImportPageResponse:
         if data_type not in TABLE_DEFS:
@@ -485,7 +485,7 @@ class ImportPages:
 
         table_def = TABLE_DEFS[data_type]
         imported  = 0
-        error_rows: list[dict] = []
+        error_rows: list[dict[str, Any]] = []
 
         for row_num, csv_row in enumerate(csv_rows, start=2):
             # Build {csvColumn: value} from the raw row
@@ -543,7 +543,7 @@ class ImportPages:
         mapping_json: str,
         csv_content: str,
         filter_field: str = "",   # empty = all fields; non-empty = only check this column
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Validate without inserting.  Returns a dict for JSON serialization.
 
@@ -568,7 +568,7 @@ class ImportPages:
 
         table_def = TABLE_DEFS[data_type]
         ok_count  = 0
-        error_rows: list[dict] = []
+        error_rows: list[dict[str, Any]] = []
 
         for row_num, csv_row in enumerate(csv_rows, start=2):
             raw: dict[str, str] = {
@@ -612,7 +612,7 @@ class ImportPages:
             "errors":      error_rows,
         }
 
-    def _check_row_db(self, data_type: str, row: dict) -> list[str]:
+    def _check_row_db(self, data_type: str, row: dict[str, Any]) -> list[str]:
         """
         Run the insert logic inside a savepoint that is always rolled back.
         Returns the same errors _insert_X would produce, without persisting anything.
@@ -645,7 +645,7 @@ class ImportPages:
 
     # ── Validation ───────────────────────────────────────────────────────
 
-    def _validate_row(self, table_def: dict, row: dict[str, str]) -> list[str]:
+    def _validate_row(self, table_def: dict[str, Any], row: dict[str, str]) -> list[str]:
         errs: list[str] = []
         for field in table_def["fields"]:
             name = field["name"]
@@ -709,17 +709,17 @@ class ImportPages:
 
     # ── Convenience helpers ──────────────────────────────────────────────
 
-    def _v(self, row: dict, name: str, default: Any = None) -> Any:
+    def _v(self, row: dict[str, Any], name: str, default: Any = None) -> Any:
         v = row.get(name, "").strip()
         return v if v else default
 
-    def _bool(self, row: dict, name: str, default: int = 1) -> int:
+    def _bool(self, row: dict[str, Any], name: str, default: int = 1) -> int:
         v = row.get(name, "").strip()
         return _parse_bool(v, default) if v else default
 
     # ── Per-type insert methods ──────────────────────────────────────────
 
-    def _insert_categories(self, row: dict) -> list[str]:
+    def _insert_categories(self, row: dict[str, Any]) -> list[str]:
         code = self._v(row, "code", "").upper()
         if not code:
             return ["Code is required."]
@@ -751,7 +751,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_owners(self, row: dict) -> list[str]:
+    def _insert_owners(self, row: dict[str, Any]) -> list[str]:
         dn = self._v(row, "display_name")
         if self.conn.execute(
             "SELECT 1 FROM owners WHERE display_name=?", (dn,)
@@ -782,7 +782,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_vendors(self, row: dict) -> list[str]:
+    def _insert_vendors(self, row: dict[str, Any]) -> list[str]:
         vn = self._v(row, "vendor_name")
         if self.conn.execute(
             "SELECT 1 FROM vendors WHERE vendor_name=?", (vn,)
@@ -810,7 +810,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_budgets(self, row: dict) -> list[str]:
+    def _insert_budgets(self, row: dict[str, Any]) -> list[str]:
         fy = int(self._v(row, "fiscal_year", 0))
         fc = self._v(row, "fund_code", "").upper()
         if self.conn.execute(
@@ -823,7 +823,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_lots(self, row: dict) -> list[str]:
+    def _insert_lots(self, row: dict[str, Any]) -> list[str]:
         ln = self._v(row, "lot_number")
         if self.conn.execute(
             "SELECT 1 FROM lots WHERE lot_number=?", (ln,)
@@ -847,7 +847,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_bank_accounts(self, row: dict) -> list[str]:
+    def _insert_bank_accounts(self, row: dict[str, Any]) -> list[str]:
         an = self._v(row, "account_name")
         if self.conn.execute(
             "SELECT 1 FROM bank_accounts WHERE account_name=?", (an,)
@@ -872,7 +872,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_lot_ownership(self, row: dict) -> list[str]:
+    def _insert_lot_ownership(self, row: dict[str, Any]) -> list[str]:
         lot_num = self._v(row, "lot_number")
         lot_row = self.conn.execute(
             "SELECT id FROM lots WHERE lot_number=?", (lot_num,)
@@ -907,7 +907,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_renters(self, row: dict) -> list[str]:
+    def _insert_renters(self, row: dict[str, Any]) -> list[str]:
         lot_num = self._v(row, "lot_number")
         lot_row = self.conn.execute(
             "SELECT id FROM lots WHERE lot_number=?", (lot_num,)
@@ -933,7 +933,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_budget_lines(self, row: dict) -> list[str]:
+    def _insert_budget_lines(self, row: dict[str, Any]) -> list[str]:
         fy = int(self._v(row, "fiscal_year", 0))
         fc = self._v(row, "fund_code", "").upper()
         budget_row = self.conn.execute(
@@ -985,7 +985,7 @@ class ImportPages:
             return None, [f'{label or key_col} "{value}" not found.']
         return int(row[0]), []
 
-    def _insert_deposit_batches(self, row: dict) -> list[str]:
+    def _insert_deposit_batches(self, row: dict[str, Any]) -> list[str]:
         bank_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "bank_account_name"), "Bank account")
         if errs:
@@ -1016,7 +1016,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_assessments(self, row: dict) -> list[str]:
+    def _insert_assessments(self, row: dict[str, Any]) -> list[str]:
         lot_id, errs = self._lookup("lots", "lot_number",
                                     self._v(row, "lot_number"), "Lot")
         if errs:
@@ -1057,7 +1057,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_payments(self, row: dict) -> list[str]:
+    def _insert_payments(self, row: dict[str, Any]) -> list[str]:
         receipt = self._v(row, "receipt_number")
         if not receipt:
             return ["Receipt Number is required."]
@@ -1096,7 +1096,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_vendor_bills(self, row: dict) -> list[str]:
+    def _insert_vendor_bills(self, row: dict[str, Any]) -> list[str]:
         vendor_id, errs = self._lookup("vendors", "vendor_name",
                                        self._v(row, "vendor_name"), "Vendor")
         if errs:
@@ -1131,7 +1131,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_bill_payments(self, row: dict) -> list[str]:
+    def _insert_bill_payments(self, row: dict[str, Any]) -> list[str]:
         vn = self._v(row, "vendor_name")
         inv = self._v(row, "invoice_number")
         bill = self.conn.execute(
@@ -1166,7 +1166,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_non_dues_income(self, row: dict) -> list[str]:
+    def _insert_non_dues_income(self, row: dict[str, Any]) -> list[str]:
         bank_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "bank_account_name"), "Bank account")
         if errs:
@@ -1201,7 +1201,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_reserve_transfers(self, row: dict) -> list[str]:
+    def _insert_reserve_transfers(self, row: dict[str, Any]) -> list[str]:
         from_id, errs = self._lookup("bank_accounts", "account_name",
                                      self._v(row, "from_bank_account"), "From bank account")
         if errs:
@@ -1235,7 +1235,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_board_members(self, row: dict) -> list[str]:
+    def _insert_board_members(self, row: dict[str, Any]) -> list[str]:
         self.conn.execute(
             """INSERT INTO board_members
                (full_name, title, email, phone, start_date, end_date, is_active, notes)
@@ -1253,7 +1253,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_assessment_rules(self, row: dict) -> list[str]:
+    def _insert_assessment_rules(self, row: dict[str, Any]) -> list[str]:
         rn = self._v(row, "rule_name")
         if not rn:
             return ["Rule Name is required."]
@@ -1289,7 +1289,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_bank_transaction_rules(self, row: dict) -> list[str]:
+    def _insert_bank_transaction_rules(self, row: dict[str, Any]) -> list[str]:
         rn = self._v(row, "rule_name")
         if not rn:
             return ["Rule Name is required."]
@@ -1351,7 +1351,7 @@ class ImportPages:
         )
         return []
 
-    def _insert_opening_balances(self, row: dict) -> list[str]:
+    def _insert_opening_balances(self, row: dict[str, Any]) -> list[str]:
         et = self._v(row, "entity_type", "").upper()
         if et not in ("BANK_ACCOUNT", "LOT_DUES", "LOT_ASSESSMENT"):
             return ['Entity Type must be "BANK_ACCOUNT", "LOT_DUES", or "LOT_ASSESSMENT".']

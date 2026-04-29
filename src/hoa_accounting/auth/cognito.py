@@ -83,7 +83,7 @@ class CognitoBackend:
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
-    def _exchange_code(self, code: str, redirect_uri: str) -> dict | None:
+    def _exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any] | None:
         import urllib.request
         import json as _json
         import base64
@@ -112,7 +112,7 @@ class CognitoBackend:
             _log.warning("Cognito token exchange failed: %s", exc)
             return None
 
-    def _get_jwks(self) -> dict:
+    def _get_jwks(self) -> dict[str, Any]:
         import urllib.request
         import json as _json
 

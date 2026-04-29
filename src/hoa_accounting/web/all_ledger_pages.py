@@ -10,6 +10,7 @@ Accepts:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -162,7 +163,7 @@ class AllLedgerPages:
     def render_all_transactions(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         start_date: str = "",
         end_date: str = "",
@@ -176,7 +177,7 @@ class AllLedgerPages:
             order=order,
         )
 
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         total_in  = Decimal("0.00")
         total_out = Decimal("0.00")
 

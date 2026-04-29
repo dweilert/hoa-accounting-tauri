@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 
 from hoa_accounting.api.report_api import ReportAPIService
 from hoa_accounting.application.report_runner import ReportRunner
@@ -106,7 +107,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     from hoa_accounting.web.auth_pages import auth_bp, init_auth
     from hoa_accounting.web.decorators import setup_auth_guard
 
-    raw_config: dict = {}
+    raw_config: dict[str, Any] = {}
     try:
         import yaml
         with open(resolved_config_path) as _f:
@@ -161,7 +162,7 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
     _SETUP_PATHS = {"/setup", "/setup/admin", "/setup/login", "/setup/identity", "/setup/assessment"}
 
     @app.before_request
-    def _setup_guard() -> Response | None:
+    def _setup_guard() -> ResponseReturnValue | None:
         from flask import redirect as _redir
         if request.path in _SETUP_PATHS or request.path.startswith("/static"):
             return None

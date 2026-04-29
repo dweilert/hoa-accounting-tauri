@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, Response, g, redirect, request
+from flask.typing import ResponseReturnValue
 from flask import session as _session
 
 from hoa_accounting.web.route_context import RouteContext
@@ -40,7 +41,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
         return amount, "4070"
 
     @bp.get("/resale-fee")
-    def resale_fee_page() -> Response:
+    def resale_fee_page() -> ResponseReturnValue:
         from flask import request as _req
         pages = _open_resale_fee_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -56,7 +57,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/resale-fee/post-charge")
-    def resale_fee_post_charge() -> Response:
+    def resale_fee_post_charge() -> ResponseReturnValue:
         from flask import redirect, request as _req
         pages = _open_resale_fee_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -77,12 +78,12 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
     # /resale-fee/payments was a specialized payment form; under the new
     # model it's a specific-charges row on /deposit.
     @bp.get("/resale-fee/payments")
-    def resale_fee_payments_page() -> Response:
+    def resale_fee_payments_page() -> ResponseReturnValue:
         from flask import redirect
         return redirect("/deposit", code=303)
 
     @bp.post("/resale-fee/post-payment")
-    def resale_fee_post_payment() -> Response:
+    def resale_fee_post_payment() -> ResponseReturnValue:
         from flask import redirect, request as _req
         pages = _open_resale_fee_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -105,7 +106,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/dues-billing")
-    def dues_billing_page() -> Response:
+    def dues_billing_page() -> ResponseReturnValue:
         pages = ctx.open_pages(DuesBillingPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_page(
@@ -117,7 +118,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/dues-billing/post")
-    def submit_dues_billing() -> Response:
+    def submit_dues_billing() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(DuesBillingPages)
         theme = str(org_context.get("theme", "warm"))
@@ -136,7 +137,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/late-fees")
-    def late_fees_page() -> Response:
+    def late_fees_page() -> ResponseReturnValue:
         pages = ctx.open_pages(LateFeePages)
         theme = str(org_context.get("theme", "warm"))
         lot_id_raw = (request.args.get("lot_id") or "").strip()
@@ -151,7 +152,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/late-fees/post")
-    def submit_late_fees() -> Response:
+    def submit_late_fees() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LateFeePages)
         theme = str(org_context.get("theme", "warm"))
@@ -170,7 +171,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/assessments/bill")
-    def bill_assessments_page() -> Response:
+    def bill_assessments_page() -> ResponseReturnValue:
         pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
         billed_msg = (request.args.get("billed") or "").strip() or ""
@@ -182,7 +183,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/assessments/bill-all")
-    def submit_bill_all() -> Response:
+    def submit_bill_all() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
@@ -197,7 +198,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/assessments/bill-individual")
-    def submit_bill_individual() -> Response:
+    def submit_bill_individual() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(AssessmentBillingPages)
         theme = str(org_context.get("theme", "warm"))
@@ -219,7 +220,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
         return EditRecordsPages(_open_db())
 
     @bp.get("/manage/edit-records")
-    def edit_records_hub() -> Response:
+    def edit_records_hub() -> ResponseReturnValue:
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_hub(org=org_context, theme=theme)
@@ -227,7 +228,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/manage/edit-records/payments")
-    def edit_records_payments() -> Response:
+    def edit_records_payments() -> ResponseReturnValue:
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
         flash = request.args.get("msg", "")
@@ -238,7 +239,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/manage/edit-records/payments/<int:payment_id>/edit")
-    def edit_records_payments_submit(payment_id: int) -> Response:
+    def edit_records_payments_submit(payment_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -254,7 +255,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/manage/edit-records/non-dues-income")
-    def edit_records_income() -> Response:
+    def edit_records_income() -> ResponseReturnValue:
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
         flash = request.args.get("msg", "")
@@ -263,7 +264,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/manage/edit-records/non-dues-income/<int:income_batch_id>/split")
-    def edit_records_income_split_form(income_batch_id: int) -> Response:
+    def edit_records_income_split_form(income_batch_id: int) -> ResponseReturnValue:
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_income_split(income_batch_id, org=org_context, theme=theme)
@@ -271,7 +272,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/split")
-    def edit_records_income_split_submit(income_batch_id: int) -> Response:
+    def edit_records_income_split_submit(income_batch_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -289,7 +290,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/manage/edit-records/non-dues-income/<int:income_batch_id>/edit")
-    def edit_records_income_submit(income_batch_id: int) -> Response:
+    def edit_records_income_submit(income_batch_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -305,7 +306,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/manage/edit-records/assessments")
-    def edit_records_assessments() -> Response:
+    def edit_records_assessments() -> ResponseReturnValue:
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
         flash = request.args.get("msg", "")
@@ -314,7 +315,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/manage/edit-records/assessments/<int:assessment_id>/edit")
-    def edit_records_assessments_submit(assessment_id: int) -> Response:
+    def edit_records_assessments_submit(assessment_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = _open_edit_records_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -334,7 +335,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/owners")
-    def list_owners() -> Response:
+    def list_owners() -> ResponseReturnValue:
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -344,7 +345,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/owners/add")
-    def new_owner_form() -> Response:
+    def new_owner_form() -> ResponseReturnValue:
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -352,7 +353,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/owners/add")
-    def submit_new_owner() -> Response:
+    def submit_new_owner() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
@@ -367,7 +368,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/owners/<int:owner_id>/edit")
-    def edit_owner_form(owner_id: int) -> Response:
+    def edit_owner_form(owner_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme,
@@ -376,7 +377,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/owners/<int:owner_id>/edit")
-    def submit_edit_owner(owner_id: int) -> Response:
+    def submit_edit_owner(owner_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
@@ -392,7 +393,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/owners/<int:owner_id>/delete")
-    def submit_delete_owner(owner_id: int) -> Response:
+    def submit_delete_owner(owner_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(OwnerPages)
         theme = str(org_context.get("theme", "warm"))
@@ -414,7 +415,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
         return BoardMemberPages(_open_db())
 
     @bp.get("/board-members")
-    def list_board_members() -> Response:
+    def list_board_members() -> ResponseReturnValue:
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
         flash = (request.args.get("msg") or "").strip()
@@ -423,7 +424,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/board-members/add")
-    def new_board_member_form() -> Response:
+    def new_board_member_form() -> ResponseReturnValue:
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -431,7 +432,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/board-members/add")
-    def submit_new_board_member() -> Response:
+    def submit_new_board_member() -> ResponseReturnValue:
         from flask import redirect
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -443,7 +444,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/board-members/<int:member_id>/edit")
-    def edit_board_member_form(member_id: int) -> Response:
+    def edit_board_member_form(member_id: int) -> ResponseReturnValue:
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_edit(member_id, org=org_context, theme=theme)
@@ -451,7 +452,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/board-members/<int:member_id>/edit")
-    def submit_edit_board_member(member_id: int) -> Response:
+    def submit_edit_board_member(member_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = _open_board_member_pages()
         theme = str(org_context.get("theme", "warm"))
@@ -464,7 +465,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/board-members/<int:member_id>/delete")
-    def delete_board_member(member_id: int) -> Response:
+    def delete_board_member(member_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = _open_board_member_pages()
         url = pages.handle_delete(member_id)
@@ -475,7 +476,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/renters")
-    def list_renters() -> Response:
+    def list_renters() -> ResponseReturnValue:
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -485,7 +486,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/renters/add")
-    def new_renter_form() -> Response:
+    def new_renter_form() -> ResponseReturnValue:
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -493,7 +494,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/renters/add")
-    def submit_new_renter() -> Response:
+    def submit_new_renter() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
@@ -508,7 +509,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/renters/<int:renter_id>/edit")
-    def edit_renter_form(renter_id: int) -> Response:
+    def edit_renter_form(renter_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme,
@@ -517,7 +518,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/renters/<int:renter_id>/edit")
-    def submit_edit_renter(renter_id: int) -> Response:
+    def submit_edit_renter(renter_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
@@ -533,7 +534,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/renters/<int:renter_id>/end")
-    def submit_end_tenancy(renter_id: int) -> Response:
+    def submit_end_tenancy(renter_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotRentersPages)
         theme = str(org_context.get("theme", "warm"))
@@ -553,7 +554,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
 
 
     @bp.get("/lots")
-    def list_lots() -> Response:
+    def list_lots() -> ResponseReturnValue:
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -563,7 +564,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/lots/add")
-    def new_lot_form() -> Response:
+    def new_lot_form() -> ResponseReturnValue:
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         resp = pages.render_form(org=org_context, theme=theme)
@@ -571,7 +572,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/lots/add")
-    def submit_new_lot() -> Response:
+    def submit_new_lot() -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -589,7 +590,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.get("/lots/<int:lot_id>/edit")
-    def edit_lot_form(lot_id: int) -> Response:
+    def edit_lot_form(lot_id: int) -> ResponseReturnValue:
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
         flash_message = (request.args.get("msg") or "").strip()
@@ -599,7 +600,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/lots/<int:lot_id>/edit")
-    def submit_edit_lot(lot_id: int) -> Response:
+    def submit_edit_lot(lot_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -616,7 +617,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/lots/<int:lot_id>/delete")
-    def submit_delete_lot(lot_id: int) -> Response:
+    def submit_delete_lot(lot_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -630,7 +631,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/lots/<int:lot_id>/owners/link")
-    def submit_link_owner(lot_id: int) -> Response:
+    def submit_link_owner(lot_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -646,7 +647,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/lots/<int:lot_id>/owners/<int:ownership_id>/end")
-    def submit_end_ownership(lot_id: int, ownership_id: int) -> Response:
+    def submit_end_ownership(lot_id: int, ownership_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))
@@ -663,7 +664,7 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
                         mimetype="text/html; charset=utf-8")
 
     @bp.post("/lots/<int:lot_id>/owners/<int:ownership_id>/edit-dates")
-    def submit_edit_ownership_dates(lot_id: int, ownership_id: int) -> Response:
+    def submit_edit_ownership_dates(lot_id: int, ownership_id: int) -> ResponseReturnValue:
         from flask import redirect
         pages = ctx.open_pages(LotPages)
         theme = str(org_context.get("theme", "warm"))

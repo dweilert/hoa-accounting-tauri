@@ -1,6 +1,7 @@
 """Page-service for the consolidated Opening Balances screen."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -34,14 +35,14 @@ class OpeningBalancesPages:
     def _page_ctx(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error: str | None = None,
         flash: str | None = None,
-        values: dict | None = None,
+        values: dict[str, Any] | None = None,
         as_of_date: str = "",
-        bank_rows: list | None = None,
-        lot_rows: list | None = None,
+        bank_rows: list[Any] | None = None,
+        lot_rows: list[Any] | None = None,
         has_existing_je: bool = False,
     ) -> PageResponse:
         bank_rows = bank_rows if bank_rows is not None else self._repo.get_bank_accounts_with_balances()
@@ -64,7 +65,7 @@ class OpeningBalancesPages:
 
     def render_page(
         self,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         flash: str | None = None,
         error: str | None = None,
@@ -95,8 +96,8 @@ class OpeningBalancesPages:
 
     def handle_save(
         self,
-        form_data: dict,
-        org: dict,
+        form_data: dict[str, Any],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str | None, PageResponse | None]:
         as_of_date = form_data.get("as_of_date", "").strip()

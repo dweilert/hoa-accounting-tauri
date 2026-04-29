@@ -7,6 +7,7 @@ ignore the line.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from hoa_accounting.db.transaction import transaction
@@ -52,7 +53,7 @@ class BankTransactionsPages:
     def render_pending(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         bank_account_id: int | None = None,
         flash_message: str = "",
@@ -66,7 +67,7 @@ class BankTransactionsPages:
             "FROM bank_accounts ORDER BY account_name"
         ).fetchall()
 
-        params: list = []
+        params: list[Any] = []
         if show_ignored:
             where = "WHERE bt.validation_status IN ('UNVALIDATED', 'IGNORED')"
         else:
@@ -270,7 +271,7 @@ class BankTransactionsPages:
 
     # ── Classify screen (Pick Category / Link Existing) ─────────────────
 
-    def _get_txn(self, bank_txn_id: int) -> dict | None:
+    def _get_txn(self, bank_txn_id: int) -> dict[str, Any] | None:
         row = self._conn.execute(
             """
             SELECT bt.*, ba.account_name, ba.account_last4
@@ -292,7 +293,7 @@ class BankTransactionsPages:
         ).fetchall()
         return {int(r["ledger_source_id"]) for r in rows}
 
-    def _link_candidates(self, txn: dict) -> list[dict]:
+    def _link_candidates(self, txn: dict[str, Any]) -> list[dict[str, Any]]:
         """Return ledger records that plausibly correspond to ``txn``.
 
         Match rule: same bank account, same absolute amount, posting date
@@ -309,7 +310,7 @@ class BankTransactionsPages:
         lo = (txn_date - timedelta(days=_LINK_DATE_WINDOW_DAYS)).isoformat()
         hi = (txn_date + timedelta(days=_LINK_DATE_WINDOW_DAYS)).isoformat()
 
-        candidates: list[dict] = []
+        candidates: list[dict[str, Any]] = []
 
         if amount > 0:
             linked_payments = self._linked_source_ids("PAYMENT")
@@ -395,7 +396,7 @@ class BankTransactionsPages:
         self,
         *,
         bank_txn_id: int,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error_message: str = "",
     ) -> PageResponse:
@@ -738,7 +739,7 @@ class BankTransactionsPages:
     def render_manual_entry(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         bank_account_id: int | None = None,
         error_message: str = "",
@@ -779,8 +780,8 @@ class BankTransactionsPages:
         self,
         *,
         bank_account_id: int,
-        rows: list[dict],
-        org: dict,
+        rows: list[dict[str, Any]],
+        org: dict[str, Any],
         theme: str,
     ) -> tuple[str, str]:
         """Convert the submitted grid rows into ``CanonicalBankTxn``
@@ -895,7 +896,7 @@ class BankTransactionsPages:
             return back, "Nothing to re-validate — no unvalidated transactions."
 
         # Group by bank_account so each account uses its own rule/item lists.
-        by_ba: dict[int, list] = {}
+        by_ba: dict[int, list[Any]] = {}
         for r in rows:
             by_ba.setdefault(int(r["bank_account_id"]), []).append(r)
 
@@ -989,7 +990,7 @@ class BankTransactionsPages:
     # ── Dry Run (preview what Accept All would do) ─────────────────────
 
     def render_dry_run(
-        self, *, org: dict, theme: str, bank_account_id: int | None = None
+        self, *, org: dict[str, Any], theme: str, bank_account_id: int | None = None
     ) -> PageResponse:
         """List every UNVALIDATED row with a proposed match — RULE / SOURCE /
         BATCH — and show what *would* happen if Accept were clicked on each.
@@ -1025,10 +1026,10 @@ class BankTransactionsPages:
             params,
         ).fetchall()
 
-        rule_rows: list[dict] = []
-        source_rows: list[dict] = []
-        batch_rows: list[dict] = []
-        unmatched_rows: list[dict] = []
+        rule_rows: list[dict[str, Any]] = []
+        source_rows: list[dict[str, Any]] = []
+        batch_rows: list[dict[str, Any]] = []
+        unmatched_rows: list[dict[str, Any]] = []
         for r in rows:
             d = dict(r)
             if r["match_type"] == "RULE":
@@ -1040,7 +1041,7 @@ class BankTransactionsPages:
             else:
                 unmatched_rows.append(d)
 
-        def _sum(rs: list[dict]) -> Decimal:
+        def _sum(rs: list[dict[str, Any]]) -> Decimal:
             return sum((Decimal(str(r["amount"])) for r in rs), Decimal("0"))
 
         accounts = self._conn.execute(

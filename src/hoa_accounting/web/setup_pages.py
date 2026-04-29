@@ -1,6 +1,7 @@
 """First-launch setup wizard — 4 steps, runs only when no local users exist."""
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from decimal import Decimal, InvalidOperation
@@ -14,6 +15,7 @@ def _connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 from flask import Response, redirect, request, session
+from flask.typing import ResponseReturnValue
 
 from hoa_accounting.auth.local import LocalBackend, hash_password
 from hoa_accounting.web.auth_pages import _set_current_user
@@ -41,7 +43,7 @@ def needs_setup(db_path: str) -> bool:
         return False
 
 
-def _render_setup(step: str, ctx: dict | None = None) -> str:
+def _render_setup(step: str, ctx: dict[str, Any] | None = None) -> str:
     current_index = STEPS.index(step)
     return _render("setup.html", {
         "step": step,
@@ -55,14 +57,14 @@ def _render_setup(step: str, ctx: dict | None = None) -> str:
 
 
 class SetupPages:
-    def __init__(self, db_path: str, org_context: dict) -> None:
+    def __init__(self, db_path: str, org_context: dict[str, Any]) -> None:
         self._db_path = db_path
         self._org = org_context
         self._auth = LocalBackend(db_path)
 
     # ── Entry point ───────────────────────────────────────────────────────
 
-    def get_setup(self) -> Response:
+    def get_setup(self) -> ResponseReturnValue:
         current_step = session.get("setup_step", "admin")
         if current_step not in STEPS:
             current_step = "admin"
@@ -70,7 +72,7 @@ class SetupPages:
 
     # ── Step 1: Create admin account ──────────────────────────────────────
 
-    def post_admin(self) -> Response:
+    def post_admin(self) -> ResponseReturnValue:
         form = request.form
         display_name = form.get("display_name", "").strip()
         email = form.get("email", "").strip().lower()
@@ -97,7 +99,7 @@ class SetupPages:
 
     # ── Step 2: Force login ───────────────────────────────────────────────
 
-    def post_login(self) -> Response:
+    def post_login(self) -> ResponseReturnValue:
         form = request.form
         email = form.get("email", "").strip().lower()
         password = form.get("password", "")
@@ -115,7 +117,7 @@ class SetupPages:
 
     # ── Step 3: HOA identity ──────────────────────────────────────────────
 
-    def post_identity(self) -> Response:
+    def post_identity(self) -> ResponseReturnValue:
         form = request.form
         legal_name = form.get("legal_name", "").strip()
         display_name = form.get("display_name", "").strip()
@@ -160,7 +162,7 @@ class SetupPages:
 
     # ── Step 4: Assessment amount + chart of accounts ─────────────────────
 
-    def post_assessment(self) -> Response:
+    def post_assessment(self) -> ResponseReturnValue:
         form = request.form
         action = form.get("action", "starter")  # "starter", "skip", "wizard"
 

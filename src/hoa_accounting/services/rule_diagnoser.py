@@ -51,7 +51,7 @@ def _get(obj: Any, key: str, default: Any = "") -> Any:
     return getattr(obj, key, default)
 
 
-def diagnose(rule: dict, txn: Any) -> MatchReport:
+def diagnose(rule: dict[str, Any], txn: Any) -> MatchReport:
     """Apply each criterion on ``rule`` to ``txn`` and report.
 
     Returns a :class:`MatchReport`. ``would_match`` is True only when
@@ -199,7 +199,7 @@ def diagnose(rule: dict, txn: Any) -> MatchReport:
 
 
 def find_other_matches(
-    rules: list[dict], txn: Any, *, exclude_rule_id: int | None = None,
+    rules: list[dict[str, Any]], txn: Any, *, exclude_rule_id: int | None = None,
 ) -> list[MatchReport]:
     """Return every rule (other than ``exclude_rule_id``) that ALSO matches.
 

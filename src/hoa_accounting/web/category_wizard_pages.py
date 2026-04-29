@@ -21,6 +21,7 @@ Idempotency rules
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -61,7 +62,7 @@ class CategoryWizardPages:
     def render(
         self,
         *,
-        org: dict | None,
+        org: dict[str, Any] | None,
         theme: str,
         flash_message: str = "",
         error_message: str = "",
@@ -80,7 +81,7 @@ class CategoryWizardPages:
             ).fetchall()
         }
 
-        steps: dict[int, list] = {}
+        steps: dict[int, list[Any]] = {}
         for g in groups:
             options = list(self.conn.execute(
                 """SELECT option_id, label, description, is_always

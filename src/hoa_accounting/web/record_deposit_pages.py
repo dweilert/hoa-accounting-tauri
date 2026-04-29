@@ -16,6 +16,7 @@ full slip total.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import sqlite3
 from dataclasses import dataclass
@@ -34,7 +35,7 @@ from hoa_accounting.web.template_engine import render_template
 #
 # Categories not listed here default to behavior="other" (non-owner
 # income — no lot picker, no charge drain).
-CATEGORY_BEHAVIOR: dict[str, dict] = {
+CATEGORY_BEHAVIOR: dict[str, dict[str, Any]] = {
     "DUES":             {"behavior": "regular",  "charge_types": ("DUES", "LATE_FEE")},
     "LATE_FEE":         {"behavior": "regular",  "charge_types": ("DUES", "LATE_FEE")},
     "RESALE_FEE":       {"behavior": "specific", "charge_types": ("RESALE_FEE",)},
@@ -63,14 +64,14 @@ class RecordDepositPages:
     def render_form(
         self,
         *,
-        org: dict,
+        org: dict[str, Any],
         theme: str,
         error_message: str = "",
         flash_message: str = "",
         prior_deposit_date: str = "",
         prior_bank_account_id: str = "",
         prior_memo: str = "",
-        prior_rows: list[dict] | None = None,
+        prior_rows: list[dict[str, Any]] | None = None,
     ) -> PageResponse:
         accounts = self._conn.execute(
             """
@@ -130,7 +131,7 @@ class RecordDepositPages:
         ).fetchall()
         # Decorate each category with its behavior + charge_types so the
         # template's JS can swap row UI by reading data attributes.
-        categories: list[dict] = []
+        categories: list[dict[str, Any]] = []
         for c in cat_rows:
             spec = CATEGORY_BEHAVIOR.get(
                 str(c["code"] or "").upper(),
@@ -179,7 +180,7 @@ class RecordDepositPages:
         deposit_date: str,
         bank_account_id: int,
         memo: str,
-        rows: list[dict],
+        rows: list[dict[str, Any]],
     ) -> tuple[str, str]:
         """Validate grid rows and post them as a single deposit batch."""
         if not deposit_date:
@@ -192,7 +193,7 @@ class RecordDepositPages:
             return "/deposit", "Bank account is required."
 
         # Build a quick lookup from category id → (code, behavior, charge_types).
-        cat_lookup: dict[int, dict] = {}
+        cat_lookup: dict[int, dict[str, Any]] = {}
         for c in self._conn.execute(
             """
             SELECT id, code FROM categories
@@ -210,7 +211,7 @@ class RecordDepositPages:
             }
 
         owner_rows: list[DepositRow] = []
-        other_rows: list[dict] = []
+        other_rows: list[dict[str, Any]] = []
         errors: list[str] = []
 
         for idx, r in enumerate(rows, start=1):

@@ -1,6 +1,7 @@
 """User and role-override management routes — admin only."""
 
 from __future__ import annotations
+from typing import Any
 
 from flask import Flask, redirect, request
 
@@ -31,7 +32,7 @@ class UserManagementPages:
 
     # ── Context helper ────────────────────────────────────────────────────
 
-    def _ctx(self, extra: dict | None = None) -> dict:
+    def _ctx(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         from flask import g
         ctx = {
             "active_nav": "system",
