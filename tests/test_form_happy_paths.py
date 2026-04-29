@@ -65,7 +65,11 @@ def app_db():
             "DELETE FROM owners WHERE display_name LIKE ?",
             "DELETE FROM vendors WHERE vendor_name LIKE ?",
             "DELETE FROM bank_accounts WHERE account_name LIKE ?",
-            "DELETE FROM categories WHERE code LIKE ? OR name LIKE ?",
+            # Categories: sweep any HP-tagged rows from prior runs too —
+            # the marker-scoped DELETE only catches the current session.
+            "DELETE FROM categories WHERE code LIKE ? OR name LIKE ? "
+            "  OR code LIKE 'HP%' OR name LIKE 'HappyPath Category %' "
+            "  OR name LIKE 'Renamed HP Category %'",
             "DELETE FROM budgets WHERE notes LIKE ?",
             "DELETE FROM accounting_periods WHERE period_name LIKE ?",
             "DELETE FROM accounting_periods WHERE fiscal_year < 2099 AND fiscal_year >= 2050",
