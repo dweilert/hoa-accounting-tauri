@@ -384,7 +384,6 @@ def _build_transactions_table(
         "Date",
         "Type",
         "Description",
-        "Status",
         "Receipt",
         "Charge",
         "Payment",
@@ -393,9 +392,6 @@ def _build_transactions_table(
     data: list[list[Any]] = [header]
     for row in rows:
         type_cell = _type_pill(row, styles)
-        status_cell: Any = ""
-        if row.get("status"):
-            status_cell = _pill(row["status"], _PANEL_BG, _NAVY, styles)
         debit = row.get("debit_amount", "")
         credit = row.get("credit_amount", "")
         data.append(
@@ -403,7 +399,6 @@ def _build_transactions_table(
                 Paragraph(row.get("entry_date", ""), styles["table_cell"]),
                 type_cell,
                 Paragraph(row.get("description", ""), styles["table_cell"]),
-                status_cell,
                 Paragraph(
                     row.get("receipt_number", "") or "",
                     styles["table_cell_mono"],
@@ -421,7 +416,6 @@ def _build_transactions_table(
             "",
             "",
             "",
-            "",
             summary["closing_balance"],
         ]
     )
@@ -429,8 +423,7 @@ def _build_transactions_table(
     col_widths = [
         0.65 * inch,  # Date
         0.85 * inch,  # Type  (wider so "Payment" pill doesn't wrap)
-        2.55 * inch,  # Description
-        0.65 * inch,  # Status
+        3.20 * inch,  # Description
         0.70 * inch,  # Receipt
         0.55 * inch,  # Charge
         0.60 * inch,  # Payment
@@ -446,7 +439,7 @@ def _build_transactions_table(
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, 0), 8),
-                ("ALIGN", (5, 0), (-1, -1), "RIGHT"),
+                ("ALIGN", (4, 0), (-1, -1), "RIGHT"),
                 ("ALIGN", (0, 0), (-1, 0), "LEFT"),
                 # Body styling
                 ("FONTSIZE", (0, 1), (-1, -2), 8),
