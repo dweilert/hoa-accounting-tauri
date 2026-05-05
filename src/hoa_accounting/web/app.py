@@ -238,12 +238,6 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = connect_sqlite(str(db_path))
-        try:
-            user = getattr(g, "current_user", None)
-            email = user.email if user else "system"
-            conn.create_function("audit_user", 0, lambda: email)
-        except Exception:
-            pass
         g.db = conn
         return conn
 

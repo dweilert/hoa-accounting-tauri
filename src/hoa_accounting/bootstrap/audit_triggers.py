@@ -5,15 +5,15 @@ Writes to the existing audit_log table using its column names:
 
 Triggers must be created via individual execute() calls — executescript()
 cannot handle the BEGIN…END syntax inside trigger bodies reliably.
-Triggers are dropped and recreated at every startup so the audit_user()
-UDF expression stays current. Called at app startup after migrations run.
+Triggers are dropped and recreated at every startup. Called at app startup
+after migrations run.
 """
 
 from __future__ import annotations
 
 import sqlite3
 
-_USER_EXPR = "audit_user()"
+_USER_EXPR = "'system'"
 
 
 def _trig(

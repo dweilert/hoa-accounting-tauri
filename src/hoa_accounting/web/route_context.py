@@ -48,10 +48,8 @@ class RouteContext:
     def open_db(self) -> sqlite3.Connection:
         """Return the per-request shared DB connection, creating on first call.
 
-        Mirrors the ``_open_db()`` closure that previously lived inside
-        ``create_app()``: caches the connection on ``flask.g``, registers
-        the ``audit_user`` UDF for audit-log triggers, and returns a
-        single connection for the lifetime of the request.
+        Caches the connection on ``flask.g`` and returns a single connection
+        for the lifetime of the request.
         """
         if hasattr(g, "db"):
             return g.db  # type: ignore[no-any-return]
@@ -59,12 +57,6 @@ class RouteContext:
         if not db_path:
             raise RuntimeError("database.path missing from config.")
         conn = connect_sqlite(str(db_path))
-        try:
-            user = getattr(g, "current_user", None)
-            email = user.email if user else "system"
-            conn.create_function("audit_user", 0, lambda: email)
-        except Exception:
-            pass
         g.db = conn
         return conn
 
