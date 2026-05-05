@@ -500,16 +500,15 @@ def render_homeowner_contact_list_pdf(report: HomeownerContactListReport) -> byt
     subtitle = f"Active homeowners as of {date.today().strftime('%B %d, %Y')}"
     flowables: list[Any] = _header_flowables("Homeowner Contact List", subtitle, styles)
 
-    # Column widths: Name | Address | Cell | Home | Email  = 7.2"
+    # Column widths: Name | Address | Cell | Email  = 7.2"
     cw = [
-        1.50 * inch,
-        1.90 * inch,
-        1.10 * inch,
-        1.10 * inch,
         1.60 * inch,
+        2.00 * inch,
+        1.20 * inch,
+        2.40 * inch,
     ]
 
-    header = ["Name", "Address", "Cell", "Home Phone", "Email"]
+    header = ["Name", "Address", "Cell", "Email"]
     rows: list[list[str]] = [header]
 
     has_renter = False
@@ -523,7 +522,6 @@ def render_homeowner_contact_list_pdf(report: HomeownerContactListReport) -> byt
                 full_name,
                 row.address,
                 row.cell_phone,
-                row.home_phone,
                 row.email,
             ]
         )
