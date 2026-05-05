@@ -19,6 +19,7 @@ from hoa_accounting.repositories.reserve_transfers_repo import (
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
 from hoa_accounting.services.assessment_billing_service import AssessmentBillingService
 from hoa_accounting.services.assessment_service import AssessmentService
+from hoa_accounting.services.credit_service import CreditService
 from hoa_accounting.services.deposit_batch_service import DepositBatchService
 from hoa_accounting.services.non_dues_income_service import NonDuesIncomeService
 from hoa_accounting.services.payment_service import PaymentService
@@ -48,12 +49,20 @@ class ServiceFactory:
 
         self.entity_validator = EntityValidator(self.entities_repo)
 
+    def credit_service(self) -> CreditService:
+        return CreditService(
+            self.conn,
+            payments_repo=self.payments_repo,
+            assessments_repo=self.assessments_repo,
+        )
+
     def assessment_service(self) -> AssessmentService:
         return AssessmentService(
             self.conn,
             assessment_repo=self.assessments_repo,
             audit_repo=self.audit_repo,
             entity_validator=self.entity_validator,
+            credit_service=self.credit_service(),
         )
 
     def payment_service(self) -> PaymentService:

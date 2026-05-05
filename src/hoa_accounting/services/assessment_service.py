@@ -23,11 +23,13 @@ class AssessmentService:
         assessment_repo: AssessmentsRepository,
         audit_repo: AuditRepository,
         entity_validator: EntityValidator,
+        credit_service: object | None = None,
     ) -> None:
         self.conn = conn
         self.assessment_repo = assessment_repo
         self.audit_repo = audit_repo
         self.entity_validator = entity_validator
+        self._credit_service = credit_service
 
     def post_assessment(
         self,
@@ -61,6 +63,15 @@ class AssessmentService:
                 charge_type=charge_type,
                 category_id=category_id,
             )
+
+            # Auto-apply any advance-payment credits the owner has on file.
+            if self._credit_service is not None:
+                self._credit_service.auto_apply_to_assessment(
+                    assessment_id=assessment_id,
+                    owner_id=owner_id,
+                    assessment_amount=amount_dec,
+                )
+
             self.audit_repo.write(
                 entity_type="assessments",
                 entity_id=assessment_id,

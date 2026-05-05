@@ -204,3 +204,31 @@ class PaymentsRepository(BaseRepository):
             """,
             (payment_id, assessment_id, applied_amount),
         )
+
+    def get_unapplied_credits_for_owner(self, owner_id: int) -> list[dict]:
+        """Return payments for this owner that have an unapplied balance.
+
+        Unapplied balance = payment.amount − SUM(applied_amount across all
+        payment_applications for that payment).  Only payments with a
+        positive unapplied balance are returned, ordered oldest-first so
+        credits drain in the order they were received.
+        """
+        rows = self.conn.execute(
+            """
+            SELECT
+                p.id,
+                p.receipt_number,
+                p.payment_date,
+                p.amount,
+                COALESCE(SUM(pa.applied_amount), 0)                        AS applied_total,
+                p.amount - COALESCE(SUM(pa.applied_amount), 0)             AS unapplied_amount
+            FROM payments p
+            LEFT JOIN payment_applications pa ON pa.payment_id = p.id
+            WHERE p.owner_id = ?
+            GROUP BY p.id, p.receipt_number, p.payment_date, p.amount
+            HAVING p.amount - COALESCE(SUM(pa.applied_amount), 0) > 0.005
+            ORDER BY p.payment_date ASC, p.id ASC
+            """,
+            (owner_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
