@@ -524,7 +524,7 @@ def render_homeowner_contact_list_pdf(report: HomeownerContactListReport) -> byt
             ]
         )
 
-    flowables.append(_build_table(rows, cw, extras=[], right_align_cols=None))
+    flowables.append(_build_table(rows, cw, extra_styles=[], right_align_cols=None))
 
     doc = _doc(buf)
     doc.build(flowables)
