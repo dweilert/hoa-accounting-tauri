@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Classifications · {{ org.name }}{% endblock %}
+{% block heading %}Pending Classifications{% endblock %}
+
+{% block topbar_meta %}
+  <span class="pill pill--muted">{{ items|length }} record{% if items|length != 1 %}s{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Money You're Expecting</div>
+        <div class="panel__description">
+          Pre-bank record of incoming payments — who paid, which lot, what for.
+          These rows do not post to the ledger. They wait here until the bank
+          (OFX) confirms the deposit, then become real payments at the Post step.
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <a href="/pending-classifications/post" class="btn btn--ghost btn--sm">Post Matched</a>
+        <a href="/pending-classifications/new" class="btn btn--primary btn--sm">New Classification</a>
+      </div>
+    </div>
+
+    <div style="padding:.5rem 1.25rem 0;display:flex;gap:.5rem;align-items:center;font-size:.875rem;">
+      <span style="color:var(--muted,#666);">Filter:</span>
+      <a href="/pending-classifications"
+         class="btn btn--sm {% if not status_filter %}btn--primary{% else %}btn--ghost{% endif %}">All</a>
+      <a href="/pending-classifications?status=PENDING"
+         class="btn btn--sm {% if status_filter == 'PENDING' %}btn--primary{% else %}btn--ghost{% endif %}">Pending</a>
+      <a href="/pending-classifications?status=MATCHED"
+         class="btn btn--sm {% if status_filter == 'MATCHED' %}btn--primary{% else %}btn--ghost{% endif %}">Matched</a>
+      <a href="/pending-classifications?status=POSTED"
+         class="btn btn--sm {% if status_filter == 'POSTED' %}btn--primary{% else %}btn--ghost{% endif %}">Posted</a>
+      <a href="/pending-classifications?status=CANCELLED"
+         class="btn btn--sm {% if status_filter == 'CANCELLED' %}btn--primary{% else %}btn--ghost{% endif %}">Cancelled</a>
+    </div>
+
+    {% if items %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Lot</th>
+              <th>Owner</th>
+              <th>Category</th>
+              <th>Method</th>
+              <th>Ref #</th>
+              <th style="text-align:right;">Amount</th>
+              <th>Bank</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+              <tr{% if it.status == 'CANCELLED' %} style="opacity:.45;"{% endif %}>
+                <td class="mono">{{ it.classification_date }}</td>
+                <td class="mono">{{ it.lot_number or '—' }}</td>
+                <td>{{ it.owner_name or '—' }}</td>
+                <td>{{ it.category_name or '—' }}</td>
+                <td>{{ it.payment_method }}</td>
+                <td class="mono">{{ it.reference_number or '' }}</td>
+                <td class="mono" style="text-align:right;">{{ "%.2f"|format(it.amount|float) }}</td>
+                <td>
+                  {{ it.bank_account_name or '' }}
+                  {% if it.bank_account_last4 %}<span class="mono" style="color:var(--muted,#666);">····{{ it.bank_account_last4 }}</span>{% endif %}
+                </td>
+                <td>
+                  {% if it.status == 'PENDING' %}
+                    <span class="pill pill--warning">Pending</span>
+                  {% elif it.status == 'MATCHED' %}
+                    <span class="pill pill--info">Matched</span>
+                  {% elif it.status == 'POSTED' %}
+                    <span class="pill pill--success">Posted</span>
+                  {% else %}
+                    <span class="pill pill--muted">Cancelled</span>
+                  {% endif %}
+                </td>
+                <td style="white-space:nowrap;">
+                  {% if it.status == 'MATCHED' %}
+                    <form method="post"
+                          action="/pending-classifications/{{ it.id }}/post"
+                          style="display:inline;"
+                          data-confirm="Post classification #{{ it.id }}? This creates a real payment and drains open assessments."
+                          data-confirm-title="Post Classification"
+                          data-confirm-label="Post">
+                      <button type="submit" class="btn btn--sm btn--primary">Post</button>
+                    </form>
+                  {% endif %}
+                  {% if it.status == 'POSTED' %}
+                    <form method="post"
+                          action="/pending-classifications/{{ it.id }}/reverse"
+                          style="display:inline;"
+                          data-confirm="Reverse the post for classification #{{ it.id }}? This deletes payment {{ it.posted_payment_id }} and restores the open assessments. The classification will return to MATCHED so you can edit & re-post."
+                          data-confirm-title="Reverse Post"
+                          data-confirm-label="Reverse">
+                      <button type="submit" class="btn btn--sm btn--danger">Reverse</button>
+                    </form>
+                    <a href="/pending-classifications/{{ it.id }}/match"
+                       class="btn btn--sm btn--ghost">View</a>
+                  {% endif %}
+                  {% if it.status in ['PENDING', 'MATCHED'] %}
+                    <a href="/pending-classifications/{{ it.id }}/match"
+                       class="btn btn--sm btn--ghost">
+                       {% if it.status == 'MATCHED' %}View Match{% else %}Find Match{% endif %}
+                    </a>
+                    <a href="/pending-classifications/{{ it.id }}/edit"
+                       class="btn btn--sm btn--ghost">Edit</a>
+                  {% endif %}
+                  {% if it.status == 'PENDING' %}
+                    <form method="post"
+                          action="/pending-classifications/{{ it.id }}/delete"
+                          style="display:inline;"
+                          data-confirm="Permanently delete this pending classification?"
+                          data-confirm-title="Delete Classification"
+                          data-confirm-label="Delete">
+                      <button type="submit" class="btn btn--sm btn--danger">Delete</button>
+                    </form>
+                  {% elif it.status == 'MATCHED' %}
+                    <form method="post"
+                          action="/pending-classifications/{{ it.id }}/cancel"
+                          style="display:inline;"
+                          data-confirm="Cancel this classification? Use this when the deposit will not happen (e.g. check bounced)."
+                          data-confirm-title="Cancel Classification"
+                          data-confirm-label="Cancel">
+                      <button type="submit" class="btn btn--sm btn--ghost">Cancel</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">
+        No classifications recorded yet.
+        <a href="/pending-classifications/new">Add the first one</a>
+        when you collect a check or know an ACH is coming.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

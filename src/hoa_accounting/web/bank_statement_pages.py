@@ -649,6 +649,23 @@ class BankStatementPages:
                     "No recognized bank accounts found. Unrecognized IDs: "
                     + ", ".join(skipped)
                 )
+
+            # Second-layer attribution: rules already fired during
+            # _store_pending_batch and claimed every bank line they could.
+            # Now sweep PENDING classifications and link the leftovers
+            # by amount + date. The matcher skips any bank tx whose
+            # matched_source_type is set, so it never competes with
+            # rules.
+            from hoa_accounting.services.pending_classification_matcher import (
+                PendingClassificationMatcher,
+            )
+
+            pc_matcher = PendingClassificationMatcher(self._conn)
+            pc_matched_total = 0
+            for _, ba_id, _ in created:
+                pc_result = pc_matcher.auto_match_for_bank_account(ba_id)
+                pc_matched_total += pc_result.matched_count
+
             acct_names = ", ".join(name for _, _, name in created)
             total_txns = sum(
                 self._conn.execute(
@@ -660,6 +677,11 @@ class BankStatementPages:
             from urllib.parse import quote
 
             msg = f"Imported {total_txns} transactions into {acct_names}."
+            if pc_matched_total:
+                msg += (
+                    f" Auto-linked {pc_matched_total} pending "
+                    f"classification{'s' if pc_matched_total != 1 else ''}."
+                )
             warnings: list[str] = []
             if skipped:
                 warnings = [
@@ -743,9 +765,24 @@ class BankStatementPages:
             batches=self._get_unmatched_batches(csv_bank_account_id),
             rules=rules,
         )
+
+        # Second-layer attribution after rules fired (see OFX branch).
+        from hoa_accounting.services.pending_classification_matcher import (
+            PendingClassificationMatcher,
+        )
+
+        pc_result = PendingClassificationMatcher(
+            self._conn
+        ).auto_match_for_bank_account(int(csv_bank_account_id))
+
         from urllib.parse import quote
 
         msg = f"Imported {len(canonical)} transactions into {ba['account_name']}."
+        if pc_result.matched_count:
+            msg += (
+                f" Auto-linked {pc_result.matched_count} pending "
+                f"classification{'s' if pc_result.matched_count != 1 else ''}."
+            )
         return (
             f"/bank-transactions/pending?bank_account_id={csv_bank_account_id}"
             f"&import_msg={quote(msg)}",

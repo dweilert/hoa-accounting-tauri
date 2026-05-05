@@ -15,6 +15,7 @@ from hoa_accounting.web.bank_transactions_pages import BankTransactionsPages
 from hoa_accounting.web.deposit_batch_pages import DepositBatchPages
 from hoa_accounting.web.non_dues_income_pages import NonDuesIncomePages
 from hoa_accounting.web.ofx_inbox_pages import OFXInboxPages
+from hoa_accounting.web.pending_classification_pages import PendingClassificationPages
 from hoa_accounting.web.reconciliation_pages import ReconciliationPages
 from hoa_accounting.web.record_deposit_pages import RecordDepositPages
 from hoa_accounting.web.route_context import RouteContext
@@ -825,6 +826,177 @@ def make_bank_blueprint(ctx: RouteContext) -> Blueprint:
             tag = "msg" if "saved" in flash.lower() else "err"
             url = f"{url}{sep}{tag}={quote(flash)}"
         return redirect(url, code=303)
+
+    # ── Pending Classifications (pre-bank capture of incoming payments) ─────
+
+    def _open_pc_pages() -> PendingClassificationPages:
+        return PendingClassificationPages(_open_db())
+
+    @bp.get("/pending-classifications")
+    def pending_classifications_list() -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_list(
+            org=org_context,
+            theme=theme,
+            status_filter=(request.args.get("status") or "").strip().upper(),
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.get("/pending-classifications/new")
+    def pending_classifications_new_form() -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(
+            org=org_context,
+            theme=theme,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.post("/pending-classifications/new")
+    def pending_classifications_new_submit() -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        url, page_resp = pages.handle_add(
+            form_data={k: v for k, v in request.form.items()},
+            apply_to_assessment_ids=request.form.getlist("apply_to_assessment_ids[]"),
+            org=org_context,
+            theme=theme,
+        )
+        if page_resp is not None:
+            return Response(
+                page_resp.body_html,
+                status=page_resp.status_code,
+                mimetype="text/html; charset=utf-8",
+            )
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.get("/pending-classifications/<int:pc_id>/edit")
+    def pending_classifications_edit_form(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_form(
+            org=org_context,
+            theme=theme,
+            pc_id=pc_id,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.post("/pending-classifications/<int:pc_id>/edit")
+    def pending_classifications_edit_submit(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        url, page_resp = pages.handle_edit(
+            pc_id=pc_id,
+            form_data={k: v for k, v in request.form.items()},
+            apply_to_assessment_ids=request.form.getlist("apply_to_assessment_ids[]"),
+            org=org_context,
+            theme=theme,
+        )
+        if page_resp is not None:
+            return Response(
+                page_resp.body_html,
+                status=page_resp.status_code,
+                mimetype="text/html; charset=utf-8",
+            )
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.get("/pending-classifications/<int:pc_id>/match")
+    def pending_classifications_match_page(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        resp = pages.render_match_page(
+            org=org_context,
+            theme=theme,
+            pc_id=pc_id,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.post("/pending-classifications/<int:pc_id>/match")
+    def pending_classifications_match_submit(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        bt_raw = (request.form.get("bank_transaction_id") or "").strip()
+        if not bt_raw.isdigit():
+            return redirect(
+                f"/pending-classifications/{pc_id}/match?err=Pick+a+candidate.",
+                code=303,
+            )
+        url, _ = pages.handle_match(
+            pc_id=pc_id,
+            bank_transaction_id=int(bt_raw),
+        )
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.post("/pending-classifications/<int:pc_id>/unmatch")
+    def pending_classifications_unmatch(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        url, _ = pages.handle_unmatch(pc_id=pc_id)
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.get("/pending-classifications/post")
+    def pending_classifications_post_preview() -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        theme = str(org_context.get("theme", "warm"))
+        ba_raw = (request.args.get("bank_account_id") or "").strip()
+        ba_id = int(ba_raw) if ba_raw.isdigit() else None
+        resp = pages.render_post_page(
+            org=org_context,
+            theme=theme,
+            bank_account_id=ba_id,
+            flash_message=request.args.get("msg", ""),
+            error_message=request.args.get("err", ""),
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.post("/pending-classifications/<int:pc_id>/post")
+    def pending_classifications_post_one(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        url, _ = pages.handle_post_one(pc_id=pc_id)
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.post("/pending-classifications/<int:pc_id>/reverse")
+    def pending_classifications_reverse_post(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        url, _ = pages.handle_reverse_post(pc_id=pc_id)
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.post("/pending-classifications/post-all")
+    def pending_classifications_post_all() -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        ba_raw = (request.form.get("bank_account_id") or "").strip()
+        ba_id = int(ba_raw) if ba_raw.isdigit() else None
+        url, _ = pages.handle_post_all(bank_account_id=ba_id)
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.post("/pending-classifications/<int:pc_id>/cancel")
+    def pending_classifications_cancel(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        url, _ = pages.handle_cancel(pc_id=pc_id)
+        return redirect(url or "/pending-classifications", code=303)
+
+    @bp.post("/pending-classifications/<int:pc_id>/delete")
+    def pending_classifications_delete(pc_id: int) -> ResponseReturnValue:
+        pages = _open_pc_pages()
+        url, _ = pages.handle_delete(pc_id=pc_id)
+        return redirect(url or "/pending-classifications", code=303)
 
     # ── Menu aliases / retired-page redirects ────────────────────────────────
     # The sidebar reorg points "Bill Owners" at /owners/bill — a thin alias

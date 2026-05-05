@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 
 from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
@@ -115,7 +116,7 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
         stream_conn = connect_sqlite(str(db_path))
         pages = PublishReportsPages(conn=stream_conn)
 
-        def _generate() -> ResponseReturnValue:
+        def _generate() -> Iterator[str]:
             try:
                 yield from pages.stream_publish(
                     fiscal_year=fiscal_year,

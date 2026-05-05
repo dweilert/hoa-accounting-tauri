@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from hoa_accounting.db.transaction import transaction
 from hoa_accounting.models.dto import AssessmentResult
@@ -11,6 +12,9 @@ from hoa_accounting.repositories.assessments_repo import AssessmentsRepository
 from hoa_accounting.repositories.audit_repo import AuditRepository
 from hoa_accounting.validators.common import require_positive_amount
 from hoa_accounting.validators.entity_validator import EntityValidator
+
+if TYPE_CHECKING:
+    from hoa_accounting.services.credit_service import CreditService
 
 
 class AssessmentService:
@@ -23,7 +27,7 @@ class AssessmentService:
         assessment_repo: AssessmentsRepository,
         audit_repo: AuditRepository,
         entity_validator: EntityValidator,
-        credit_service: object | None = None,
+        credit_service: CreditService | None = None,
     ) -> None:
         self.conn = conn
         self.assessment_repo = assessment_repo

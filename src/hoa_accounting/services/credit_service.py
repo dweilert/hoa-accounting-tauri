@@ -122,19 +122,14 @@ class CreditService:
         result = RetroResult()
 
         # Find every owner who has at least one payment with unapplied balance.
-        owner_ids = [
-            row[0]
-            for row in self.conn.execute(
-                """
+        owner_ids = [row[0] for row in self.conn.execute("""
                 SELECT DISTINCT p.owner_id
                 FROM payments p
                 LEFT JOIN payment_applications pa ON pa.payment_id = p.id
                 GROUP BY p.id, p.owner_id, p.amount
                 HAVING p.amount - COALESCE(SUM(pa.applied_amount), 0) > 0.005
                 ORDER BY p.owner_id
-                """
-            ).fetchall()
-        ]
+                """).fetchall()]
 
         for owner_id in owner_ids:
             applied = self._apply_credits_to_open_assessments(owner_id, result)
@@ -205,9 +200,9 @@ class CreditService:
             ).fetchone()[0]
             full_amount = q2(assessment["amount"])
             new_status = (
-                "PAID" if q2(already) >= full_amount
-                else "PARTIAL" if q2(already) > Decimal("0.00")
-                else "OPEN"
+                "PAID"
+                if q2(already) >= full_amount
+                else "PARTIAL" if q2(already) > Decimal("0.00") else "OPEN"
             )
             self.assessments_repo.update_status(assessment_id, new_status)
 
