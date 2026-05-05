@@ -171,6 +171,6 @@ class LocalFileBackend:
 
 def default_s3_backend() -> S3StorageBackend:
     """Build an S3 backend from environment variables."""
-    bucket = os.environ.get("S3_BUCKET_NAME", "mmpoa-owner-reports")
+    bucket = os.environ.get("S3_BUCKET_NAME", "hoa-documents-mmpoaii")
     region = os.environ.get("AWS_REGION", "us-east-1")
     return S3StorageBackend(bucket=bucket, region=region)
