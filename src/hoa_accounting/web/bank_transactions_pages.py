@@ -720,7 +720,7 @@ class BankTransactionsPages:
 
         n = len(lines)
         return back, (
-            f"Posted {primary[0].lower()} #{primary[1]}"
+            f"Accepted — posted {primary[0].lower()} #{primary[1]}"
             + (f" + {n - 1} additional split line(s)" if n > 1 else "")
             + "."
         )
