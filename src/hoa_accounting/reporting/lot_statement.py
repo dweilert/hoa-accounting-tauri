@@ -245,21 +245,22 @@ class LotStatementReportService:
         ]
 
         # ── In-period transactions ────────────────────────────────────────────
-        # Charges: filter to this owner's assessments only so only their dues
-        # appear as debits.
+        # Charges: filter to this owner's assessments only.
         #
-        # Payments: when owner_id is given, show payments applied to EITHER
-        #   (a) this owner's assessments — their own payments, or
-        #   (b) assessments dated before the owner's period start — these are
-        #       prior-owner charges that the closing payment cleared, and they
-        #       must appear to reduce the inherited opening balance to zero.
-        # When no owner_id: show all lot payments (original behaviour).
+        # Payments: query directly from the payments table keyed on owner,
+        # NOT through payment_applications.  This ensures fully-unapplied
+        # advance payments (e.g. Ron Lindsey's $1,860 year-in-advance) appear
+        # with their full cheque amount rather than just the applied slice.
+        #
+        # When owner_id is None: show all payments by ANY owner linked to
+        # this lot (via lot_ownership) during the date window.
+        #
+        # When owner_id is set: show
+        #   (a) payments made by THIS owner during their period, AND
+        #   (b) payments by OTHER owners that were applied to pre-period lot
+        #       assessments — these cleared the inherited opening balance and
+        #       must appear so the running balance stays correct.
         _assess_owner_filter = "AND a.owner_id = ?" if owner_id is not None else ""
-        _pay_owner_filter = (
-            "AND (a.owner_id = ? OR a.assessment_date < ?)"
-            if owner_id is not None
-            else ""
-        )
 
         # Build param tuples for each branch
         _assess_params: tuple = (
@@ -267,11 +268,30 @@ class LotStatementReportService:
             if owner_id is not None
             else (lot_id, tx_from, tx_to)
         )
-        _pay_params: tuple = (
-            (lot_id, owner_id, tx_from, tx_from, tx_to)
-            if owner_id is not None
-            else (lot_id, tx_from, tx_to)
-        )
+
+        if owner_id is not None:
+            # (a) this owner's own payments + (b) other-owner payments that
+            # cleared pre-period assessments for this lot
+            _pay_owner_filter = (
+                "AND ( p.owner_id = ?"
+                "    OR p.id IN ("
+                "         SELECT pa2.payment_id"
+                "         FROM payment_applications pa2"
+                "         JOIN assessments a2 ON a2.id = pa2.assessment_id"
+                "         WHERE a2.lot_id = ? AND a2.assessment_date < ?"
+                "       )"
+                "    )"
+            )
+            _pay_params: tuple = (owner_id, lot_id, tx_from, tx_from, tx_to)
+        else:
+            # All payments by any owner ever linked to this lot
+            _pay_owner_filter = (
+                "AND p.owner_id IN ("
+                "    SELECT DISTINCT lo2.owner_id FROM lot_ownership lo2"
+                "    WHERE lo2.lot_id = ?"
+                ")"
+            )
+            _pay_params = (lot_id, tx_from, tx_to)
         _adj_params: tuple = (lot_id, tx_from, tx_to)
 
         raw_rows = self.conn.execute(
@@ -310,7 +330,8 @@ class LotStatementReportService:
 
                 UNION ALL
 
-                -- Payments (summed per payment across all applications to this lot)
+                -- Payments — full cheque amount, keyed on owner not applications.
+                -- Unapplied advance payments show their full amount immediately.
                 SELECT
                     p.payment_date        AS entry_date,
                     'PAYMENT'             AS entry_type,
@@ -321,19 +342,15 @@ class LotStatementReportService:
                               ELSE '' END AS description,
                     ''                    AS due_date,
                     0                     AS debit_amount,
-                    SUM(pa.applied_amount) AS credit_amount,
+                    p.amount              AS credit_amount,
                     'POSTED'              AS status,
                     COALESCE(p.receipt_number, '') AS receipt_number,
                     p.payment_date || '1' || CAST(p.id AS TEXT) AS sort_key
                 FROM payments p
-                JOIN payment_applications pa ON pa.payment_id = p.id
-                JOIN assessments a          ON a.id = pa.assessment_id
-                WHERE a.lot_id = ?
+                WHERE 1=1
                   {_pay_owner_filter}
                   AND p.payment_date >= ?
                   AND p.payment_date <= ?
-                GROUP BY p.id, p.payment_date, p.payment_method,
-                         p.receipt_number, p.reference_number
 
                 UNION ALL
 
