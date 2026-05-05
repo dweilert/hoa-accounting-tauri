@@ -125,7 +125,7 @@
       </button>
     </div>
 
-    {% set active_rows = rows | selectattr('cleared_prior', 'equalto', 0) | list %}
+    {% set active_rows = rows | rejectattr('cleared_prior', 'equalto', 1) | list %}
     {% set prior_rows  = rows | selectattr('cleared_prior', 'equalto', 1) | list %}
     {% set source_labels = {
         'PAYMENT':          'Payment',
@@ -149,20 +149,26 @@
             </tr>
           </thead>
           <tbody>
-            {# ── Active rows (uncleared + cleared-this-recon) ─────── #}
+            {# ── Active rows (uncleared + cleared-this-recon + auto-cleared) ─ #}
             {% for row in active_rows %}
-              {% set is_cleared = row.cleared_this == 1 %}
+              {% set is_auto    = row.auto_cleared == 1 %}
+              {% set is_cleared = row.cleared_this == 1 or is_auto %}
               {% set row_key = row.source_type ~ '-' ~ row.source_id %}
               <tr class="recon-row{% if is_cleared %} recon-row--cleared{% endif %}"
                   data-row-key="{{ row_key }}">
                 {% if is_open %}
                   <td style="text-align:center;width:2rem;">
-                    <input type="checkbox"
-                           class="clear-chk"
-                           data-source-type="{{ row.source_type }}"
-                           data-source-id="{{ row.source_id }}"
-                           {% if is_cleared %}checked{% endif %}
-                           style="cursor:pointer;width:auto;" />
+                    {% if is_auto %}
+                      {# OFX-confirmed — locked, cannot be manually un-cleared #}
+                      <span title="Auto-cleared by OFX import" style="font-size:13px;">🔒</span>
+                    {% else %}
+                      <input type="checkbox"
+                             class="clear-chk"
+                             data-source-type="{{ row.source_type }}"
+                             data-source-id="{{ row.source_id }}"
+                             {% if is_cleared %}checked{% endif %}
+                             style="cursor:pointer;width:auto;" />
+                    {% endif %}
                   </td>
                 {% endif %}
                 <td style="white-space:nowrap;font-size:13px;">{{ row.item_date }}</td>
@@ -175,7 +181,9 @@
                   <div style="font-size:12px;">{{ row.description }}</div>
                 </td>
                 <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
-                  {% if row.has_bank_match %}
+                  {% if is_auto %}
+                    <span style="color:#166534;">✓ OFX</span>{% if row.bank_txn_date %} {{ row.bank_txn_date }}{% endif %}
+                  {% elif row.has_bank_match %}
                     ✓{% if row.bank_txn_date %} {{ row.bank_txn_date }}{% endif %}
                   {% else %}
                     <span style="color:#b45309;">outstanding</span>

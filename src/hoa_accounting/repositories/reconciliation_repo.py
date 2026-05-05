@@ -148,6 +148,7 @@ class ReconciliationRepository(BaseRepository):
           bank_txn_date  date of the matched bank_transaction (or NULL)
           cleared_this   1 if in this recon's clears, else 0
           cleared_prior  1 if in any other finalized recon's clears
+          auto_cleared   1 if linked to a VALIDATED bank transaction (OFX confirmed)
         """
         return list(
             self.conn.execute(
@@ -199,6 +200,36 @@ class ReconciliationRepository(BaseRepository):
                     JOIN ctx ON ctx.bank_account_id = br2.bank_account_id
                     WHERE br2.id != (SELECT recon_id FROM ctx)
                       AND br2.status = 'FINALIZED'
+                ),
+                -- Bank transactions confirmed by OFX import (VALIDATED) within
+                -- the statement period — these auto-clear without manual ticking.
+                validated_bt AS (
+                    SELECT bt.id AS bt_id
+                    FROM bank_transactions bt
+                    JOIN ctx ON ctx.bank_account_id = bt.bank_account_id
+                    WHERE bt.validation_status = 'VALIDATED'
+                      AND bt.transaction_date <= ctx.statement_ending_date
+                ),
+                -- Map validated bank_transactions back to ledger rows using the
+                -- same three-path resolution as cleared_this / cleared_prior.
+                auto_cleared AS (
+                    SELECT bt.matched_source_type AS source_type,
+                           bt.matched_source_id   AS source_id
+                    FROM bank_transactions bt
+                    JOIN validated_bt vb ON vb.bt_id = bt.id
+                    WHERE bt.matched_source_type IS NOT NULL
+                      AND bt.matched_source_id   IS NOT NULL
+                      AND bt.matched_source_type <> 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT 'PAYMENT', p.id
+                    FROM bank_transactions bt
+                    JOIN validated_bt vb ON vb.bt_id = bt.id
+                    JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
+                    WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT btl.ledger_source_type, btl.ledger_source_id
+                    FROM bank_transaction_links btl
+                    JOIN validated_bt vb ON vb.bt_id = btl.bank_transaction_id
                 ),
                 -- Map cleared bank_transactions back to the ledger rows they
                 -- represent, via both matched_source_* and bank_transaction_links.
@@ -290,7 +321,9 @@ class ReconciliationRepository(BaseRepository):
                     CASE WHEN ct.source_id IS NOT NULL THEN 1 ELSE 0 END
                         AS cleared_this,
                     CASE WHEN cp.source_id IS NOT NULL THEN 1 ELSE 0 END
-                        AS cleared_prior
+                        AS cleared_prior,
+                    CASE WHEN ac.source_id IS NOT NULL THEN 1 ELSE 0 END
+                        AS auto_cleared
                 FROM all_items ai
                 LEFT JOIN matched m
                     ON m.source_type = ai.source_type AND m.source_id = ai.source_id
@@ -300,6 +333,8 @@ class ReconciliationRepository(BaseRepository):
                     ON ct.source_type = ai.source_type AND ct.source_id = ai.source_id
                 LEFT JOIN cleared_prior cp
                     ON cp.source_type = ai.source_type AND cp.source_id = ai.source_id
+                LEFT JOIN auto_cleared ac
+                    ON ac.source_type = ai.source_type AND ac.source_id = ai.source_id
                 ORDER BY ai.item_date ASC, ai.source_type, ai.source_id
                 """,
                 (reconciliation_id,),
@@ -333,7 +368,7 @@ class ReconciliationRepository(BaseRepository):
         for row in rows:
             amt = Decimal(str(row["amount"]))
             book_balance += amt
-            if row["cleared_this"] or row["cleared_prior"]:
+            if row["cleared_this"] or row["cleared_prior"] or row["auto_cleared"]:
                 cleared_balance += amt
                 cleared_count += 1
             else:
