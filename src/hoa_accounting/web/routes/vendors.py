@@ -8,6 +8,7 @@ from flask import Blueprint, Response, redirect, request
 from flask.typing import ResponseReturnValue
 
 from hoa_accounting.web.batch_pdf_pages import BatchPdfPages
+from hoa_accounting.web.publish_reports_pages import PublishReportsPages
 from hoa_accounting.web.route_context import RouteContext
 from hoa_accounting.web.vendor_bill_pages import VendorBillPages
 from hoa_accounting.web.vendor_pages import VendorPages
@@ -48,6 +49,42 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
             )
             return Response(html, status=400, mimetype="text/html; charset=utf-8")
         html = pages.handle_generate(org=org_context, theme=theme, year=year)
+        return Response(html, status=200, mimetype="text/html; charset=utf-8")
+
+    # ── Publish Reports ───────────────────────────────────────────────────────
+    def _open_publish_pages() -> PublishReportsPages:
+        conn = _open_db()
+        return PublishReportsPages(conn=conn)
+
+    @bp.get("/publish-reports")
+    def publish_reports_page() -> ResponseReturnValue:
+        pages = _open_publish_pages()
+        theme = str(org_context.get("theme", "warm"))
+        html = pages.render_page(org=org_context, theme=theme)
+        return Response(html, status=200, mimetype="text/html; charset=utf-8")
+
+    @bp.post("/publish-reports/run")
+    def publish_reports_run() -> ResponseReturnValue:
+        pages = _open_publish_pages()
+        theme = str(org_context.get("theme", "warm"))
+        try:
+            fiscal_year = int(request.form.get("year", "0"))
+        except ValueError:
+            fiscal_year = 0
+        if not fiscal_year:
+            html = pages.render_page(
+                org=org_context, theme=theme, error="Please enter a valid year."
+            )
+            return Response(html, status=400, mimetype="text/html; charset=utf-8")
+        fund_code = (request.form.get("fund_code") or "OPERATING").strip().upper()
+        report = (request.form.get("report") or "all").strip()
+        html = pages.handle_publish(
+            org=org_context,
+            theme=theme,
+            fiscal_year=fiscal_year,
+            fund_code=fund_code,
+            report=report,
+        )
         return Response(html, status=200, mimetype="text/html; charset=utf-8")
 
     # ── Transaction pages: Vendor Bills ──────────────────────────────
