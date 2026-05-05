@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from flask import Blueprint, Response, redirect, request
+from flask import Blueprint, Response, g, redirect, request
 from flask.typing import ResponseReturnValue
 
 from hoa_accounting.web.assessment_billing_pages import AssessmentBillingPages
@@ -793,6 +793,54 @@ def make_homeowners_blueprint(ctx: RouteContext) -> Blueprint:
             form_data={k: v for k, v in request.form.items()},
             org=org_context,
             theme=theme,
+        )
+        if redirect_url is not None:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
+
+    # ── Lot Transfer ──────────────────────────────────────────────────────────
+
+    @bp.get("/lots/<int:lot_id>/transfer")
+    def transfer_lot_form(lot_id: int) -> ResponseReturnValue:
+        from hoa_accounting.web.lot_transfer_pages import LotTransferPages
+
+        pages = ctx.open_pages(LotTransferPages)
+        theme = str(org_context.get("theme", "warm"))
+        flash_message = (request.args.get("msg") or "").strip()
+        resp = pages.render_transfer_form(
+            lot_id=lot_id,
+            org=org_context,
+            theme=theme,
+            flash_message=flash_message,
+        )
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.post("/lots/<int:lot_id>/transfer")
+    def submit_transfer_lot(lot_id: int) -> ResponseReturnValue:
+        from hoa_accounting.web.lot_transfer_pages import LotTransferPages
+
+        pages = ctx.open_pages(LotTransferPages)
+        theme = str(org_context.get("theme", "warm"))
+        # Collect multi-value checkboxes (new_owner_id may appear multiple times)
+        form_data: dict[str, Any] = {k: v for k, v in request.form.items()}
+        owner_ids = request.form.getlist("new_owner_id")
+        if owner_ids:
+            form_data["new_owner_id"] = owner_ids
+        user = getattr(g, "current_user", None)
+        user_id: int | None = getattr(user, "id", None) if user else None
+        redirect_url, form_resp = pages.handle_transfer(
+            lot_id=lot_id,
+            form_data=form_data,
+            org=org_context,
+            theme=theme,
+            user_id=user_id,
         )
         if redirect_url is not None:
             return redirect(redirect_url, code=303)

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Transfer Lot Ownership — Lot {{ lot_number }} · {{ org.name }}{% endblock %}
+{% block heading %}Transfer Lot Ownership — Lot {{ lot_number }}{% endblock %}
+
+{% block topbar_meta %}
+  <a href="/lots/{{ lot_id }}/edit" class="btn btn--ghost">Cancel</a>
+{% endblock %}
+
+{% block content %}
+  {% if flash_message %}
+    <div class="alert alert--success">
+      <div class="alert__content">{{ flash_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error_message %}
+    <div class="alert alert--error">
+      <div class="alert__content">{{ error_message }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── Header panel ──────────────────────────────────────────────── #}
+  <div class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Transfer Lot Ownership — Lot {{ lot_number }}{% if address %} · {{ address }}{% endif %}</div>
+        <div class="panel__description">
+          Record a sale or ownership transfer. All current owners will be closed out
+          the day before the closing date, and new owner(s) will begin on the closing date.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Current (departing) owners ────────────────────────────────── #}
+  <div class="panel" style="margin-top:1rem;">
+    <div class="panel__header">
+      <div>
+        <div class="panel__title">Current (Departing) Owners</div>
+        <div class="panel__description">These ownerships will be closed when the transfer is saved.</div>
+      </div>
+    </div>
+
+    {% if current_ownerships %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Owner</th>
+              <th>Owner Since</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ow in current_ownerships %}
+              <tr>
+                <td>{{ ow.owner_name }}</td>
+                <td class="mono">{{ ow.start_date }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No current owners are linked to this lot.</div>
+    {% endif %}
+  </div>
+
+  {# ── Outstanding balance callout ───────────────────────────────── #}
+  {% if balance > 0 %}
+    <div class="alert alert--warning" style="margin-top:1rem;">
+      <div class="alert__content">
+        Outstanding balance of <strong>${{ "%.2f"|format(balance) }}</strong>.
+        Record a final payment before transferring, or check
+        &ldquo;Force transfer&rdquo; below to proceed despite the balance.
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert--success" style="margin-top:1rem;">
+      <div class="alert__content">
+        No outstanding balance. Ready to transfer.
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Transfer form ─────────────────────────────────────────────── #}
+  <form method="post" action="/lots/{{ lot_id }}/transfer" class="form" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+
+    <div class="panel">
+      <div class="panel__header">
+        <div>
+          <div class="panel__title">Transfer Details</div>
+          <div class="panel__description">
+            Enter the closing / transfer date and select the incoming owner(s).
+          </div>
+        </div>
+      </div>
+
+      {# Sale / closing date #}
+      <label class="field">
+        <span class="field__label">Closing / Transfer Date *</span>
+        <input type="date" name="sale_date"
+               value="{{ form_values.sale_date if form_values.sale_date else today }}"
+               required />
+        <span class="field__hint">
+          This is the new owner's start date. Current owners will be closed the day before.
+        </span>
+      </label>
+
+      {# New owner(s) checkboxes #}
+      <div class="field">
+        <span class="field__label">Incoming Owner(s) *</span>
+        <span class="field__hint">Select one or more owners who are acquiring this lot.</span>
+        {% if available_owners %}
+          <div class="panel" style="margin-top:.5rem;max-height:16rem;overflow-y:auto;">
+            {% for owner in available_owners %}
+              <label style="display:flex;align-items:center;gap:.6rem;padding:.4rem .75rem;cursor:pointer;">
+                <input type="checkbox"
+                       name="new_owner_id"
+                       value="{{ owner.id }}"
+                       {% if form_values and owner.id|string in (form_values.get('new_owner_id') or []) %}checked{% endif %}
+                       style="width:auto;" />
+                <span>{{ owner.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty" style="margin-top:.5rem;">
+            No available owners. <a href="/owners/add">Add a new owner</a> first.
+          </div>
+        {% endif %}
+      </div>
+
+      {# Force transfer — only shown when there is an outstanding balance #}
+      {% if balance > 0 %}
+        <label class="field" style="flex-direction:row;align-items:center;gap:.5rem;margin-top:.5rem;">
+          <input type="checkbox" name="force" value="1"
+                 {% if form_values and form_values.get('force') %}checked{% endif %}
+                 style="width:auto;" />
+          <span class="field__label" style="margin:0;">
+            Force transfer — proceed despite outstanding balance
+          </span>
+        </label>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center;">
+      <button type="submit" class="btn btn--primary">Transfer Ownership</button>
+      <a href="/lots/{{ lot_id }}/edit" class="btn btn--ghost">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

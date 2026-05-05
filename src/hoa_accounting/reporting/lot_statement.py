@@ -26,9 +26,47 @@ class LotStatementReportService:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
 
-    def generate(self, *, lot_id: int, year: int) -> LotStatementReport:
+    def generate(self, *, lot_id: int, year: int, owner_id: int | None = None) -> LotStatementReport:
         from_date = f"{year}-01-01"
         to_date = f"{year}-12-31"
+
+        # ── Owner period (when owner_id supplied) ─────────────────────────────
+        owner_name: str | None = None
+        owner_period_start: str | None = None
+        owner_period_end: str | None = None
+        # Effective date window for transactions and opening balance cutoff.
+        # Defaults to full year; narrowed when owner_id is provided.
+        tx_from = from_date
+        tx_to = to_date
+        ob_cutoff = from_date  # "before this date" cutoff for opening balance
+
+        if owner_id is not None:
+            lo_row = self.conn.execute(
+                """
+                SELECT lo.start_date, lo.end_date,
+                       o.display_name AS owner_name
+                FROM lot_ownership lo
+                JOIN owners o ON o.id = lo.owner_id
+                WHERE lo.lot_id = ? AND lo.owner_id = ?
+                  AND lo.start_date <= ?
+                  AND (lo.end_date IS NULL OR lo.end_date >= ?)
+                ORDER BY lo.start_date DESC
+                LIMIT 1
+                """,
+                (lot_id, owner_id, to_date, from_date),
+            ).fetchone()
+            if lo_row is None:
+                raise NotFoundError(
+                    f"Owner {owner_id} has no ownership record for lot {lot_id} in {year}."
+                )
+            owner_name = str(lo_row["owner_name"])
+            raw_end = lo_row["end_date"]
+            # Clamp start and end to the report year
+            tx_from = max(str(lo_row["start_date"]), from_date)
+            tx_to = min(str(raw_end), to_date) if raw_end is not None else to_date
+            owner_period_start = tx_from
+            owner_period_end = tx_to if raw_end is not None else None
+            ob_cutoff = tx_from
 
         # ── Lot info ──────────────────────────────────────────────────────────
         lot = self.conn.execute(
@@ -122,7 +160,7 @@ class LotStatementReportService:
                 ), 0)
                 AS opening_balance
             """,
-            (lot_id, from_date, lot_id, from_date, lot_id, from_date),
+            (lot_id, ob_cutoff, lot_id, ob_cutoff, lot_id, ob_cutoff),
         ).fetchone()
         opening_balance = q2(
             (ob_row["opening_balance"] if ob_row else 0) + presystem_total
@@ -131,8 +169,14 @@ class LotStatementReportService:
         # ── Opening balance breakdown by charge type ──────────────────────────
         # Net balance per charge type = billed before year - payments applied
         # before year, then credit/write-off adjustments shown as a single line.
+        _ob_owner_filter = "AND a.owner_id = ?" if owner_id is not None else ""
+        _ob_params_assess = (
+            (ob_cutoff, lot_id, owner_id, ob_cutoff)
+            if owner_id is not None
+            else (ob_cutoff, lot_id, ob_cutoff)
+        )
         ob_detail_rows = self.conn.execute(
-            """
+            f"""
             SELECT
                 a.charge_type,
                 COALESCE(SUM(a.amount), 0)
@@ -146,6 +190,7 @@ class LotStatementReportService:
                 GROUP BY pa.assessment_id
             ) pa_pre ON pa_pre.assessment_id = a.id
             WHERE a.lot_id = ?
+              {_ob_owner_filter}
               AND a.assessment_date < ?
               AND a.status NOT IN ('VOID')
             GROUP BY a.charge_type
@@ -162,7 +207,7 @@ class LotStatementReportService:
               AND adjustment_type IN ('CREDIT_MEMO', 'WRITE_OFF')
             HAVING COALESCE(SUM(amount), 0) != 0
             """,
-            (from_date, lot_id, from_date, lot_id, from_date),
+            _ob_params_assess + (lot_id, ob_cutoff),
         ).fetchall()
 
         _charge_labels = {
@@ -200,8 +245,37 @@ class LotStatementReportService:
         ]
 
         # ── In-period transactions ────────────────────────────────────────────
+        # Charges: filter to this owner's assessments only so only their dues
+        # appear as debits.
+        #
+        # Payments: when owner_id is given, show payments applied to EITHER
+        #   (a) this owner's assessments — their own payments, or
+        #   (b) assessments dated before the owner's period start — these are
+        #       prior-owner charges that the closing payment cleared, and they
+        #       must appear to reduce the inherited opening balance to zero.
+        # When no owner_id: show all lot payments (original behaviour).
+        _assess_owner_filter = "AND a.owner_id = ?" if owner_id is not None else ""
+        _pay_owner_filter = (
+            "AND (a.owner_id = ? OR a.assessment_date < ?)"
+            if owner_id is not None
+            else ""
+        )
+
+        # Build param tuples for each branch
+        _assess_params: tuple = (
+            (lot_id, owner_id, tx_from, tx_to)
+            if owner_id is not None
+            else (lot_id, tx_from, tx_to)
+        )
+        _pay_params: tuple = (
+            (lot_id, owner_id, tx_from, tx_from, tx_to)
+            if owner_id is not None
+            else (lot_id, tx_from, tx_to)
+        )
+        _adj_params: tuple = (lot_id, tx_from, tx_to)
+
         raw_rows = self.conn.execute(
-            """
+            f"""
             SELECT
                 entry_date,
                 entry_type,
@@ -229,6 +303,7 @@ class LotStatementReportService:
                     a.assessment_date || '0' || CAST(a.id AS TEXT) AS sort_key
                 FROM assessments a
                 WHERE a.lot_id = ?
+                  {_assess_owner_filter}
                   AND a.assessment_date >= ?
                   AND a.assessment_date <= ?
                   AND a.status NOT IN ('VOID')
@@ -254,6 +329,7 @@ class LotStatementReportService:
                 JOIN payment_applications pa ON pa.payment_id = p.id
                 JOIN assessments a          ON a.id = pa.assessment_id
                 WHERE a.lot_id = ?
+                  {_pay_owner_filter}
                   AND p.payment_date >= ?
                   AND p.payment_date <= ?
                 GROUP BY p.id, p.payment_date, p.payment_method,
@@ -283,17 +359,7 @@ class LotStatementReportService:
             ) combined
             ORDER BY sort_key
             """,
-            (
-                lot_id,
-                from_date,
-                to_date,  # assessments
-                lot_id,
-                from_date,
-                to_date,  # payments
-                lot_id,
-                from_date,
-                to_date,  # adjustments
-            ),
+            _assess_params + _pay_params + _adj_params,
         ).fetchall()
 
         running_balance = opening_balance
@@ -330,4 +396,8 @@ class LotStatementReportService:
             opening_balance_lines=opening_balance_lines,
             closing_balance=running_balance,
             rows=report_rows,
+            owner_id=owner_id,
+            owner_name=owner_name,
+            owner_period_start=owner_period_start,
+            owner_period_end=owner_period_end,
         )

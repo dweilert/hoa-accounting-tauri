@@ -133,6 +133,9 @@
             Owners currently linked to this lot. End an ownership when someone sells or transfers.
           </div>
         </div>
+        {% if current_ownerships %}
+          <a href="/lots/{{ lot_id }}/transfer" class="btn btn--sm btn--primary">Transfer Ownership</a>
+        {% endif %}
       </div>
 
       {% if current_ownerships %}

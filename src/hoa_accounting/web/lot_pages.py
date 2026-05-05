@@ -168,6 +168,7 @@ class LotPages:
             "flash_message": flash_message,
             "error_message": error_message,
             "ownership_error": ownership_error,
+            "show_transfer_button": is_edit,
         }
         status = (
             HTTPStatus.BAD_REQUEST

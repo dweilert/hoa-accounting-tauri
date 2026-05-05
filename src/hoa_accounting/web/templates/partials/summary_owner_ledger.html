@@ -1,3 +1,13 @@
+{# ── Owner period filter notice ──────────────────────────────────────────── #}
+{% if summary.owner_period_start %}
+<div style="margin-bottom:1rem;padding:.6rem .75rem;
+            border:1px solid #93c5fd;border-radius:6px;
+            background:#eff6ff;color:#1e40af;">
+  Filtered to <strong>{{ summary.owner_name }}</strong>'s ownership period:
+  {{ summary.owner_period_start }} – {{ summary.owner_period_end or "present" }}
+</div>
+{% endif %}
+
 {# ── Lot & year header ──────────────────────────────────────────────────── #}
 <div class="summary-totals">
   <div class="summary-totals__item">

@@ -122,3 +122,15 @@ class ServiceFactory:
             audit_repo=self.audit_repo,
             reserve_transfers_repo=self.reserve_transfers_repo,
         )
+
+    def lot_transfer_service(self) -> "LotTransferService":
+        from hoa_accounting.services.lot_transfer_service import LotTransferService
+        from hoa_accounting.repositories.lot_ownership_repo import LotOwnershipRepository
+
+        return LotTransferService(
+            self.conn,
+            lots_repo=self.lots_repo,
+            ownership_repo=LotOwnershipRepository(self.conn),
+            assessments_repo=self.assessments_repo,
+            audit_repo=self.audit_repo,
+        )

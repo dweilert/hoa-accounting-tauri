@@ -200,6 +200,14 @@ REPORT_DEFINITIONS: list[ReportDefinition] = [
                 options_key="lot_id",
             ),
             ReportField(
+                name="owner_id",
+                label="Owner",
+                placeholder="",
+                required=False,
+                field_type="select",
+                options_key="owner_id",
+            ),
+            ReportField(
                 name="year",
                 label="Year",
                 placeholder="2026",

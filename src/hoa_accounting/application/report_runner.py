@@ -79,9 +79,12 @@ class ReportRunner:
             lot_id = self._require_int_param(params, "lot_id")
             year_str = str(params.get("year", "")).strip()
             year = int(year_str) if year_str else datetime.date.today().year
+            owner_id_str = str(params.get("owner_id", "")).strip()
+            owner_id = int(owner_id_str) if owner_id_str else None
             return LotStatementReportService(conn).generate(
                 lot_id=lot_id,
                 year=year,
+                owner_id=owner_id,
             )
 
         if report_name == "ar-aging":

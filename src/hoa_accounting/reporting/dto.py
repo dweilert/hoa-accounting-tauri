@@ -155,6 +155,10 @@ class LotStatementReport:
     opening_balance_lines: list[OpeningBalanceLine]
     closing_balance: Decimal
     rows: list[LotStatementRow]
+    owner_id: int | None = None
+    owner_name: str | None = None
+    owner_period_start: str | None = None   # "2026-02-01"
+    owner_period_end: str | None = None     # "2026-12-31" or None if current
 
 
 # ── Expenses by Date ──────────────────────────────────────────────────────────
