@@ -512,8 +512,12 @@ def render_homeowner_contact_list_pdf(report: HomeownerContactListReport) -> byt
     header = ["Name", "Address", "Cell", "Home Phone", "Email"]
     rows: list[list[str]] = [header]
 
+    has_renter = False
     for row in report.rows:
         full_name = f"{row.first_name} {row.last_name}".strip()
+        if row.role == "RENTER":
+            full_name += " (R)"
+            has_renter = True
         rows.append(
             [
                 full_name,
@@ -525,6 +529,19 @@ def render_homeowner_contact_list_pdf(report: HomeownerContactListReport) -> byt
         )
 
     flowables.append(_build_table(rows, cw, extra_styles=[], right_align_cols=None))
+
+    if has_renter:
+        footnote_style = ParagraphStyle(
+            "Footnote",
+            parent=getSampleStyleSheet()["Normal"],
+            fontSize=7,
+            leading=9,
+            textColor=_MUTED,
+            spaceBefore=6,
+        )
+        flowables.append(
+            Paragraph("(R) Renter — property is occupied by a tenant, not the owner of record.", footnote_style)
+        )
 
     doc = _doc(buf)
     doc.build(flowables)
