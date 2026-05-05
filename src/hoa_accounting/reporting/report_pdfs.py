@@ -538,7 +538,10 @@ def render_homeowner_contact_list_pdf(report: HomeownerContactListReport) -> byt
             spaceBefore=6,
         )
         flowables.append(
-            Paragraph("(R) Renter — property is occupied by a tenant, not the owner of record.", footnote_style)
+            Paragraph(
+                "(R) Renter — property is occupied by a tenant, not the owner of record.",
+                footnote_style,
+            )
         )
 
     doc = _doc(buf)
