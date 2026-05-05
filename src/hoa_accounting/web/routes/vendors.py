@@ -91,7 +91,8 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
     def publish_reports_stream() -> ResponseReturnValue:
         from flask import stream_with_context
 
-        pages = _open_publish_pages()
+        from hoa_accounting.db.connection import connect_sqlite
+
         try:
             fiscal_year = int(request.args.get("year", "0"))
         except ValueError:
@@ -105,14 +106,27 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
         fund_code = (request.args.get("fund_code") or "OPERATING").strip().upper()
         report = (request.args.get("report") or "all").strip()
 
-        return Response(
-            stream_with_context(
-                pages.stream_publish(
+        # Open a dedicated connection that is NOT stored on flask.g.
+        # flask.g connections are closed at request teardown, which fires
+        # before the SSE generator finishes yielding — causing "Cannot
+        # operate on a closed database." This connection is owned by the
+        # generator and closed in its finally block.
+        db_path = org_context.get("db_path", "")
+        stream_conn = connect_sqlite(str(db_path))
+        pages = PublishReportsPages(conn=stream_conn)
+
+        def _generate() -> ResponseReturnValue:
+            try:
+                yield from pages.stream_publish(
                     fiscal_year=fiscal_year,
                     fund_code=fund_code,
                     report=report,
                 )
-            ),
+            finally:
+                stream_conn.close()
+
+        return Response(
+            stream_with_context(_generate()),
             mimetype="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
