@@ -23,10 +23,8 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from hoa_accounting.db.transaction import transaction
 from hoa_accounting.services.deposit_batch_service import DepositRow
 from hoa_accounting.services.factory import ServiceFactory
-from hoa_accounting.services.non_dues_income_service import IncomeRow
 from hoa_accounting.web.template_engine import render_template
 
 # Map category code → row behavior + which open charges this category
@@ -309,79 +307,23 @@ class RecordDepositPages:
 
         factory = ServiceFactory(self._conn)
 
-        # The deposit slip is one logical operation: owner-payment batch,
-        # any non-owner income lines, and the synthetic batch shim if
-        # no owner_rows existed all need to land or none of them do.
-        # The two services use ``with transaction(...)`` internally,
-        # which becomes a savepoint when nested inside this outer block.
-        with transaction(self._conn):
-            deposit_batch_id: int | None = None
-            if owner_rows:
-                result = factory.deposit_batch_service().post_batch(
-                    deposit_date=deposit_date,
-                    bank_account_id=int(bank_account_id),
-                    rows=owner_rows,
-                    notes=memo or None,
-                )
-                deposit_batch_id = result.deposit_batch_id
-
-            for line in other_rows:
-                factory.non_dues_income_service().post_batch(
-                    posting_date=deposit_date,
-                    bank_account_id=int(bank_account_id),
-                    income_description=line["description"],
-                    rows=[IncomeRow(amount=str(line["amount"]), other_source="OTHER")],
-                    category_id=line["category_id"],
-                    deposit_batch_id=deposit_batch_id,
-                    notes=memo or None,
-                )
-
-            # If there were no owner_rows the deposit_batch wasn't created
-            # above; create a synthetic single-row batch so the Deposits
-            # report and the OFX matcher see the full slip total.
-            if deposit_batch_id is None and other_rows:
-                other_total = sum(line["amount"] for line in other_rows)
-                cur = self._conn.execute(
-                    """INSERT INTO deposit_batches
-                       (deposit_date, bank_account_id, total_amount, notes)
-                       VALUES (?, ?, ?, ?)""",
-                    (
-                        deposit_date,
-                        int(bank_account_id),
-                        str(other_total),
-                        memo or None,
-                    ),
-                )
-                deposit_batch_id = int(cur.lastrowid or 0)
-                # Attach the income_batches we just created to this new batch.
-                self._conn.execute(
-                    "UPDATE income_batches SET deposit_batch_id = ? "
-                    "WHERE deposit_batch_id IS NULL "
-                    "  AND posting_date = ? AND bank_account_id = ?",
-                    (deposit_batch_id, deposit_date, int(bank_account_id)),
-                )
-
-            # Update deposit_batches.total_amount to reflect the FULL slip —
-            # owner payments + other-source income — so the OFX matcher and
-            # Deposits report see what actually hit the bank.
-            if deposit_batch_id is not None:
-                self._conn.execute(
-                    """
-                    UPDATE deposit_batches
-                       SET total_amount = (
-                            COALESCE((SELECT SUM(p.amount) FROM payments p
-                                      WHERE p.deposit_batch_id = ?), 0)
-                          + COALESCE((SELECT SUM(ib.total_amount) FROM income_batches ib
-                                      WHERE ib.deposit_batch_id = ?), 0)
-                       )
-                     WHERE id = ?
-                    """,
-                    (deposit_batch_id, deposit_batch_id, deposit_batch_id),
-                )
+        # Bank-is-boss: save everything as PENDING.
+        # No payments or income_batches are created here.  The deposit slip
+        # total is stored in deposit_batches so the OFX batch-matcher can
+        # find it by amount.  Accept All later calls post_pending_batch()
+        # to materialise the real payment rows.
+        result = factory.deposit_batch_service().save_pending(
+            deposit_date=deposit_date,
+            bank_account_id=int(bank_account_id),
+            owner_rows=owner_rows,
+            income_lines=other_rows or None,
+            notes=memo or None,
+        )
+        deposit_batch_id = result.deposit_batch_id
 
         count = len(owner_rows) + len(other_rows)
         return (
-            f"/deposit?msg=Saved+{count}+line(s)+on+deposit+batch"
-            f"{f'+{deposit_batch_id}' if deposit_batch_id else ''}.",
+            f"/deposit?msg=Saved+pending+deposit+{deposit_batch_id}"
+            f"+({count}+line(s))+—+will+post+after+bank+confirms.",
             "",
         )

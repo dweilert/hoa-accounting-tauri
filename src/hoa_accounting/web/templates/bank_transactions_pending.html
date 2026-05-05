@@ -121,6 +121,47 @@
   </div>
 </div>
 
+{% if pending_batches %}
+<div class="panel" style="margin-bottom:1.25rem;border-left:4px solid #f59e0b;">
+  <div class="panel__header" style="background:#fffbeb;">
+    <div>
+      <div class="panel__title" style="color:#92400e;">
+        ⏳ {{ pending_batches | length }} pending deposit slip{% if pending_batches | length != 1 %}s{% endif %} awaiting bank confirmation
+      </div>
+      <div class="panel__description">
+        Saved via Record Deposit but not yet confirmed by OFX import.
+        These will appear as BATCH matches once the bank file arrives and
+        Accept All is run.
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Bank account</th>
+          <th style="text-align:right;">Total</th>
+          <th style="text-align:right;">Lines</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in pending_batches %}
+        <tr>
+          <td style="white-space:nowrap;">{{ b.deposit_date }}</td>
+          <td>{{ b.bank_account_name }}{% if b.account_last4 %} ···{{ b.account_last4 }}{% endif %}</td>
+          <td style="text-align:right;font-family:var(--font-mono);">{{ '%.2f' | format(b.total_amount | float) }}</td>
+          <td style="text-align:right;">{{ b.line_count }}</td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ b.notes or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% if rows %}
 <style>
   #pending-table thead th {
@@ -186,6 +227,9 @@
               <div style="color:var(--text-muted);font-size:11px;">
                 Batch #{{ r.matched_source_id }}
               </div>
+            {% elif r.match_type == 'CLASSIFIED' %}
+              <span class="pill" style="font-size:.7rem;background:#dcfce7;color:#166534;border:none;">Classified</span>
+              <div style="color:var(--text-muted);font-size:11px;">Ready to post</div>
             {% else %}
               <span style="color:var(--text-muted);">No match yet</span>
             {% endif %}
@@ -204,15 +248,20 @@
                         title="Reset to pending so it re-enters the validation queue">Un-ignore</button>
               </form>
             {% else %}
-              {% if r.match_type in ('RULE', 'SOURCE', 'BATCH') %}
+              {% if r.match_type in ('RULE', 'SOURCE', 'BATCH', 'CLASSIFIED') %}
                 <form method="post"
                       action="/bank-transactions/{{ r.id }}/accept"
                       style="display:inline;">
                   <button type="submit" class="btn btn--sm btn--primary">Accept</button>
                 </form>
               {% endif %}
+              {% if r.match_type != 'CLASSIFIED' %}
               <a href="/bank-transactions/{{ r.id }}/classify"
                  class="btn btn--sm btn--ghost">Classify…</a>
+              {% else %}
+              <a href="/bank-transactions/{{ r.id }}/classify"
+                 class="btn btn--sm btn--ghost">Re-classify…</a>
+              {% endif %}
               <form method="post"
                     action="/bank-transactions/{{ r.id }}/ignore"
                     style="display:inline;"

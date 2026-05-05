@@ -45,8 +45,10 @@
       <div>
         <div class="panel__title">Pick a category</div>
         <div class="panel__description">
-          Posts a new {% if is_income %}income{% else %}expense{% endif %} record
-          and links it to this bank line.
+          Saves your classification — no ledger records are written yet.
+          The transaction moves to <em>Ready to accept</em> in the
+          Pending Validation queue. Use Accept All (or the Accept button)
+          to create the actual {% if is_income %}income{% else %}expense{% endif %} record.
         </div>
       </div>
     </div>
@@ -141,7 +143,7 @@
         <input type="text" name="memo" value="{{ txn.description }}" style="width:100%;">
       </div>
 
-      <button type="submit" class="btn btn--primary">Post &amp; Validate</button>
+      <button type="submit" class="btn btn--primary">Save Classification</button>
     </form>
   </div>
 

@@ -176,8 +176,59 @@
           <td>{{ r.transaction_date }}</td>
           <td>{{ r.account_name }}</td>
           <td class="num">{{ '%.2f' | format(r.amount | float) }}</td>
-          <td>Batch #{{ r.matched_source_id }} ({{ r.batch_date }}){% if r.batch_notes %} — {{ r.batch_notes }}{% endif %}</td>
+          <td>
+            Batch #{{ r.matched_source_id }} ({{ r.batch_date }}){% if r.batch_notes %} — {{ r.batch_notes }}{% endif %}
+            {% if r.batch_posting_status == 'PENDING' %}
+              <span class="pill" style="font-size:.65rem;background:#fef3c7;color:#92400e;border:none;margin-left:.25rem;">⏳ Pending — will post on Accept</span>
+            {% endif %}
+          </td>
           <td class="num">{{ '%.2f' | format(r.batch_amount | float) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Manually classified ─────────────────────────────────────────────── #}
+{% if classified_rows %}
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel__header">
+    <div>
+      <div class="panel__title">
+        <span class="pill" style="background:#dcfce7;color:#166534;border:none;">CLASSIFIED</span>
+        Manually classified — ready to post ({{ classified_rows | length }}, total {{ classified_total }})
+      </div>
+      <div class="panel__description">
+        You picked the category via Classify Transaction. Accepting creates
+        the ledger record (income, expense, or owner payment).
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Account</th>
+          <th>Description</th>
+          <th class="num">Amount</th>
+          <th>Classification</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in classified_rows %}
+        <tr>
+          <td>{{ r.transaction_date }}</td>
+          <td>{{ r.account_name }}</td>
+          <td>{{ r.description }}</td>
+          <td class="num" style="color:{% if (r.amount | float) < 0 %}#991b1b{% else %}#166534{% endif %};">
+            {{ '%.2f' | format(r.amount | float) }}
+          </td>
+          <td style="font-size:12px;">
+            {{ r.classify_type | default('') | replace('_', ' ') | title }}
+          </td>
         </tr>
         {% endfor %}
       </tbody>

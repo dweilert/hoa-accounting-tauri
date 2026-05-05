@@ -109,6 +109,7 @@ class BankTransactionsPages:
 
         # Count rows with a usable proposed match (so the page can show the
         # Dry Run / Accept All buttons only when there's something to act on).
+        # CLASSIFIED rows are user-classified and ready to post.
         # Two literal query strings rather than f-string interpolation so the
         # SQL surface is statically auditable.
         if bank_account_id:
@@ -116,7 +117,7 @@ class BankTransactionsPages:
                 self._conn.execute(
                     "SELECT COUNT(*) FROM bank_transactions bt "
                     "WHERE bt.validation_status = 'UNVALIDATED' "
-                    "  AND bt.match_type IN ('RULE','SOURCE','BATCH') "
+                    "  AND bt.match_type IN ('RULE','SOURCE','BATCH','CLASSIFIED') "
                     "  AND bt.bank_account_id = ?",
                     (bank_account_id,),
                 ).fetchone()[0]
@@ -126,9 +127,18 @@ class BankTransactionsPages:
                 self._conn.execute(
                     "SELECT COUNT(*) FROM bank_transactions bt "
                     "WHERE bt.validation_status = 'UNVALIDATED' "
-                    "  AND bt.match_type IN ('RULE','SOURCE','BATCH')"
+                    "  AND bt.match_type IN ('RULE','SOURCE','BATCH','CLASSIFIED')"
                 ).fetchone()[0]
             )
+
+        # Pending deposit batches — saved via Record Deposit but not yet
+        # confirmed by OFX. Show as a contextual panel so the treasurer can
+        # see what's in flight and cancel if needed.
+        from hoa_accounting.repositories.deposit_batches_repo import (
+            DepositBatchesRepository,
+        )
+
+        pending_batches = DepositBatchesRepository(self._conn).list_pending_batches()
 
         ctx = {
             "heading": "Pending Validation",
@@ -150,6 +160,7 @@ class BankTransactionsPages:
             "error_message": error_message,
             "import_message": import_message,
             "import_warnings": import_warnings or [],
+            "pending_batches": pending_batches,
         }
         status = 400 if error_message else 200
         return PageResponse(
@@ -188,9 +199,9 @@ class BankTransactionsPages:
 
         match_type = row["match_type"]
 
-        # SOURCE / BATCH matches were pre-stamped at import time and link
-        # to an existing ledger record. Accepting them just transitions
-        # the row to VALIDATED — no new posting is needed.
+        # SOURCE matches link to an existing ledger record — just validate.
+        # BATCH matches may link to a PENDING deposit batch that still needs
+        # its payments materialised before we can mark it validated.
         if match_type in ("SOURCE", "BATCH"):
             current = self._conn.execute(
                 "SELECT matched_source_type, matched_source_id "
@@ -200,6 +211,26 @@ class BankTransactionsPages:
             if not current or not current["matched_source_type"]:
                 return back, "Match metadata is missing — re-run validation first."
             with transaction(self._conn):
+                # For BATCH matches against a PENDING deposit_batch we must
+                # post the batch first so payment rows exist before marking
+                # the bank line VALIDATED.
+                if (
+                    match_type == "BATCH"
+                    and current["matched_source_type"] == "DEPOSIT_BATCH"
+                ):
+                    batch_id = int(current["matched_source_id"])
+                    status_row = self._conn.execute(
+                        "SELECT posting_status FROM deposit_batches WHERE id = ?",
+                        (batch_id,),
+                    ).fetchone()
+                    if status_row and status_row["posting_status"] == "PENDING":
+                        from hoa_accounting.services.factory import (
+                            ServiceFactory as _SF,
+                        )
+
+                        _SF(self._conn).deposit_batch_service().post_pending_batch(
+                            batch_id
+                        )
                 self._conn.execute(
                     "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
                     (bank_txn_id,),
@@ -221,6 +252,22 @@ class BankTransactionsPages:
                 back,
                 f"Accepted — linked to {current['matched_source_type'].lower()} #{current['matched_source_id']}.",
             )
+
+        # CLASSIFIED: user already picked categories via Save Classification;
+        # now post the actual ledger records.
+        if match_type == "CLASSIFIED":
+            # Need the classify_* columns — re-fetch with them.
+            full_row = self._conn.execute(
+                """SELECT id, bank_account_id, transaction_date, description,
+                          memo, amount, match_type, validation_status,
+                          classify_type, classify_vendor_id, classify_lot_id,
+                          classify_lines_json
+                   FROM bank_transactions WHERE id = ?""",
+                (bank_txn_id,),
+            ).fetchone()
+            if full_row is None:
+                return back, "Transaction not found."
+            return self._post_classified_txn(bank_txn_id, dict(full_row))
 
         if match_type != "RULE" or not row["rule_id"]:
             return (
@@ -400,17 +447,16 @@ class BankTransactionsPages:
         lot_id: int | None,
         memo: str,
     ) -> tuple[str, str]:
-        """Post one or more ledger records for this bank line. Each line is
-        (category_id, amount); their sum must equal the bank line's absolute
-        amount (hard block on mismatch).
+        """Save classification metadata for this bank line WITHOUT posting
+        any ledger records.  Each line is (category_id, amount); their sum
+        must equal the bank line's absolute amount.
 
-        Routing:
-          - amount > 0 + owner-payment category (DUES/LATE_FEE/RESALE_FEE):
-            single line, drains the lot's open assessments. Synthetic
-            deposit_batch is created.
-          - amount > 0 otherwise: N income_batches sharing one deposit_batch.
-          - amount < 0: N vendor_bills + N bill_payments to the rule's vendor.
+        Sets match_type='CLASSIFIED' and stores intent in classify_*
+        columns.  Accept All (or the individual Accept button) later
+        reads those columns to create the actual ledger records.
         """
+        import json as _json
+
         back = f"/bank-transactions/{bank_txn_id}/classify"
         txn = self._get_txn(bank_txn_id)
         if txn is None:
@@ -429,32 +475,111 @@ class BankTransactionsPages:
                 f"{line_sum} (off by {target - line_sum})."
             )
 
-        description = (memo or txn["description"] or "").strip()
-        factory = ServiceFactory(self._conn)
+        OWNER_PAYMENT_CODES = {"DUES", "LATE_FEE", "RESALE_FEE"}
+        first_cat_id = int(lines[0][0])
+        first_cat_row = self._conn.execute(
+            "SELECT code FROM categories WHERE id = ?", (first_cat_id,)
+        ).fetchone()
+        first_code = (first_cat_row["code"] if first_cat_row else "").upper()
 
-        # Classify is one logical operation: writing the ledger row(s),
-        # marking the bank line VALIDATED, and inserting bank_transaction_links
-        # all need to land or none of them do. Each service uses its own
-        # ``with transaction(...)`` internally — those become SAVEPOINTs
-        # when nested inside this outer block.
+        if amount > 0 and first_code in OWNER_PAYMENT_CODES:
+            if len(lines) != 1:
+                return (
+                    back,
+                    "Owner-payment categories (HOA Dues / Late Fees / Resale Fees) cannot be split.",
+                )
+            if not lot_id:
+                return back, "Lot is required when the category is an owner charge."
+            classify_type = "OWNER_PAYMENT"
+        elif amount > 0:
+            classify_type = "INCOME"
+        else:
+            if not vendor_id:
+                return back, "Vendor is required for expense transactions."
+            classify_type = "EXPENSE"
+
+        lines_json = _json.dumps(
+            [{"category_id": cat_id, "amount": str(amt)} for cat_id, amt in lines]
+        )
+
         with transaction(self._conn):
-            OWNER_PAYMENT_CODES = {"DUES", "LATE_FEE", "RESALE_FEE"}
-            first_cat_id = int(lines[0][0])
-            first_cat_row = self._conn.execute(
-                "SELECT code FROM categories WHERE id = ?", (first_cat_id,)
-            ).fetchone()
-            first_code = (first_cat_row["code"] if first_cat_row else "").upper()
+            self._conn.execute(
+                """
+                UPDATE bank_transactions
+                   SET match_type          = 'CLASSIFIED',
+                       classify_type       = ?,
+                       classify_vendor_id  = ?,
+                       classify_lot_id     = ?,
+                       classify_lines_json = ?
+                 WHERE id = ?
+                """,
+                (
+                    classify_type,
+                    int(vendor_id) if vendor_id else None,
+                    int(lot_id) if lot_id else None,
+                    lines_json,
+                    bank_txn_id,
+                ),
+            )
 
-            # Owner payments are intrinsically single-line; the JS prevents
-            # adding more, but enforce here too.
-            if amount > 0 and first_code in OWNER_PAYMENT_CODES:
-                if len(lines) != 1:
-                    return (
-                        back,
-                        "Owner-payment categories (HOA Dues / Late Fees / Resale Fees) cannot be split.",
-                    )
+        n = len(lines)
+        return "/bank-transactions/pending", (
+            f"Classification saved — {n} line(s). "
+            "Accept from Pending Validation to post."
+        )
+
+    def _post_classified_txn(
+        self,
+        bank_txn_id: int,
+        txn: dict[str, Any],
+    ) -> tuple[str, str]:
+        """Create ledger records for a CLASSIFIED bank transaction and mark
+        it VALIDATED.  Called by handle_accept() when match_type='CLASSIFIED'.
+        """
+        import json as _json
+
+        back = "/bank-transactions/pending"
+        classify_type = str(txn.get("classify_type") or "")
+        vendor_id = txn.get("classify_vendor_id")
+        lot_id = txn.get("classify_lot_id")
+        lines_json = str(txn.get("classify_lines_json") or "[]")
+        memo = str(txn.get("description") or "").strip()
+
+        try:
+            raw_lines = _json.loads(lines_json)
+        except Exception:
+            return (
+                back,
+                "Stored classification data is corrupt — re-classify the transaction.",
+            )
+
+        lines: list[tuple[int, Decimal]] = []
+        for item in raw_lines:
+            try:
+                lines.append((int(item["category_id"]), Decimal(str(item["amount"]))))
+            except Exception:
+                return (
+                    back,
+                    "Stored classification data is corrupt — re-classify the transaction.",
+                )
+
+        if not lines:
+            return back, "No classification lines found — re-classify the transaction."
+
+        amount = Decimal(str(txn["amount"]))
+        factory = ServiceFactory(self._conn)
+        description = memo
+
+        with transaction(self._conn):
+            if classify_type == "OWNER_PAYMENT":
+                first_cat_id = int(lines[0][0])
+                first_cat_row = self._conn.execute(
+                    "SELECT code FROM categories WHERE id = ?", (first_cat_id,)
+                ).fetchone()
+                first_code = (first_cat_row["code"] if first_cat_row else "").upper()
+
                 if not lot_id:
-                    return back, "Lot is required when the category is an owner charge."
+                    return back, "Classification is missing lot_id — re-classify."
                 owner = self._conn.execute(
                     """SELECT owner_id FROM lot_ownership
                        WHERE lot_id = ? AND end_date IS NULL
@@ -471,7 +596,7 @@ class BankTransactionsPages:
                     (
                         txn["transaction_date"],
                         int(txn["bank_account_id"]),
-                        str(amount),
+                        str(abs(amount)),
                         f"ACH dues — {description}" if description else "ACH dues",
                     ),
                 )
@@ -487,7 +612,7 @@ class BankTransactionsPages:
                     for r in self._conn.execute(
                         """SELECT a.id FROM assessments a
                            WHERE a.lot_id = ?
-                             AND a.charge_type IN ({}) AND a.status NOT IN ('PAID', 'VOID', 'WRITTEN_OFF')
+                             AND a.charge_type IN ({}) AND a.status NOT IN ('PAID','VOID','WRITTEN_OFF')
                            ORDER BY a.due_date ASC, a.id ASC""".format(
                             ",".join("?" * len(charge_filter))
                         ),
@@ -497,8 +622,8 @@ class BankTransactionsPages:
                 payment = factory.payment_service().post_payment(
                     entry_date=txn["transaction_date"],
                     owner_id=int(owner["owner_id"]),
-                    amount=str(amount),
-                    description=description or "Owner payment (manual classify)",
+                    amount=str(abs(amount)),
+                    description=description or "Owner payment (classify)",
                     bank_account_id=int(txn["bank_account_id"]),
                     payment_method="ACH",
                     receipt_number=self._bsp._next_receipt_number(
@@ -512,9 +637,8 @@ class BankTransactionsPages:
                 )
                 primary = ("PAYMENT", int(payment.payment_id))
                 extra: list[tuple[str, int]] = []
-            elif amount > 0:
-                # Non-owner income — N lines, all on one deposit_batch so the
-                # Deposits report sees the slip total.
+
+            elif classify_type == "INCOME":
                 batch_cur = self._conn.execute(
                     """INSERT INTO deposit_batches
                        (deposit_date, bank_account_id, total_amount, notes)
@@ -522,7 +646,7 @@ class BankTransactionsPages:
                     (
                         txn["transaction_date"],
                         int(txn["bank_account_id"]),
-                        str(amount),
+                        str(abs(amount)),
                         description or None,
                     ),
                 )
@@ -540,9 +664,10 @@ class BankTransactionsPages:
                     posted.append(("INCOME_BATCH", int(result.income_batch_id)))
                 primary = posted[0]
                 extra = posted[1:]
-            else:
+
+            else:  # EXPENSE
                 if not vendor_id:
-                    return back, "Vendor is required for expense transactions."
+                    return back, "Classification is missing vendor_id — re-classify."
                 posted = []
                 for idx, (cat_id, line_amt) in enumerate(lines, start=1):
                     invoice_number = (
@@ -572,9 +697,7 @@ class BankTransactionsPages:
                 primary = posted[0]
                 extra = posted[1:]
 
-            # Mark the bank line validated; primary record powers existing
-            # views, extras live in bank_transaction_links so the full split
-            # is auditable.
+            # Mark the bank line validated.
             self._conn.execute(
                 """
                 UPDATE bank_transactions
@@ -594,8 +717,9 @@ class BankTransactionsPages:
                     """,
                     (bank_txn_id, st, sid),
                 )
+
         n = len(lines)
-        return "/bank-transactions/pending", (
+        return back, (
             f"Posted {primary[0].lower()} #{primary[1]}"
             + (f" + {n - 1} additional split line(s)" if n > 1 else "")
             + "."
@@ -950,8 +1074,8 @@ class BankTransactionsPages:
         self, *, org: dict[str, Any], theme: str, bank_account_id: int | None = None
     ) -> PageResponse:
         """List every UNVALIDATED row with a proposed match — RULE / SOURCE /
-        BATCH — and show what *would* happen if Accept were clicked on each.
-        Read-only; no writes."""
+        BATCH / CLASSIFIED — and show what *would* happen if Accept were
+        clicked on each.  Read-only; no writes."""
         where = "bt.validation_status = 'UNVALIDATED'"
         params: list[object] = []
         if bank_account_id:
@@ -962,12 +1086,14 @@ class BankTransactionsPages:
             f"""
             SELECT bt.id, bt.transaction_date, bt.amount, bt.description,
                    bt.match_type, bt.matched_source_type, bt.matched_source_id,
+                   bt.classify_type, bt.classify_vendor_id, bt.classify_lot_id,
+                   bt.classify_lines_json,
                    ba.account_name, ba.account_last4,
                    r.rule_name, r.action_type,
                    v.vendor_name, c.name AS category_name,
                    l.lot_number AS rule_lot_number,
                    db.deposit_date AS batch_date, db.total_amount AS batch_amount,
-                   db.notes AS batch_notes
+                   db.notes AS batch_notes, db.posting_status AS batch_posting_status
             FROM bank_transactions bt
             JOIN bank_accounts ba ON ba.id = bt.bank_account_id
             LEFT JOIN bank_transaction_rules r ON r.id = bt.rule_id
@@ -986,6 +1112,7 @@ class BankTransactionsPages:
         rule_rows: list[dict[str, Any]] = []
         source_rows: list[dict[str, Any]] = []
         batch_rows: list[dict[str, Any]] = []
+        classified_rows: list[dict[str, Any]] = []
         unmatched_rows: list[dict[str, Any]] = []
         for r in rows:
             d = dict(r)
@@ -995,6 +1122,8 @@ class BankTransactionsPages:
                 source_rows.append(d)
             elif r["match_type"] == "BATCH":
                 batch_rows.append(d)
+            elif r["match_type"] == "CLASSIFIED":
+                classified_rows.append(d)
             else:
                 unmatched_rows.append(d)
 
@@ -1017,14 +1146,26 @@ class BankTransactionsPages:
             "rule_rows": rule_rows,
             "source_rows": source_rows,
             "batch_rows": batch_rows,
+            "classified_rows": classified_rows,
             "unmatched_rows": unmatched_rows,
             "rule_total": str(_sum(rule_rows)),
             "source_total": str(_sum(source_rows)),
             "batch_total": str(_sum(batch_rows)),
-            "net": str(_sum(rule_rows) + _sum(source_rows) + _sum(batch_rows)),
+            "classified_total": str(_sum(classified_rows)),
+            "net": str(
+                _sum(rule_rows)
+                + _sum(source_rows)
+                + _sum(batch_rows)
+                + _sum(classified_rows)
+            ),
             "accounts": [dict(a) for a in accounts],
             "selected_bank_account_id": bank_account_id,
-            "acceptable_count": len(rule_rows) + len(source_rows) + len(batch_rows),
+            "acceptable_count": (
+                len(rule_rows)
+                + len(source_rows)
+                + len(batch_rows)
+                + len(classified_rows)
+            ),
         }
         return PageResponse(200, render_template("bank_transactions_dry_run.html", ctx))
 
@@ -1043,7 +1184,7 @@ class BankTransactionsPages:
                 for r in self._conn.execute(
                     "SELECT id FROM bank_transactions "
                     "WHERE validation_status = 'UNVALIDATED' "
-                    "  AND match_type IN ('RULE','SOURCE','BATCH') "
+                    "  AND match_type IN ('RULE','SOURCE','BATCH','CLASSIFIED') "
                     "  AND bank_account_id = ? "
                     "ORDER BY transaction_date, id",
                     (bank_account_id,),
@@ -1055,7 +1196,7 @@ class BankTransactionsPages:
                 for r in self._conn.execute(
                     "SELECT id FROM bank_transactions "
                     "WHERE validation_status = 'UNVALIDATED' "
-                    "  AND match_type IN ('RULE','SOURCE','BATCH') "
+                    "  AND match_type IN ('RULE','SOURCE','BATCH','CLASSIFIED') "
                     "ORDER BY transaction_date, id"
                 ).fetchall()
             ]
