@@ -87,6 +87,36 @@ def make_vendors_blueprint(ctx: RouteContext) -> Blueprint:
         )
         return Response(html, status=200, mimetype="text/html; charset=utf-8")
 
+    @bp.get("/publish-reports/stream")
+    def publish_reports_stream() -> ResponseReturnValue:
+        from flask import stream_with_context
+
+        pages = _open_publish_pages()
+        try:
+            fiscal_year = int(request.args.get("year", "0"))
+        except ValueError:
+            fiscal_year = 0
+        if not fiscal_year:
+            return Response(
+                'data: {"type":"error","message":"Invalid year"}\n\n',
+                status=400,
+                mimetype="text/event-stream",
+            )
+        fund_code = (request.args.get("fund_code") or "OPERATING").strip().upper()
+        report = (request.args.get("report") or "all").strip()
+
+        return Response(
+            stream_with_context(
+                pages.stream_publish(
+                    fiscal_year=fiscal_year,
+                    fund_code=fund_code,
+                    report=report,
+                )
+            ),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     # ── Transaction pages: Vendor Bills ──────────────────────────────
     # Same per-request connection pattern as the master-data pages, with
     # a form-handling POST added. Redirect-on-success uses a query param

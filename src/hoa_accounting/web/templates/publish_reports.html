@@ -5,28 +5,19 @@
 
 {% block content %}
 
-  {# ── Error ───────────────────────────────────────────────────────────── #}
-  {% if error %}
-    <div class="alert alert--error" style="margin-bottom:1rem;">
-      <div class="alert__content">{{ error }}</div>
-      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
-    </div>
-  {% endif %}
-
   {# ── Parameters panel ────────────────────────────────────────────────── #}
   <div class="panel" style="margin-bottom:1.5rem;">
     <div class="panel__header">
       <div class="panel__title">Report Parameters</div>
       <div class="panel__description">
-        Select the fiscal year and fund. Use the buttons below to publish
-        individual reports or all five at once. Files are uploaded to the
-        <strong>mmpoa-owner-reports</strong> S3 bucket and appear automatically
-        on the mmpoaii.org Budget &amp; Financials and Contact List pages.
-        Re-publishing overwrites the previous version.
+        Select the fiscal year and fund, then publish individual reports or
+        all five at once. PDFs upload to <strong>mmpoa-owner-reports</strong>
+        on S3 and appear automatically on mmpoaii.org. Re-publishing overwrites
+        the previous version.
       </div>
     </div>
 
-    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.5rem;">
       <div class="field">
         <label class="field__label" for="param-year">Fiscal Year</label>
         <input class="field__input" type="number" id="param-year"
@@ -45,43 +36,34 @@
       </div>
     </div>
 
-    {# Hidden form used by all buttons — JS fills in the report value #}
-    <form id="publish-form" method="POST" action="/publish-reports/run">
-      <input type="hidden" id="form-year"   name="year">
-      <input type="hidden" id="form-fund"   name="fund_code">
-      <input type="hidden" id="form-report" name="report">
-    </form>
-
     {# ── Financial reports ─────────────────────────────────────────────── #}
     <div style="margin-bottom:1rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--text-muted);
-                  text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem;">
+      <div class="field__label" style="margin-bottom:.5rem;">
         Financial Reports → budget/ on S3
       </div>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
-        <button class="btn btn--secondary" onclick="submit('expense_vs_budget')">
+        <button class="btn btn--secondary" onclick="startPublish('expense_vs_budget')">
           Expense vs Budget
         </button>
-        <button class="btn btn--secondary" onclick="submit('expense_detail')">
+        <button class="btn btn--secondary" onclick="startPublish('expense_detail')">
           Expense Detail
         </button>
-        <button class="btn btn--secondary" onclick="submit('expense_summary')">
+        <button class="btn btn--secondary" onclick="startPublish('expense_summary')">
           Expense Summary
         </button>
-        <button class="btn btn--secondary" onclick="submit('budget_summary')">
+        <button class="btn btn--secondary" onclick="startPublish('budget_summary')">
           Budget Summary
         </button>
       </div>
     </div>
 
     {# ── Community reports ─────────────────────────────────────────────── #}
-    <div style="margin-bottom:1.25rem;">
-      <div style="font-size:12px;font-weight:600;color:var(--text-muted);
-                  text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem;">
+    <div style="margin-bottom:1.5rem;">
+      <div class="field__label" style="margin-bottom:.5rem;">
         Community Reports → community/ on S3
       </div>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
-        <button class="btn btn--secondary" onclick="submit('contact_list')">
+        <button class="btn btn--secondary" onclick="startPublish('contact_list')">
           Homeowner Contact List
         </button>
       </div>
@@ -89,85 +71,165 @@
 
     {# ── Publish all ───────────────────────────────────────────────────── #}
     <div style="border-top:1px solid var(--border);padding-top:1rem;">
-      <button class="btn btn--primary" onclick="submit('all')">
+      <button class="btn btn--primary" id="btn-publish-all"
+              onclick="startPublish('all')">
         ⬆ Publish All Five Reports
       </button>
-      <p style="margin-top:.5rem;font-size:12px;color:var(--text-muted);">
-        Generates all reports for the selected year and fund, then uploads
-        each PDF to S3. Takes a few seconds.
-      </p>
     </div>
   </div>
 
-  {# ── Results ─────────────────────────────────────────────────────────── #}
-  {% if results is not none %}
-    {% set ok_count   = results | selectattr('ok') | list | length %}
-    {% set fail_count = results | length - ok_count %}
-
-    <div style="margin-bottom:.75rem;display:flex;gap:1rem;align-items:center;">
-      <span style="font-weight:600;">{{ results | length }} report(s) processed</span>
-      {% if ok_count %}
-        <span class="pill" style="background:#d1fae5;color:#065f46;">
-          {{ ok_count }} uploaded
-        </span>
-      {% endif %}
-      {% if fail_count %}
-        <span class="pill" style="background:#fef2f2;color:#991b1b;">
-          {{ fail_count }} failed
-        </span>
-      {% endif %}
+  {# ── Live progress ────────────────────────────────────────────────────── #}
+  <div id="progress-section" style="display:none;margin-bottom:1.5rem;">
+    <div class="panel">
+      <div class="panel__header">
+        <div class="panel__title" id="progress-title">Publishing…</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:2rem;"></th>
+              <th>Report</th>
+              <th>S3 Key</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="progress-body"></tbody>
+        </table>
+      </div>
+      <div id="progress-summary" style="display:none;margin-top:.75rem;
+           display:none;gap:.75rem;align-items:center;flex-wrap:wrap;">
+      </div>
     </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Report</th>
-            <th>S3 Key</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in results %}
-          <tr>
-            <td>{{ r.report_name }}</td>
-            <td style="font-size:11px;color:var(--text-muted);word-break:break-all;">
-              {{ r.s3_key }}
-            </td>
-            <td>
-              {% if r.ok %}
-                <span class="pill" style="background:#d1fae5;color:#065f46;">Uploaded</span>
-              {% else %}
-                <span class="pill" style="background:#fef2f2;color:#991b1b;">Failed</span>
-                {% if r.error %}
-                  <div style="font-size:10px;color:#991b1b;margin-top:2px;">
-                    {{ r.error }}
-                  </div>
-                {% endif %}
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endif %}
+  </div>
 
 {% endblock %}
 
 {% block scripts %}
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pub-spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary, #1e3a5f);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    vertical-align: middle;
+  }
+</style>
 <script>
-function submit(reportKey) {
-  document.getElementById('form-year').value =
-    document.getElementById('param-year').value;
-  document.getElementById('form-fund').value =
-    document.getElementById('param-fund').value;
-  document.getElementById('form-report').value = reportKey;
+// Track in-flight buttons so we can re-enable them on completion
+let activeButtons = [];
 
-  const btn = event && event.currentTarget ? event.currentTarget : null;
-  if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+function startPublish(reportKey) {
+  const year = document.getElementById('param-year').value;
+  const fund = document.getElementById('param-fund').value;
 
-  document.getElementById('publish-form').submit();
+  if (!year || isNaN(parseInt(year))) {
+    alert('Please enter a valid fiscal year.');
+    return;
+  }
+
+  // Disable all buttons while running
+  activeButtons = Array.from(document.querySelectorAll('button.btn'));
+  activeButtons.forEach(b => { b.disabled = true; });
+
+  // Show and reset progress section
+  const section  = document.getElementById('progress-section');
+  const title    = document.getElementById('progress-title');
+  const tbody    = document.getElementById('progress-body');
+  const summary  = document.getElementById('progress-summary');
+  section.style.display = 'block';
+  title.textContent = 'Publishing reports to S3…';
+  tbody.innerHTML = '';
+  summary.style.display = 'none';
+  summary.innerHTML = '';
+
+  // Scroll progress into view
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const url = `/publish-reports/stream?year=${encodeURIComponent(year)}`
+            + `&fund_code=${encodeURIComponent(fund)}`
+            + `&report=${encodeURIComponent(reportKey)}`;
+
+  const es = new EventSource(url);
+
+  es.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'start') {
+      // Add a "running" row
+      const tr = document.createElement('tr');
+      tr.id = 'row-' + data.report.replace(/\s+/g, '-');
+      tr.innerHTML =
+        `<td><span class="pub-spinner"></span></td>` +
+        `<td>${escHtml(data.report)}</td>` +
+        `<td style="color:var(--text-muted);font-size:11px;">Generating PDF…</td>` +
+        `<td><span class="pill" style="background:#fef9c3;color:#92400e;">Running</span></td>`;
+      tbody.appendChild(tr);
+
+    } else if (data.type === 'done') {
+      const rowId = 'row-' + data.report.replace(/\s+/g, '-');
+      const tr = document.getElementById(rowId);
+      if (tr) {
+        if (data.ok) {
+          tr.innerHTML =
+            `<td style="color:#16a34a;font-size:16px;">✓</td>` +
+            `<td>${escHtml(data.report)}</td>` +
+            `<td style="font-size:11px;color:var(--text-muted);word-break:break-all;">${escHtml(data.s3_key)}</td>` +
+            `<td><span class="pill" style="background:#d1fae5;color:#065f46;">Uploaded</span></td>`;
+        } else {
+          tr.innerHTML =
+            `<td style="color:#dc2626;font-size:16px;">✗</td>` +
+            `<td>${escHtml(data.report)}</td>` +
+            `<td style="font-size:11px;color:#dc2626;">${escHtml(data.error || 'Failed')}</td>` +
+            `<td><span class="pill" style="background:#fef2f2;color:#991b1b;">Failed</span></td>`;
+        }
+      }
+
+    } else if (data.type === 'complete') {
+      es.close();
+      title.textContent = 'Publish complete';
+      summary.style.display = 'flex';
+      let html = `<span style="font-weight:600;">${data.ok + data.failed} report(s) processed</span>`;
+      if (data.ok)
+        html += ` <span class="pill" style="background:#d1fae5;color:#065f46;">${data.ok} uploaded</span>`;
+      if (data.failed)
+        html += ` <span class="pill" style="background:#fef2f2;color:#991b1b;">${data.failed} failed</span>`;
+      summary.innerHTML = html;
+      activeButtons.forEach(b => { b.disabled = false; });
+
+    } else if (data.type === 'error') {
+      es.close();
+      title.textContent = 'Error';
+      summary.style.display = 'flex';
+      summary.innerHTML =
+        `<span class="pill" style="background:#fef2f2;color:#991b1b;">
+           Error: ${escHtml(data.message)}
+         </span>`;
+      activeButtons.forEach(b => { b.disabled = false; });
+    }
+  };
+
+  es.onerror = function() {
+    es.close();
+    title.textContent = 'Connection lost';
+    summary.style.display = 'flex';
+    summary.innerHTML =
+      '<span class="pill" style="background:#fef2f2;color:#991b1b;">' +
+      'Lost connection to server — check if any reports completed above.' +
+      '</span>';
+    activeButtons.forEach(b => { b.disabled = false; });
+  };
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 </script>
 {% endblock %}
