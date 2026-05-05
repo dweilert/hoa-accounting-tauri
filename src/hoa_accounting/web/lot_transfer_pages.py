@@ -8,6 +8,7 @@ Routes handled:
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 from datetime import date
 from http import HTTPStatus
 from typing import Any
@@ -22,6 +23,7 @@ from hoa_accounting.services.lot_transfer_service import LotTransferService
 from hoa_accounting.validators.common import q2
 from hoa_accounting.web.lot_pages import LotPageResponse
 from hoa_accounting.web.template_engine import render_template
+
 
 _BASE_CTX = {
     "active_nav": "master-data",
@@ -107,7 +109,7 @@ class LotTransferPages:
 
         ctx = {
             **_BASE_CTX,
-            "heading": "Transfer Lot Ownership",
+            "heading": f"Transfer Lot Ownership",
             "org": org or {},
             "theme": theme,
             "lot_id": lot_id,

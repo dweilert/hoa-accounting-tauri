@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
 
 from .base import BaseRepository
 
@@ -206,7 +205,7 @@ class PaymentsRepository(BaseRepository):
             (payment_id, assessment_id, applied_amount),
         )
 
-    def get_unapplied_credits_for_owner(self, owner_id: int) -> list[dict[str, Any]]:
+    def get_unapplied_credits_for_owner(self, owner_id: int) -> list[dict]:
         """Return payments for this owner that have an unapplied balance.
 
         Unapplied balance = payment.amount − SUM(applied_amount across all

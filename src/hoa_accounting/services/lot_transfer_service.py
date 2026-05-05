@@ -136,9 +136,7 @@ class LotTransferService:
                     "SELECT display_name FROM owners WHERE id = ?",
                     (owner_id,),
                 ).fetchone()
-                new_owner_names.append(
-                    str(row["display_name"]) if row else str(owner_id)
-                )
+                new_owner_names.append(str(row["display_name"]) if row else str(owner_id))
 
             # 6c. Audit log
             self.audit_repo.write(

@@ -9,7 +9,6 @@ lot appears regardless of GL posting status.
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
 
 from hoa_accounting.exceptions import NotFoundError
 from hoa_accounting.reporting.dto import (
@@ -27,9 +26,7 @@ class LotStatementReportService:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
 
-    def generate(
-        self, *, lot_id: int, year: int, owner_id: int | None = None
-    ) -> LotStatementReport:
+    def generate(self, *, lot_id: int, year: int, owner_id: int | None = None) -> LotStatementReport:
         from_date = f"{year}-01-01"
         to_date = f"{year}-12-31"
 
@@ -266,7 +263,7 @@ class LotStatementReportService:
         _assess_owner_filter = "AND a.owner_id = ?" if owner_id is not None else ""
 
         # Build param tuples for each branch
-        _assess_params: tuple[Any, ...] = (
+        _assess_params: tuple = (
             (lot_id, owner_id, tx_from, tx_to)
             if owner_id is not None
             else (lot_id, tx_from, tx_to)
@@ -285,7 +282,7 @@ class LotStatementReportService:
                 "       )"
                 "    )"
             )
-            _pay_params: tuple[Any, ...] = (owner_id, lot_id, tx_from, tx_from, tx_to)
+            _pay_params: tuple = (owner_id, lot_id, tx_from, tx_from, tx_to)
         else:
             # All payments by any owner ever linked to this lot
             _pay_owner_filter = (
@@ -295,7 +292,7 @@ class LotStatementReportService:
                 ")"
             )
             _pay_params = (lot_id, tx_from, tx_to)
-        _adj_params: tuple[Any, ...] = (lot_id, tx_from, tx_to)
+        _adj_params: tuple = (lot_id, tx_from, tx_to)
 
         raw_rows = self.conn.execute(
             f"""

@@ -10,7 +10,6 @@ from hoa_accounting.repositories.bank_accounts_repo import BankAccountsRepositor
 from hoa_accounting.repositories.deposit_batches_repo import DepositBatchesRepository
 from hoa_accounting.repositories.entities_repo import EntitiesRepository
 from hoa_accounting.repositories.income_batches_repo import IncomeBatchesRepository
-from hoa_accounting.repositories.lot_ownership_repo import LotOwnershipRepository
 from hoa_accounting.repositories.lot_renters_repo import LotRentersRepository
 from hoa_accounting.repositories.lots_repo import LotsRepository
 from hoa_accounting.repositories.payments_repo import PaymentsRepository
@@ -22,7 +21,6 @@ from hoa_accounting.services.assessment_billing_service import AssessmentBilling
 from hoa_accounting.services.assessment_service import AssessmentService
 from hoa_accounting.services.credit_service import CreditService
 from hoa_accounting.services.deposit_batch_service import DepositBatchService
-from hoa_accounting.services.lot_transfer_service import LotTransferService
 from hoa_accounting.services.non_dues_income_service import NonDuesIncomeService
 from hoa_accounting.services.payment_service import PaymentService
 from hoa_accounting.services.reserve_transfer_service import ReserveTransferService
@@ -125,7 +123,10 @@ class ServiceFactory:
             reserve_transfers_repo=self.reserve_transfers_repo,
         )
 
-    def lot_transfer_service(self) -> LotTransferService:
+    def lot_transfer_service(self) -> "LotTransferService":
+        from hoa_accounting.services.lot_transfer_service import LotTransferService
+        from hoa_accounting.repositories.lot_ownership_repo import LotOwnershipRepository
+
         return LotTransferService(
             self.conn,
             lots_repo=self.lots_repo,
