@@ -12,14 +12,14 @@
     /* Per-page column widths (the rest is in app.css under .list-sticky-header
        and table[data-sortable]). */
     .cat-page table.cat-table { table-layout: fixed; width: 100%; }
-    .cat-page col.col-code  { width: 8rem; }
-    .cat-page col.col-name  { width: 12rem; }
-    .cat-page col.col-group { width: 8rem; }
-    .cat-page col.col-fund  { width: 7rem; }
+    .cat-page col.col-code  { width: 18rem; }
+    .cat-page col.col-group { width: 9rem; }
     .cat-page col.col-desc  { width: auto; }
     .cat-page col.col-stat  { width: 6rem; }
     .cat-page col.col-num   { width: 6rem; }
     .cat-page col.col-acts  { width: 13rem; }
+    .cat-page .cat-code { font-family: var(--font-mono, monospace); font-weight: 600; }
+    .cat-page .cat-name { font-size: .85rem; color: var(--text-muted, #666); margin-top: .15rem; white-space: normal; }
     .cat-page table.cat-table th, .cat-page table.cat-table td {
       vertical-align: top;
       overflow-wrap: break-word;
@@ -60,9 +60,7 @@
     <table class="cat-table">
       <colgroup>
         <col class="col-code">
-        <col class="col-name">
         <col class="col-group">
-        <col class="col-fund">
         <col class="col-desc">
         <col class="col-stat">
         <col class="col-num">
@@ -71,10 +69,8 @@
       </colgroup>
       <thead>
         <tr>
-          <th>Code</th>
-          <th>Name</th>
-          <th>Group</th>
-          <th>Fund</th>
+          <th>Code / Name</th>
+          <th>Group / Fund</th>
           <th>Description</th>
           <th>Status</th>
           <th title="Posted ledger rows: bills, income batches, assessments, reserve transfers.">Trx</th>
@@ -107,7 +103,6 @@
           <table class="cat-table">
             <colgroup>
               <col class="col-code">
-              <col class="col-name">
               <col class="col-group">
               <col class="col-fund">
               <col class="col-desc">
@@ -119,10 +114,14 @@
             <tbody>
               {% for c in type_rows %}
                 <tr{% if not c.active_flag %} style="opacity:.5;"{% endif %}>
-                  <td class="mono">{{ c.code }}</td>
-                  <td>{{ c.name }}</td>
-                  <td>{{ c.group_name or '' }}</td>
-                  <td><span class="pill pill--muted">{{ c.fund_code }}</span></td>
+                  <td>
+                    <div class="cat-code">{{ c.code }}</div>
+                    <div class="cat-name">{{ c.name }}</div>
+                  </td>
+                  <td>
+                    {% if c.group_name %}<div>{{ c.group_name }}</div>{% endif %}
+                    <div><span class="pill pill--muted" style="font-size:.75rem;">{{ c.fund_code }}</span></div>
+                  </td>
                   <td style="max-width:24rem;white-space:normal;">{{ c.description or '' }}</td>
                   <td>
                     <span class="pill {% if c.active_flag %}pill--ok{% else %}pill--muted{% endif %}">
