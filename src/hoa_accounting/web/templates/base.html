@@ -753,9 +753,10 @@
     /* Dollar input UX: select-all on focus so typing replaces the value;
        auto-format to 2 decimal places on blur. Applies to .dollar-input. */
     (function () {
-      function formatDollar(val) {
+      function formatDollar(val, allowNegative) {
         var n = parseFloat(val.replace(/[^0-9.-]/g, ""));
-        if (isNaN(n) || n < 0) n = 0;
+        if (isNaN(n)) n = 0;
+        if (!allowNegative && n < 0) n = 0;
         return n.toFixed(2);
       }
       document.addEventListener("focusin", function (e) {
@@ -765,7 +766,8 @@
       });
       document.addEventListener("focusout", function (e) {
         if (e.target && e.target.classList && e.target.classList.contains("dollar-input")) {
-          e.target.value = formatDollar(e.target.value);
+          var signed = e.target.classList.contains("dollar-input--signed");
+          e.target.value = formatDollar(e.target.value, signed);
         }
       });
     })();

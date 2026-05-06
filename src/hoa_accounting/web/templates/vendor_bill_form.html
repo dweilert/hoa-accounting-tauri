@@ -88,11 +88,15 @@
 
       <label class="field">
         <span class="field__label">Amount *</span>
-        <input type="number" name="amount"
-               value="{{ values.amount }}"
-               step="0.01"
-               placeholder="0.00"
-               required />
+        <div class="field__input-row">
+          <span class="field__currency-prefix">$</span>
+          <input type="text" name="amount"
+                 class="dollar-input dollar-input--signed"
+                 value="{{ values.amount }}"
+                 inputmode="decimal"
+                 placeholder="0.00"
+                 required />
+        </div>
         <span class="field__hint">Use a negative amount (e.g. -1285.00) for a vendor credit / refund.</span>
       </label>
 
