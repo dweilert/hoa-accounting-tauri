@@ -108,7 +108,7 @@ class RecordDepositPages:
                         FROM lot_ownership lo2
                         JOIN owners o2 ON o2.id = lo2.owner_id
                         WHERE lo2.lot_id = l.id AND lo2.end_date IS NULL
-                        ORDER BY o2.display_name COLLATE NOCASE
+                        ORDER BY o2.last_name COLLATE NOCASE, o2.first_name COLLATE NOCASE
                         LIMIT 1
                    )
             LEFT JOIN owners o ON o.id = lo.owner_id

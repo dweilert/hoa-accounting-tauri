@@ -299,7 +299,9 @@ class ARPages:
                        p.amount,
                        p.payment_method,
                        COALESCE(p.receipt_number, '') AS receipt_number,
-                       o.display_name              AS owner_name,
+                       CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                            THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                            ELSE o.display_name END AS owner_name,
                        COALESCE(l.lot_number, '—') AS lot_number,
                        COALESCE(l.id, 0)           AS lot_id
                 FROM payments p

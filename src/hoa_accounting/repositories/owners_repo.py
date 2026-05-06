@@ -28,7 +28,7 @@ class OwnersRepository(BaseRepository):
                        ), '') AS lot_numbers
                 FROM owners o
                 WHERE o.active_flag = 1
-                ORDER BY o.display_name COLLATE NOCASE
+                ORDER BY o.last_name COLLATE NOCASE, o.first_name COLLATE NOCASE
                 """).fetchall())
 
     def get_owner(self, owner_id: int) -> sqlite3.Row | None:
@@ -155,5 +155,5 @@ class OwnersRepository(BaseRepository):
                        city, state, postal_code, active_flag
                 FROM owners
                 {where_sql}
-                ORDER BY display_name COLLATE NOCASE
+                ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE
                 """).fetchall())

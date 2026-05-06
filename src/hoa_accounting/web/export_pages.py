@@ -239,7 +239,10 @@ QUERIES: dict[str, str] = {
             l.city, l.state, l.postal_code,
             l.legal_description,
             CASE l.active_flag WHEN 1 THEN 'Yes' ELSE 'No' END AS active,
-            GROUP_CONCAT(o.display_name, '; ') AS current_owner
+            GROUP_CONCAT(
+                CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                     THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                     ELSE o.display_name END, '; ') AS current_owner
         FROM lots l
         LEFT JOIN lot_ownership lo
                ON lo.lot_id = l.id AND lo.end_date IS NULL
@@ -250,7 +253,9 @@ QUERIES: dict[str, str] = {
     "lot_ownership": """
         SELECT
             l.lot_number,
-            o.display_name  AS owner_name,
+            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                 ELSE o.display_name END AS owner_name,
             lo.start_date,
             lo.end_date,
             CASE lo.is_primary_contact WHEN 1 THEN 'Yes' ELSE 'No' END AS primary_contact
@@ -344,7 +349,9 @@ QUERIES: dict[str, str] = {
     "assessments": """
         SELECT
             l.lot_number,
-            o.display_name        AS owner_name,
+            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                 ELSE o.display_name END AS owner_name,
             a.charge_type,
             a.assessment_date,
             a.due_date,
@@ -362,7 +369,9 @@ QUERIES: dict[str, str] = {
         SELECT
             p.receipt_number,
             p.payment_date,
-            o.display_name        AS owner_name,
+            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                 ELSE o.display_name END AS owner_name,
             p.amount,
             p.payment_method,
             p.reference_number,
@@ -374,13 +383,15 @@ QUERIES: dict[str, str] = {
         JOIN owners             o  ON o.id  = p.owner_id
         LEFT JOIN bank_accounts ba ON ba.id = p.bank_account_id
         LEFT JOIN categories    c  ON c.id  = p.category_id
-        ORDER BY p.payment_date, o.display_name
+        ORDER BY p.payment_date, o.last_name COLLATE NOCASE, o.first_name COLLATE NOCASE
     """,
     "payment_applications": """
         SELECT
             p.payment_date,
             p.receipt_number,
-            o.display_name        AS owner_name,
+            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                 ELSE o.display_name END AS owner_name,
             p.amount              AS payment_amount,
             l.lot_number,
             a.charge_type,
@@ -393,12 +404,14 @@ QUERIES: dict[str, str] = {
         JOIN assessments a  ON a.id  = pa.assessment_id
         JOIN owners      o  ON o.id  = p.owner_id
         JOIN lots        l  ON l.id  = a.lot_id
-        ORDER BY p.payment_date, o.display_name, a.charge_type
+        ORDER BY p.payment_date, o.last_name COLLATE NOCASE, o.first_name COLLATE NOCASE, a.charge_type
     """,
     "owner_adjustments": """
         SELECT
             oa.adjustment_date,
-            o.display_name AS owner_name,
+            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                 ELSE o.display_name END AS owner_name,
             l.lot_number,
             oa.adjustment_type,
             oa.amount,
@@ -408,7 +421,7 @@ QUERIES: dict[str, str] = {
         JOIN owners o       ON o.id = oa.owner_id
         JOIN lots   l       ON l.id = oa.lot_id
         LEFT JOIN categories c ON c.id = oa.category_id
-        ORDER BY oa.adjustment_date, o.display_name
+        ORDER BY oa.adjustment_date, o.last_name COLLATE NOCASE, o.first_name COLLATE NOCASE
     """,
     "dues_billing_history": """
         SELECT

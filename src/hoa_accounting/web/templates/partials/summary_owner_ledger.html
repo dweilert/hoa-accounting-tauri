@@ -50,10 +50,6 @@
               {{ o.display_name }}
             {%- endif -%}
           </strong>
-          {% if (o.first_name or o.last_name) and o.display_name
-                and o.display_name != (o.first_name ~ ' ' ~ o.last_name)|trim %}
-            <span style="color:var(--text-muted);"> ({{ o.display_name }})</span>
-          {% endif %}
           {% if o.email %}
             <br><span style="color:var(--text-muted);">Email:</span> {{ o.email }}
           {% endif %}

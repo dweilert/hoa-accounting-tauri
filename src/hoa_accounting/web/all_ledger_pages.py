@@ -85,7 +85,9 @@ def _fetch_transactions(
             SELECT
                 a.assessment_date            AS txn_date,
                 'Assessment'                 AS txn_type,
-                COALESCE(o.display_name, '') AS party,
+                CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                     THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                     ELSE COALESCE(o.display_name, '') END AS party,
                 COALESCE(c.name, a.description) AS category_name,
                 a.amount                     AS amount,
                 a.description                AS memo,
@@ -101,7 +103,9 @@ def _fetch_transactions(
             SELECT
                 p.payment_date               AS txn_date,
                 'Payment'                    AS txn_type,
-                COALESCE(o.display_name, '') AS party,
+                CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                     THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                     ELSE COALESCE(o.display_name, '') END AS party,
                 ''                           AS category_name,
                 p.amount                     AS amount,
                 COALESCE(p.notes, p.reference_number, '') AS memo,

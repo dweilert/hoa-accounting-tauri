@@ -20,7 +20,10 @@ class LotOwnershipRepository(BaseRepository):
             self.conn.execute(
                 """
                 SELECT lo.id, lo.lot_id, lo.owner_id, lo.start_date, lo.end_date,
-                       o.display_name AS owner_name, o.email, o.phone
+                       CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                            THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                            ELSE o.display_name END AS owner_name,
+                       o.email, o.phone
                 FROM lot_ownership lo
                 JOIN owners o ON o.id = lo.owner_id
                 WHERE lo.lot_id = ?
@@ -37,7 +40,10 @@ class LotOwnershipRepository(BaseRepository):
             self.conn.execute(
                 """
                 SELECT lo.id, lo.lot_id, lo.owner_id, lo.start_date, lo.end_date,
-                       o.display_name AS owner_name, o.email, o.phone
+                       CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                            THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                            ELSE o.display_name END AS owner_name,
+                       o.email, o.phone
                 FROM lot_ownership lo
                 JOIN owners o ON o.id = lo.owner_id
                 WHERE lo.lot_id = ?
@@ -54,7 +60,9 @@ class LotOwnershipRepository(BaseRepository):
         return self.conn.execute(  # type: ignore[no-any-return]
             """
             SELECT lo.id, lo.lot_id, lo.owner_id, lo.start_date, lo.end_date,
-                   o.display_name AS owner_name,
+                   CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                        THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                        ELSE o.display_name END AS owner_name,
                    l.lot_number
             FROM lot_ownership lo
             JOIN owners o ON o.id = lo.owner_id

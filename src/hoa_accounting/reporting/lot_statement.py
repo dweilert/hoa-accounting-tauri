@@ -47,7 +47,9 @@ class LotStatementReportService:
             lo_row = self.conn.execute(
                 """
                 SELECT lo.start_date, lo.end_date,
-                       o.display_name AS owner_name
+                       CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                            THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                            ELSE o.display_name END AS owner_name
                 FROM lot_ownership lo
                 JOIN owners o ON o.id = lo.owner_id
                 WHERE lo.lot_id = ? AND lo.owner_id = ?
@@ -90,7 +92,9 @@ class LotStatementReportService:
         owner_rows = self.conn.execute(
             """
             SELECT
-                o.display_name,
+                CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                     THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                     ELSE o.display_name END AS display_name,
                 COALESCE(o.first_name, '')  AS first_name,
                 COALESCE(o.last_name, '')   AS last_name,
                 COALESCE(o.email, '')       AS email,

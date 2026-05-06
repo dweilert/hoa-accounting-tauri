@@ -45,7 +45,9 @@ class LotsRepository(BaseRepository):
                     l.street_address_1,
                     l.active_flag,
                     o.id AS owner_id,
-                    o.display_name AS owner_name,
+                    CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                         THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                         ELSE o.display_name END AS owner_name,
                     COALESCE((
                         SELECT SUM(a.amount)
                         FROM assessments a
@@ -104,7 +106,10 @@ class LotsRepository(BaseRepository):
                     l.postal_code,
                     l.active_flag,
                     COALESCE((
-                        SELECT GROUP_CONCAT(o.display_name, ', ')
+                        SELECT GROUP_CONCAT(
+                            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                                 ELSE o.display_name END, ', ')
                         FROM lot_ownership lo
                         JOIN owners o ON o.id = lo.owner_id
                         WHERE lo.lot_id = l.id
@@ -139,7 +144,9 @@ class LotsRepository(BaseRepository):
                 l.street_address_2,
                 l.active_flag,
                 o.id AS owner_id,
-                o.display_name AS owner_name
+                CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                     THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                     ELSE o.display_name END AS owner_name
             FROM lots l
             LEFT JOIN lot_ownership lo
               ON lo.lot_id = l.id
@@ -286,7 +293,10 @@ class LotsRepository(BaseRepository):
                     l.postal_code,
                     l.active_flag,
                     COALESCE((
-                        SELECT GROUP_CONCAT(o.display_name, ', ')
+                        SELECT GROUP_CONCAT(
+                            CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                                 THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                                 ELSE o.display_name END, ', ')
                         FROM lot_ownership lo
                         JOIN owners o ON o.id = lo.owner_id
                         WHERE lo.lot_id = l.id

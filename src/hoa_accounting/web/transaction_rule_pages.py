@@ -117,7 +117,10 @@ class TransactionRulePages:
         """Return all active lots with their current owner name(s)."""
         rows = self._conn.execute("""
             SELECT l.id, l.lot_number,
-                   COALESCE(GROUP_CONCAT(o.display_name, ', '), '') AS owner_name
+                   COALESCE(GROUP_CONCAT(
+                       CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                            THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                            ELSE o.display_name END, ', '), '') AS owner_name
             FROM lots l
             LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
             LEFT JOIN owners o ON o.id = lo.owner_id
@@ -136,7 +139,9 @@ class TransactionRulePages:
                    r.confidence_mode, r.auto_post_after_n, r.confirmed_matches,
                    c.code AS category_code, c.name AS category_name,
                    l.lot_number,
-                   o.display_name AS lot_owner_name,
+                   CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                        THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                        ELSE o.display_name END AS lot_owner_name,
                    ba.account_name AS bank_account_name,
                    ba.account_last4,
                    v.vendor_name AS vendor_name

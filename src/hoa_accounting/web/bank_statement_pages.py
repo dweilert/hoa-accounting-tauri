@@ -1265,7 +1265,9 @@ class BankStatementPages:
                 """
                 SELECT p.id, p.owner_id, p.receipt_number, p.payment_date,
                        CAST(p.amount AS REAL) AS amount, p.payment_method,
-                       o.display_name AS owner_name,
+                       CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL
+                            THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,''))
+                            ELSE o.display_name END AS owner_name,
                        lo.lot_id, l.lot_number
                 FROM payments p
                 JOIN owners o ON o.id = p.owner_id
@@ -1288,14 +1290,16 @@ class BankStatementPages:
             if lot_ids:
                 placeholders = ",".join("?" * len(lot_ids))
                 for r in self._conn.execute(
-                    f"SELECT lo.lot_id, o.display_name FROM lot_ownership lo "
+                    f"SELECT lo.lot_id, "
+                    f"CASE WHEN o.first_name IS NOT NULL OR o.last_name IS NOT NULL "
+                    f"     THEN TRIM(COALESCE(o.first_name,'') || ' ' || COALESCE(o.last_name,'')) "
+                    f"     ELSE o.display_name END AS owner_name "
+                    f"FROM lot_ownership lo "
                     f"JOIN owners o ON o.id = lo.owner_id "
                     f"WHERE lo.lot_id IN ({placeholders}) AND lo.end_date IS NULL",
                     lot_ids,
                 ):
-                    lot_owner_names.setdefault(r["lot_id"], []).append(
-                        r["display_name"]
-                    )
+                    lot_owner_names.setdefault(r["lot_id"], []).append(r["owner_name"])
 
             # Collect rule-matched transactions: text words + amount for each.
             rule_records: list[dict[str, Any]] = []

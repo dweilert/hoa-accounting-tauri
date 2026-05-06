@@ -113,7 +113,10 @@ def _build_owner_ledger_summary(data: dict[str, object]) -> dict[str, Any]:
     raw_owners = _safe_dict_list(data.get("owners"))
     owners = [
         {
-            "display_name": str(o.get("display_name", "")),
+            "display_name": (
+                f"{o.get('first_name') or ''} {o.get('last_name') or ''}".strip()
+                or str(o.get("display_name", ""))
+            ),
             "first_name": str(o.get("first_name", "")),
             "last_name": str(o.get("last_name", "")),
             "email": str(o.get("email", "")),
