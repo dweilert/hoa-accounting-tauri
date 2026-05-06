@@ -262,14 +262,9 @@
               <a href="/bank-transactions/{{ r.id }}/classify"
                  class="btn btn--sm btn--ghost">Re-classify…</a>
               {% endif %}
-              <form method="post"
-                    action="/bank-transactions/{{ r.id }}/ignore"
-                    style="display:inline;"
-                    data-confirm="Ignore this transaction? It won't be posted to the ledger."
-                    data-confirm-title="Ignore Transaction"
-                    data-confirm-label="Ignore">
-                <button type="submit" class="btn btn--sm btn--ghost">Ignore</button>
-              </form>
+{# Ignore removed: every bank transaction must be classified or linked
+   so it can be reconciled. Un-ignore is still available for any
+   previously-ignored rows shown via "Show ignored". #}
             {% endif %}
           </td>
         </tr>
