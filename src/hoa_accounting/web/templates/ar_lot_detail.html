@@ -91,16 +91,18 @@
             <th class="num">Charges</th>
             <th class="num">Credits</th>
             <th class="num">Balance</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {# Opening balance row #}
           <tr style="background:var(--surface-muted);font-size:.85rem;">
-            <td colspan="7" style="color:var(--text-muted);font-style:italic;">Opening balance — {{ report.from_date }}</td>
+            <td colspan="8" style="color:var(--text-muted);font-style:italic;">Opening balance — {{ report.from_date }}</td>
             <td class="num mono"><strong>${{ "%.2f"|format(report.opening_balance) }}</strong></td>
           </tr>
 
           {% for row in report.rows %}
+          {% set ofx_rows = bank_txns_by_payment.get(row.payment_id) if row.payment_id else [] %}
           <tr>
             <td class="mono" style="white-space:nowrap;">{{ row.entry_date }}</td>
             <td>
@@ -145,12 +147,58 @@
             <td class="num mono" style="{% if row.running_balance > 0 %}color:var(--danger);{% elif row.running_balance < 0 %}color:var(--accent);{% endif %}font-weight:600;">
               ${{ "%.2f"|format(row.running_balance) }}
             </td>
+            <td style="white-space:nowrap;">
+              {% if ofx_rows %}
+                <button type="button"
+                        class="btn btn--xs btn--ghost ofx-toggle"
+                        data-target="ofx-{{ row.payment_id }}"
+                        title="Show {{ ofx_rows|length }} linked bank transaction(s)">
+                  🏦 {{ ofx_rows|length }} OFX
+                </button>
+              {% endif %}
+            </td>
           </tr>
+          {% if ofx_rows %}
+          <tr id="ofx-{{ row.payment_id }}" class="ofx-detail-row" style="display:none;">
+            <td colspan="9" style="padding:0;">
+              <div style="margin:.25rem .5rem .5rem 2rem;border-left:3px solid var(--accent-subtle, #c5e0ca);padding-left:.75rem;">
+                <table style="width:100%;font-size:.82rem;border-collapse:collapse;">
+                  <thead>
+                    <tr style="color:var(--text-muted);text-transform:uppercase;font-size:.72rem;letter-spacing:.04em;">
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Bank Account</th>
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Date</th>
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Description</th>
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Memo</th>
+                      <th style="text-align:right;padding:.2rem .5rem;font-weight:600;">Amount</th>
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Type</th>
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Ref / FITID</th>
+                      <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Source File</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for bt in ofx_rows %}
+                    <tr style="border-top:1px solid var(--border);">
+                      <td style="padding:.3rem .5rem;">{{ bt.bank_account_name or '—' }}</td>
+                      <td style="padding:.3rem .5rem;white-space:nowrap;font-family:var(--font-mono);">{{ bt.transaction_date }}</td>
+                      <td style="padding:.3rem .5rem;">{{ bt.description or '—' }}</td>
+                      <td style="padding:.3rem .5rem;color:var(--text-muted);">{{ bt.memo or '—' }}</td>
+                      <td style="padding:.3rem .5rem;text-align:right;font-family:var(--font-mono);">${{ "%.2f"|format(bt.amount) }}</td>
+                      <td style="padding:.3rem .5rem;font-family:var(--font-mono);font-size:.78rem;">{{ bt.transaction_type or '—' }}</td>
+                      <td style="padding:.3rem .5rem;font-family:var(--font-mono);font-size:.78rem;color:var(--text-muted);">{{ bt.external_reference or '—' }}</td>
+                      <td style="padding:.3rem .5rem;color:var(--text-muted);font-size:.78rem;">{{ bt.source_filename or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          {% endif %}
           {% endfor %}
 
           {# Closing balance row #}
           <tr style="background:var(--surface-muted);font-weight:700;">
-            <td colspan="7" style="font-size:.85rem;">Closing balance — {{ report.to_date }}</td>
+            <td colspan="8" style="font-size:.85rem;">Closing balance — {{ report.to_date }}</td>
             <td class="num mono" style="{% if report.closing_balance > 0 %}color:var(--danger);{% else %}color:var(--accent);{% endif %}">
               ${{ "%.2f"|format(report.closing_balance) }}
             </td>
@@ -162,6 +210,21 @@
       <div class="empty">No transactions recorded for {{ year }}.</div>
     {% endif %}
   </div>
+
+  <script>
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ofx-toggle');
+      if (!btn) return;
+      var targetId = btn.dataset.target;
+      var row = document.getElementById(targetId);
+      if (!row) return;
+      var isHidden = row.style.display === 'none' || row.style.display === '';
+      row.style.display = isHidden ? 'table-row' : 'none';
+      btn.textContent = isHidden
+        ? btn.textContent.replace('OFX', 'OFX ▲')
+        : btn.textContent.replace(' ▲', '');
+    });
+  </script>
 
 </div>
 {% endblock %}

@@ -211,6 +211,40 @@ class ARPages:
         ).fetchall()
         available_years = [int(r["yr"]) for r in year_rows] or [year]
 
+        # Pre-load bank transactions linked to every payment row in this report.
+        bank_txns_by_payment: dict[int, list[dict[str, Any]]] = {}
+        payment_ids = [r.payment_id for r in report.rows if r.payment_id is not None]
+        if payment_ids:
+            placeholders = ",".join("?" * len(payment_ids))
+            bt_rows = self.conn.execute(
+                f"""
+                SELECT btl.ledger_source_id            AS payment_id,
+                       bt.id,
+                       bt.transaction_date,
+                       bt.description,
+                       bt.amount,
+                       COALESCE(bt.external_reference, '') AS external_reference,
+                       COALESCE(bt.transaction_type, '')   AS transaction_type,
+                       COALESCE(bt.memo, '')               AS memo,
+                       COALESCE(ba.account_name, '')       AS bank_account_name,
+                       COALESCE(bib.source_filename, '')   AS source_filename
+                FROM bank_transactions bt
+                JOIN bank_transaction_links btl
+                  ON btl.bank_transaction_id = bt.id
+                 AND btl.ledger_source_type   = 'PAYMENT'
+                 AND btl.ledger_source_id     IN ({placeholders})
+                LEFT JOIN bank_accounts ba
+                  ON ba.id = bt.bank_account_id
+                LEFT JOIN bank_import_batches bib
+                  ON bib.id = bt.import_batch_id
+                ORDER BY bt.transaction_date
+                """,
+                payment_ids,
+            ).fetchall()
+            for bt in bt_rows:
+                pid = int(bt["payment_id"])
+                bank_txns_by_payment.setdefault(pid, []).append(dict(bt))
+
         html = render_template(
             self.DETAIL_TEMPLATE,
             {
@@ -222,6 +256,7 @@ class ARPages:
                 "report": report,
                 "year": year,
                 "available_years": available_years,
+                "bank_txns_by_payment": bank_txns_by_payment,
             },
         )
         return ARPageResponse(status_code=HTTPStatus.OK, body_html=html)

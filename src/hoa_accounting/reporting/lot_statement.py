@@ -309,6 +309,7 @@ class LotStatementReportService:
                 credit_amount,
                 status,
                 receipt_number,
+                payment_id,
                 sort_key
             FROM (
 
@@ -323,6 +324,7 @@ class LotStatementReportService:
                     0                     AS credit_amount,
                     a.status              AS status,
                     ''                    AS receipt_number,
+                    NULL                  AS payment_id,
                     a.assessment_date || '0' || CAST(a.id AS TEXT) AS sort_key
                 FROM assessments a
                 WHERE a.lot_id = ?
@@ -348,6 +350,7 @@ class LotStatementReportService:
                     p.amount              AS credit_amount,
                     'POSTED'              AS status,
                     COALESCE(p.receipt_number, '') AS receipt_number,
+                    p.id                  AS payment_id,
                     p.payment_date || '1' || CAST(p.id AS TEXT) AS sort_key
                 FROM payments p
                 WHERE 1=1
@@ -370,6 +373,7 @@ class LotStatementReportService:
                          THEN oa.amount ELSE 0 END AS credit_amount,
                     'POSTED'              AS status,
                     ''                    AS receipt_number,
+                    NULL                  AS payment_id,
                     oa.adjustment_date || '2' || CAST(oa.id AS TEXT) AS sort_key
                 FROM owner_adjustments oa
                 WHERE oa.lot_id = ?
@@ -401,6 +405,11 @@ class LotStatementReportService:
                     running_balance=running_balance,
                     status=str(row["status"]),
                     receipt_number=str(row["receipt_number"]),
+                    payment_id=(
+                        int(row["payment_id"])
+                        if row["payment_id"] is not None
+                        else None
+                    ),
                 )
             )
 

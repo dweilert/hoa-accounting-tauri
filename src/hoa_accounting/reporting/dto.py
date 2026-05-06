@@ -138,6 +138,7 @@ class LotStatementRow:
     running_balance: Decimal
     status: str  # assessment status for charges; blank otherwise
     receipt_number: str  # populated for payments; blank otherwise
+    payment_id: int | None = None  # populated for PAYMENT rows; None otherwise
 
 
 @dataclass(frozen=True)
