@@ -342,6 +342,94 @@ def make_admin_blueprint(ctx: RouteContext) -> Blueprint:
         status = 200 if result.get("ok") else 400
         return Response(_json.dumps(result), status=status, mimetype="application/json")
 
+    # ── S3 cloud backup pages ────────────────────────────────────────
+
+    from hoa_accounting.web.s3_backup_pages import S3BackupPages
+
+    def _open_s3_pages() -> S3BackupPages:
+        db_path = org_context.get("db_path")
+        if not db_path:
+            raise RuntimeError("database.path missing from config.")
+        return S3BackupPages(str(db_path))
+
+    @bp.get("/admin/s3-backup")
+    def s3_backup_page() -> ResponseReturnValue:
+        pages = _open_s3_pages()
+        theme = str(org_context.get("theme", "warm"))
+        flash = (request.args.get("msg") or "").replace("+", " ").strip()
+        error = (request.args.get("error") or "").replace("+", " ").strip()
+        resp = pages.render_page(org=org_context, theme=theme, flash=flash, error=error)
+        return Response(
+            resp.body_html, status=resp.status_code, mimetype="text/html; charset=utf-8"
+        )
+
+    @bp.post("/admin/s3-backup/save")
+    def s3_backup_save() -> ResponseReturnValue:
+        pages = _open_s3_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_save(
+            org=org_context,
+            theme=theme,
+            bucket=request.form.get("bucket", ""),
+            region=request.form.get("region", "us-east-1"),
+            access_key_id=request.form.get("access_key_id", ""),
+            secret_access_key=request.form.get("secret_access_key", ""),
+            prefix=request.form.get("prefix", "db-backups/"),
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
+
+    @bp.post("/admin/s3-backup/test")
+    def s3_backup_test() -> ResponseReturnValue:
+        import json as _json
+
+        pages = _open_s3_pages()
+        result = pages.handle_test(
+            bucket=request.form.get("bucket", ""),
+            region=request.form.get("region", "us-east-1"),
+            access_key_id=request.form.get("access_key_id", ""),
+            secret_access_key=request.form.get("secret_access_key", ""),
+            prefix=request.form.get("prefix", "db-backups/"),
+        )
+        return Response(_json.dumps(result), status=200, mimetype="application/json")
+
+    @bp.post("/admin/s3-backup/push")
+    def s3_backup_push() -> ResponseReturnValue:
+        pages = _open_s3_pages()
+        theme = str(org_context.get("theme", "warm"))
+        redirect_url, form_resp = pages.handle_push(org=org_context, theme=theme)
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
+
+    @bp.post("/admin/s3-backup/pull")
+    def s3_backup_pull() -> ResponseReturnValue:
+        pages = _open_s3_pages()
+        theme = str(org_context.get("theme", "warm"))
+        db_path = str(org_context.get("db_path", ""))
+        redirect_url, form_resp = pages.handle_pull(
+            org=org_context, theme=theme, db_path=db_path
+        )
+        if redirect_url:
+            return redirect(redirect_url, code=303)
+        assert form_resp is not None
+        return Response(
+            form_resp.body_html,
+            status=form_resp.status_code,
+            mimetype="text/html; charset=utf-8",
+        )
+
     @bp.post("/admin/database/restore")
     def database_restore() -> ResponseReturnValue:
         import json as _json

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}S3 Cloud Backup · {{ org.name }}{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block content %}
+  {# ── Alerts ──────────────────────────────────────────────────────── #}
+  {% if flash %}
+    <div class="alert alert--ok"
+         style="margin-bottom:1rem;border:1px solid #b7dfb8;background:#f0faf0;">
+      {{ flash }}
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert--error"
+         style="margin-bottom:1rem;border:1px solid #f5c2c2;background:#fdf3f3;">
+      <div class="alert__content">{{ error }}</div>
+      <button type="button" class="alert__close" aria-label="Dismiss">×</button>
+    </div>
+  {% endif %}
+
+  {# ── S3 Settings ─────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">S3 Settings</div>
+      <div class="panel__description">
+        Configure the S3 bucket where backups are stored. Credentials are saved
+        in <code>s3_config.json</code> next to your database file.
+      </div>
+    </div>
+
+    <form method="post" action="/admin/s3-backup/save" id="s3-settings-form">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));
+                  gap:1rem;margin-bottom:1rem;">
+
+        <div class="field">
+          <label class="field__label" for="bucket">S3 Bucket Name <span style="color:#c62828;">*</span></label>
+          <input type="text" id="bucket" name="bucket" class="field__input"
+                 value="{{ cfg.bucket }}" placeholder="my-hoa-backups" required />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="region">AWS Region</label>
+          <input type="text" id="region" name="region" class="field__input"
+                 value="{{ cfg.region or 'us-east-1' }}" placeholder="us-east-1" />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="access_key_id">AWS Access Key ID</label>
+          <input type="text" id="access_key_id" name="access_key_id" class="field__input"
+                 value="{{ cfg.access_key_id }}" placeholder="AKIAIOSFODNN7EXAMPLE"
+                 autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="secret_access_key">AWS Secret Access Key</label>
+          <input type="password" id="secret_access_key" name="secret_access_key" class="field__input"
+                 value="{{ cfg.secret_access_key }}" placeholder="••••••••"
+                 autocomplete="new-password" />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="prefix">Key Prefix</label>
+          <input type="text" id="prefix" name="prefix" class="field__input"
+                 value="{{ cfg.prefix or 'db-backups/' }}" placeholder="db-backups/" />
+          <div class="field__hint">Folder path inside the bucket. Must end with /.</div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+        <button type="submit" class="btn btn--primary">Save Settings</button>
+        <button type="button" class="btn" id="test-btn">Test Connection</button>
+        <span style="font-size:12px;color:var(--text-muted);">
+          Credentials are stored in <code>s3_config.json</code> next to your database file.
+        </span>
+      </div>
+
+      <div id="test-result" style="display:none;margin-top:.75rem;font-size:13px;
+           padding:.5rem .75rem;border-radius:4px;"></div>
+    </form>
+  </div>
+
+  {% if cfg.is_configured %}
+
+  {# ── Push to S3 ──────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Push to S3</div>
+      <div class="panel__description">
+        Upload the current database to S3 as a timestamped backup.
+        Also updates <code>latest.db</code> so new installs can download it.
+      </div>
+    </div>
+    <form method="post" action="/admin/s3-backup/push"
+          data-confirm="This will upload the current database to S3. The existing 'latest.db' will be replaced. Continue?"
+          data-confirm-title="Push Backup to S3"
+          data-confirm-label="Push"
+          data-confirm-danger="false">
+      <button type="submit" class="btn btn--primary">Push to S3 Now</button>
+    </form>
+  </div>
+
+  {# ── Pull from S3 ─────────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Pull from S3 &amp; Restore</div>
+      <div class="panel__description">
+        Download the <code>latest.db</code> backup from S3 and replace the current database.
+        <strong>This cannot be undone.</strong> Make a local backup first if you are unsure.
+      </div>
+    </div>
+    <form method="post" action="/admin/s3-backup/pull" id="pull-form">
+      <button type="button" class="btn btn--danger" id="pull-btn">
+        Pull from S3 &amp; Restore
+      </button>
+    </form>
+  </div>
+
+  {# ── Backup History ───────────────────────────────────────────────── #}
+  <div class="panel" style="margin-bottom:1rem;">
+    <div class="panel__header">
+      <div class="panel__title">Backup History</div>
+      <div class="panel__description">
+        The 20 most recent timestamped backups in your S3 bucket
+        (newest first). Does not include <code>latest.db</code>.
+      </div>
+    </div>
+
+    {% if backups %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Date</th>
+              <th style="text-align:right;">Size (MB)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in backups %}
+              <tr>
+                <td class="mono" style="font-size:12px;">{{ b.key }}</td>
+                <td style="white-space:nowrap;">{{ b.date_str }}</td>
+                <td style="text-align:right;">{{ b.size_mb }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="color:var(--text-muted);font-size:13px;padding:.5rem 0;">
+        No timestamped backups found in <code>{{ cfg.norm_prefix() }}</code>.
+        Push a backup to get started.
+      </div>
+    {% endif %}
+  </div>
+
+  {% endif %}{# cfg.is_configured #}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  /* ── Test Connection ──────────────────────────────────────────────── */
+  var testBtn    = document.getElementById("test-btn");
+  var testResult = document.getElementById("test-result");
+
+  if (testBtn) {
+    testBtn.addEventListener("click", function () {
+      var form = document.getElementById("s3-settings-form");
+      testBtn.disabled = true;
+      testBtn.textContent = "Testing…";
+      testResult.style.display = "none";
+
+      var body = new FormData();
+      body.append("bucket",            form.querySelector("#bucket").value);
+      body.append("region",            form.querySelector("#region").value);
+      body.append("access_key_id",     form.querySelector("#access_key_id").value);
+      body.append("secret_access_key", form.querySelector("#secret_access_key").value);
+      body.append("prefix",            form.querySelector("#prefix").value);
+
+      fetch("/admin/s3-backup/test", {
+        method: "POST",
+        headers: { "X-CSRF-Token": window.csrfToken },
+        body: body,
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          testResult.textContent = data.message || "";
+          testResult.style.display = "block";
+          if (data.ok) {
+            testResult.style.background = "#f0faf0";
+            testResult.style.border     = "1px solid #b7dfb8";
+            testResult.style.color      = "#2e7d32";
+          } else {
+            testResult.style.background = "#fdf3f3";
+            testResult.style.border     = "1px solid #f5c2c2";
+            testResult.style.color      = "#c62828";
+          }
+        })
+        .catch(function (err) {
+          testResult.textContent    = "Request failed: " + err;
+          testResult.style.display  = "block";
+          testResult.style.background = "#fdf3f3";
+          testResult.style.border   = "1px solid #f5c2c2";
+          testResult.style.color    = "#c62828";
+        })
+        .finally(function () {
+          testBtn.disabled    = false;
+          testBtn.textContent = "Test Connection";
+        });
+    });
+  }
+
+  /* ── Pull from S3 — double-confirm ──────────────────────────────── */
+  var pullBtn  = document.getElementById("pull-btn");
+  var pullForm = document.getElementById("pull-form");
+
+  if (pullBtn && pullForm) {
+    pullBtn.addEventListener("click", function () {
+      showConfirm({
+        title:        "Pull from S3 — First Warning",
+        message:      "This will download 'latest.db' from S3 and replace your current database.\n\nAll data entered since that backup was made will be lost. This cannot be undone.",
+        confirmLabel: "Continue",
+        isDanger:     true,
+        onConfirm: function () {
+          showConfirm({
+            title:        "Pull from S3 — Final Confirmation",
+            message:      "Are you absolutely sure? Your current database will be permanently replaced with the S3 backup.\n\nClick 'Restore Now' to proceed.",
+            confirmLabel: "Restore Now",
+            isDanger:     true,
+            onConfirm: function () {
+              pullForm._appConfirmed = true;
+              pullForm.submit();
+            },
+          });
+        },
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}
