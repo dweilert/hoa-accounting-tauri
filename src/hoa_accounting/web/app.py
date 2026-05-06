@@ -91,7 +91,13 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         try:
             # Recreate audit triggers before migrations so any stale trigger
             # definitions (referencing removed columns) can't block executescript.
-            install_audit_triggers(boot_conn)
+            # Skip on a fresh empty database — tables don't exist yet so trigger
+            # creation would fail; the post-migration call below handles that case.
+            _has_tables = boot_conn.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+            ).fetchone()[0]
+            if _has_tables:
+                install_audit_triggers(boot_conn)
             Migrator().apply_all(boot_conn)
             install_audit_triggers(boot_conn)
             backup_cfg = org_context.get("backup_config") or {}
