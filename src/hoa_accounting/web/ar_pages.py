@@ -290,6 +290,35 @@ class ARPages:
                     if info:
                         deposit_batches_by_payment[row.payment_id] = info
 
+            # Load every payment line in each batch so the template can
+            # render the full batch roster and highlight this lot's line.
+            bp_rows = self.conn.execute(
+                f"""
+                SELECT p.deposit_batch_id          AS batch_id,
+                       p.id                        AS payment_id,
+                       p.amount,
+                       p.payment_method,
+                       COALESCE(p.receipt_number, '') AS receipt_number,
+                       o.display_name              AS owner_name,
+                       COALESCE(l.lot_number, '—') AS lot_number,
+                       COALESCE(l.id, 0)           AS lot_id
+                FROM payments p
+                JOIN owners o ON o.id = p.owner_id
+                LEFT JOIN lot_ownership lo
+                  ON lo.owner_id = o.id AND lo.end_date IS NULL
+                LEFT JOIN lots l ON l.id = lo.lot_id
+                WHERE p.deposit_batch_id IN ({b_placeholders})
+                ORDER BY l.lot_number NULLS LAST, p.receipt_number
+                """,
+                batch_ids,
+            ).fetchall()
+            batch_payments: dict[int, list[dict[str, Any]]] = {}
+            for bp in bp_rows:
+                bid = int(bp["batch_id"])
+                batch_payments.setdefault(bid, []).append(dict(bp))
+        else:
+            batch_payments = {}
+
         html = render_template(
             self.DETAIL_TEMPLATE,
             {
@@ -303,6 +332,7 @@ class ARPages:
                 "available_years": available_years,
                 "bank_txns_by_payment": bank_txns_by_payment,
                 "deposit_batches_by_payment": deposit_batches_by_payment,
+                "batch_payments": batch_payments,
             },
         )
         return ARPageResponse(status_code=HTTPStatus.OK, body_html=html)

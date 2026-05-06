@@ -251,6 +251,42 @@
                 {% else %}
                 <div style="padding:.35rem .5rem;font-size:.82rem;color:var(--text-muted);font-style:italic;">No matched bank transaction on file for this batch.</div>
                 {% endif %}
+                {# All payment lines in this batch; highlight the current lot #}
+                {% set lines = batch_payments.get(batch_info.batch_id) %}
+                {% if lines %}
+                <div style="border-top:1px solid var(--border);padding:.35rem .5rem;">
+                  <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem;font-weight:600;">
+                    All Payments in This Batch
+                  </div>
+                  <table style="width:100%;font-size:.82rem;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:var(--text-muted);text-transform:uppercase;font-size:.72rem;letter-spacing:.04em;">
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Lot</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Owner</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Method</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Receipt</th>
+                        <th style="text-align:right;padding:.2rem .5rem;font-weight:600;">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for bp in lines %}
+                      {% set is_this_lot = bp.lot_id == report.lot_id %}
+                      <tr style="border-top:1px solid var(--border);
+                                 {% if is_this_lot %}background:#fffbea;{% endif %}">
+                        <td style="padding:.3rem .5rem;font-family:var(--font-mono);{% if is_this_lot %}font-weight:700;{% endif %}">
+                          {{ bp.lot_number }}
+                          {% if is_this_lot %}<span style="margin-left:.35rem;font-size:.7rem;color:#856404;background:#fff3cd;border:1px solid #ffc107;border-radius:3px;padding:.05rem .3rem;font-weight:600;">← this lot</span>{% endif %}
+                        </td>
+                        <td style="padding:.3rem .5rem;{% if is_this_lot %}font-weight:600;{% endif %}">{{ bp.owner_name }}</td>
+                        <td style="padding:.3rem .5rem;font-family:var(--font-mono);font-size:.78rem;">{{ bp.payment_method }}</td>
+                        <td style="padding:.3rem .5rem;font-family:var(--font-mono);font-size:.78rem;color:var(--text-muted);">{{ bp.receipt_number or '—' }}</td>
+                        <td style="padding:.3rem .5rem;text-align:right;font-family:var(--font-mono);{% if is_this_lot %}font-weight:700;{% endif %}">${{ "%.2f"|format(bp.amount) }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% endif %}
               </div>
             </td>
           </tr>
