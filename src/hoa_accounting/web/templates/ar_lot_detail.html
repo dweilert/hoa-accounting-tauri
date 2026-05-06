@@ -103,6 +103,7 @@
 
           {% for row in report.rows %}
           {% set ofx_rows = bank_txns_by_payment.get(row.payment_id) if row.payment_id else [] %}
+          {% set batch_info = deposit_batches_by_payment.get(row.payment_id) if row.payment_id else none %}
           <tr>
             <td class="mono" style="white-space:nowrap;">{{ row.entry_date }}</td>
             <td>
@@ -147,13 +148,21 @@
             <td class="num mono" style="{% if row.running_balance > 0 %}color:var(--danger);{% elif row.running_balance < 0 %}color:var(--accent);{% endif %}font-weight:600;">
               ${{ "%.2f"|format(row.running_balance) }}
             </td>
-            <td style="white-space:nowrap;">
+            <td style="white-space:nowrap;display:flex;gap:.3rem;justify-content:flex-end;">
               {% if ofx_rows %}
                 <button type="button"
                         class="btn btn--xs btn--ghost ofx-toggle"
                         data-target="ofx-{{ row.payment_id }}"
                         title="Show {{ ofx_rows|length }} linked bank transaction(s)">
                   🏦 {{ ofx_rows|length }} OFX
+                </button>
+              {% endif %}
+              {% if batch_info %}
+                <button type="button"
+                        class="btn btn--xs btn--ghost ofx-toggle"
+                        data-target="batch-{{ row.payment_id }}"
+                        title="Payment was part of Deposit Batch #{{ batch_info.batch_id }}">
+                  📦 Batch #{{ batch_info.batch_id }}
                 </button>
               {% endif %}
             </td>
@@ -190,6 +199,58 @@
                     {% endfor %}
                   </tbody>
                 </table>
+              </div>
+            </td>
+          </tr>
+          {% endif %}
+          {% if batch_info %}
+          <tr id="batch-{{ row.payment_id }}" class="ofx-detail-row" style="display:none;">
+            <td colspan="9" style="padding:0;">
+              <div style="margin:.25rem .5rem .5rem 2rem;border-left:3px solid #bee3f8;padding-left:.75rem;">
+                {# Batch summary strip #}
+                <div style="display:flex;gap:2rem;padding:.4rem .5rem;font-size:.82rem;flex-wrap:wrap;align-items:center;">
+                  <span><strong>Deposit Batch #{{ batch_info.batch_id }}</strong></span>
+                  <span style="color:var(--text-muted);">Date: <span style="font-family:var(--font-mono);">{{ batch_info.deposit_date }}</span></span>
+                  <span style="color:var(--text-muted);">Batch Total: <span style="font-family:var(--font-mono);">${{ "%.2f"|format(batch_info.batch_total) }}</span></span>
+                  <span style="color:var(--text-muted);">{{ batch_info.payment_count }} owner payment(s){% if batch_info.income_count %} + {{ batch_info.income_count }} other{% endif %}</span>
+                  <span style="color:var(--text-muted);">Bank: {{ batch_info.bank_account_name or '—' }}</span>
+                  <span>
+                    <span class="pill pill--{% if batch_info.posting_status == 'POSTED' %}ok{% elif batch_info.posting_status == 'PENDING' %}warn{% else %}muted{% endif %}" style="font-size:.7rem;">
+                      {{ batch_info.posting_status }}
+                    </span>
+                  </span>
+                  <a href="/deposit-batches/{{ batch_info.batch_id }}" class="btn btn--xs btn--ghost" style="margin-left:auto;">View Batch →</a>
+                </div>
+                {# Linked OFX bank transaction (the full deposit line) #}
+                {% if batch_info.bt_id %}
+                <div style="border-top:1px solid var(--border);padding:.35rem .5rem;">
+                  <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem;font-weight:600;">Matched Bank Transaction (OFX)</div>
+                  <table style="width:100%;font-size:.82rem;border-collapse:collapse;">
+                    <thead>
+                      <tr style="color:var(--text-muted);text-transform:uppercase;font-size:.72rem;letter-spacing:.04em;">
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Date</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Description</th>
+                        <th style="text-align:right;padding:.2rem .5rem;font-weight:600;">Total Deposit</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Type</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Ref / FITID</th>
+                        <th style="text-align:left;padding:.2rem .5rem;font-weight:600;">Source File</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-top:1px solid var(--border);">
+                        <td style="padding:.3rem .5rem;white-space:nowrap;font-family:var(--font-mono);">{{ batch_info.bt_date }}</td>
+                        <td style="padding:.3rem .5rem;">{{ batch_info.bt_description or '—' }}</td>
+                        <td style="padding:.3rem .5rem;text-align:right;font-family:var(--font-mono);">${{ "%.2f"|format(batch_info.bt_amount) }}</td>
+                        <td style="padding:.3rem .5rem;font-family:var(--font-mono);font-size:.78rem;">{{ batch_info.bt_type or '—' }}</td>
+                        <td style="padding:.3rem .5rem;font-family:var(--font-mono);font-size:.78rem;color:var(--text-muted);">{{ batch_info.bt_fitid or '—' }}</td>
+                        <td style="padding:.3rem .5rem;color:var(--text-muted);font-size:.78rem;">{{ batch_info.bt_source_file or '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <div style="padding:.35rem .5rem;font-size:.82rem;color:var(--text-muted);font-style:italic;">No matched bank transaction on file for this batch.</div>
+                {% endif %}
               </div>
             </td>
           </tr>

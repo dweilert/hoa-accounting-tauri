@@ -139,6 +139,9 @@ class LotStatementRow:
     status: str  # assessment status for charges; blank otherwise
     receipt_number: str  # populated for payments; blank otherwise
     payment_id: int | None = None  # populated for PAYMENT rows; None otherwise
+    deposit_batch_id: int | None = (
+        None  # populated when payment was part of a deposit batch
+    )
 
 
 @dataclass(frozen=True)

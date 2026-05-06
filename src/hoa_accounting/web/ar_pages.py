@@ -245,6 +245,51 @@ class ARPages:
                 pid = int(bt["payment_id"])
                 bank_txns_by_payment.setdefault(pid, []).append(dict(bt))
 
+        # Pre-load deposit batch info for payments that came through a batch.
+        deposit_batches_by_payment: dict[int, dict[str, Any]] = {}
+        batch_ids = list(
+            {r.deposit_batch_id for r in report.rows if r.deposit_batch_id is not None}
+        )
+        if batch_ids:
+            b_placeholders = ",".join("?" * len(batch_ids))
+            db_rows = self.conn.execute(
+                f"""
+                SELECT db.id              AS batch_id,
+                       db.deposit_date,
+                       db.total_amount    AS batch_total,
+                       db.posting_status,
+                       COALESCE(ba.account_name, '') AS bank_account_name,
+                       (SELECT COUNT(*) FROM payments p2
+                        WHERE p2.deposit_batch_id = db.id)  AS payment_count,
+                       (SELECT COUNT(*) FROM income_batches ib
+                        WHERE ib.deposit_batch_id = db.id)  AS income_count,
+                       bt.id              AS bt_id,
+                       bt.transaction_date AS bt_date,
+                       COALESCE(bt.description, '')         AS bt_description,
+                       bt.amount          AS bt_amount,
+                       COALESCE(bt.external_reference, '')  AS bt_fitid,
+                       COALESCE(bt.transaction_type, '')    AS bt_type,
+                       COALESCE(bib.source_filename, '')    AS bt_source_file
+                FROM deposit_batches db
+                LEFT JOIN bank_accounts ba ON ba.id = db.bank_account_id
+                LEFT JOIN bank_transactions bt
+                  ON bt.matched_source_type = 'DEPOSIT_BATCH'
+                 AND bt.matched_source_id   = db.id
+                LEFT JOIN bank_import_batches bib ON bib.id = bt.import_batch_id
+                WHERE db.id IN ({b_placeholders})
+                """,
+                batch_ids,
+            ).fetchall()
+            batch_info: dict[int, dict[str, Any]] = {
+                int(r["batch_id"]): dict(r) for r in db_rows
+            }
+            # Map payment_id → batch info
+            for row in report.rows:
+                if row.deposit_batch_id is not None and row.payment_id is not None:
+                    info = batch_info.get(row.deposit_batch_id)
+                    if info:
+                        deposit_batches_by_payment[row.payment_id] = info
+
         html = render_template(
             self.DETAIL_TEMPLATE,
             {
@@ -257,6 +302,7 @@ class ARPages:
                 "year": year,
                 "available_years": available_years,
                 "bank_txns_by_payment": bank_txns_by_payment,
+                "deposit_batches_by_payment": deposit_batches_by_payment,
             },
         )
         return ARPageResponse(status_code=HTTPStatus.OK, body_html=html)
