@@ -201,35 +201,76 @@ class ReconciliationRepository(BaseRepository):
                     WHERE br2.id != (SELECT recon_id FROM ctx)
                       AND br2.status = 'FINALIZED'
                 ),
-                -- Bank transactions confirmed by OFX import (VALIDATED) within
-                -- the statement period — these auto-clear without manual ticking.
-                validated_bt AS (
+                -- Cutoff date: statement_ending_date of the most recent FINALIZED
+                -- reconciliation on this account ('' when none exists).
+                -- Validated transactions ON OR BEFORE this date belong to a
+                -- prior period and should be treated like cleared_prior.
+                prior_cutoff AS (
+                    SELECT COALESCE(MAX(br2.statement_ending_date), '') AS cutoff
+                    FROM bank_reconciliations br2
+                    JOIN ctx ON ctx.bank_account_id = br2.bank_account_id
+                    WHERE br2.id != (SELECT recon_id FROM ctx)
+                      AND br2.status = 'FINALIZED'
+                ),
+                -- VALIDATED transactions in the CURRENT statement window only
+                -- (after the prior cutoff, up through the current ending date).
+                validated_bt_this AS (
                     SELECT bt.id AS bt_id
                     FROM bank_transactions bt
                     JOIN ctx ON ctx.bank_account_id = bt.bank_account_id
+                    JOIN prior_cutoff pc ON bt.transaction_date > pc.cutoff
                     WHERE bt.validation_status = 'VALIDATED'
                       AND bt.transaction_date <= ctx.statement_ending_date
                 ),
-                -- Map validated bank_transactions back to ledger rows using the
-                -- same three-path resolution as cleared_this / cleared_prior.
-                auto_cleared AS (
+                -- VALIDATED transactions from a prior finalized period
+                -- (on or before the prior cutoff date).
+                validated_bt_prior AS (
+                    SELECT bt.id AS bt_id
+                    FROM bank_transactions bt
+                    JOIN ctx ON ctx.bank_account_id = bt.bank_account_id
+                    JOIN prior_cutoff pc ON bt.transaction_date <= pc.cutoff
+                    WHERE bt.validation_status = 'VALIDATED'
+                      AND pc.cutoff != ''
+                ),
+                -- Map current-period validated transactions to ledger rows.
+                auto_cleared_this AS (
                     SELECT bt.matched_source_type AS source_type,
                            bt.matched_source_id   AS source_id
                     FROM bank_transactions bt
-                    JOIN validated_bt vb ON vb.bt_id = bt.id
+                    JOIN validated_bt_this vb ON vb.bt_id = bt.id
                     WHERE bt.matched_source_type IS NOT NULL
                       AND bt.matched_source_id   IS NOT NULL
                       AND bt.matched_source_type <> 'DEPOSIT_BATCH'
                     UNION
                     SELECT 'PAYMENT', p.id
                     FROM bank_transactions bt
-                    JOIN validated_bt vb ON vb.bt_id = bt.id
+                    JOIN validated_bt_this vb ON vb.bt_id = bt.id
                     JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
                     WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
                     UNION
                     SELECT btl.ledger_source_type, btl.ledger_source_id
                     FROM bank_transaction_links btl
-                    JOIN validated_bt vb ON vb.bt_id = btl.bank_transaction_id
+                    JOIN validated_bt_this vb ON vb.bt_id = btl.bank_transaction_id
+                ),
+                -- Map prior-period validated transactions to ledger rows.
+                auto_cleared_prior AS (
+                    SELECT bt.matched_source_type AS source_type,
+                           bt.matched_source_id   AS source_id
+                    FROM bank_transactions bt
+                    JOIN validated_bt_prior vb ON vb.bt_id = bt.id
+                    WHERE bt.matched_source_type IS NOT NULL
+                      AND bt.matched_source_id   IS NOT NULL
+                      AND bt.matched_source_type <> 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT 'PAYMENT', p.id
+                    FROM bank_transactions bt
+                    JOIN validated_bt_prior vb ON vb.bt_id = bt.id
+                    JOIN payments p ON p.deposit_batch_id = bt.matched_source_id
+                    WHERE bt.matched_source_type = 'DEPOSIT_BATCH'
+                    UNION
+                    SELECT btl.ledger_source_type, btl.ledger_source_id
+                    FROM bank_transaction_links btl
+                    JOIN validated_bt_prior vb ON vb.bt_id = btl.bank_transaction_id
                 ),
                 -- Map cleared bank_transactions back to the ledger rows they
                 -- represent, via both matched_source_* and bank_transaction_links.
@@ -318,11 +359,14 @@ class ReconciliationRepository(BaseRepository):
                          OR mb.source_id IS NOT NULL
                          THEN 1 ELSE 0 END AS has_bank_match,
                     COALESCE(m.last_txn_date, mb.last_txn_date) AS bank_txn_date,
-                    CASE WHEN ct.source_id IS NOT NULL THEN 1 ELSE 0 END
+                    CASE WHEN ct.source_id  IS NOT NULL
+                              OR act.source_id IS NOT NULL THEN 1 ELSE 0 END
                         AS cleared_this,
-                    CASE WHEN cp.source_id IS NOT NULL THEN 1 ELSE 0 END
+                    CASE WHEN cp.source_id  IS NOT NULL
+                              OR acp.source_id IS NOT NULL THEN 1 ELSE 0 END
                         AS cleared_prior,
-                    CASE WHEN ac.source_id IS NOT NULL THEN 1 ELSE 0 END
+                    CASE WHEN act.source_id IS NOT NULL
+                              OR acp.source_id IS NOT NULL THEN 1 ELSE 0 END
                         AS auto_cleared
                 FROM all_items ai
                 LEFT JOIN matched m
@@ -333,8 +377,10 @@ class ReconciliationRepository(BaseRepository):
                     ON ct.source_type = ai.source_type AND ct.source_id = ai.source_id
                 LEFT JOIN cleared_prior cp
                     ON cp.source_type = ai.source_type AND cp.source_id = ai.source_id
-                LEFT JOIN auto_cleared ac
-                    ON ac.source_type = ai.source_type AND ac.source_id = ai.source_id
+                LEFT JOIN auto_cleared_this act
+                    ON act.source_type = ai.source_type AND act.source_id = ai.source_id
+                LEFT JOIN auto_cleared_prior acp
+                    ON acp.source_type = ai.source_type AND acp.source_id = ai.source_id
                 ORDER BY ai.item_date ASC, ai.source_type, ai.source_id
                 """,
                 (reconciliation_id,),
@@ -368,7 +414,7 @@ class ReconciliationRepository(BaseRepository):
         for row in rows:
             amt = Decimal(str(row["amount"]))
             book_balance += amt
-            if row["cleared_this"] or row["cleared_prior"] or row["auto_cleared"]:
+            if row["cleared_this"] or row["cleared_prior"]:
                 cleared_balance += amt
                 cleared_count += 1
             else:

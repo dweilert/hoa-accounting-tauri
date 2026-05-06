@@ -92,7 +92,7 @@ class ReconciliationPages:
         for ba in bank_accounts:
             bal, label = self._repo.get_expected_beginning_balance(int(ba["id"]))
             beginning_balances[int(ba["id"])] = {
-                "amount": str(bal),
+                "amount": f"{bal:.2f}",
                 "label": label,
             }
 
