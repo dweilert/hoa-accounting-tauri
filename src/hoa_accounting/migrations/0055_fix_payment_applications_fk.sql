@@ -45,7 +45,7 @@ BEGIN
         'payment_applications',
         NEW.id,
         'INSERT',
-        audit_user(),
+        'system',
         json_object(
             'id', NEW.id,
             'payment_id', NEW.payment_id,
@@ -63,7 +63,7 @@ BEGIN
         'payment_applications',
         OLD.id,
         'DELETE',
-        audit_user(),
+        'system',
         json_object(
             'id', OLD.id,
             'payment_id', OLD.payment_id,
