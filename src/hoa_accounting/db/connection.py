@@ -27,10 +27,6 @@ def connect_sqlite(
     """
     conn = sqlite3.connect(str(db_path), timeout=timeout)
     conn.row_factory = sqlite3.Row
-    # Migration 0055 creates triggers that call audit_user().  Register a
-    # no-op implementation so the function is always available, even on a
-    # fresh database before any application code has touched the connection.
-    conn.create_function("audit_user", 0, lambda: "system")
     conn.execute("PRAGMA foreign_keys = ON")
     if str(db_path) != ":memory:":
         conn.execute("PRAGMA journal_mode = WAL")
