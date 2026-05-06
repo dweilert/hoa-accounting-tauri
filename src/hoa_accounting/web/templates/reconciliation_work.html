@@ -125,8 +125,8 @@
       </button>
     </div>
 
-    {% set active_rows = rows | rejectattr('cleared_prior', 'equalto', 1) | list %}
-    {% set prior_rows  = rows | selectattr('cleared_prior', 'equalto', 1) | list %}
+    {% set active_rows = rows | rejectattr('is_prior_period', 'equalto', 1) | list %}
+    {% set prior_rows  = rows | selectattr('is_prior_period', 'equalto', 1) | list %}
     {% set source_labels = {
         'PAYMENT':          'Payment',
         'INCOME_BATCH':     'Income',

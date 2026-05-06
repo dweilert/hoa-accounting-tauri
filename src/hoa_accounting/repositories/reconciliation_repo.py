@@ -146,9 +146,12 @@ class ReconciliationRepository(BaseRepository):
           description    short text
           has_bank_match 1 if a bank_transaction links to this row, else 0
           bank_txn_date  date of the matched bank_transaction (or NULL)
-          cleared_this   1 if in this recon's clears, else 0
-          cleared_prior  1 if in any other finalized recon's clears
-          auto_cleared   1 if linked to a VALIDATED bank transaction (OFX confirmed)
+          cleared_this      1 if in this recon's clears, else 0
+          cleared_prior     1 if in any other finalized recon's clears
+          auto_cleared      1 if linked to a VALIDATED bank transaction (OFX confirmed)
+          is_prior_period   1 if the item's date falls within a prior finalized recon
+                              period (already baked into opening balance — excluded from
+                              balance calculations but still shown in the UI)
         """
         return list(
             self.conn.execute(
@@ -367,7 +370,10 @@ class ReconciliationRepository(BaseRepository):
                         AS cleared_prior,
                     CASE WHEN act.source_id IS NOT NULL
                               OR acp.source_id IS NOT NULL THEN 1 ELSE 0 END
-                        AS auto_cleared
+                        AS auto_cleared,
+                    CASE WHEN ai.item_date <= (SELECT cutoff FROM prior_cutoff)
+                              AND (SELECT cutoff FROM prior_cutoff) != ''
+                         THEN 1 ELSE 0 END AS is_prior_period
                 FROM all_items ai
                 LEFT JOIN matched m
                     ON m.source_type = ai.source_type AND m.source_id = ai.source_id
@@ -412,9 +418,13 @@ class ReconciliationRepository(BaseRepository):
         outstanding_count = 0
 
         for row in rows:
+            if row["is_prior_period"]:
+                # Already included in the opening balance from the prior
+                # finalized reconciliation — do not double-count.
+                continue
             amt = Decimal(str(row["amount"]))
             book_balance += amt
-            if row["cleared_this"] or row["cleared_prior"]:
+            if row["cleared_this"]:
                 cleared_balance += amt
                 cleared_count += 1
             else:

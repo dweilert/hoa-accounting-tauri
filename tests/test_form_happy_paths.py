@@ -57,6 +57,18 @@ def app_db():
             "DELETE FROM bill_payments WHERE check_number LIKE 'HP-%'",
             "DELETE FROM vendor_bills WHERE invoice_number LIKE 'HP-%'",
             "DELETE FROM income_batches WHERE income_description LIKE 'HP %'",
+            # Payments created by deposit-batch happy-path tests (both old
+            # post_batch() path and new post_pending_batch() path).
+            "DELETE FROM payment_applications WHERE payment_id IN "
+            "  (SELECT id FROM payments WHERE notes LIKE 'Happy-path deposit'"
+            "   OR reference_number LIKE 'HP-DEP-%')",
+            "DELETE FROM bank_transaction_links WHERE ledger_source_type='PAYMENT' "
+            "  AND ledger_source_id IN (SELECT id FROM payments"
+            "  WHERE notes LIKE 'Happy-path deposit' OR reference_number LIKE 'HP-DEP-%')",
+            "DELETE FROM payments WHERE notes LIKE 'Happy-path deposit' "
+            "  OR reference_number LIKE 'HP-DEP-%'",
+            "DELETE FROM deposit_batch_lines WHERE deposit_batch_id IN "
+            "  (SELECT id FROM deposit_batches WHERE notes LIKE 'HP deposit %')",
             "DELETE FROM deposit_batches WHERE notes LIKE 'HP deposit %'",
             "DELETE FROM reserve_transfers WHERE notes LIKE 'HP reserve transfer %'",
             # 2099-dated reconciliations (no string column to tag).
