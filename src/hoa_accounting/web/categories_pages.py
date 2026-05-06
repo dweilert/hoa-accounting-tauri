@@ -247,11 +247,17 @@ class CategoriesPages:
 
     def handle_delete(self, category_id: int) -> str:
         """Attempt to delete a category. Returns a redirect URL with a flash
-        message — category not found, in-use rejection, or success.
+        message — category not found, system-required rejection, in-use
+        rejection, or success.
         """
         row = self.repo.get_category(category_id)
         if row is None:
             return "/categories?flash=Category+not+found."
+        if row["system_required"]:
+            from urllib.parse import quote
+
+            name = row["name"]
+            return f"/categories?flash={quote(f'{name} is a system-required category and cannot be deleted.')}"
         count = self.repo.usage_count(category_id)
         if count > 0:
             return (

@@ -131,10 +131,22 @@
                   </td>
                   <td class="mono">{{ c.transactions_count }}</td>
                   <td class="mono">{{ c.other_count }}</td>
-                  <td style="display:flex;gap:.4rem;justify-content:flex-end;">
+                  <td style="display:flex;gap:.4rem;justify-content:flex-end;align-items:center;">
+                    {% if c.system_required %}
+                      <span title="System-required — cannot be deleted"
+                            style="font-size:.75rem;padding:.15rem .45rem;border-radius:4px;
+                                   background:#fff3cd;border:1px solid #ffc107;color:#856404;
+                                   font-weight:600;white-space:nowrap;">🔒 Required</span>
+                    {% endif %}
                     <a href="/categories/{{ c.id }}/ledger" class="btn btn--sm btn--ghost">Ledger</a>
                     <a href="/categories/{{ c.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
-                    {% if c.usage_count == 0 %}
+                    {% if c.system_required %}
+                      <button type="button" class="btn btn--sm btn--ghost"
+                              disabled
+                              title="System-required category — cannot be deleted">
+                        Delete
+                      </button>
+                    {% elif c.usage_count == 0 %}
                       <form method="post"
                             action="/categories/{{ c.id }}/delete"
                             style="display:inline;"
