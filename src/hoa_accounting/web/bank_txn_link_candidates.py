@@ -122,6 +122,9 @@ def link_candidates(
         # Also surface negative bill_payments (vendor refunds/credits).
         # A positive bank deposit can match a bill_payment whose amount is
         # negative — the reconciliation formula negates it: -(-x) = +x.
+        # No date-window filter here: refund credit memos are typically
+        # created after the bank deposit arrives, so the memo date is always
+        # later than the bank transaction date.
         linked_bps = linked_source_ids(conn, "BILL_PAYMENT")
         for r in conn.execute(
             """
@@ -132,12 +135,11 @@ def link_candidates(
             LEFT JOIN vendors v ON v.id = vb.vendor_id
             WHERE bp.bank_account_id = ?
               AND printf('%.2f', ABS(CAST(bp.amount AS NUMERIC))) = ?
-              AND bp.payment_date BETWEEN ? AND ?
               AND CAST(bp.amount AS NUMERIC) < 0
             ORDER BY bp.payment_date DESC
             LIMIT 20
             """,
-            (bank_id, abs_amt, lo, hi),
+            (bank_id, abs_amt),
         ).fetchall():
             if int(r["id"]) in linked_bps:
                 continue
