@@ -27,7 +27,22 @@ from pathlib import Path
 
 from hoa_accounting.exceptions import AccountingError
 
-_DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
+
+def _resolve_migrations_dir() -> Path:
+    """Return the migrations directory, handling PyInstaller bundles.
+
+    In a frozen bundle ``__file__`` points into the PYZ archive and
+    cannot be used to locate data files. Data files land under
+    ``sys._MEIPASS`` (= the ``_internal/`` folder next to the exe).
+    """
+    import sys
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "src" / "hoa_accounting" / "migrations"
+    return Path(__file__).resolve().parent.parent / "migrations"
+
+
+_DEFAULT_MIGRATIONS_DIR = _resolve_migrations_dir()
 _MIGRATION_FILENAME_RE = re.compile(r"^\d{4}_[A-Za-z0-9_\-]+\.sql$")
 
 

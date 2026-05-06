@@ -10,7 +10,17 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
-TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+
+def _resolve_templates_dir() -> Path:
+    """Return the templates directory, handling PyInstaller bundles."""
+    import sys
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "src" / "hoa_accounting" / "web" / "templates"
+    return Path(__file__).resolve().parent / "templates"
+
+
+TEMPLATES_DIR = _resolve_templates_dir()
 
 
 def _tojson_filter(value: object, indent: int | None = None) -> Markup:

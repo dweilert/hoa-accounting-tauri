@@ -59,9 +59,19 @@ def _flatten_query_params(multi_dict: Any) -> dict[str, str]:
     return out
 
 
+def _frozen_static_folder() -> str | None:
+    """Return the static folder path when running inside a PyInstaller bundle."""
+    import sys
+
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return str(Path(sys._MEIPASS) / "src" / "hoa_accounting" / "web" / "static")
+    return None
+
+
 def create_app(config_path: str | Path = "config.yaml") -> Flask:
     """Build a Flask app wired to the read-only report UI services."""
-    app = Flask(__name__)
+    _sf = _frozen_static_folder()
+    app = Flask(__name__, static_folder=_sf if _sf else "static")
     # Always use our error handler instead of Werkzeug's interactive debugger,
     # so users see a styled page rather than a raw traceback.
     app.config["PROPAGATE_EXCEPTIONS"] = False
@@ -232,7 +242,8 @@ def create_app(config_path: str | Path = "config.yaml") -> Flask:
         # initialised without a discoverable static folder.
         from flask import send_from_directory
 
-        static_dir = Path(__file__).resolve().parent / "static"
+        _sf = _frozen_static_folder()
+        static_dir = Path(_sf) if _sf else Path(__file__).resolve().parent / "static"
         return send_from_directory(static_dir, "app.css")
 
     # ── Audited DB connection helper ─────────────────────────────────────
