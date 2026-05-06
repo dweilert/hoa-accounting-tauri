@@ -58,3 +58,18 @@ def parse_positive_decimal(raw: str | None, label: str) -> Decimal:
     if value <= Decimal("0"):
         raise ValidationError(f"{label} must be greater than zero.")
     return value
+
+
+def parse_nonzero_decimal(raw: str | None, label: str) -> Decimal:
+    """Parse ``raw`` as a nonzero Decimal (positive *or* negative).
+
+    Used for vendor credit memos where a negative amount is valid.
+    Raises ``ValidationError`` if blank, unparseable, or zero.
+    """
+    try:
+        value = Decimal((raw or "").strip())
+    except (InvalidOperation, ValueError) as exc:
+        raise ValidationError(f"{label} must be a number.") from exc
+    if value == Decimal("0"):
+        raise ValidationError(f"{label} must not be zero.")
+    return value

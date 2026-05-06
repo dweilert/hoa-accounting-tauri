@@ -20,6 +20,9 @@ from hoa_accounting.validators.forms import (
     parse_int as _parse_int,
 )
 from hoa_accounting.validators.forms import (
+    parse_nonzero_decimal as _parse_nonzero_decimal,
+)
+from hoa_accounting.validators.forms import (
     parse_positive_decimal as _parse_positive_decimal,
 )
 from hoa_accounting.validators.forms import (
@@ -566,7 +569,7 @@ class VendorBillPages:
             )
             invoice_date = _require(form_data.get("invoice_date", ""), "Invoice date")
             entry_date = _require(form_data.get("entry_date", ""), "Entry date")
-            amount = _parse_positive_decimal(form_data.get("amount", ""), "Amount")
+            amount = _parse_nonzero_decimal(form_data.get("amount", ""), "Amount")
             vendor_id = _parse_int(form_data.get("vendor_id", ""), "Vendor")
             category_id = _parse_int(
                 form_data.get("category_id", ""), "Expense category"

@@ -6,10 +6,11 @@ import sqlite3
 from decimal import Decimal
 
 from hoa_accounting.db.transaction import transaction
+from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.models.dto import VendorPaymentResult
 from hoa_accounting.repositories.audit_repo import AuditRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
-from hoa_accounting.validators.common import require_positive_amount
+from hoa_accounting.validators.common import q2
 from hoa_accounting.validators.entity_validator import EntityValidator
 
 
@@ -42,7 +43,9 @@ class VendorPaymentService:
     ) -> VendorPaymentResult:
         """Post payment of a vendor bill atomically."""
         with transaction(self.conn):
-            amount_dec = require_positive_amount(amount, "Vendor payment amount")
+            amount_dec = q2(amount)
+            if amount_dec == 0:
+                raise ValidationError("Vendor payment amount must not be zero.")
             self.entity_validator.require_exists("vendor_bills", vendor_bill_id)
             self.entity_validator.require_exists("bank_accounts", bank_account_id)
 
@@ -69,7 +72,9 @@ class VendorPaymentService:
             if paid_row is not None:
                 bill_amount = Decimal(str(paid_row["bill_amount"]))
                 paid = Decimal(str(paid_row["paid"]))
-                new_status = "PAID" if paid >= bill_amount else "PARTIAL"
+                # Use absolute values so negative bills (credits) compare
+                # correctly: abs(-1285) >= abs(-1285) → PAID.
+                new_status = "PAID" if abs(paid) >= abs(bill_amount) else "PARTIAL"
                 self.conn.execute(
                     "UPDATE vendor_bills SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                     (new_status, vendor_bill_id),

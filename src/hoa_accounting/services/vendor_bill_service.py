@@ -6,10 +6,11 @@ import sqlite3
 from decimal import Decimal
 
 from hoa_accounting.db.transaction import transaction
+from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.models.dto import VendorBillResult
 from hoa_accounting.repositories.audit_repo import AuditRepository
 from hoa_accounting.repositories.vendors_repo import VendorsRepository
-from hoa_accounting.validators.common import require_positive_amount
+from hoa_accounting.validators.common import q2
 from hoa_accounting.validators.entity_validator import EntityValidator
 
 
@@ -46,7 +47,9 @@ class VendorBillService:
     ) -> VendorBillResult:
         """Post a vendor bill atomically."""
         with transaction(self.conn):
-            amount_dec = require_positive_amount(amount, "Vendor bill amount")
+            amount_dec = q2(amount)
+            if amount_dec == 0:
+                raise ValidationError("Vendor bill amount must not be zero.")
             self.entity_validator.require_exists("vendors", vendor_id)
 
             effective_due_date = due_date or invoice_date

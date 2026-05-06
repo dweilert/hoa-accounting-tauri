@@ -90,9 +90,10 @@
         <span class="field__label">Amount *</span>
         <input type="number" name="amount"
                value="{{ values.amount }}"
-               step="0.01" min="0.01"
+               step="0.01"
                placeholder="0.00"
                required />
+        <span class="field__hint">Use a negative amount (e.g. -1285.00) for a vendor credit / refund.</span>
       </label>
 
       <label class="field">

@@ -118,6 +118,41 @@ def link_candidates(
                     "label": f"Income #{r['id']} — " f"{r['income_description'] or ''}",
                 }
             )
+
+        # Also surface negative bill_payments (vendor refunds/credits).
+        # A positive bank deposit can match a bill_payment whose amount is
+        # negative — the reconciliation formula negates it: -(-x) = +x.
+        linked_bps = linked_source_ids(conn, "BILL_PAYMENT")
+        for r in conn.execute(
+            """
+            SELECT bp.id, bp.payment_date AS dt, bp.amount, bp.check_number,
+                   v.vendor_name
+            FROM bill_payments bp
+            LEFT JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
+            LEFT JOIN vendors v ON v.id = vb.vendor_id
+            WHERE bp.bank_account_id = ?
+              AND printf('%.2f', ABS(CAST(bp.amount AS NUMERIC))) = ?
+              AND bp.payment_date BETWEEN ? AND ?
+              AND CAST(bp.amount AS NUMERIC) < 0
+            ORDER BY bp.payment_date DESC
+            LIMIT 20
+            """,
+            (bank_id, abs_amt, lo, hi),
+        ).fetchall():
+            if int(r["id"]) in linked_bps:
+                continue
+            candidates.append(
+                {
+                    "source_type": "BILL_PAYMENT",
+                    "source_id": int(r["id"]),
+                    "date": r["dt"],
+                    "amount": r["amount"],
+                    "label": (
+                        f"Vendor refund #{r['check_number'] or r['id']}"
+                        + (f" — {r['vendor_name']}" if r["vendor_name"] else "")
+                    ),
+                }
+            )
     else:
         linked_bps = linked_source_ids(conn, "BILL_PAYMENT")
         for r in conn.execute(
