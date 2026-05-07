@@ -118,9 +118,8 @@
         ("5","#1f4d7a","Post other income (interest, fees)","/income/new"),
         ("6","#9a3a38","Enter vendor bills","/vendor-bills/new"),
         ("7","#9a3a38","Pay vendor bills","/vendor-bills"),
-        ("8","#0f7173","Reconcile bank statement","/reconciliations/new"),
+        ("8","#0f7173","Reconcile bank statement — this is your monthly close","/reconciliations/new"),
         ("9","#0f7173","Publish owner PDF statements","/batch-pdf"),
-        ("10","#4a5462","Close the accounting period","/accounting-periods"),
       ] %}
       {% for num, color, label, href in monthly %}
       <div class="cs-step">
@@ -157,15 +156,16 @@
     <div class="cs-card__head" style="background:#5a3a7a;">🏁 Add at Year-End</div>
     <div class="cs-card__body">
       {% set ye = [
-        ("Y1","#1f4d7a","Final AR sweep — confirm all payments posted","/ar/lots"),
-        ("Y2","#9a3a38","Clear or void remaining open vendor bills","/vendor-bills"),
-        ("Y3","#4a5462","Verify all 12 periods are closed","/accounting-periods"),
-        ("Y4","#0f7173","Update Reserve Study components","/reserve-study"),
-        ("Y5","#5a3a7a","Enter new fiscal year budget","/budgets"),
-        ("Y6","#b45309","Set new default annual dues","/system-settings"),
-        ("Y7","#4a5462","Download full database backup","/admin/database"),
-        ("Y8","#1f6b3a","Open January accounting period","/accounting-periods/add"),
-        ("Y9","#1f6b3a","Bill first dues of new year","/dues-billing"),
+        ("Y1","#0f7173","Reconcile December bank statement — this is your year-end close","/reconciliations/new"),
+        ("Y2","#1f4d7a","Final AR sweep — confirm all payments posted","/ar/lots"),
+        ("Y3","#9a3a38","Clear or void remaining open vendor bills","/vendor-bills"),
+        ("Y4","#9a3a38","After Dec 31, do not backdate new bills into the prior year","/vendor-bills/new"),
+        ("Y5","#5a3a7a","Run final Expenses by Date for the year — confirm totals","/reports?report_name=expenses-by-date"),
+        ("Y6","#0f7173","Update Reserve Study components","/reserve-study"),
+        ("Y7","#5a3a7a","Enter new fiscal year budget","/budgets"),
+        ("Y8","#b45309","Set new default annual dues","/system-settings"),
+        ("Y9","#4a5462","Download full database backup","/admin/database"),
+        ("Y10","#1f6b3a","Bill first dues of new year","/dues-billing"),
       ] %}
       {% for num, color, label, href in ye %}
       <div class="cs-step">
@@ -203,12 +203,12 @@
 <div class="cs-rule">
   <div class="cs-rule__title">Golden Rules</div>
   <ul>
-    <li><strong>Dues income is recognized when billed</strong>, not when cash arrives. Collecting a late fee reduces AR — it does not post new income.</li>
-    <li><strong>Edit through Fix &amp; Edit</strong> — corrections are allowed, but every change is recorded in the Audit Log. Don't edit the database directly.</li>
+    <li><strong>Income is confirmed at the bank, not at billing.</strong> Posting an assessment or running a late-fee sweep creates AR (expected income). The OFX records that confirm money cleared the bank are what makes it real income.</li>
+    <li><strong>Bank reconciliation is your monthly close.</strong> When the statement reconciles, the month's books match reality. There is no separate "close period" step that locks anything.</li>
+    <li><strong>Year-end is two things:</strong> (1) reconcile the December statement, and (2) when entering bills after Dec 31, do not backdate them into the prior year. Use January's actual entry date.</li>
+    <li><strong>Use Fix &amp; Edit for payment, income, and assessment corrections.</strong> Those edits are tracked in the Audit Log. Edits to other records (categories, lots, vendors) aren't audit-logged — make those carefully.</li>
     <li><strong>Reserve funds need a board resolution</strong> before any transfer back to operating.</li>
-    <li><strong>Close periods promptly</strong> — open periods from prior months are a red flag. Closing locks the books and prevents accidental edits.</li>
-    <li><strong>Reconcile every month</strong> — a reconciled balance is the only way to know your book balance matches the bank.</li>
-    <li><strong>Backup before fiscal-year rollover</strong> — download a full database backup before opening the new year. Use Admin → Database.</li>
+    <li><strong>Backup before fiscal-year rollover</strong> — download a full database backup before billing the first dues of the new year. Use Admin → Database.</li>
   </ul>
 </div>
 {% endblock %}
