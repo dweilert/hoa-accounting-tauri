@@ -43,11 +43,13 @@ def load_org_context(config_path: Path) -> dict[str, Any]:
     db_theme = getattr(config.app, "theme", "warm")
     db_dues = "0.00"
     db_freq = "annual"
+    db_show_manual_entry = 0
     try:
         _c = sqlite3.connect(config.database.path)
         _c.row_factory = sqlite3.Row
         _row = _c.execute(
-            "SELECT display_name, legal_name, theme, default_assessment_amount, default_billing_frequency FROM hoa_profile LIMIT 1"
+            "SELECT display_name, legal_name, theme, default_assessment_amount,"
+            " default_billing_frequency, show_manual_entry FROM hoa_profile LIMIT 1"
         ).fetchone()
         if _row and _row["display_name"]:
             hoa_name = _row["display_name"]
@@ -58,6 +60,7 @@ def load_org_context(config_path: Path) -> dict[str, Any]:
         if _row and _row["default_assessment_amount"]:
             db_dues = _row["default_assessment_amount"]
         db_freq = (_row["default_billing_frequency"] if _row else None) or "annual"
+        db_show_manual_entry = int(_row["show_manual_entry"]) if _row else 0
         _c.close()
     except Exception:
         pass
@@ -69,6 +72,7 @@ def load_org_context(config_path: Path) -> dict[str, Any]:
         "theme": db_theme,
         "default_assessment_amount": db_dues,
         "default_billing_frequency": db_freq,
+        "show_manual_entry": db_show_manual_entry,
         "db_path": config.database.path,
         "resale_fee_default_amount": getattr(
             config.accounting, "resale_fee_default_amount", "175.00"

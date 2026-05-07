@@ -56,7 +56,6 @@
                 <td>{{ ba.fund_code }}</td>
                 <td>{% if ba.active_flag %}Active{% else %}Inactive{% endif %}</td>
                 <td style="white-space:nowrap;">
-                  <a href="/bank-accounts/{{ ba.id }}/import-statement/upload" class="btn btn--sm btn--ghost">Import Statement</a>
                   <a href="/bank-accounts/{{ ba.id }}/edit" class="btn btn--sm btn--ghost">Edit</a>
                 </td>
               </tr>

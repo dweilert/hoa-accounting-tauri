@@ -107,10 +107,23 @@ class ReserveTransfersRepository(BaseRepository):
         return result
 
     def get_reserve_balance(self) -> str:
-        """Return the current cash balance of all RESERVE bank accounts."""
+        """Return the current cash balance of all RESERVE bank accounts.
+
+        Uses the same formula as the dashboard: opening balance from the
+        opening_balances table (not bank_accounts.opening_balance, which is
+        legacy/unused) plus all money-in/out transactions and reserve transfers.
+        """
         row = self.conn.execute("""
             SELECT
-                COALESCE(SUM(ba.opening_balance), 0)
+                COALESCE((
+                    SELECT SUM(ob.amount)
+                    FROM opening_balances ob
+                    WHERE ob.entity_type = 'BANK_ACCOUNT'
+                      AND ob.entity_id IN (
+                          SELECT id FROM bank_accounts
+                          WHERE fund_code = 'RESERVE' AND active_flag = 1
+                      )
+                ), 0)
                 + COALESCE((SELECT SUM(p.amount) FROM payments p
                             JOIN bank_accounts b ON b.id = p.bank_account_id
                             WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
@@ -120,9 +133,16 @@ class ReserveTransfersRepository(BaseRepository):
                 - COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp
                             JOIN bank_accounts b ON b.id = bp.bank_account_id
                             WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                + COALESCE((SELECT SUM(rt.amount) FROM reserve_transfers rt
+                            JOIN bank_accounts b ON b.id = rt.to_bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
+                - COALESCE((SELECT SUM(rt.amount) FROM reserve_transfers rt
+                            JOIN bank_accounts b ON b.id = rt.from_bank_account_id
+                            WHERE b.fund_code = 'RESERVE' AND b.active_flag = 1), 0)
                 AS balance
             FROM bank_accounts ba
             WHERE ba.fund_code = 'RESERVE' AND ba.active_flag = 1
+            LIMIT 1
             """).fetchone()
         if row and row["balance"] is not None:
             return f"{Decimal(str(row['balance'])):,.2f}"

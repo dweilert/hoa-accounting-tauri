@@ -143,12 +143,14 @@ class DashboardPages:
         except (ValueError, InvalidOperation):
             new_dues = "0.00"
         new_freq = form.get("default_billing_frequency", "annual")
+        new_show_manual_entry = 1 if form.get("show_manual_entry") else 0
         self._repo.save_hoa_profile(
             legal_name,
             display_name,
             theme=new_theme,
             default_assessment_amount=new_dues,
             default_billing_frequency=new_freq,
+            show_manual_entry=new_show_manual_entry,
         )
         # Keep the in-memory org_context in sync so the sidebar / topbar pick
         # up the new names without a server restart.
@@ -157,6 +159,7 @@ class DashboardPages:
         org["theme"] = new_theme
         org["default_assessment_amount"] = new_dues
         org["default_billing_frequency"] = new_freq
+        org["show_manual_entry"] = new_show_manual_entry
         return "/system-settings?msg=Settings+saved.", None
 
     # ── Card Catalog ───────────────────────────────────────────────────

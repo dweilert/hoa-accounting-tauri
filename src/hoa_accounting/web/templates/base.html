@@ -136,7 +136,9 @@
           <li><a href="/reconciliations" class="sidebar__link{% if page_key == 'reconciliations' %} sidebar__link--active{% endif %}">Reconcile Account</a></li>
           <li><a href="/ofx-inbox" class="sidebar__link{% if page_key == 'ofx-inbox' %} sidebar__link--active{% endif %}">OFX Inbox</a></li>
           <li><a href="/bank-import/upload" class="sidebar__link{% if page_key == 'bank-import' %} sidebar__link--active{% endif %}">Upload File</a></li>
+          {% if org.show_manual_entry %}
           <li><a href="/bank-transactions/manual" class="sidebar__link{% if page_key == 'bank-manual' %} sidebar__link--active{% endif %}">Manual Entry</a></li>
+          {% endif %}
           <li><a href="/bank-transactions/pending" class="sidebar__link{% if page_key == 'bank-pending' %} sidebar__link--active{% endif %}">Pending Validation</a></li>
           <li><a href="/reserve-transfers" class="sidebar__link{% if page_key == 'reserve-transfers' %} sidebar__link--active{% endif %}">Reserve Transfer</a></li>
           <li><a href="/bank-accounts" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'bank-accounts' %} sidebar__link--active{% endif %}">Bank Accounts</a></li>
