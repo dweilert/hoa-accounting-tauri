@@ -27,7 +27,6 @@
         <div class="panel__title">Accounting Periods</div>
         <div class="panel__description">
           Monthly periods that control which dates can be posted to.
-          Closed periods block new postings.
         </div>
       </div>
       <div style="display:flex;gap:.5rem;">
@@ -46,47 +45,18 @@
               <th>End</th>
               <th>Fiscal Year</th>
               <th>Month #</th>
-              <th>Status</th>
-              <th>Closed At</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {% for p in periods %}
-              <tr{% if p.is_closed %} style="opacity:.6;"{% endif %}>
+              <tr>
                 <td class="mono">{{ p.period_name }}</td>
                 <td>{{ p.start_date }}</td>
                 <td>{{ p.end_date }}</td>
                 <td>{{ p.fiscal_year }}</td>
                 <td>{{ p.fiscal_period }}</td>
-                <td>
-                  {% if p.is_closed %}
-                    <span class="pill pill--muted">Closed</span>
-                  {% else %}
-                    <span class="pill pill--ok">Open</span>
-                  {% endif %}
-                </td>
-                <td style="font-size:.85rem;color:var(--color-text-muted);">
-                  {{ p.closed_at or '' }}
-                </td>
                 <td style="display:flex;gap:.4rem;justify-content:flex-end;">
-                  {% if p.is_closed %}
-                    <form method="post" action="/accounting-periods/{{ p.id }}/reopen"
-                          data-confirm="Reopen {{ p.period_name }}? This will allow new transactions to be posted to it."
-                          data-confirm-title="Reopen Period"
-                          data-confirm-label="Reopen"
-                          data-confirm-danger="false">
-                      <button type="submit" class="btn btn--sm btn--ghost">Reopen</button>
-                    </form>
-                  {% else %}
-                    <form method="post" action="/accounting-periods/{{ p.id }}/close"
-                          data-confirm="Close {{ p.period_name }}? No new transactions can be posted to a closed period."
-                          data-confirm-title="Close Period"
-                          data-confirm-label="Close Period"
-                          data-confirm-danger="false">
-                      <button type="submit" class="btn btn--sm btn--ghost">Close</button>
-                    </form>
-                  {% endif %}
                   <form method="post" action="/accounting-periods/{{ p.id }}/delete"
                         data-confirm="Delete {{ p.period_name }}? This cannot be undone."
                         data-confirm-title="Delete Period"

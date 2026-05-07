@@ -6,8 +6,6 @@ Routes handled:
   POST /accounting-periods/add                — submit new period
   GET  /accounting-periods/generate           — generate-year form
   POST /accounting-periods/generate           — create 12 periods for a year
-  POST /accounting-periods/<id>/close         — mark period closed
-  POST /accounting-periods/<id>/reopen        — reopen a closed period
   POST /accounting-periods/<id>/delete        — hard-delete (blocked if has JEs)
 """
 
@@ -15,7 +13,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from http import HTTPStatus
 
 from hoa_accounting.exceptions import ValidationError
@@ -34,10 +32,6 @@ _BASE_CTX = {
 class PeriodPageResponse:
     status_code: int
     body_html: str
-
-
-def _now_utc() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class AccountingPeriodPages:
@@ -220,42 +214,6 @@ class AccountingPeriodPages:
             self.conn.rollback()
             raise
         return f"/accounting-periods?msg={fiscal_year}+periods+generated.", None
-
-    # ── Close period (POST) ────────────────────────────────────────────
-
-    def handle_close(
-        self,
-        *,
-        period_id: int,
-        org: dict[str, object] | None,
-        theme: str,
-    ) -> tuple[str | None, PeriodPageResponse | None]:
-        row = self.repo.get_period(period_id)
-        if row is None:
-            return "/accounting-periods?msg=Period+not+found.", None
-        if int(row["is_closed"]):
-            return "/accounting-periods?msg=Period+already+closed.", None
-        self.repo.close_period(period_id, closed_at=_now_utc())
-        self.conn.commit()
-        return f"/accounting-periods?msg={row['period_name']}+closed.", None
-
-    # ── Reopen period (POST) ───────────────────────────────────────────
-
-    def handle_reopen(
-        self,
-        *,
-        period_id: int,
-        org: dict[str, object] | None,
-        theme: str,
-    ) -> tuple[str | None, PeriodPageResponse | None]:
-        row = self.repo.get_period(period_id)
-        if row is None:
-            return "/accounting-periods?msg=Period+not+found.", None
-        if not int(row["is_closed"]):
-            return "/accounting-periods?msg=Period+already+open.", None
-        self.repo.reopen_period(period_id)
-        self.conn.commit()
-        return f"/accounting-periods?msg={row['period_name']}+reopened.", None
 
     # ── Delete period (POST) ───────────────────────────────────────────
 

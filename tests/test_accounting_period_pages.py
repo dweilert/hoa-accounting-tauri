@@ -6,8 +6,6 @@ Covers:
 - handle_add: success redirect, missing fields, duplicate name, bad dates
 - render_generate_form: shows next-year default
 - handle_generate_year: creates 12 periods, blocks duplicate year
-- handle_close: closes an open period, ignores already-closed
-- handle_reopen: reopens a closed period, ignores already-open
 - handle_delete: removes period with no JEs, blocked if has JEs
 """
 
@@ -80,18 +78,6 @@ def test_render_list_flash_message(conn: sqlite3.Connection) -> None:
         org=_ORG, theme="warm", flash_message="Period added."
     )
     assert "Period added." in resp.body_html
-
-
-def test_render_list_open_shows_close_button(conn: sqlite3.Connection) -> None:
-    _seed_period(conn, is_closed=0)
-    resp = AccountingPeriodPages(conn).render_list(org=_ORG, theme="warm")
-    assert "Close" in resp.body_html
-
-
-def test_render_list_closed_shows_reopen_button(conn: sqlite3.Connection) -> None:
-    _seed_period(conn, is_closed=1)
-    resp = AccountingPeriodPages(conn).render_list(org=_ORG, theme="warm")
-    assert "Reopen" in resp.body_html
 
 
 # ── render_add_form ────────────────────────────────────────────────────
@@ -221,50 +207,6 @@ def test_handle_generate_year_blocks_duplicate(conn: sqlite3.Connection) -> None
     assert redirect_url is None
     assert resp is not None
     assert "already exist" in resp.body_html
-
-
-# ── handle_close ───────────────────────────────────────────────────────
-
-
-def test_handle_close_marks_period_closed(conn: sqlite3.Connection) -> None:
-    pid = _seed_period(conn, is_closed=0)
-    redirect_url, resp = AccountingPeriodPages(conn).handle_close(
-        period_id=pid, org=_ORG, theme="warm"
-    )
-    assert redirect_url is not None
-    row = PeriodsRepository(conn).get_period(pid)
-    assert row["is_closed"] == 1
-    assert row["closed_at"] is not None
-
-
-def test_handle_close_idempotent_if_already_closed(conn: sqlite3.Connection) -> None:
-    pid = _seed_period(conn, is_closed=1)
-    redirect_url, _ = AccountingPeriodPages(conn).handle_close(
-        period_id=pid, org=_ORG, theme="warm"
-    )
-    assert redirect_url is not None  # graceful redirect, not an error
-
-
-# ── handle_reopen ──────────────────────────────────────────────────────
-
-
-def test_handle_reopen_opens_closed_period(conn: sqlite3.Connection) -> None:
-    pid = _seed_period(conn, is_closed=1)
-    redirect_url, resp = AccountingPeriodPages(conn).handle_reopen(
-        period_id=pid, org=_ORG, theme="warm"
-    )
-    assert redirect_url is not None
-    row = PeriodsRepository(conn).get_period(pid)
-    assert row["is_closed"] == 0
-    assert row["closed_at"] is None
-
-
-def test_handle_reopen_idempotent_if_already_open(conn: sqlite3.Connection) -> None:
-    pid = _seed_period(conn, is_closed=0)
-    redirect_url, _ = AccountingPeriodPages(conn).handle_reopen(
-        period_id=pid, org=_ORG, theme="warm"
-    )
-    assert redirect_url is not None
 
 
 # ── handle_delete ──────────────────────────────────────────────────────

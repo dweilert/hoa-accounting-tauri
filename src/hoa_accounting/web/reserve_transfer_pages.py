@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from hoa_accounting.exceptions import ClosedPeriodError, ValidationError
+from hoa_accounting.exceptions import ValidationError
 from hoa_accounting.repositories.reserve_transfers_repo import (
     ReserveTransfersRepository,
 )
@@ -163,7 +163,7 @@ class ReserveTransferPages:
                 created_by_user_id=None,
             )
             self._conn.commit()
-        except (ValidationError, ClosedPeriodError) as exc:
+        except ValidationError as exc:
             self._conn.rollback()
             return _err(str(exc))
         except Exception:

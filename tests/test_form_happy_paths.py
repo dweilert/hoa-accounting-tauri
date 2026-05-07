@@ -1859,38 +1859,9 @@ def test_budget_un_archive(client, csrf, conn):
     assert resp.status_code in (302, 303)
 
 
-# ── 61. Period close ───────────────────────────────────────────────────
-def test_period_close(client, csrf, conn):
-    p = conn.execute(
-        "SELECT id FROM accounting_periods WHERE period_name LIKE ? LIMIT 1",
-        (f"%{MARKER}%",),
-    ).fetchone()
-    if not p:
-        pytest.skip("Depends on period add.")
-    resp = _post(client, csrf, f"/accounting-periods/{int(p[0])}/close", {})
-    assert resp.status_code in (302, 303)
-    st = conn.execute(
-        "SELECT is_closed FROM accounting_periods WHERE id=?",
-        (int(p[0]),),
-    ).fetchone()
-    assert st and int(st[0]) == 1
-
-
-# ── 62. Period reopen ──────────────────────────────────────────────────
-def test_period_reopen(client, csrf, conn):
-    p = conn.execute(
-        "SELECT id FROM accounting_periods WHERE period_name LIKE ? LIMIT 1",
-        (f"%{MARKER}%",),
-    ).fetchone()
-    if not p:
-        pytest.skip()
-    resp = _post(client, csrf, f"/accounting-periods/{int(p[0])}/reopen", {})
-    assert resp.status_code in (302, 303)
-    st = conn.execute(
-        "SELECT is_closed FROM accounting_periods WHERE id=?",
-        (int(p[0]),),
-    ).fetchone()
-    assert st and int(st[0]) == 0
+# ── 61, 62. Period close/reopen retired — bank reconciliation is now the
+# real monthly close. The /accounting-periods/<id>/close and /reopen
+# routes were removed along with ClosedPeriodError.
 
 
 # ── 63. Reconciliation finalize ────────────────────────────────────────

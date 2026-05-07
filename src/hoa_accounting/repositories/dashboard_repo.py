@@ -413,22 +413,35 @@ class DashboardRepository:
         except Exception:
             pass
 
-        # ── Unclosed periods ──────────────────────────────────────────────
+        # ── Unreconciled prior months ─────────────────────────────────────
+        # Bank reconciliation is the real monthly close. Flag any completed
+        # calendar month (ending before the first of the current month) that
+        # has no FINALIZED reconciliation on any bank account.
         try:
-            row = self._conn.execute(
-                "SELECT COUNT(*) c FROM accounting_periods "
-                "WHERE is_closed = 0 AND end_date < DATE('now')"
-            ).fetchone()
+            row = self._conn.execute("""
+                SELECT COUNT(*) c FROM (
+                    SELECT DISTINCT strftime('%Y-%m', ap.end_date) AS ym
+                    FROM accounting_periods ap
+                    WHERE ap.end_date < DATE('now', 'start of month')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM bank_reconciliations br
+                          WHERE br.status = 'FINALIZED'
+                            AND strftime('%Y-%m', br.statement_ending_date)
+                                = strftime('%Y-%m', ap.end_date)
+                      )
+                )
+                """).fetchone()
             if row and row["c"] > 0:
                 n = row["c"]
                 _add(
-                    "open_periods",
+                    "unreconciled_months",
                     "warn",
-                    "🔒",
-                    f"{n} accounting period{'s' if n != 1 else ''} "
-                    "still open from a prior month — close them to lock the books.",
-                    "/accounting-periods",
-                    "Accounting Periods",
+                    "🏦",
+                    f"{n} prior month{'s' if n != 1 else ''} "
+                    "without a finalized bank reconciliation — "
+                    "reconcile to close the books.",
+                    "/reconciliations",
+                    "Reconciliations",
                 )
         except Exception:
             pass

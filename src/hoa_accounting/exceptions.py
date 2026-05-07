@@ -9,9 +9,5 @@ class ValidationError(AccountingError):
     """Raised when business or input validation fails."""
 
 
-class ClosedPeriodError(AccountingError):
-    """Raised when attempting to post to a closed accounting period."""
-
-
 class NotFoundError(AccountingError):
     """Raised when a required database record cannot be found."""

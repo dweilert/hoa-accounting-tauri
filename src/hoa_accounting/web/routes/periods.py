@@ -88,44 +88,6 @@ def make_periods_blueprint(ctx: RouteContext) -> Blueprint:
             mimetype="text/html; charset=utf-8",
         )
 
-    @bp.post("/accounting-periods/<int:period_id>/close")
-    def close_period(period_id: int) -> ResponseReturnValue:
-
-        pages = ctx.open_pages(AccountingPeriodPages)
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_close(
-            period_id=period_id,
-            org=org_context,
-            theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(
-            form_resp.body_html,
-            status=form_resp.status_code,
-            mimetype="text/html; charset=utf-8",
-        )
-
-    @bp.post("/accounting-periods/<int:period_id>/reopen")
-    def reopen_period(period_id: int) -> ResponseReturnValue:
-
-        pages = ctx.open_pages(AccountingPeriodPages)
-        theme = str(org_context.get("theme", "warm"))
-        redirect_url, form_resp = pages.handle_reopen(
-            period_id=period_id,
-            org=org_context,
-            theme=theme,
-        )
-        if redirect_url is not None:
-            return redirect(redirect_url, code=303)
-        assert form_resp is not None
-        return Response(
-            form_resp.body_html,
-            status=form_resp.status_code,
-            mimetype="text/html; charset=utf-8",
-        )
-
     @bp.post("/accounting-periods/<int:period_id>/delete")
     def delete_period(period_id: int) -> ResponseReturnValue:
 

@@ -115,28 +115,6 @@ class PeriodsRepository(BaseRepository):
             ids.append(int(cur.lastrowid or 0))
         return ids
 
-    def close_period(self, period_id: int, closed_at: str) -> None:
-        """Mark a period as closed."""
-        self.conn.execute(
-            """
-            UPDATE accounting_periods
-               SET is_closed = 1, closed_at = ?
-             WHERE id = ?
-            """,
-            (closed_at, period_id),
-        )
-
-    def reopen_period(self, period_id: int) -> None:
-        """Reopen a closed period (for corrections)."""
-        self.conn.execute(
-            """
-            UPDATE accounting_periods
-               SET is_closed = 0, closed_at = NULL
-             WHERE id = ?
-            """,
-            (period_id,),
-        )
-
     def delete_period(self, period_id: int) -> None:
         """Hard-delete a period with no journal entries."""
         self.conn.execute("DELETE FROM accounting_periods WHERE id = ?", (period_id,))
