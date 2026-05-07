@@ -71,13 +71,11 @@
       {% endif %}
     {% endfor %}
     <span style="margin-left:auto;display:flex;gap:.4rem;align-items:center;">
-      {% if selected_bank_account_id %}
-        <a href="/bank-accounts/{{ selected_bank_account_id }}/import-statement"
-           class="btn btn--sm btn--ghost"
-           title="View past import batches; delete an entire upload or remap a CSV column layout.">
-          Recent Imports
-        </a>
-      {% endif %}
+      <a href="/bank-import/upload"
+         class="btn btn--sm btn--ghost"
+         title="Import a bank statement (OFX or CSV) or view past import batches.">
+        Import / Recent Imports
+      </a>
       {% if ignored_count and ignored_count > 0 %}
         <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--text-muted);cursor:pointer;">
           <input type="checkbox" id="show-ignored-toggle"
