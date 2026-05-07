@@ -50,12 +50,6 @@
             </a>
           </li>
           <li>
-            <a href="/reports"
-               class="sidebar__link{% if active_nav == 'reports' %} sidebar__link--active{% endif %}">
-              Reports
-            </a>
-          </li>
-          <li>
             <a href="/workflow-guide"
                class="sidebar__link{% if page_key == 'workflow-guide' %} sidebar__link--active{% endif %}">
               Workflow Guide
@@ -71,6 +65,24 @@
             <a href="/claude-code-guide"
                class="sidebar__link{% if page_key == 'claude-code-guide' %} sidebar__link--active{% endif %}">
               🤖 Built with Claude
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      {# ── Reports ─────────────────────────────────────────────────────── #}
+      <div class="sidebar__section" data-section="reports">
+        <button type="button" class="sidebar__section-header"
+                data-toggle-section="reports"
+                aria-expanded="true" aria-controls="sidebar-reports">
+          <span class="sidebar__chevron" aria-hidden="true">▸</span>
+          <span>Reports</span>
+        </button>
+        <ul class="sidebar__nav" id="sidebar-reports">
+          <li>
+            <a href="/reports"
+               class="sidebar__link{% if active_nav == 'reports' %} sidebar__link--active{% endif %}">
+              Reports
             </a>
           </li>
         </ul>
