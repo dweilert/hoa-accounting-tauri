@@ -112,13 +112,13 @@
     <div class="cs-card__body">
       {% set monthly = [
         ("1","#1f6b3a","Bill dues for all active lots","/dues-billing"),
-        ("2","#1f6b3a","Post any special assessments","/bill-assessments"),
+        ("2","#1f6b3a","Post any special assessments","/assessments/bill"),
         ("3","#b45309","Run late-fee sweep","/late-fees"),
-        ("4","#1f4d7a","Record owner payments","/deposit-batch"),
-        ("5","#1f4d7a","Post other income (interest, fees)","/income-batch"),
-        ("6","#9a3a38","Enter vendor bills","/vendor-bill-new"),
+        ("4","#1f4d7a","Record owner payments","/deposit"),
+        ("5","#1f4d7a","Post other income (interest, fees)","/income/new"),
+        ("6","#9a3a38","Enter vendor bills","/vendor-bills/new"),
         ("7","#9a3a38","Pay vendor bills","/vendor-bills"),
-        ("8","#0f7173","Reconcile bank statement","/reconciliation-new"),
+        ("8","#0f7173","Reconcile bank statement","/reconciliations/new"),
         ("9","#0f7173","Publish owner PDF statements","/batch-pdf"),
         ("10","#4a5462","Close the accounting period","/accounting-periods"),
       ] %}
@@ -136,11 +136,11 @@
     <div class="cs-card__head" style="background:#1f4d7a;">📊 Add at Quarter End</div>
     <div class="cs-card__body">
       {% set qtr = [
-        ("Q1","#1f4d7a","Review AR aging — follow up on 30/60/90+ balances","/ar-lots"),
+        ("Q1","#1f4d7a","Review AR aging — follow up on 30/60/90+ balances","/ar/lots"),
         ("Q2","#5a3a7a","Run Budget vs Actual report","/reports?report_name=expenses-vs-budget"),
-        ("Q3","#5a3a7a","Scan All Transactions for miscoding","/all-transactions"),
-        ("Q4","#5a3a7a","Spot-check Ledger by Account","/account-ledger"),
-        ("Q5","#0f7173","Transfer budgeted amount to Reserve account","/reserve-transfer-new"),
+        ("Q3","#5a3a7a","Scan All Transactions for miscoding","/ledger/transactions"),
+        ("Q4","#5a3a7a","Spot-check Ledger by Account","/ledger/by-account"),
+        ("Q5","#0f7173","Transfer budgeted amount to Reserve account","/reserve-transfers/new"),
         ("Q6","#0f7173","Review Reserve Study funding plan","/reserve-study"),
       ] %}
       {% for num, color, label, href in qtr %}
@@ -157,16 +157,15 @@
     <div class="cs-card__head" style="background:#5a3a7a;">🏁 Add at Year-End</div>
     <div class="cs-card__body">
       {% set ye = [
-        ("Y1","#1f4d7a","Final AR sweep — confirm all payments posted","/ar-lots"),
+        ("Y1","#1f4d7a","Final AR sweep — confirm all payments posted","/ar/lots"),
         ("Y2","#9a3a38","Clear or void remaining open vendor bills","/vendor-bills"),
         ("Y3","#4a5462","Verify all 12 periods are closed","/accounting-periods"),
-        ("Y4","#5a3a7a","Run Year-End Close","/year-end-close"),
-        ("Y5","#0f7173","Update Reserve Study components","/reserve-study"),
-        ("Y6","#5a3a7a","Enter new fiscal year budget","/budgets"),
-        ("Y7","#b45309","Set new default annual dues","/system-settings"),
-        ("Y8","#4a5462","Download full database backup","/admin/database"),
-        ("Y9","#1f6b3a","Open January accounting period","/accounting-period-new"),
-        ("Y10","#1f6b3a","Bill first dues of new year","/dues-billing"),
+        ("Y4","#0f7173","Update Reserve Study components","/reserve-study"),
+        ("Y5","#5a3a7a","Enter new fiscal year budget","/budgets"),
+        ("Y6","#b45309","Set new default annual dues","/system-settings"),
+        ("Y7","#4a5462","Download full database backup","/admin/database"),
+        ("Y8","#1f6b3a","Open January accounting period","/accounting-periods/add"),
+        ("Y9","#1f6b3a","Bill first dues of new year","/dues-billing"),
       ] %}
       {% for num, color, label, href in ye %}
       <div class="cs-step">
@@ -177,17 +176,17 @@
     </div>
   </div>
 
-  {# ── Write-offs & adjustments ── #}
+  {# ── Adjustments & write-offs (cash-basis) ── #}
   <div class="cs-card">
     <div class="cs-card__head" style="background:#9a3a38;">✏️ Adjustments &amp; Write-Offs</div>
     <div class="cs-card__body">
       {% set adj = [
-        ("#1f4d7a","Owner write-off: get board approval, then DR Bad Debt Expense / CR AR","/journal-entry-new"),
-        ("#b45309","Late fee billing: posts DR AR / CR Late Fee Income — income is at billing, not payment","/late-fees"),
-        ("#b45309","Late fee waiver: reversal entry DR Late Fee Income / CR AR","/journal-entry-new"),
-        ("#9a3a38","Reclassify expense: reverse original entry, post correction to right account","/journal-entry-new"),
-        ("#0f7173","Accrual: DR Expense / CR Accrued Liabilities at month-end; reverse on 1st","/journal-entry-new"),
-        ("#0f7173","Reserve interest earned: DR Reserve Cash / CR Interest Income","/journal-entry-new"),
+        ("#1f4d7a","Owner write-off: get board approval, then post a Credit Memo or Write-Off on the lot","/ar/lots"),
+        ("#b45309","Late fee billing: open the late-fee sweep — late fees post to AR when run","/late-fees"),
+        ("#b45309","Late fee waiver: edit the assessment in Fix &amp; Edit, or apply a Credit Memo to the lot","/manage/edit-records"),
+        ("#9a3a38","Reclassify expense: edit the bill or income batch in Fix &amp; Edit and pick the right category","/manage/edit-records"),
+        ("#0f7173","Bank interest / fees: post via Other Income or as a vendor bill — don't journal-entry it","/income/new"),
+        ("#0f7173","NSF / bounced check: edit or reverse the payment in Fix &amp; Edit, then re-bill if needed","/manage/edit-records"),
       ] %}
       {% for color, label, href in adj %}
       <div class="cs-step">
@@ -204,12 +203,12 @@
 <div class="cs-rule">
   <div class="cs-rule__title">Golden Rules</div>
   <ul>
-    <li><strong>Income is recognized when billed</strong>, not when cash arrives. Collecting a late fee reduces AR — it does not post new income.</li>
-    <li><strong>Never edit a posted entry</strong> — always reverse-then-correct. The Audit Log tracks every change.</li>
+    <li><strong>Dues income is recognized when billed</strong>, not when cash arrives. Collecting a late fee reduces AR — it does not post new income.</li>
+    <li><strong>Edit through Fix &amp; Edit</strong> — corrections are allowed, but every change is recorded in the Audit Log. Don't edit the database directly.</li>
     <li><strong>Reserve funds need a board resolution</strong> before any transfer back to operating.</li>
     <li><strong>Close periods promptly</strong> — open periods from prior months are a red flag. Closing locks the books and prevents accidental edits.</li>
     <li><strong>Reconcile every month</strong> — a reconciled balance is the only way to know your book balance matches the bank.</li>
-    <li><strong>Backup before year-end close</strong> — download a full database backup before running the Year-End Close. It cannot be undone without reopening the year.</li>
+    <li><strong>Backup before fiscal-year rollover</strong> — download a full database backup before opening the new year. Use Admin → Database.</li>
   </ul>
 </div>
 {% endblock %}
