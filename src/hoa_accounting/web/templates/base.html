@@ -220,7 +220,7 @@
           <span>Lots</span>
         </button>
         <ul class="sidebar__nav" id="sidebar-lots">
-          <li><a href="/lots" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'lots' %} sidebar__link--active{% endif %}">Properties</a></li>
+          <li><a href="/lots" class="sidebar__link{% if active_nav == 'master-data' and page_key == 'lots' %} sidebar__link--active{% endif %}">Lots</a></li>
         </ul>
       </div>
 
@@ -455,11 +455,19 @@
         if (btn) btn.setAttribute("aria-expanded", "false");
       });
       // Wire up click handlers.
+      // Special case: when a section contains exactly one nav link, clicking
+      // the section header navigates straight to that link instead of
+      // collapsing/expanding the (single-item) group.
       document.querySelectorAll("[data-toggle-section]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var section = btn.getAttribute("data-toggle-section");
           var el = document.querySelector('[data-section="' + section + '"]');
           if (!el) return;
+          var links = el.querySelectorAll(".sidebar__nav > li > a.sidebar__link");
+          if (links.length === 1) {
+            window.location.href = links[0].getAttribute("href");
+            return;
+          }
           var collapsed = el.classList.toggle("sidebar__section--collapsed");
           btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
           var cur = read();
