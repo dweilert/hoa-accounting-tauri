@@ -390,6 +390,16 @@ hr {
   display: none;
 }
 
+/* Single-activity sections: when a section contains exactly one nav link the
+ * sub-list and chevron are redundant — the bar itself navigates. Hide both
+ * and show the bar in an "active" state when its sole link is current. */
+.sidebar__section--single .sidebar__chevron { display: none; }
+.sidebar__section--single .sidebar__nav { display: none; }
+.sidebar__section--single.sidebar__section--active .sidebar__section-header {
+  color: var(--accent-hover, var(--accent));
+  background: var(--accent-border);
+}
+
 .sidebar__nav {
   list-style: none;
   padding: 0;
