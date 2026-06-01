@@ -35,6 +35,8 @@ import { TransactionRulesScreen } from "./screens/TransactionRulesScreen";
 import { WorkflowGuideScreen } from "./screens/WorkflowGuideScreen";
 import { AuditLogScreen } from "./screens/AuditLogScreen";
 import { ReserveTransfersScreen } from "./screens/ReserveTransfersScreen";
+import { LotTransferScreen } from "./screens/LotTransferScreen";
+import { LateFeesScreen } from "./screens/LateFeesScreen";
 
 export default function App() {
   return (
@@ -50,6 +52,7 @@ export default function App() {
             {/* Lots & Owners */}
             <Route path="lots" element={<LotsScreen />} />
             <Route path="lots/:id" element={<LotDetailScreen />} />
+            <Route path="lots/transfer" element={<RequireAdmin><LotTransferScreen /></RequireAdmin>} />
             <Route path="owners" element={<OwnersScreen />} />
 
             {/* Transactions */}
@@ -94,6 +97,7 @@ export default function App() {
 
             {/* Billing & Editing */}
             <Route path="billing/dues" element={<RequireAdmin><DuesBillingScreen /></RequireAdmin>} />
+            <Route path="billing/late-fees" element={<RequireAdmin><LateFeesScreen /></RequireAdmin>} />
             <Route path="edit-records" element={<EditRecordsScreen />} />
 
             {/* Admin — requires admin role */}

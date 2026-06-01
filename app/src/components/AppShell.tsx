@@ -47,6 +47,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Assessments", to: "/assessments" },
       { label: "Dues Billing", to: "/billing/dues" },
+      { label: "Late Fees", to: "/billing/late-fees" },
       { label: "Accounts Receivable", to: "/ar" },
       { label: "Deposits", to: "/deposits" },
     ],
@@ -78,6 +79,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Chart of Accounts", to: "/categories" },
       { label: "Transaction Rules", to: "/admin/transaction-rules" },
+      { label: "Lot Transfer Wizard", to: "/lots/transfer" },
       { label: "Audit Log", to: "/audit-log" },
       { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },
