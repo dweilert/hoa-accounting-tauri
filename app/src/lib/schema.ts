@@ -437,7 +437,16 @@ const SEEDS: Array<[string, string, string, string, number, number]> = [
 ];
 
 export async function initSchema(db: DbHandle): Promise<void> {
-  await db.execute(DDL);
+  // Tauri SQL plugin only executes one statement per execute() call.
+  // Split on semicolons and run each statement individually so all
+  // CREATE TABLE IF NOT EXISTS blocks are applied on every open.
+  const statements = DDL
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  for (const stmt of statements) {
+    await db.execute(stmt + ";");
+  }
 
   // Seed only if categories table is empty
   const rows = await db.select<[{ n: number }]>(
