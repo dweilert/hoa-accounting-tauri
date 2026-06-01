@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { DbProvider } from "./contexts/DbContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { AuthGate } from "./screens/LoginScreen";
 import { AppShell } from "./components/AppShell";
 import { Dashboard } from "./screens/Dashboard";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
@@ -22,12 +24,14 @@ import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { LotDetailScreen } from "./screens/LotDetailScreen";
 import { ReserveStudyScreen } from "./screens/ReserveStudyScreen";
-import { Placeholder } from "./screens/Placeholder";
+import { UsersScreen } from "./screens/UsersScreen";
 
 export default function App() {
   return (
+    <AuthProvider>
     <DbProvider>
       <BrowserRouter>
+        <AuthGate>
         <Routes>
           <Route path="/" element={<AppShell />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -70,11 +74,13 @@ export default function App() {
 
             {/* Admin */}
             <Route path="categories" element={<CategoriesScreen />} />
-            <Route path="users" element={<Placeholder title="Users" />} />
+            <Route path="users" element={<UsersScreen />} />
             <Route path="settings" element={<SettingsScreen />} />
           </Route>
         </Routes>
+        </AuthGate>
       </BrowserRouter>
     </DbProvider>
+    </AuthProvider>
   );
 }

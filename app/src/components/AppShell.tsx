@@ -1,7 +1,8 @@
 import { Outlet, NavLink } from "react-router-dom";
+import { useAuth, useCurrentUser } from "../contexts/AuthContext";
 
 type NavItem = { label: string; to: string };
-type NavSection = { heading: string; items: NavItem[] };
+type NavSection = { heading: string; items: NavItem[]; adminOnly?: boolean };
 
 const NAV: NavSection[] = [
   {
@@ -59,6 +60,7 @@ const NAV: NavSection[] = [
   },
   {
     heading: "Admin",
+    adminOnly: true,
     items: [
       { label: "Chart of Accounts", to: "/categories" },
       { label: "Users", to: "/users" },
@@ -76,6 +78,10 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   ].join(" ");
 
 export function AppShell() {
+  const { logout } = useAuth();
+  const currentUser = useCurrentUser();
+  const isAdmin = currentUser?.role === "admin";
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
@@ -84,7 +90,7 @@ export function AppShell() {
           <span className="text-white font-semibold text-sm tracking-wide">HOA Accounting</span>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-4">
-          {NAV.map((section) => (
+          {NAV.filter((s) => !s.adminOnly || isAdmin).map((section) => (
             <div key={section.heading}>
               {section.items.length > 1 && (
                 <p className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -103,6 +109,17 @@ export function AppShell() {
             </div>
           ))}
         </nav>
+        {/* User footer */}
+        <div className="px-3 py-3 border-t border-gray-700">
+          <p className="text-xs text-gray-300 truncate mb-1">{currentUser?.displayName ?? currentUser?.email}</p>
+          <p className="text-xs text-gray-500 truncate mb-2">{currentUser?.role}</p>
+          <button
+            onClick={logout}
+            className="w-full text-left text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}
