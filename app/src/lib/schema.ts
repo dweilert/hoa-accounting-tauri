@@ -1,6 +1,35 @@
 import type Database from "@tauri-apps/plugin-sql";
 
 const DDL = `
+CREATE TABLE IF NOT EXISTS vendor_bills (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  vendor_id       INTEGER NOT NULL REFERENCES vendors(id),
+  invoice_number  TEXT    NOT NULL,
+  invoice_date    TEXT    NOT NULL,
+  due_date        TEXT,
+  amount          NUMERIC NOT NULL CHECK(amount != 0),
+  fund_code       TEXT    NOT NULL DEFAULT 'OPERATING'
+                          CHECK(fund_code IN ('OPERATING','RESERVE','SPECIAL')),
+  status          TEXT    NOT NULL DEFAULT 'OPEN'
+                          CHECK(status IN ('OPEN','PARTIAL','PAID','VOID')),
+  category_id     INTEGER REFERENCES categories(id),
+  description     TEXT,
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(vendor_id, invoice_number)
+);
+
+CREATE TABLE IF NOT EXISTS bill_payments (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  vendor_bill_id  INTEGER NOT NULL REFERENCES vendor_bills(id),
+  payment_date    TEXT    NOT NULL,
+  amount          NUMERIC NOT NULL CHECK(amount != 0),
+  bank_account_id INTEGER NOT NULL REFERENCES bank_accounts(id),
+  check_number    TEXT,
+  notes           TEXT,
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS vendors (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   vendor_name   TEXT    NOT NULL,
