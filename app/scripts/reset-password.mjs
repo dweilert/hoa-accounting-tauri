@@ -68,7 +68,8 @@ let [, , dbPathArg, emailArg, passwordArg] = process.argv;
 
 console.log("\n── HOA Accounting: Emergency Password Reset ──\n");
 
-const dbPath = dbPathArg ?? await prompt(`Database path [${DEFAULT_DB}]: `) || DEFAULT_DB;
+const rawPath = dbPathArg ?? await prompt(`Database path [${DEFAULT_DB}]: `);
+const dbPath = rawPath?.trim() || DEFAULT_DB;
 
 // Load sql.js and open the database
 let SQL;
