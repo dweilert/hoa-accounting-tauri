@@ -26,6 +26,7 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { LotDetailScreen } from "./screens/LotDetailScreen";
 import { ReserveStudyScreen } from "./screens/ReserveStudyScreen";
 import { UsersScreen } from "./screens/UsersScreen";
+import { ProfileScreen } from "./screens/ProfileScreen";
 
 export default function App() {
   return (
@@ -72,6 +73,9 @@ export default function App() {
 
             {/* Reports */}
             <Route path="reports" element={<ReportsScreen />} />
+
+            {/* Profile */}
+            <Route path="profile" element={<ProfileScreen />} />
 
             {/* Admin — requires admin role */}
             <Route path="categories" element={<RequireAdmin><CategoriesScreen /></RequireAdmin>} />

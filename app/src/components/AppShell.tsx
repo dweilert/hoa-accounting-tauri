@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, Link } from "react-router-dom";
 import { useAuth, useCurrentUser } from "../contexts/AuthContext";
 
 type NavItem = { label: string; to: string };
@@ -111,7 +111,9 @@ export function AppShell() {
         </nav>
         {/* User footer */}
         <div className="px-3 py-3 border-t border-gray-700">
-          <p className="text-xs text-gray-300 truncate mb-1">{currentUser?.displayName ?? currentUser?.email}</p>
+          <Link to="/profile" className="block text-xs text-gray-300 hover:text-white truncate mb-1">
+            {currentUser?.displayName ?? currentUser?.email}
+          </Link>
           <p className="text-xs text-gray-500 truncate mb-2">{currentUser?.role}</p>
           <button
             onClick={logout}
