@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { DbProvider } from "./contexts/DbContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AuthGate } from "./screens/LoginScreen";
+import { RequireAdmin } from "./components/RequireAdmin";
 import { AppShell } from "./components/AppShell";
 import { Dashboard } from "./screens/Dashboard";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
@@ -72,10 +73,10 @@ export default function App() {
             {/* Reports */}
             <Route path="reports" element={<ReportsScreen />} />
 
-            {/* Admin */}
-            <Route path="categories" element={<CategoriesScreen />} />
-            <Route path="users" element={<UsersScreen />} />
-            <Route path="settings" element={<SettingsScreen />} />
+            {/* Admin — requires admin role */}
+            <Route path="categories" element={<RequireAdmin><CategoriesScreen /></RequireAdmin>} />
+            <Route path="users" element={<RequireAdmin><UsersScreen /></RequireAdmin>} />
+            <Route path="settings" element={<RequireAdmin><SettingsScreen /></RequireAdmin>} />
           </Route>
         </Routes>
         </AuthGate>
