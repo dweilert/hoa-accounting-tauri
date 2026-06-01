@@ -211,46 +211,89 @@ async function loadOwners(): Promise<OwnerSummary[]> {
   `);
 }
 
-async function loadOwnerLedger(ownerId: number): Promise<OwnerLedgerRow[]> {
+type OwnerLedgerResult = { rows: OwnerLedgerRow[]; beginningBalance: number };
+
+async function loadOwnerLedger(ownerId: number, year: number): Promise<OwnerLedgerResult> {
   const db = await getDb();
+  const yearStart = `${year}-01-01`;
+  const yearEnd   = `${year}-12-31`;
+
+  // Beginning balance: sum all transactions strictly before this year
+  const beginRows = await db.select<[{ bal: number }]>(`
+    SELECT COALESCE(SUM(amount), 0) AS bal FROM (
+      SELECT -a.amount AS amount
+      FROM assessments a WHERE a.owner_id = ? AND a.assessment_date < ?
+      UNION ALL
+      SELECT p.amount
+      FROM payments p WHERE p.owner_id = ? AND p.payment_date < ?
+    )
+  `, [ownerId, yearStart, ownerId, yearStart]);
+
+  const beginningBalance = beginRows[0]?.bal ?? 0;
+
+  // Transactions for the selected year only
   const rows = await db.select<Omit<OwnerLedgerRow, "running_balance">[]>(`
     SELECT txn_date, type, description, amount FROM (
       SELECT a.assessment_date AS txn_date, 'CHARGE' AS type,
              COALESCE(a.description, a.charge_type) AS description,
              -a.amount AS amount
-      FROM assessments a WHERE a.owner_id = ?
+      FROM assessments a
+      WHERE a.owner_id = ? AND a.assessment_date BETWEEN ? AND ?
       UNION ALL
       SELECT p.payment_date, 'PAYMENT', COALESCE(p.memo, 'Payment'), p.amount
-      FROM payments p WHERE p.owner_id = ?
+      FROM payments p
+      WHERE p.owner_id = ? AND p.payment_date BETWEEN ? AND ?
     ) ORDER BY txn_date ASC
-  `, [ownerId, ownerId]);
+  `, [ownerId, yearStart, yearEnd, ownerId, yearStart, yearEnd]);
 
-  let balance = 0;
-  return rows.map((r) => {
+  let balance = beginningBalance;
+  const ledgerRows = rows.map((r) => {
     balance += r.amount;
     return { ...r, running_balance: balance };
-  }).reverse();
+  });
+
+  return { rows: ledgerRows.reverse(), beginningBalance };
 }
 
-function OwnerLedgerReport({ ownerId = 0 }: { ownerId?: number }) {
-  const [rows, setRows] = useState<OwnerLedgerRow[]>([]);
+function balanceLabel(b: number) {
+  if (b < 0) return { text: fmt(-b), tag: "Balance Due",  cls: "bg-red-50 border-red-200 text-red-700" };
+  if (b > 0) return { text: fmt(b),  tag: "Credit",       cls: "bg-green-50 border-green-200 text-green-700" };
+  return            { text: "$0.00", tag: "Paid in Full", cls: "bg-gray-50 border-gray-200 text-gray-600" };
+}
+
+function OwnerLedgerReport({ ownerId = 0, year = new Date().getFullYear() }: { ownerId?: number; year?: number }) {
+  const [result, setResult] = useState<OwnerLedgerResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!ownerId) { setLoading(false); return; }
     setLoading(true);
-    loadOwnerLedger(ownerId)
-      .then(setRows)
+    loadOwnerLedger(ownerId, year)
+      .then(setResult)
       .finally(() => setLoading(false));
-  }, [ownerId]);
+  }, [ownerId, year]);
 
-  const balance = rows[0]?.running_balance ?? 0;
+  const rows = result?.rows ?? [];
+  const beginBal = result?.beginningBalance ?? 0;
+  const endBal   = rows[0]?.running_balance ?? beginBal;
+  const begin    = balanceLabel(beginBal);
+  const end      = balanceLabel(endBal);
 
   return (
     <div className="space-y-3">
+      {/* Beginning / Ending balance summary */}
       {!loading && ownerId > 0 && (
-        <div className={`p-3 rounded-lg text-sm font-medium ${balance >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-          Current Balance: {fmt(balance)} {balance >= 0 ? "(credit)" : "(balance due)"}
+        <div className="grid grid-cols-2 gap-3">
+          <div className={`border rounded-lg p-3 ${begin.cls}`}>
+            <p className="text-xs font-medium opacity-70 mb-0.5">Beginning Balance — Jan 1, {year}</p>
+            <p className="text-lg font-bold">{begin.text}</p>
+            <p className="text-xs font-medium">{begin.tag}</p>
+          </div>
+          <div className={`border rounded-lg p-3 ${end.cls}`}>
+            <p className="text-xs font-medium opacity-70 mb-0.5">Ending Balance — Dec 31, {year}</p>
+            <p className="text-lg font-bold">{end.text}</p>
+            <p className="text-xs font-medium">{end.tag}</p>
+          </div>
         </div>
       )}
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
@@ -267,7 +310,7 @@ function OwnerLedgerReport({ ownerId = 0 }: { ownerId?: number }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions for this owner.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions for {year}.</td></tr>}
               {rows.map((r, i) => (
                 <tr key={i}>
                   <td className="px-4 py-2 text-gray-600 text-xs">{r.txn_date}</td>
@@ -967,7 +1010,7 @@ const REPORT_DEFS: { key: ReportType; title: string; description: string; params
   { key: "deposits",         title: "Deposits",            description: "All deposit batches for the year",                        params: ["year"] },
   { key: "txn_history",      title: "Transaction History", description: "All transactions across all accounts",                    params: ["limit"] },
   { key: "account_detail",   title: "Account Detail",      description: "Ledger with running balance for one bank account",        params: ["account", "limit"] },
-  { key: "owner_ledger",     title: "Owner Ledger",        description: "Full charge and payment history for a specific owner",    params: ["owner"] },
+  { key: "owner_ledger",     title: "Owner Ledger",        description: "Charges and payments for a specific owner, with beginning and ending balances for the year.", params: ["owner", "year"] },
 ];
 
 // Preserved for type compatibility — not used in new UI
@@ -1148,7 +1191,7 @@ export function ReportsScreen() {
         {hasRun && selected === "deposits"          && <DepositsReport       key={runKey} year={year} />}
         {hasRun && selected === "txn_history"       && <TransactionHistoryReport key={runKey} limit={txnLimit} />}
         {hasRun && selected === "account_detail"    && <AccountDetailReport  key={runKey} accountId={accountId} limit={txnLimit} />}
-        {hasRun && selected === "owner_ledger"      && <OwnerLedgerReport    key={runKey} ownerId={ownerId} />}
+        {hasRun && selected === "owner_ledger"      && <OwnerLedgerReport    key={runKey} ownerId={ownerId} year={year} />}
       </div>
     </PageLayout>
   );
