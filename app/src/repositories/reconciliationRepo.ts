@@ -120,17 +120,87 @@ export async function insertBankTransaction(
   date: string,
   amount: number,
   description: string,
-  memo?: string
+  memo?: string,
+  batchId?: number
 ): Promise<number> {
   const db = await getDb();
   const dedupKey = `manual-${date}-${amount}-${description}`.slice(0, 100);
   const result = await db.execute(
     `INSERT OR IGNORE INTO bank_transactions
-       (bank_account_id, transaction_date, amount, description, memo, dedup_key)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [bankAccountId, date, amount, description, memo ?? null, dedupKey]
+       (bank_account_id, transaction_date, amount, description, memo, dedup_key, import_batch_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [bankAccountId, date, amount, description, memo ?? null, dedupKey, batchId ?? null]
   );
   return result.lastInsertId ?? 0;
+}
+
+export async function getExistingDedupKeys(bankAccountId: number): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db.select<{ dedup_key: string }[]>(
+    "SELECT dedup_key FROM bank_transactions WHERE bank_account_id = ? AND dedup_key IS NOT NULL",
+    [bankAccountId]
+  );
+  return new Set(rows.map((r) => r.dedup_key));
+}
+
+export type ImportBatch = {
+  id: number;
+  bank_account_id: number;
+  filename: string | null;
+  imported_count: number;
+  skipped_count: number;
+  imported_at: string;
+  account_name?: string;
+};
+
+export async function createImportBatch(bankAccountId: number, filename: string | null): Promise<number> {
+  const db = await getDb();
+  const result = await db.execute(
+    "INSERT INTO bank_import_batches (bank_account_id, filename) VALUES (?, ?)",
+    [bankAccountId, filename ?? null]
+  );
+  return result.lastInsertId ?? 0;
+}
+
+export async function finalizeImportBatch(batchId: number, importedCount: number, skippedCount: number): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE bank_import_batches SET imported_count = ?, skipped_count = ? WHERE id = ?",
+    [importedCount, skippedCount, batchId]
+  );
+}
+
+export async function listImportBatches(limit = 10): Promise<ImportBatch[]> {
+  const db = await getDb();
+  return db.select<ImportBatch[]>(
+    `SELECT b.*, a.account_name
+     FROM bank_import_batches b
+     JOIN bank_accounts a ON a.id = b.bank_account_id
+     ORDER BY b.imported_at DESC LIMIT ?`,
+    [limit]
+  );
+}
+
+export async function undoImportBatch(batchId: number): Promise<number> {
+  const db = await getDb();
+  // Only delete transactions not yet used in a reconciliation
+  const rows = await db.select<{ n: number }[]>(
+    `SELECT COUNT(*) as n FROM bank_transactions
+     WHERE import_batch_id = ?
+       AND id NOT IN (SELECT bank_transaction_id FROM reconciliation_clears)`,
+    [batchId]
+  );
+  const count = rows[0]?.n ?? 0;
+  if (count > 0) {
+    await db.execute(
+      `DELETE FROM bank_transactions
+       WHERE import_batch_id = ?
+         AND id NOT IN (SELECT bank_transaction_id FROM reconciliation_clears)`,
+      [batchId]
+    );
+  }
+  await db.execute("DELETE FROM bank_import_batches WHERE id = ?", [batchId]);
+  return count;
 }
 
 export async function updateTransactionStatus(id: number, status: string): Promise<void> {

@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
-import { insertBankTransaction } from "../repositories/reconciliationRepo";
+import {
+  insertBankTransaction, getExistingDedupKeys,
+  createImportBatch, finalizeImportBatch,
+  listImportBatches, undoImportBatch,
+  type ImportBatch,
+} from "../repositories/reconciliationRepo";
 import type { BankAccount } from "../types/bankAccount";
 
 type ParsedRow = {
@@ -8,9 +13,15 @@ type ParsedRow = {
   amount: number;
   description: string;
   raw: string;
+  dedupKey: string;
+  isDuplicate?: boolean;
 };
 
 type ColMap = { date: number; amount: number | null; debit: number | null; credit: number | null; description: number };
+
+function buildDedupKey(date: string, amount: number, description: string): string {
+  return `manual-${date}-${amount}-${description}`.slice(0, 100);
+}
 
 function detectColumns(headers: string[]): ColMap {
   const h = headers.map((s) => s.toLowerCase().trim());
@@ -53,48 +64,123 @@ function rowsToTransactions(rows: string[][], colMap: ColMap): ParsedRow[] {
   return rows.flatMap((row): ParsedRow[] => {
     const date = colMap.date >= 0 ? (row[colMap.date] ?? "").trim() : "";
     const description = colMap.description >= 0 ? (row[colMap.description] ?? "").trim() : "";
-
     let amount = 0;
     if (colMap.amount !== null && colMap.amount >= 0) {
-      amount = parseFloat((row[colMap.amount] ?? "").replace(/[^0-9.\\-]/g, "")) || 0;
+      amount = parseFloat((row[colMap.amount] ?? "").replace(/[^0-9.\-]/g, "")) || 0;
     } else {
       const credit = colMap.credit !== null && colMap.credit >= 0
-        ? parseFloat((row[colMap.credit] ?? "").replace(/[^0-9.]/g, "")) || 0
-        : 0;
+        ? parseFloat((row[colMap.credit] ?? "").replace(/[^0-9.]/g, "")) || 0 : 0;
       const debit = colMap.debit !== null && colMap.debit >= 0
-        ? parseFloat((row[colMap.debit] ?? "").replace(/[^0-9.]/g, "")) || 0
-        : 0;
+        ? parseFloat((row[colMap.debit] ?? "").replace(/[^0-9.]/g, "")) || 0 : 0;
       amount = credit - debit;
     }
-
     if (!date) return [];
-    return [{ date, amount, description, raw: row.join(",") }];
+    return [{ date, amount, description, raw: row.join(","), dedupKey: buildDedupKey(date, amount, description) }];
   });
 }
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
+function fmtDateTime(s: string) {
+  return new Date(s).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+// ── Recent batches panel ──────────────────────────────────────────────────────
+
+function RecentImports({ refreshKey }: { refreshKey: number }) {
+  const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const [undoing, setUndoing] = useState<number | null>(null);
+
+  useEffect(() => {
+    listImportBatches(8).then(setBatches).catch(() => {});
+  }, [refreshKey]);
+
+  async function handleUndo(batch: ImportBatch) {
+    if (!confirm(`Undo import "${batch.filename ?? "unnamed"}" (${batch.imported_count} transactions)?\n\nAny transactions already used in a reconciliation will not be deleted.`)) return;
+    setUndoing(batch.id);
+    try {
+      const removed = await undoImportBatch(batch.id);
+      alert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}. ${batch.imported_count - removed > 0 ? `${batch.imported_count - removed} were already reconciled and kept.` : ""}`);
+      setBatches((prev) => prev.filter((b) => b.id !== batch.id));
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setUndoing(null);
+    }
+  }
+
+  if (batches.length === 0) return null;
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-sm font-semibold text-gray-800 mb-2">Recent Imports</h2>
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">File</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Imported</th>
+              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Skipped</th>
+              <th className="px-4 py-2" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {batches.map((b) => (
+              <tr key={b.id}>
+                <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime(b.imported_at)}</td>
+                <td className="px-4 py-2 text-xs text-gray-700">{b.account_name ?? "—"}</td>
+                <td className="px-4 py-2 text-xs text-gray-500 max-w-xs truncate">{b.filename ?? "—"}</td>
+                <td className="px-4 py-2 text-right text-xs text-green-700 font-medium">{b.imported_count}</td>
+                <td className="px-4 py-2 text-right text-xs text-gray-400">{b.skipped_count}</td>
+                <td className="px-4 py-2 text-right">
+                  <button
+                    onClick={() => void handleUndo(b)}
+                    disabled={undoing === b.id}
+                    className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                  >
+                    {undoing === b.id ? "Undoing…" : "Undo"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
 
 export function BankImportScreen() {
   const [accounts, setAccounts] = useState<BankAccount[] | null>(null);
   const [accountId, setAccountId] = useState<number>(0);
+  const [filename, setFilename] = useState<string | null>(null);
   const [step, setStep] = useState<"upload" | "map" | "preview" | "done">("upload");
   const [fileText, setFileText] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
   const [colMap, setColMap] = useState<ColMap>({ date: -1, amount: null, debit: null, credit: null, description: -1 });
   const [preview, setPreview] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
+  const [lastBatchId, setLastBatchId] = useState<number | null>(null);
   const [importedCount, setImportedCount] = useState(0);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Load accounts lazily
-  if (!accounts) {
-    listBankAccounts(true).then((a) => {
-      setAccounts(a);
-      if (a[0]) setAccountId(a[0].id);
-    }).catch((e) => setError(String(e)));
-  }
+  useEffect(() => {
+    listBankAccounts(true)
+      .then((a) => { setAccounts(a); if (a[0]) setAccountId(a[0].id); })
+      .catch((e) => setError(String(e)));
+  }, []);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFilename(file.name);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
@@ -107,9 +193,17 @@ export function BankImportScreen() {
     reader.readAsText(file);
   }
 
-  function handlePreview() {
+  async function handlePreview() {
     const { rows } = parseCSV(fileText);
-    setPreview(rowsToTransactions(rows, colMap));
+    const parsed = rowsToTransactions(rows, colMap);
+    // Check which dedupKeys already exist in DB
+    try {
+      const existing = await getExistingDedupKeys(accountId);
+      const marked = parsed.map((r) => ({ ...r, isDuplicate: existing.has(r.dedupKey) }));
+      setPreview(marked);
+    } catch {
+      setPreview(parsed);
+    }
     setStep("preview");
   }
 
@@ -117,13 +211,21 @@ export function BankImportScreen() {
     if (!accountId) return;
     setImporting(true);
     try {
-      let count = 0;
+      const batchId = await createImportBatch(accountId, filename);
+      let imported = 0;
+      let skipped = 0;
       for (const row of preview) {
-        if (!row.date || isNaN(row.amount)) continue;
-        const id = await insertBankTransaction(accountId, row.date, row.amount, row.description);
-        if (id > 0) count++;
+        if (!row.date || isNaN(row.amount)) { skipped++; continue; }
+        if (row.isDuplicate) { skipped++; continue; }
+        const id = await insertBankTransaction(accountId, row.date, row.amount, row.description, undefined, batchId);
+        if (id > 0) imported++;
+        else skipped++;
       }
-      setImportedCount(count);
+      await finalizeImportBatch(batchId, imported, skipped);
+      setLastBatchId(batchId);
+      setImportedCount(imported);
+      setSkippedCount(skipped);
+      setRefreshKey((k) => k + 1);
       setStep("done");
     } catch (e) {
       setError(String(e));
@@ -132,25 +234,39 @@ export function BankImportScreen() {
     }
   }
 
+  async function handleUndoLast() {
+    if (!lastBatchId) return;
+    if (!confirm(`Undo this import (${importedCount} transactions)?`)) return;
+    try {
+      const removed = await undoImportBatch(lastBatchId);
+      alert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}.`);
+      setLastBatchId(null);
+      setRefreshKey((k) => k + 1);
+      reset();
+    } catch (e) {
+      alert(String(e));
+    }
+  }
+
   function reset() {
     setStep("upload");
     setFileText("");
+    setFilename(null);
     setHeaders([]);
     setPreview([]);
     setImportedCount(0);
+    setSkippedCount(0);
     setError(null);
   }
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+  const newRows = preview.filter((r) => !r.isDuplicate && r.date && !isNaN(r.amount));
+  const dupRows = preview.filter((r) => r.isDuplicate);
 
   return (
     <div className="p-8 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Bank Import</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Import transactions from a CSV bank statement.
-        </p>
+        <p className="text-sm text-gray-500 mt-0.5">Import transactions from a CSV bank statement.</p>
       </div>
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
@@ -159,9 +275,7 @@ export function BankImportScreen() {
       <div className="flex gap-6 mb-6 text-xs">
         {(["upload", "map", "preview", "done"] as const).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-              step === s ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"
-            }`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${step === s ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"}`}>
               {i + 1}
             </span>
             <span className={step === s ? "text-blue-600 font-medium" : "text-gray-400"}>
@@ -185,13 +299,7 @@ export function BankImportScreen() {
             </select>
           </div>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <input
-              type="file"
-              accept=".csv,.txt"
-              onChange={handleFile}
-              className="hidden"
-              id="csv-upload"
-            />
+            <input type="file" accept=".csv,.txt" onChange={handleFile} className="hidden" id="csv-upload" />
             <label htmlFor="csv-upload" className="cursor-pointer">
               <div className="text-4xl mb-2">📄</div>
               <p className="text-sm font-medium text-blue-600">Click to select a CSV file</p>
@@ -204,9 +312,7 @@ export function BankImportScreen() {
       {/* Step 2: Column mapping */}
       {step === "map" && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Map your CSV columns. Auto-detected values are shown — adjust if needed.
-          </p>
+          <p className="text-sm text-gray-600">Map your CSV columns. Auto-detected values are shown — adjust if needed.</p>
           <div className="grid grid-cols-2 gap-4">
             {(["date", "description", "amount", "debit", "credit"] as const).map((field) => {
               const value = colMap[field] ?? -1;
@@ -233,7 +339,7 @@ export function BankImportScreen() {
             Use <strong>Debit</strong> + <strong>Credit</strong> for separate columns.
           </div>
           <div className="flex gap-3">
-            <button onClick={handlePreview} className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+            <button onClick={() => void handlePreview()} className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
               Preview →
             </button>
             <button onClick={reset} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Back</button>
@@ -244,9 +350,12 @@ export function BankImportScreen() {
       {/* Step 3: Preview */}
       {step === "preview" && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            {preview.length} transactions parsed. Review and click Import.
-          </p>
+          <div className="flex gap-4 text-sm">
+            <span className="text-green-700 font-medium">{newRows.length} new</span>
+            {dupRows.length > 0 && (
+              <span className="text-amber-600">{dupRows.length} already imported (will be skipped)</span>
+            )}
+          </div>
           <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
@@ -254,15 +363,24 @@ export function BankImportScreen() {
                   <th className="px-3 py-2 text-left text-gray-600">Date</th>
                   <th className="px-3 py-2 text-left text-gray-600">Description</th>
                   <th className="px-3 py-2 text-right text-gray-600">Amount</th>
+                  <th className="px-3 py-2 text-right text-gray-600">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {preview.map((r, i) => (
-                  <tr key={i} className={!r.date || isNaN(r.amount) ? "opacity-40" : ""}>
+                  <tr key={i} className={r.isDuplicate ? "opacity-40 bg-gray-50" : (!r.date || isNaN(r.amount)) ? "opacity-30" : ""}>
                     <td className="px-3 py-1.5 text-gray-600">{r.date}</td>
                     <td className="px-3 py-1.5 text-gray-700">{r.description}</td>
                     <td className={`px-3 py-1.5 text-right font-mono ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>
                       {fmt(r.amount)}
+                    </td>
+                    <td className="px-3 py-1.5 text-right">
+                      {r.isDuplicate
+                        ? <span className="text-amber-500 text-xs">duplicate</span>
+                        : (!r.date || isNaN(r.amount))
+                          ? <span className="text-red-400 text-xs">skip</span>
+                          : <span className="text-green-600 text-xs">new</span>
+                      }
                     </td>
                   </tr>
                 ))}
@@ -272,10 +390,10 @@ export function BankImportScreen() {
           <div className="flex gap-3">
             <button
               onClick={() => void handleImport()}
-              disabled={importing}
+              disabled={importing || newRows.length === 0}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              {importing ? "Importing…" : `Import ${preview.length} Transactions`}
+              {importing ? "Importing…" : `Import ${newRows.length} Transaction${newRows.length !== 1 ? "s" : ""}`}
             </button>
             <button onClick={() => setStep("map")} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
               Back
@@ -286,20 +404,32 @@ export function BankImportScreen() {
 
       {/* Step 4: Done */}
       {step === "done" && (
-        <div className="text-center py-8">
-          <div className="text-5xl mb-3">✓</div>
-          <p className="text-lg font-semibold text-green-700">{importedCount} transactions imported</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Duplicate transactions were skipped. Go to Bank → Reconciliations to clear them.
-          </p>
-          <button
-            onClick={reset}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Import Another File
-          </button>
+        <div className="space-y-4">
+          <div className="text-center py-6">
+            <div className="text-5xl mb-3">✓</div>
+            <p className="text-lg font-semibold text-green-700">{importedCount} transaction{importedCount !== 1 ? "s" : ""} imported</p>
+            {skippedCount > 0 && (
+              <p className="text-sm text-gray-400 mt-1">{skippedCount} skipped (duplicates or invalid rows)</p>
+            )}
+            <p className="text-sm text-gray-500 mt-1">Go to Bank → Reconciliations to clear them.</p>
+          </div>
+          <div className="flex justify-center gap-3">
+            <button onClick={reset} className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+              Import Another File
+            </button>
+            {lastBatchId && importedCount > 0 && (
+              <button
+                onClick={() => void handleUndoLast()}
+                className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded hover:bg-red-50"
+              >
+                Undo This Import
+              </button>
+            )}
+          </div>
         </div>
       )}
+
+      <RecentImports refreshKey={refreshKey} />
     </div>
   );
 }

@@ -330,6 +330,15 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS bank_import_batches (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  bank_account_id  INTEGER NOT NULL REFERENCES bank_accounts(id),
+  filename         TEXT,
+  imported_count   INTEGER NOT NULL DEFAULT 0,
+  skipped_count    INTEGER NOT NULL DEFAULT 0,
+  imported_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS reserve_study_assumptions (
   id                       INTEGER PRIMARY KEY AUTOINCREMENT,
   study_year               INTEGER NOT NULL,
