@@ -12,6 +12,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tauri:dev": "node scripts/dev.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
