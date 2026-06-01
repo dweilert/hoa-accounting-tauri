@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { HELP, type HelpContent } from "../lib/helpContent";
 
 // ── Help Drawer ───────────────────────────────────────────────────────────────
@@ -108,20 +108,30 @@ export function PageLayout({
 }: PageLayoutProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const helpContent = help ?? (helpId ? HELP[helpId] : undefined);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Location state set by screens that link to this one (takes priority over hardcoded backTo)
+  const stateFrom = (location.state as { from?: string; fromLabel?: string } | null)?.from;
+  const stateLabel = (location.state as { from?: string; fromLabel?: string } | null)?.fromLabel;
+
+  // Resolved back link: state wins over prop
+  const resolvedBackTo = stateFrom ?? backTo;
+  const resolvedBackLabel = stateLabel ?? backLabel;
 
   return (
     <>
       {/* Sticky header */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200 print:hidden">
         <div className="px-6 py-3">
-          {backTo && (
-            <Link
-              to={backTo}
+          {resolvedBackTo && (
+            <button
+              onClick={() => navigate(resolvedBackTo)}
               className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mb-1"
             >
               <span>←</span>
-              <span>{backLabel}</span>
-            </Link>
+              <span>{resolvedBackLabel}</span>
+            </button>
           )}
           <div className="flex items-center justify-between">
             <div className="min-w-0">

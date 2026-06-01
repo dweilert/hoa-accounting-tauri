@@ -268,7 +268,7 @@ function NavCard({ card }: { card: DashCard }) {
 
   return (
     <button
-      onClick={() => canNav && navigate(route)}
+      onClick={() => canNav && navigate(route, { state: { from: "/dashboard", fromLabel: "Dashboard" } })}
       disabled={!canNav}
       className={`w-full text-left rounded-lg border-l-4 bg-white p-3.5 shadow-sm transition-all
         ${canNav ? "hover:shadow-md hover:-translate-y-0.5 cursor-pointer" : "opacity-60 cursor-not-allowed"}`}
@@ -287,7 +287,7 @@ function ReportCard({ card }: { card: DashCard }) {
   const navigate = useNavigate();
   return (
     <button
-      onClick={() => navigate("/reports")}
+      onClick={() => navigate("/reports", { state: { from: "/dashboard", fromLabel: "Dashboard" } })}
       className="w-full text-left rounded-lg border bg-white p-3.5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
       style={{ borderColor: card.color + "88" }}
     >

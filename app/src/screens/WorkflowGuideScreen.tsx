@@ -59,7 +59,7 @@ function WorkflowCard({ card }: { card: WorkflowCard }) {
   const isAnchor = card.href === "#";
 
   function handleGo() {
-    if (isInternal) navigate(card.href);
+    if (isInternal) navigate(card.href, { state: { from: "/workflow-guide", fromLabel: "Workflow Guide" } });
   }
 
   return (
