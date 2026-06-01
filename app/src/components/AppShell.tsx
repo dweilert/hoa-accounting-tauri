@@ -15,6 +15,7 @@ const NAV: NavSection[] = [
       { label: "Lots", to: "/lots" },
       { label: "Owners", to: "/owners" },
       { label: "Board Members", to: "/board-members" },
+      { label: "Renters", to: "/renters" },
     ],
   },
   {
@@ -27,7 +28,8 @@ const NAV: NavSection[] = [
     heading: "Bank",
     items: [
       { label: "Accounts", to: "/bank/accounts" },
-      { label: "Import", to: "/bank/import" },
+      { label: "Import CSV", to: "/bank/import" },
+      { label: "Import OFX/QFX", to: "/bank/ofx-import" },
       { label: "Pending", to: "/bank/pending" },
       { label: "Reconciliations", to: "/bank/reconciliations" },
     ],
@@ -49,8 +51,10 @@ const NAV: NavSection[] = [
       { label: "Assessments", to: "/assessments" },
       { label: "Dues Billing", to: "/billing/dues" },
       { label: "Late Fees", to: "/billing/late-fees" },
+      { label: "Resale Fee", to: "/billing/resale-fee" },
       { label: "Accounts Receivable", to: "/ar" },
       { label: "Deposits", to: "/deposits" },
+      { label: "Owner Statements", to: "/owner-statements" },
     ],
   },
   {

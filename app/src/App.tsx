@@ -40,6 +40,10 @@ import { LateFeesScreen } from "./screens/LateFeesScreen";
 import { AccountingPeriodsScreen } from "./screens/AccountingPeriodsScreen";
 import { BoardMembersScreen } from "./screens/BoardMembersScreen";
 import { DataImportScreen } from "./screens/DataImportScreen";
+import { ResaleFeeScreen } from "./screens/ResaleFeeScreen";
+import { RentersScreen } from "./screens/RentersScreen";
+import { OFXImportScreen } from "./screens/OFXImportScreen";
+import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
 
 export default function App() {
   return (
@@ -66,6 +70,7 @@ export default function App() {
             {/* Bank */}
             <Route path="bank/accounts" element={<BankAccountsScreen />} />
             <Route path="bank/import" element={<BankImportScreen />} />
+            <Route path="bank/ofx-import" element={<OFXImportScreen />} />
             <Route path="bank/pending" element={<BankPendingScreen />} />
             <Route path="bank/reconciliations" element={<ReconciliationsScreen />} />
             <Route path="bank/reconciliations/new" element={<ReconciliationsScreen />} />
@@ -92,6 +97,9 @@ export default function App() {
             {/* Audit Log */}
             <Route path="audit-log" element={<RequireAdmin><AuditLogScreen /></RequireAdmin>} />
 
+            {/* Owner Statements */}
+            <Route path="owner-statements" element={<OwnerStatementsScreen />} />
+
             {/* Reports */}
             <Route path="reports" element={<ReportsScreen />} />
 
@@ -101,10 +109,12 @@ export default function App() {
             {/* Billing & Editing */}
             <Route path="billing/dues" element={<RequireAdmin><DuesBillingScreen /></RequireAdmin>} />
             <Route path="billing/late-fees" element={<RequireAdmin><LateFeesScreen /></RequireAdmin>} />
+            <Route path="billing/resale-fee" element={<RequireAdmin><ResaleFeeScreen /></RequireAdmin>} />
             <Route path="edit-records" element={<EditRecordsScreen />} />
 
-            {/* Board Members */}
+            {/* Board Members & Renters */}
             <Route path="board-members" element={<BoardMembersScreen />} />
+            <Route path="renters" element={<RentersScreen />} />
 
             {/* Admin — requires admin role */}
             <Route path="accounting-periods" element={<RequireAdmin><AccountingPeriodsScreen /></RequireAdmin>} />

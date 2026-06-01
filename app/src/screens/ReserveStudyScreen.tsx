@@ -717,10 +717,39 @@ export function ReserveStudyScreen() {
   if (loading) return <div className="p-8"><p className="text-sm text-gray-400">Loading…</p></div>;
 
   return (
-    <div className="p-8 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Reserve Study</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Long-term capital reserve planning and funding projections.</p>
+    <div className="p-8 max-w-6xl print:p-2">
+      <div className="mb-6 flex items-center justify-between print:block">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Reserve Study</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Long-term capital reserve planning and funding projections.</p>
+        </div>
+        <div className="flex gap-2 print:hidden">
+          <button
+            onClick={() => window.print()}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+          >
+            Print / PDF
+          </button>
+          <button
+            onClick={async () => {
+              const { listAssets: la } = await import("../repositories/reserveStudyRepo");
+              const assets = await la();
+              const rows = [
+                ["Component", "Group", "Useful Life (yrs)", "Install Year", "Replacement Cost", "Condition"],
+                ...assets.map((a) => [a.component, a.asset_group, a.useful_life_years, a.install_year, a.replacement_cost, a.condition]),
+              ];
+              const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = "reserve_study_assets.csv"; a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+          >
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}

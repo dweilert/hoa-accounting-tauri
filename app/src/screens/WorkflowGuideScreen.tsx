@@ -207,14 +207,27 @@ export function WorkflowGuideScreen() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Workflow Guide</h1>
-        <p className="text-sm text-gray-500 mt-1">Step-by-step checklists for routine HOA accounting tasks</p>
+    <div className="p-6 print:p-0">
+      <div className="mb-6 flex items-center justify-between print:hidden">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Workflow Guide</h1>
+          <p className="text-sm text-gray-500 mt-1">Step-by-step checklists for routine HOA accounting tasks</p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
+        >
+          Print Cheatsheet
+        </button>
+      </div>
+      {/* Print-only header */}
+      <div className="hidden print:block mb-6">
+        <h1 className="text-xl font-bold text-gray-900">HOA Accounting — Workflow Cheatsheet</h1>
+        {activeTab && <p className="text-sm text-gray-600 mt-1">{activeTab.label}: {activeTab.description}</p>}
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
+      {/* Tab bar — hidden on print */}
+      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto print:hidden">
         {tabs.map((tab) => (
           <button
             key={tab.id}
