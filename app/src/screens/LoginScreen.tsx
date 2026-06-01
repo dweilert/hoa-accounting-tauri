@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { verifyPassword, saveSession, hashPassword } from "../lib/auth";
 import { getUserByEmail, recordLogin, createUser } from "../repositories/userRepo";
-import { getDb } from "../lib/db";
+import { getDb, getConfiguredDbPath } from "../lib/db";
 import { useAuth } from "../contexts/AuthContext";
 
 // ── First-run setup (no users exist) ─────────────────────────────────────────
@@ -99,6 +99,15 @@ export function LoginScreen({ onNoUsers, onForgotPassword }: { onNoUsers: () => 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dbInfo, setDbInfo] = useState<{ path: string; users: number | string } | null>(null);
+
+  useEffect(() => {
+    const path = getConfiguredDbPath();
+    getDb()
+      .then((db) => db.select<[{ n: number }]>("SELECT COUNT(*) as n FROM local_users"))
+      .then(([row]) => setDbInfo({ path, users: row?.n ?? 0 }))
+      .catch((e: unknown) => setDbInfo({ path, users: `ERROR: ${String(e)}` }));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -140,7 +149,15 @@ export function LoginScreen({ onNoUsers, onForgotPassword }: { onNoUsers: () => 
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">HOA Accounting</h1>
-        <p className="text-sm text-gray-500 mb-6">Sign in to continue.</p>
+        <p className="text-sm text-gray-500 mb-3">Sign in to continue.</p>
+        {dbInfo && (
+          <div className="mb-4 p-2 bg-gray-50 border border-gray-200 rounded text-xs font-mono break-all">
+            <p className="text-gray-500">DB: {dbInfo.path}</p>
+            <p className={typeof dbInfo.users === "string" && dbInfo.users.startsWith("ERROR") ? "text-red-600" : "text-gray-500"}>
+              Users: {String(dbInfo.users)}
+            </p>
+          </div>
+        )}
 
         {error && <p className="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
 
