@@ -1,6 +1,22 @@
 import type Database from "@tauri-apps/plugin-sql";
 
 const DDL = `
+CREATE TABLE IF NOT EXISTS bank_accounts (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_name          TEXT    NOT NULL,
+  institution_name      TEXT    NOT NULL,
+  account_last4         TEXT,
+  account_type          TEXT    NOT NULL DEFAULT 'CHECKING'
+                                CHECK(account_type IN ('CHECKING','SAVINGS','MONEY_MARKET','OTHER')),
+  fund_code             TEXT    NOT NULL DEFAULT 'OPERATING'
+                                CHECK(fund_code IN ('OPERATING','RESERVE','SPECIAL')),
+  active_flag           INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
+  opening_balance       NUMERIC NOT NULL DEFAULT 0,
+  opening_balance_date  TEXT,
+  created_at            TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at            TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS lots (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   lot_number         TEXT    NOT NULL UNIQUE,

@@ -5,6 +5,7 @@ import { Dashboard } from "./screens/Dashboard";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
 import { LotsScreen } from "./screens/LotsScreen";
 import { OwnersScreen } from "./screens/OwnersScreen";
+import { BankAccountsScreen } from "./screens/BankAccountsScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -27,7 +28,7 @@ export default function App() {
             <Route path="opening-balances" element={<Placeholder title="Opening Balances" />} />
 
             {/* Bank */}
-            <Route path="bank/accounts" element={<Placeholder title="Bank Accounts" />} />
+            <Route path="bank/accounts" element={<BankAccountsScreen />} />
             <Route path="bank/import" element={<Placeholder title="Bank Import" />} />
             <Route path="bank/pending" element={<Placeholder title="Pending Transactions" />} />
             <Route path="bank/reconciliations" element={<Placeholder title="Reconciliations" />} />
