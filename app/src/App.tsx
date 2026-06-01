@@ -6,6 +6,7 @@ import { CategoriesScreen } from "./screens/CategoriesScreen";
 import { LotsScreen } from "./screens/LotsScreen";
 import { OwnersScreen } from "./screens/OwnersScreen";
 import { BankAccountsScreen } from "./screens/BankAccountsScreen";
+import { VendorsScreen } from "./screens/VendorsScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -38,7 +39,7 @@ export default function App() {
             <Route path="budgets" element={<Placeholder title="Budgets" />} />
 
             {/* Vendors & Bills */}
-            <Route path="vendors" element={<Placeholder title="Vendors" />} />
+            <Route path="vendors" element={<VendorsScreen />} />
             <Route path="bills" element={<Placeholder title="Vendor Bills" />} />
 
             {/* Assessments & AR */}

@@ -1,6 +1,23 @@
 import type Database from "@tauri-apps/plugin-sql";
 
 const DDL = `
+CREATE TABLE IF NOT EXISTS vendors (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  vendor_name   TEXT    NOT NULL,
+  contact_name  TEXT,
+  email         TEXT,
+  phone         TEXT,
+  address_1     TEXT,
+  address_2     TEXT,
+  city          TEXT,
+  state         TEXT,
+  postal_code   TEXT,
+  notes         TEXT,
+  active_flag   INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS bank_accounts (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
   account_name          TEXT    NOT NULL,
