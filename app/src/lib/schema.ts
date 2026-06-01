@@ -324,6 +324,51 @@ CREATE TABLE IF NOT EXISTS budget_lines (
   budget_amount  NUMERIC NOT NULL DEFAULT 0,
   UNIQUE(budget_id, category_id, fiscal_period)
 );
+
+CREATE TABLE IF NOT EXISTS reserve_study_assumptions (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  study_year               INTEGER NOT NULL,
+  reserve_balance_override NUMERIC,
+  annual_contribution      NUMERIC NOT NULL DEFAULT 0,
+  contribution_growth_rate NUMERIC NOT NULL DEFAULT 0.03,
+  investment_return_rate   NUMERIC NOT NULL DEFAULT 0.01,
+  num_lots                 INTEGER NOT NULL DEFAULT 1,
+  projection_years         INTEGER NOT NULL DEFAULT 30,
+  notes                    TEXT,
+  is_active                INTEGER NOT NULL DEFAULT 1,
+  created_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reserve_assets (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  asset_group       TEXT    NOT NULL,
+  component         TEXT    NOT NULL,
+  install_year      INTEGER NOT NULL,
+  useful_life_years INTEGER NOT NULL,
+  condition         TEXT    NOT NULL DEFAULT 'Good'
+                            CHECK(condition IN ('Excellent','Good','Moderate','Poor','Critical')),
+  replacement_cost  NUMERIC NOT NULL DEFAULT 0,
+  annual_inflation  NUMERIC NOT NULL DEFAULT 0.04,
+  notes             TEXT,
+  active_flag       INTEGER NOT NULL DEFAULT 1,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS reserve_study_scenarios (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  scenario_name  TEXT    NOT NULL,
+  description    TEXT,
+  emergency_cost NUMERIC NOT NULL DEFAULT 0,
+  expected_year  INTEGER,
+  notes          TEXT,
+  sort_order     INTEGER NOT NULL DEFAULT 0,
+  active_flag    INTEGER NOT NULL DEFAULT 1,
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 const SEEDS: Array<[string, string, string, string, number, number]> = [

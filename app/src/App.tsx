@@ -21,6 +21,7 @@ import { LedgerByAccountScreen } from "./screens/LedgerByAccountScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { LotDetailScreen } from "./screens/LotDetailScreen";
+import { ReserveStudyScreen } from "./screens/ReserveStudyScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -62,7 +63,7 @@ export default function App() {
             <Route path="deposits" element={<DepositsScreen />} />
 
             {/* Reserve Study */}
-            <Route path="reserve" element={<Placeholder title="Reserve Study" />} />
+            <Route path="reserve" element={<ReserveStudyScreen />} />
 
             {/* Reports */}
             <Route path="reports" element={<ReportsScreen />} />
