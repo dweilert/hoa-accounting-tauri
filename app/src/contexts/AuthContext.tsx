@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { loadSession, clearSession, type SessionUser } from "../lib/auth";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { loadSession, clearSession, getRawSession, type SessionUser } from "../lib/auth";
 
 type AuthState =
   | { status: "loading" }
@@ -18,26 +18,42 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
+  const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function scheduleExpiry() {
+    if (expiryTimer.current) clearTimeout(expiryTimer.current);
+    const raw = getRawSession();
+    if (!raw) return;
+    const ms = raw.expiresAt - Date.now();
+    if (ms <= 0) return;
+    expiryTimer.current = setTimeout(() => {
+      clearSession();
+      setState({ status: "unauthenticated" });
+    }, ms);
+  }
 
   function refresh() {
     const session = loadSession();
     if (session) {
       setState({ status: "authenticated", user: session });
+      scheduleExpiry();
     } else {
-      // Will be set to no_users or unauthenticated by the consumer
       setState({ status: "unauthenticated" });
     }
   }
 
   useEffect(() => {
     refresh();
+    return () => { if (expiryTimer.current) clearTimeout(expiryTimer.current); };
   }, []);
 
   function login(user: SessionUser) {
     setState({ status: "authenticated", user });
+    scheduleExpiry();
   }
 
   function logout() {
+    if (expiryTimer.current) clearTimeout(expiryTimer.current);
     clearSession();
     setState({ status: "unauthenticated" });
   }

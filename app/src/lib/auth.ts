@@ -74,6 +74,16 @@ export function loadSession(): SessionUser | null {
   }
 }
 
+export function getRawSession(): { expiresAt: number } | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as { expiresAt: number };
+  } catch {
+    return null;
+  }
+}
+
 export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
 }
