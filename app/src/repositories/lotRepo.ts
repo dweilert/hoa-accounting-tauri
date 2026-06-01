@@ -1,14 +1,16 @@
 import { getDb } from "../lib/db";
 import { LotSchema, LotWithOwnerSchema, type Lot, type LotWithOwner, type LotFormValues } from "../types/lot";
 
-export async function listLots(): Promise<LotWithOwner[]> {
+export async function listLots(activeOnly = false): Promise<LotWithOwner[]> {
   const db = await getDb();
+  const where = activeOnly ? "WHERE l.active_flag = 1" : "";
   const rows = await db.select<unknown[]>(`
     SELECT l.*,
            GROUP_CONCAT(o.display_name, ', ') AS owner_names
     FROM   lots l
     LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
     LEFT JOIN owners o         ON o.id = lo.owner_id
+    ${where}
     GROUP BY l.id
     ORDER BY l.lot_number
   `);

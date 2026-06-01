@@ -145,6 +145,185 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER PRIMARY KEY
 );
+
+CREATE TABLE IF NOT EXISTS opening_balances (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity_type  TEXT    NOT NULL CHECK(entity_type IN ('BANK_ACCOUNT','LOT_DUES','LOT_ASSESSMENT')),
+  entity_id    INTEGER NOT NULL,
+  as_of_date   TEXT    NOT NULL,
+  amount       NUMERIC NOT NULL DEFAULT 0,
+  notes        TEXT,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(entity_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS assessments (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  lot_id               INTEGER NOT NULL REFERENCES lots(id),
+  owner_id             INTEGER REFERENCES owners(id),
+  charge_type          TEXT    NOT NULL DEFAULT 'DUES'
+                               CHECK(charge_type IN ('DUES','LATE_FEE','LEGAL_FEE','OTHER')),
+  amount               NUMERIC NOT NULL CHECK(amount > 0),
+  assessment_date      TEXT    NOT NULL,
+  due_date             TEXT,
+  description          TEXT,
+  status               TEXT    NOT NULL DEFAULT 'OPEN'
+                               CHECK(status IN ('OPEN','PARTIAL','PAID','VOID','WRITTEN_OFF')),
+  category_id          INTEGER REFERENCES categories(id),
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS deposit_batches (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  deposit_date    TEXT    NOT NULL,
+  bank_account_id INTEGER NOT NULL REFERENCES bank_accounts(id),
+  total_amount    NUMERIC NOT NULL DEFAULT 0,
+  check_count     INTEGER NOT NULL DEFAULT 0,
+  notes           TEXT,
+  status          TEXT    NOT NULL DEFAULT 'OPEN'
+                          CHECK(status IN ('OPEN','POSTED')),
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  lot_id               INTEGER NOT NULL REFERENCES lots(id),
+  owner_id             INTEGER REFERENCES owners(id),
+  deposit_batch_id     INTEGER REFERENCES deposit_batches(id),
+  payment_date         TEXT    NOT NULL,
+  amount               NUMERIC NOT NULL CHECK(amount > 0),
+  payment_method       TEXT    NOT NULL DEFAULT 'CHECK'
+                               CHECK(payment_method IN ('CHECK','ACH','ONLINE','CASH','OTHER')),
+  check_number         TEXT,
+  memo                 TEXT,
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS payment_applications (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  payment_id     INTEGER NOT NULL REFERENCES payments(id),
+  assessment_id  INTEGER NOT NULL REFERENCES assessments(id),
+  amount         NUMERIC NOT NULL CHECK(amount > 0),
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(payment_id, assessment_id)
+);
+
+CREATE TABLE IF NOT EXISTS income_batches (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  income_date     TEXT    NOT NULL,
+  bank_account_id INTEGER NOT NULL REFERENCES bank_accounts(id),
+  category_id     INTEGER NOT NULL REFERENCES categories(id),
+  amount          NUMERIC NOT NULL CHECK(amount != 0),
+  description     TEXT,
+  lot_id          INTEGER REFERENCES lots(id),
+  owner_id        INTEGER REFERENCES owners(id),
+  reference       TEXT,
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  bank_account_id      INTEGER NOT NULL REFERENCES bank_accounts(id),
+  transaction_date     TEXT    NOT NULL,
+  amount               NUMERIC NOT NULL,
+  description          TEXT,
+  memo                 TEXT,
+  transaction_type     TEXT,
+  fitid                TEXT,
+  dedup_key            TEXT,
+  validation_status    TEXT    NOT NULL DEFAULT 'UNVALIDATED'
+                               CHECK(validation_status IN ('UNVALIDATED','VALIDATED','IGNORED')),
+  import_batch_id      INTEGER,
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(bank_account_id, dedup_key)
+);
+
+CREATE TABLE IF NOT EXISTS bank_transaction_links (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  bank_transaction_id  INTEGER NOT NULL REFERENCES bank_transactions(id),
+  source_type          TEXT    NOT NULL
+                               CHECK(source_type IN ('PAYMENT','INCOME_BATCH','BILL_PAYMENT','RESERVE_TRANSFER')),
+  source_id            INTEGER NOT NULL,
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(bank_transaction_id, source_type, source_id)
+);
+
+CREATE TABLE IF NOT EXISTS bank_transaction_rules (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_name            TEXT    NOT NULL,
+  description_contains TEXT,
+  amount_min           NUMERIC,
+  amount_max           NUMERIC,
+  transaction_type     TEXT,
+  action_type          TEXT    NOT NULL,
+  category_id          INTEGER REFERENCES categories(id),
+  vendor_id            INTEGER REFERENCES vendors(id),
+  confidence_mode      TEXT    NOT NULL DEFAULT 'REVIEW_FIRST'
+                               CHECK(confidence_mode IN ('REVIEW_FIRST','AUTO_POST')),
+  active_flag          INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
+  match_count          INTEGER NOT NULL DEFAULT 0,
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bank_reconciliations (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  bank_account_id          INTEGER NOT NULL REFERENCES bank_accounts(id),
+  statement_ending_date    TEXT    NOT NULL,
+  statement_ending_balance NUMERIC NOT NULL,
+  beginning_balance        NUMERIC NOT NULL DEFAULT 0,
+  book_balance             NUMERIC,
+  status                   TEXT    NOT NULL DEFAULT 'OPEN'
+                                   CHECK(status IN ('OPEN','FINALIZED')),
+  notes                    TEXT,
+  created_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(bank_account_id, statement_ending_date)
+);
+
+CREATE TABLE IF NOT EXISTS reconciliation_clears (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  reconciliation_id    INTEGER NOT NULL REFERENCES bank_reconciliations(id),
+  bank_transaction_id  INTEGER NOT NULL REFERENCES bank_transactions(id),
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(reconciliation_id, bank_transaction_id)
+);
+
+CREATE TABLE IF NOT EXISTS reserve_transfers (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  transfer_date            TEXT    NOT NULL,
+  from_bank_account_id     INTEGER NOT NULL REFERENCES bank_accounts(id),
+  to_bank_account_id       INTEGER NOT NULL REFERENCES bank_accounts(id),
+  amount                   NUMERIC NOT NULL CHECK(amount > 0),
+  category_id              INTEGER REFERENCES categories(id),
+  description              TEXT,
+  created_at               TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS budgets (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  fiscal_year  INTEGER NOT NULL,
+  fund_code    TEXT    NOT NULL DEFAULT 'OPERATING'
+                       CHECK(fund_code IN ('OPERATING','RESERVE','SPECIAL')),
+  status       TEXT    NOT NULL DEFAULT 'DRAFT'
+                       CHECK(status IN ('DRAFT','APPROVED','ARCHIVED')),
+  notes        TEXT,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(fiscal_year, fund_code)
+);
+
+CREATE TABLE IF NOT EXISTS budget_lines (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  budget_id      INTEGER NOT NULL REFERENCES budgets(id),
+  category_id    INTEGER NOT NULL REFERENCES categories(id),
+  fiscal_period  INTEGER NOT NULL CHECK(fiscal_period BETWEEN 1 AND 12),
+  budget_amount  NUMERIC NOT NULL DEFAULT 0,
+  UNIQUE(budget_id, category_id, fiscal_period)
+);
 `;
 
 const SEEDS: Array<[string, string, string, string, number, number]> = [
