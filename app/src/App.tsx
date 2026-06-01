@@ -20,6 +20,7 @@ import { TransactionsScreen } from "./screens/TransactionsScreen";
 import { LedgerByAccountScreen } from "./screens/LedgerByAccountScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { LotDetailScreen } from "./screens/LotDetailScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -33,7 +34,7 @@ export default function App() {
 
             {/* Lots & Owners */}
             <Route path="lots" element={<LotsScreen />} />
-            <Route path="lots/:id" element={<Placeholder title="Lot Detail" />} />
+            <Route path="lots/:id" element={<LotDetailScreen />} />
             <Route path="owners" element={<OwnersScreen />} />
 
             {/* Transactions */}

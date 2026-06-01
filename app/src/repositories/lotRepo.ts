@@ -80,6 +80,28 @@ export async function hasCurrentOwners(lotId: number): Promise<boolean> {
   return row ? row.n > 0 : false;
 }
 
+export type OwnershipRow = {
+  id: number;
+  owner_id: number;
+  display_name: string;
+  start_date: string;
+  end_date: string | null;
+  ownership_percent: number;
+};
+
+export async function getOwnershipHistory(lotId: number): Promise<OwnershipRow[]> {
+  const db = await getDb();
+  const rows = await db.select<OwnershipRow[]>(
+    `SELECT lo.id, lo.owner_id, o.display_name, lo.start_date, lo.end_date, lo.ownership_percent
+     FROM lot_ownership lo
+     JOIN owners o ON o.id = lo.owner_id
+     WHERE lo.lot_id = ?
+     ORDER BY lo.start_date DESC`,
+    [lotId]
+  );
+  return rows;
+}
+
 // Assign an owner to a lot (closes any existing open ownership first if replacing)
 export async function assignOwner(
   lotId: number,

@@ -62,6 +62,15 @@ export async function listPayments(limit = 100): Promise<PaymentRow[]> {
   return rows.map((r) => PaymentRowSchema.parse(r));
 }
 
+export async function listPaymentsForLot(lotId: number, limit = 100): Promise<PaymentRow[]> {
+  const db = await getDb();
+  const rows = await db.select<unknown[]>(
+    `${PAYMENT_BASE} WHERE p.lot_id = ? ORDER BY p.payment_date DESC LIMIT ?`,
+    [lotId, limit]
+  );
+  return rows.map((r) => PaymentRowSchema.parse(r));
+}
+
 export async function insertPayment(batchId: number | null, values: PaymentFormValues): Promise<number> {
   const db = await getDb();
   const result = await db.execute(

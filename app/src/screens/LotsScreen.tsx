@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { listLots, insertLot, updateLot, deleteLot, hasCurrentOwners } from "../repositories/lotRepo";
 import { LotFormSchema, type LotWithOwner, type LotFormValues } from "../types/lot";
@@ -11,7 +12,7 @@ type FormProps = {
   onCancel: () => void;
 };
 
-function LotForm({ initial, onSave, onCancel }: FormProps) {
+export function LotForm({ initial, onSave, onCancel }: FormProps) {
   const isEdit = !!initial;
   const [values, setValues] = useState<LotFormValues>({
     lot_number: initial?.lot_number ?? "",
@@ -104,6 +105,7 @@ function LotForm({ initial, onSave, onCancel }: FormProps) {
 type ModalState = { mode: "add" } | { mode: "edit"; lot: LotWithOwner } | null;
 
 export function LotsScreen() {
+  const navigate = useNavigate();
   const [lots, setLots] = useState<LotWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +183,7 @@ export function LotsScreen() {
               )}
               {lots.map((lot) => (
                 <tr key={lot.id} className={lot.active_flag ? "" : "opacity-50"}>
-                  <td className="px-4 py-2 font-semibold text-gray-800">{lot.lot_number}</td>
+                  <td className="px-4 py-2 font-semibold text-blue-600 hover:underline cursor-pointer" onClick={() => navigate(`/lots/${lot.id}`)}>{lot.lot_number}</td>
                   <td className="px-4 py-2 text-gray-700">
                     {lot.street_address_1 ?? <span className="text-gray-300">—</span>}
                     {lot.street_address_2 && <span className="block text-xs text-gray-400">{lot.street_address_2}</span>}
