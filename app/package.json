@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "vite",
     "tauri:dev": "node scripts/dev.js",
+    "postinstall": "node scripts/copy-sqljs-wasm.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -32,6 +33,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.15.0",
+    "sql.js": "^1.14.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -42,6 +44,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "^4.6.0",
     "@vitest/coverage-v8": "^4.1.5",
     "@vitest/ui": "^4.1.5",

@@ -3,3 +3,4 @@ dist/
 coverage/
 test-results/
 src-tauri/target/
+public/sql-wasm.wasm

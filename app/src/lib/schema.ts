@@ -1,4 +1,4 @@
-import type Database from "@tauri-apps/plugin-sql";
+import type { DbHandle } from "./dbTypes";
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS vendor_bills (
@@ -168,7 +168,7 @@ const SEEDS: Array<[string, string, string, string, number, number]> = [
   ["RESERVE_TRANSFER", "Reserve Fund Transfer",   "TRANSFER", "RESERVE",   10, 0],
 ];
 
-export async function initSchema(db: Database): Promise<void> {
+export async function initSchema(db: DbHandle): Promise<void> {
   await db.execute(DDL);
 
   // Seed only if categories table is empty
