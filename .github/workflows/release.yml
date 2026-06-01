@@ -1,0 +1,105 @@
+# Release workflow — builds native installers on GitHub's Mac, Windows, and
+# Linux machines and attaches them to a GitHub Release as downloadable assets.
+#
+# HOW TO TRIGGER A RELEASE
+# -------------------------
+# Push a version tag from your Mac:
+#
+#   git tag v0.1.0
+#   git push origin v0.1.0
+#
+# GitHub will spin up three virtual machines simultaneously and produce:
+#   macOS   → HOA Accounting_0.1.0_aarch64.dmg  (Apple Silicon)
+#              HOA Accounting_0.1.0_x64.dmg       (Intel Mac)
+#   Windows → HOA Accounting_0.1.0_x64_en-US.msi
+#              HOA Accounting_0.1.0_x64-setup.exe
+#   Linux   → hoa-accounting_0.1.0_amd64.deb
+#              hoa-accounting_0.1.0_amd64.AppImage
+#
+# The Release is created as a DRAFT — review and publish it manually on GitHub.
+# You can also trigger this manually from the Actions tab (workflow_dispatch).
+#
+# BETA NOTE — CODE SIGNING
+# -------------------------
+# These builds are UNSIGNED. Beta testers will see a one-time security warning:
+#   macOS   → right-click → Open, then click Open in the dialog
+#   Windows → "More info" → "Run anyway" in the SmartScreen popup
+# This is normal for unsigned beta software.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macOS
+          - os: windows-latest
+            name: Windows
+          - os: ubuntu-22.04
+            name: Linux
+
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          tagName: ${{ github.ref_name }}
+          releaseName: "HOA Accounting ${{ github.ref_name }}"
+          releaseBody: |
+            **Beta note:** these installers are unsigned. First launch requires a one-time bypass:
+            - **macOS** — right-click the .dmg → Open, then click Open in the security dialog
+            - **Windows** — click "More info" → "Run anyway" in the SmartScreen popup
+            - **Linux** — `.deb` installs via `sudo dpkg -i *.deb`; AppImage needs `chmod +x` first
+          releaseDraft: true
+          prerelease: false

@@ -1,0 +1,116 @@
+import { Outlet, NavLink } from "react-router-dom";
+
+type NavItem = { label: string; to: string };
+type NavSection = { heading: string; items: NavItem[] };
+
+const NAV: NavSection[] = [
+  {
+    heading: "Overview",
+    items: [{ label: "Dashboard", to: "/dashboard" }],
+  },
+  {
+    heading: "Properties",
+    items: [
+      { label: "Lots", to: "/lots" },
+      { label: "Owners", to: "/owners" },
+    ],
+  },
+  {
+    heading: "Transactions",
+    items: [
+      { label: "All Transactions", to: "/transactions" },
+      { label: "Ledger by Account", to: "/ledger/by-account" },
+      { label: "Opening Balances", to: "/opening-balances" },
+    ],
+  },
+  {
+    heading: "Bank",
+    items: [
+      { label: "Accounts", to: "/bank/accounts" },
+      { label: "Import", to: "/bank/import" },
+      { label: "Pending", to: "/bank/pending" },
+      { label: "Reconciliations", to: "/bank/reconciliations" },
+    ],
+  },
+  {
+    heading: "Budgets",
+    items: [{ label: "Budgets", to: "/budgets" }],
+  },
+  {
+    heading: "Vendors & Bills",
+    items: [
+      { label: "Vendors", to: "/vendors" },
+      { label: "Bills", to: "/bills" },
+    ],
+  },
+  {
+    heading: "Assessments",
+    items: [
+      { label: "Assessments", to: "/assessments" },
+      { label: "Accounts Receivable", to: "/ar" },
+      { label: "Deposits", to: "/deposits" },
+    ],
+  },
+  {
+    heading: "Reserve Study",
+    items: [{ label: "Reserve Study", to: "/reserve" }],
+  },
+  {
+    heading: "Reports",
+    items: [{ label: "Reports", to: "/reports" }],
+  },
+  {
+    heading: "Admin",
+    items: [
+      { label: "Chart of Accounts", to: "/categories" },
+      { label: "Users", to: "/users" },
+      { label: "Settings", to: "/settings" },
+    ],
+  },
+];
+
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  [
+    "block px-3 py-1.5 rounded text-sm transition-colors",
+    isActive
+      ? "bg-blue-600 text-white font-medium"
+      : "text-gray-300 hover:bg-gray-700 hover:text-white",
+  ].join(" ");
+
+export function AppShell() {
+  return (
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-56 shrink-0 bg-gray-800 flex flex-col overflow-y-auto">
+        <div className="px-4 py-4 border-b border-gray-700">
+          <span className="text-white font-semibold text-sm tracking-wide">HOA Accounting</span>
+        </div>
+        <nav className="flex-1 px-2 py-3 space-y-4">
+          {NAV.map((section) => (
+            <div key={section.heading}>
+              {section.items.length > 1 && (
+                <p className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  {section.heading}
+                </p>
+              )}
+              <ul className="space-y-0.5">
+                {section.items.map((item) => (
+                  <li key={item.to}>
+                    <NavLink to={item.to} className={linkClass}>
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 overflow-y-auto">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
