@@ -12,8 +12,7 @@ export const DB_PATH_KEY = "hoa_db_path";
 
 // Default to the existing HOA database created by the Python app.
 // Users on other machines should set a custom path in Admin → Settings.
-export const DEFAULT_DB_PATH =
-  "sqlite:/Users/bob/Library/Application Support/HOAAccounting/hoa_accounting.db";
+export const DEFAULT_DB_PATH = "sqlite:/Users/bob/hoa-system/data/hoa_accounting.db";
 
 export function getConfiguredDbPath(): string {
   // Always use DEFAULT_DB_PATH; localStorage override disabled until
