@@ -3,6 +3,8 @@ import { DbProvider } from "./contexts/DbContext";
 import { AppShell } from "./components/AppShell";
 import { Dashboard } from "./screens/Dashboard";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
+import { LotsScreen } from "./screens/LotsScreen";
+import { OwnersScreen } from "./screens/OwnersScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -15,9 +17,9 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
 
             {/* Lots & Owners */}
-            <Route path="lots" element={<Placeholder title="Lots" />} />
+            <Route path="lots" element={<LotsScreen />} />
             <Route path="lots/:id" element={<Placeholder title="Lot Detail" />} />
-            <Route path="owners" element={<Placeholder title="Owners" />} />
+            <Route path="owners" element={<OwnersScreen />} />
 
             {/* Transactions */}
             <Route path="transactions" element={<Placeholder title="All Transactions" />} />

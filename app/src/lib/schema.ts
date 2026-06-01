@@ -1,6 +1,70 @@
 import type Database from "@tauri-apps/plugin-sql";
 
 const DDL = `
+CREATE TABLE IF NOT EXISTS lots (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  lot_number         TEXT    NOT NULL UNIQUE,
+  street_address_1   TEXT,
+  street_address_2   TEXT,
+  city               TEXT,
+  state              TEXT,
+  postal_code        TEXT,
+  legal_description  TEXT,
+  active_flag        INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
+  created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS owners (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_type         TEXT    NOT NULL DEFAULT 'PERSON'
+                             CHECK(owner_type IN ('PERSON','ENTITY','TRUST')),
+  display_name       TEXT    NOT NULL,
+  first_name         TEXT,
+  last_name          TEXT,
+  entity_name        TEXT,
+  mailing_address_1  TEXT,
+  mailing_address_2  TEXT,
+  city               TEXT,
+  state              TEXT,
+  postal_code        TEXT,
+  phone              TEXT,
+  home_phone         TEXT,
+  email              TEXT,
+  notes              TEXT,
+  active_flag        INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
+  created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS lot_ownership (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  lot_id             INTEGER NOT NULL REFERENCES lots(id),
+  owner_id           INTEGER NOT NULL REFERENCES owners(id),
+  start_date         TEXT    NOT NULL,
+  end_date           TEXT,
+  ownership_percent  NUMERIC NOT NULL DEFAULT 100
+                             CHECK(ownership_percent > 0 AND ownership_percent <= 100),
+  is_primary_contact INTEGER NOT NULL DEFAULT 1 CHECK(is_primary_contact IN (0,1)),
+  created_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS lot_renters (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  lot_id             INTEGER NOT NULL REFERENCES lots(id),
+  display_name       TEXT    NOT NULL,
+  first_name         TEXT,
+  last_name          TEXT,
+  email              TEXT,
+  phone              TEXT,
+  start_date         TEXT    NOT NULL,
+  end_date           TEXT,
+  is_primary_contact INTEGER NOT NULL DEFAULT 1 CHECK(is_primary_contact IN (0,1)),
+  notes              TEXT,
+  created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS categories (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   code          TEXT    NOT NULL UNIQUE,
