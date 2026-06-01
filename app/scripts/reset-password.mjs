@@ -94,8 +94,28 @@ try {
 
 const db = new sqlJs.Database(dbData);
 
+// Detect which users table this database has
+const tableCheck = db.exec(
+  "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('local_users','users')"
+);
+const tableNames = tableCheck[0]?.values?.map((r) => r[0]) ?? [];
+const usersTable = tableNames.includes("local_users")
+  ? "local_users"
+  : tableNames.includes("users")
+  ? "users"
+  : null;
+
+if (!usersTable) {
+  console.error("No users table found in this database (looked for 'local_users' and 'users').");
+  process.exit(1);
+}
+
+console.log(`Using table: ${usersTable}\n`);
+
 // List users
-const stmt = db.prepare("SELECT id, email, role, is_active FROM local_users ORDER BY role DESC, email");
+const stmt = db.prepare(
+  `SELECT id, email, role, is_active FROM ${usersTable} ORDER BY role DESC, email`
+);
 const users = [];
 while (stmt.step()) users.push(stmt.getAsObject());
 stmt.free();
@@ -127,7 +147,7 @@ if (password.length < 8) {
 console.log("\nHashing password…");
 const hash = await hashPassword(password);
 
-db.run("UPDATE local_users SET password_hash = ?, is_active = 1 WHERE id = ?", [hash, user.id]);
+db.run(`UPDATE ${usersTable} SET password_hash = ?, is_active = 1 WHERE id = ?`, [hash, user.id]);
 
 // Write back
 const updated = db.export();
