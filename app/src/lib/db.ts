@@ -7,15 +7,33 @@ function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI__" in window;
 }
 
+// Key used in localStorage to remember the configured database path.
+export const DB_PATH_KEY = "hoa_db_path";
+export const DEFAULT_DB_PATH = "sqlite:hoa.db";
+
+export function getConfiguredDbPath(): string {
+  return localStorage.getItem(DB_PATH_KEY) ?? DEFAULT_DB_PATH;
+}
+
+export function setConfiguredDbPath(path: string): void {
+  localStorage.setItem(DB_PATH_KEY, path);
+  _db = null; // force reconnect on next getDb() call
+}
+
+export function resetDb(): void {
+  _db = null;
+}
+
 export async function getDb(): Promise<DbHandle> {
   if (_db) return _db;
 
   if (isTauri()) {
-    // Native build — use Tauri's SQLite plugin (persisted to app data dir)
+    // Native build — use Tauri's SQLite plugin.
+    // Path is configurable via Settings; defaults to hoa.db in the app-data dir.
     const Database = (await import("@tauri-apps/plugin-sql")).default;
-    _db = await Database.load("sqlite:hoa.db");
+    _db = await Database.load(getConfiguredDbPath());
   } else {
-    // Browser / Preview — use sql.js (in-memory, seeded fresh each session)
+    // Browser / Preview — use sql.js (in-memory; no file access in browser context).
     const { getBrowserDb } = await import("./db.browser");
     _db = await getBrowserDb();
   }
