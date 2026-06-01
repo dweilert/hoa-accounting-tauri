@@ -10,14 +10,12 @@ function isTauri(): boolean {
 // Key used in localStorage to remember the configured database path.
 export const DB_PATH_KEY = "hoa_db_path";
 
-// Default to the existing HOA database created by the Python app.
-// Users on other machines should set a custom path in Admin → Settings.
-export const DEFAULT_DB_PATH = "sqlite:/Users/bob/hoa-system/data/hoa_accounting.db";
+// Relative path resolves to the Tauri app data directory.
+// hoa.db there is a symlink → /Users/bob/hoa-system/data/hoa_accounting.db
+export const DEFAULT_DB_PATH = "sqlite:hoa.db";
 
 export function getConfiguredDbPath(): string {
-  // Always use DEFAULT_DB_PATH; localStorage override disabled until
-  // the Settings screen can reliably write a new path post-login.
-  return DEFAULT_DB_PATH;
+  return localStorage.getItem(DB_PATH_KEY) ?? DEFAULT_DB_PATH;
 }
 
 export function setConfiguredDbPath(path: string): void {
