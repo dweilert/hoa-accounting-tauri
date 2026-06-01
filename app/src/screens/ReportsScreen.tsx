@@ -1069,8 +1069,8 @@ export function ReportsScreen() {
   return (
     <PageLayout title="Reports" subtitle="Financial summaries and operational reports." helpId="reports">
       <div className="max-w-5xl">
-        {/* Selector + params */}
-        <div className="bg-white border rounded-lg p-4 mb-5 space-y-4">
+        {/* Selector + params — hidden when printing */}
+        <div className="bg-white border rounded-lg p-4 mb-5 space-y-4 print:hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-1">
               <label className="block text-xs font-medium text-gray-700 mb-1">Report</label>
@@ -1188,7 +1188,7 @@ export function ReportsScreen() {
 
         {/* Report output */}
         {!hasRun && (
-          <div className="text-center py-12 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+          <div className="text-center py-12 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg print:hidden">
             Select a report above and click <strong className="text-gray-500">Run Report</strong>.
           </div>
         )}

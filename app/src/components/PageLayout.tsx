@@ -156,8 +156,8 @@ export function PageLayout({
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-6">
+      {/* Content — no padding on print so report starts at the top edge */}
+      <div className="p-6 print:p-0">
         {children}
       </div>
 

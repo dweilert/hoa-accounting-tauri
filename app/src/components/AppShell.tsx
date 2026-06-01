@@ -109,9 +109,9 @@ export function AppShell() {
   const isAdmin = currentUser?.role === "admin";
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-gray-800 flex flex-col overflow-y-auto">
+    <div className="flex h-screen bg-gray-100 overflow-hidden print:block print:h-auto print:overflow-visible print:bg-white">
+      {/* Sidebar — hidden when printing */}
+      <aside className="w-56 shrink-0 bg-gray-800 flex flex-col overflow-y-auto print:hidden">
         <div className="px-4 py-4 border-b border-gray-700">
           <span className="text-white font-semibold text-sm tracking-wide">HOA Accounting</span>
         </div>
@@ -149,7 +149,7 @@ export function AppShell() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto print:overflow-visible print:w-full">
         <Outlet />
       </main>
     </div>
