@@ -6,12 +6,16 @@ import { CategoriesScreen } from "./screens/CategoriesScreen";
 import { LotsScreen } from "./screens/LotsScreen";
 import { OwnersScreen } from "./screens/OwnersScreen";
 import { BankAccountsScreen } from "./screens/BankAccountsScreen";
+import { BankImportScreen } from "./screens/BankImportScreen";
+import { BankPendingScreen } from "./screens/BankPendingScreen";
+import { ReconciliationsScreen } from "./screens/ReconciliationsScreen";
 import { VendorsScreen } from "./screens/VendorsScreen";
 import { VendorBillsScreen } from "./screens/VendorBillsScreen";
 import { OpeningBalancesScreen } from "./screens/OpeningBalancesScreen";
 import { AssessmentsScreen } from "./screens/AssessmentsScreen";
 import { ARScreen } from "./screens/ARScreen";
 import { DepositsScreen } from "./screens/DepositsScreen";
+import { BudgetsScreen } from "./screens/BudgetsScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -35,13 +39,13 @@ export default function App() {
 
             {/* Bank */}
             <Route path="bank/accounts" element={<BankAccountsScreen />} />
-            <Route path="bank/import" element={<Placeholder title="Bank Import" />} />
-            <Route path="bank/pending" element={<Placeholder title="Pending Transactions" />} />
-            <Route path="bank/reconciliations" element={<Placeholder title="Reconciliations" />} />
-            <Route path="bank/reconciliations/new" element={<Placeholder title="New Reconciliation" />} />
+            <Route path="bank/import" element={<BankImportScreen />} />
+            <Route path="bank/pending" element={<BankPendingScreen />} />
+            <Route path="bank/reconciliations" element={<ReconciliationsScreen />} />
+            <Route path="bank/reconciliations/new" element={<ReconciliationsScreen />} />
 
             {/* Budgets */}
-            <Route path="budgets" element={<Placeholder title="Budgets" />} />
+            <Route path="budgets" element={<BudgetsScreen />} />
 
             {/* Vendors & Bills */}
             <Route path="vendors" element={<VendorsScreen />} />
