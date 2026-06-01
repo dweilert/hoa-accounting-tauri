@@ -16,7 +16,14 @@ export const DEFAULT_DB_PATH =
   "sqlite:/Users/bob/Library/Application Support/HOAAccounting/hoa_accounting.db";
 
 export function getConfiguredDbPath(): string {
-  return localStorage.getItem(DB_PATH_KEY) ?? DEFAULT_DB_PATH;
+  const stored = localStorage.getItem(DB_PATH_KEY);
+  // Migrate: the old default was "sqlite:hoa.db" (wrong location).
+  // Clear it so DEFAULT_DB_PATH (the real database) takes effect.
+  if (!stored || stored === "sqlite:hoa.db") {
+    localStorage.removeItem(DB_PATH_KEY);
+    return DEFAULT_DB_PATH;
+  }
+  return stored;
 }
 
 export function setConfiguredDbPath(path: string): void {
