@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -134,48 +135,45 @@ export function AccountingPeriodsScreen() {
   const lastLocked = periods.filter((p) => p.status === "LOCKED").pop();
 
   return (
-    <div className="p-6 max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Accounting Periods</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Lock closed months to prevent backdated entries. Locked periods are advisory — they serve as a
-          reminder that the period is closed.
-        </p>
-      </div>
-
+    <PageLayout
+      title="Accounting Periods"
+      subtitle="Lock closed months to prevent backdated entries."
+      helpId="accountingPeriods"
+      actions={
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setYear((y) => y - 1)} className="px-2 py-1 border rounded hover:bg-gray-50">←</button>
+            <span className="font-semibold text-gray-800 w-16 text-center">{year}</span>
+            <button onClick={() => setYear((y) => y + 1)} className="px-2 py-1 border rounded hover:bg-gray-50">→</button>
+          </div>
+          <span className="text-sm text-gray-500">
+            {locked} of 12 months locked
+          </span>
+          {lastLocked && (
+            <button
+              onClick={() => void lockAllThrough(lastLocked.period_month + 1 <= 12 ? lastLocked.period_month + 1 : 12)}
+              disabled={busy !== null || lastLocked.period_month >= 12}
+              className="px-3 py-1.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-800 disabled:opacity-40"
+            >
+              Lock through {lastLocked.period_month < 12 ? MONTHS[lastLocked.period_month] : "December"}
+            </button>
+          )}
+          {locked === 0 && (
+            <button
+              onClick={() => void lockAllThrough(new Date().getMonth())}
+              disabled={busy !== null}
+              className="px-3 py-1.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-800 disabled:opacity-40"
+            >
+              Lock through last month
+            </button>
+          )}
+        </div>
+      }
+    >
+    <div className="max-w-3xl">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
       )}
-
-      {/* Year picker + summary */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setYear((y) => y - 1)} className="px-2 py-1 border rounded hover:bg-gray-50">←</button>
-          <span className="font-semibold text-gray-800 w-16 text-center">{year}</span>
-          <button onClick={() => setYear((y) => y + 1)} className="px-2 py-1 border rounded hover:bg-gray-50">→</button>
-        </div>
-        <span className="text-sm text-gray-500">
-          {locked} of 12 months locked
-        </span>
-        {lastLocked && (
-          <button
-            onClick={() => void lockAllThrough(lastLocked.period_month + 1 <= 12 ? lastLocked.period_month + 1 : 12)}
-            disabled={busy !== null || lastLocked.period_month >= 12}
-            className="ml-auto px-3 py-1.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-800 disabled:opacity-40"
-          >
-            Lock through {lastLocked.period_month < 12 ? MONTHS[lastLocked.period_month] : "December"}
-          </button>
-        )}
-        {locked === 0 && (
-          <button
-            onClick={() => void lockAllThrough(new Date().getMonth())}
-            disabled={busy !== null}
-            className="ml-auto px-3 py-1.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-800 disabled:opacity-40"
-          >
-            Lock through last month
-          </button>
-        )}
-      </div>
 
       {loading ? (
         <p className="text-gray-400 text-sm">Loading…</p>
@@ -253,5 +251,6 @@ export function AccountingPeriodsScreen() {
         </div>
       )}
     </div>
+    </PageLayout>
   );
 }

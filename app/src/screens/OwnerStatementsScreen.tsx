@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -281,7 +282,24 @@ export function OwnerStatementsScreen() {
   if (loading) return <div className="p-8 text-gray-400 text-sm">Loading…</div>;
 
   return (
-    <div className="p-6 max-w-5xl">
+    <PageLayout
+      title="Owner Statements"
+      subtitle="Generate printable account statements for owners."
+      helpId="ownerStatements"
+      actions={view === "preview" ? (
+        <div className="flex gap-2">
+          <button onClick={() => window.print()}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+            Print / Save PDF
+          </button>
+          <button onClick={() => setView("select")}
+            className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">
+            ← Back
+          </button>
+        </div>
+      ) : undefined}
+    >
+    <div className="max-w-5xl">
       {/* Print-only: no header chrome */}
       {view === "preview" && (
         <div className="hidden print:block">
@@ -293,27 +311,6 @@ export function OwnerStatementsScreen() {
 
       {/* Screen UI — hidden when printing */}
       <div className="print:hidden">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Owner Statements</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Generate printable account statements for owners. Print to PDF from your browser.
-            </p>
-          </div>
-          {view === "preview" && (
-            <div className="flex gap-2">
-              <button onClick={() => window.print()}
-                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                Print / Save PDF
-              </button>
-              <button onClick={() => setView("select")}
-                className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">
-                ← Back
-              </button>
-            </div>
-          )}
-        </div>
-
         {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
         {view === "select" && (
@@ -386,5 +383,6 @@ export function OwnerStatementsScreen() {
         )}
       </div>
     </div>
+    </PageLayout>
   );
 }

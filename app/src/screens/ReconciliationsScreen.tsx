@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { PageLayout } from "../components/PageLayout";
 import {
   listReconciliations,
   getReconciliation,
@@ -328,32 +329,35 @@ export function ReconciliationsScreen() {
 
   if (selected) {
     return (
-      <div className="p-8 max-w-5xl">
-        <ReconWorkspace
-          recon={selected}
-          onBack={() => setSelected(null)}
-          onFinalized={() => { setSelected(null); void load(); }}
-        />
-      </div>
+      <PageLayout title="Reconciliations" subtitle="Match book balance to bank statement." helpId="reconciliations">
+        <div className="max-w-5xl">
+          <ReconWorkspace
+            recon={selected}
+            onBack={() => setSelected(null)}
+            onFinalized={() => { setSelected(null); void load(); }}
+          />
+        </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reconciliations</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Match bank statements to your book records.</p>
-        </div>
-        {!showNew && (
+    <PageLayout
+      title="Reconciliations"
+      subtitle="Match book balance to bank statement."
+      helpId="reconciliations"
+      actions={
+        !showNew ? (
           <button
             onClick={() => setShowNew(true)}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
           >
             + New Reconciliation
           </button>
-        )}
-      </div>
+        ) : undefined
+      }
+    >
+      <div className="max-w-4xl">
 
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -428,6 +432,7 @@ export function ReconciliationsScreen() {
           </table>
         </div>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }

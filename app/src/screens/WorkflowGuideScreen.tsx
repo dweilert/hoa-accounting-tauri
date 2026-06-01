@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -207,23 +208,23 @@ export function WorkflowGuideScreen() {
   }
 
   return (
-    <div className="p-6 print:p-0">
-      <div className="mb-6 flex items-center justify-between print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workflow Guide</h1>
-          <p className="text-sm text-gray-500 mt-1">Step-by-step checklists for routine HOA accounting tasks</p>
-        </div>
+    <PageLayout
+      title="Workflow Guide"
+      subtitle="Step-by-step checklists for routine HOA accounting tasks."
+      helpId="workflowGuide"
+      actions={
         <button
           onClick={() => window.print()}
           className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
         >
           Print Cheatsheet
         </button>
-      </div>
-      {/* Print-only header */}
-      <div className="hidden print:block mb-6">
-        <h1 className="text-xl font-bold text-gray-900">HOA Accounting — Workflow Cheatsheet</h1>
-        {activeTab && <p className="text-sm text-gray-600 mt-1">{activeTab.label}: {activeTab.description}</p>}
+      }
+    >
+      {/* Print-only title */}
+      <div className="hidden print:block mb-4">
+        <h1 className="text-xl font-bold">HOA Workflow Cheatsheet</h1>
+        {activeTab && <p className="text-sm text-gray-600">{activeTab.label}</p>}
       </div>
 
       {/* Tab bar — hidden on print */}
@@ -247,23 +248,25 @@ export function WorkflowGuideScreen() {
 
       {/* Tab description */}
       {activeTab?.description && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 leading-relaxed">
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 leading-relaxed print:hidden">
           {activeTab.description}
         </div>
       )}
 
       {/* Sections + cards */}
-      {sections.length === 0 ? (
-        <p className="text-gray-400 text-sm">No workflow steps defined for this tab.</p>
-      ) : (
-        sections.map((sec) => (
-          <WorkflowSection
-            key={sec.id}
-            section={sec}
-            cards={cards.filter((c) => c.section_id === sec.id)}
-          />
-        ))
-      )}
-    </div>
+      <div className="print:block">
+        {sections.length === 0 ? (
+          <p className="text-gray-400 text-sm">No workflow steps defined for this tab.</p>
+        ) : (
+          sections.map((sec) => (
+            <WorkflowSection
+              key={sec.id}
+              section={sec}
+              cards={cards.filter((c) => c.section_id === sec.id)}
+            />
+          ))
+        )}
+      </div>
+    </PageLayout>
   );
 }

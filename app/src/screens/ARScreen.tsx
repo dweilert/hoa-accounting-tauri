@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { listOpenAssessments, type AssessmentRow } from "../repositories/assessmentRepo";
 import { CHARGE_TYPE_LABELS, STATUS_COLORS, type AssessmentStatusValue } from "../types/assessment";
+import { PageLayout } from "../components/PageLayout";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -54,13 +55,12 @@ export function ARScreen() {
   const grandTotal = groups.reduce((s, g) => s + g.total, 0);
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Accounts Receivable</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {groups.length} lots with open balances · {fmt(grandTotal)} total outstanding
-        </p>
-      </div>
+    <PageLayout
+      title="Accounts Receivable"
+      subtitle="Outstanding balances by lot."
+      helpId="ar"
+    >
+    <div className="max-w-4xl">
 
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -136,5 +136,6 @@ export function ARScreen() {
         </div>
       )}
     </div>
+    </PageLayout>
   );
 }

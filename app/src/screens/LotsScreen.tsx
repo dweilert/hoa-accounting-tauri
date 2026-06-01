@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { PageLayout } from "../components/PageLayout";
 import { Modal } from "../components/Modal";
 import { listLots, insertLot, updateLot, deleteLot, hasCurrentOwners } from "../repositories/lotRepo";
 import { LotFormSchema, type LotWithOwner, type LotFormValues } from "../types/lot";
@@ -139,23 +140,21 @@ export function LotsScreen() {
     catch (e) { alert(String(e)); }
   }
 
-  const active = lots.filter((l) => l.active_flag);
-  const inactive = lots.filter((l) => !l.active_flag);
-
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lots</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{active.length} active · {inactive.length} inactive</p>
-        </div>
+    <PageLayout
+      title="Lots"
+      subtitle="All HOA lots and their current owners."
+      helpId="lots"
+      actions={
         <button
           onClick={() => setModal({ mode: "add" })}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           + Add Lot
         </button>
-      </div>
+      }
+    >
+      <div className="max-w-5xl">
 
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -222,6 +221,7 @@ export function LotsScreen() {
           )}
         </Modal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }

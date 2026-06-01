@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import { getLot, getOwnershipHistory, updateLot, type OwnershipRow } from "../repositories/lotRepo";
 import { listAssessments, type AssessmentRow } from "../repositories/assessmentRepo";
 import { listPaymentsForLot, type PaymentRow } from "../repositories/depositRepo";
@@ -49,7 +50,6 @@ function ARSummary({ assessments }: { assessments: AssessmentRow[] }) {
 
 export function LotDetailScreen() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const lotId = Number(id);
 
   const [lot, setLot] = useState<Lot | null>(null);
@@ -98,37 +98,27 @@ export function LotDetailScreen() {
   const currentOwners = ownership.filter((o) => !o.end_date);
 
   return (
-    <div className="p-8 max-w-4xl space-y-6">
-
-      {/* Header */}
-      <div>
-        <button
-          onClick={() => navigate("/lots")}
-          className="text-xs text-blue-600 hover:underline mb-3 inline-block"
-        >
-          ← Back to Lots
-        </button>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lot {lot.lot_number}</h1>
-            {address && <p className="text-sm text-gray-500 mt-0.5">{address}{cityLine ? `, ${cityLine}` : ""}</p>}
-            {lot.legal_description && (
-              <p className="text-xs text-gray-400 mt-0.5">{lot.legal_description}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`px-2 py-0.5 rounded text-xs font-medium ${lot.active_flag ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-              {lot.active_flag ? "Active" : "Inactive"}
-            </span>
-            <button
-              onClick={() => setEditOpen(true)}
-              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
-            >
-              Edit Lot
-            </button>
-          </div>
+    <PageLayout
+      title={lot ? `Lot ${lot.lot_number}` : "Lot Detail"}
+      {...(address ? { subtitle: `${address}${cityLine ? `, ${cityLine}` : ""}` } : {})}
+      backTo="/lots"
+      backLabel="Lots"
+      helpId="lotDetail"
+      actions={
+        <div className="flex items-center gap-3">
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${lot.active_flag ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            {lot.active_flag ? "Active" : "Inactive"}
+          </span>
+          <button
+            onClick={() => setEditOpen(true)}
+            className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+          >
+            Edit Lot
+          </button>
         </div>
-      </div>
+      }
+    >
+    <div className="max-w-4xl space-y-6">
 
       {/* AR summary */}
       <ARSummary assessments={assessments} />
@@ -277,5 +267,6 @@ export function LotDetailScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import {
   insertBankTransaction, getExistingDedupKeys,
@@ -184,15 +185,8 @@ export function OFXImportScreen() {
   const dupTxns = transactions.filter((t) => t.isDuplicate);
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">OFX / QFX Import</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Import bank transactions from an OFX or QFX file downloaded from your bank.
-          Duplicate transactions (matched by FITID) are automatically skipped.
-        </p>
-      </div>
-
+    <PageLayout title="OFX / QFX Import" subtitle="Import transactions from an OFX or QFX bank file." helpId="ofxImport">
+    <div className="max-w-4xl">
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Step indicators */}
@@ -317,5 +311,6 @@ export function OFXImportScreen() {
         </div>
       )}
     </div>
+    </PageLayout>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import {
   listCategories,
   insertCategory,
@@ -296,15 +297,11 @@ export function CategoriesScreen() {
   };
 
   return (
-    <div className="p-8 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {categories.length} categories
-          </p>
-        </div>
+    <PageLayout
+      title="Chart of Accounts"
+      subtitle="Income and expense categories."
+      helpId="categories"
+      actions={
         <div className="flex gap-2">
           {categories.length === 0 && (
             <Link
@@ -321,8 +318,9 @@ export function CategoriesScreen() {
             + Add Category
           </button>
         </div>
-      </div>
-
+      }
+    >
+    <div className="max-w-5xl">
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
@@ -412,5 +410,6 @@ export function CategoriesScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

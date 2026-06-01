@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import {
   listBankAccounts,
   insertBankAccount,
@@ -216,16 +217,11 @@ export function BankAccountsScreen() {
   const inactiveCount = accounts.filter((a) => !a.active_flag).length;
 
   return (
-    <div className="p-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bank Accounts</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {accounts.filter((a) => a.active_flag).length} active
-            {inactiveCount > 0 && ` · ${inactiveCount} inactive`}
-          </p>
-        </div>
+    <PageLayout
+      title="Bank Accounts"
+      subtitle="Manage HOA bank accounts."
+      helpId="bankAccounts"
+      actions={
         <div className="flex items-center gap-4">
           {inactiveCount > 0 && (
             <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -245,7 +241,9 @@ export function BankAccountsScreen() {
             + Add Account
           </button>
         </div>
-      </div>
+      }
+    >
+      <div className="max-w-4xl">
 
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -335,6 +333,7 @@ export function BankAccountsScreen() {
           )}
         </Modal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }

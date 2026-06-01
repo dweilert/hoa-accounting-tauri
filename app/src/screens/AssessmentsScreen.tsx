@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import {
   listAssessments,
   insertAssessment,
@@ -281,20 +282,12 @@ export function AssessmentsScreen() {
     ? assessments.filter((a) => a.status === "OPEN" || a.status === "PARTIAL")
     : assessments;
 
-  const totalOpen = displayedList
-    .filter((a) => a.status === "OPEN" || a.status === "PARTIAL")
-    .reduce((s, a) => s + a.amount, 0);
-
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Assessments</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {displayedList.length} records
-            {totalOpen > 0 && ` · ${fmt(totalOpen)} outstanding`}
-          </p>
-        </div>
+    <PageLayout
+      title="Assessments"
+      subtitle="Lot charges — dues, fees, and special assessments."
+      helpId="assessments"
+      actions={
         <div className="flex items-center gap-3">
           <select
             value={statusFilter}
@@ -312,7 +305,9 @@ export function AssessmentsScreen() {
             + Add Assessment
           </button>
         </div>
-      </div>
+      }
+    >
+    <div className="max-w-5xl">
 
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -415,5 +410,6 @@ export function AssessmentsScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

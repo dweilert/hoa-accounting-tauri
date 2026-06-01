@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getDb } from "../lib/db";
 import { readConfig } from "../lib/config";
 import { listActiveAnnouncements, type Announcement } from "../repositories/announcementRepo";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -397,12 +398,8 @@ export function Dashboard() {
   if (current.items.length > 0 || current.heading) sections.push(current);
 
   return (
-    <div className="p-6 max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-0.5">HOA Accounting overview.</p>
-      </div>
-
+    <PageLayout title="Dashboard" subtitle="HOA Accounting overview." helpId="dashboard">
+      <div className="max-w-5xl space-y-6">
       {/* DB diagnostic */}
       <div className="font-mono text-xs p-2 bg-black text-green-400 rounded break-all">
         {dbDiag}
@@ -517,6 +514,7 @@ export function Dashboard() {
           </table>
         </div>
       </div>
-    </div>
+      </div>
+    </PageLayout>
   );
 }

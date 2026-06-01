@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import {
   listTransactionRules,
   insertTransactionRule,
@@ -334,28 +335,26 @@ export function TransactionRulesScreen() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transaction Rules</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Auto-classify bank transactions on import based on description and amount patterns.
-          </p>
-        </div>
+    <PageLayout
+      title="Transaction Rules"
+      subtitle="Auto-categorization rules for imported bank transactions."
+      helpId="transactionRules"
+      actions={
         <button
           onClick={() => setModal({ mode: "add" })}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           + New Rule
         </button>
-      </div>
+      }
+    >
+      <div className="max-w-4xl">
+        {loading && <p className="text-sm text-gray-400">Loading…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {!loading && !error && (
-        <>
-          <div className="border rounded-lg overflow-hidden">
+        {!loading && !error && (
+          <>
+            <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
@@ -433,24 +432,25 @@ export function TransactionRulesScreen() {
             </table>
           </div>
 
-          <RuleTester rules={rules} />
-        </>
-      )}
+            <RuleTester rules={rules} />
+          </>
+        )}
 
-      {modal && (
-        <Modal
-          title={modal.mode === "add" ? "New Transaction Rule" : `Edit Rule: ${modal.mode === "edit" ? modal.rule.rule_name : ""}`}
-          onClose={() => setModal(null)}
-        >
-          <RuleForm
-            initial={modal.mode === "edit" ? modal.rule : undefined}
-            categories={categories}
-            vendors={vendors}
-            onSave={handleSave}
-            onCancel={() => setModal(null)}
-          />
-        </Modal>
-      )}
-    </div>
+        {modal && (
+          <Modal
+            title={modal.mode === "add" ? "New Transaction Rule" : `Edit Rule: ${modal.mode === "edit" ? modal.rule.rule_name : ""}`}
+            onClose={() => setModal(null)}
+          >
+            <RuleForm
+              initial={modal.mode === "edit" ? modal.rule : undefined}
+              categories={categories}
+              vendors={vendors}
+              onSave={handleSave}
+              onCancel={() => setModal(null)}
+            />
+          </Modal>
+        )}
+      </div>
+    </PageLayout>
   );
 }

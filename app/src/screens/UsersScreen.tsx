@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import { listUsers, createUser, updateUser, setPassword, deleteUser, type LocalUser } from "../repositories/userRepo";
 import { useCurrentUser } from "../contexts/AuthContext";
 
@@ -189,20 +190,20 @@ export function UsersScreen() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage who can access HOA Accounting.</p>
-        </div>
+    <PageLayout
+      title="Users"
+      subtitle="Manage app user accounts and roles."
+      helpId="users"
+      actions={
         <button
           onClick={() => setModal({ mode: "add" })}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           + Add User
         </button>
-      </div>
-
+      }
+    >
+    <div className="max-w-4xl">
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -299,5 +300,6 @@ export function UsersScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

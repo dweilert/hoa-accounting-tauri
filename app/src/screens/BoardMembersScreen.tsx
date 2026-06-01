@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -220,20 +221,19 @@ export function BoardMembersScreen() {
   const past = members.filter((m) => m.active_flag === 0 || m.term_end);
 
   return (
-    <div className="p-6 max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Board Members</h1>
-          <p className="text-sm text-gray-500 mt-1">Current and past board member roster.</p>
-        </div>
+    <PageLayout
+      title="Board Members"
+      subtitle="Current and past board member roster."
+      actions={
         <button
           onClick={() => { setShowForm(true); setEditing(null); }}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
         >
           + Add Member
         </button>
-      </div>
-
+      }
+    >
+    <div className="max-w-3xl">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
       {(showForm && !editing) && (
@@ -264,6 +264,7 @@ export function BoardMembersScreen() {
         </>
       )}
     </div>
+    </PageLayout>
   );
 }
 

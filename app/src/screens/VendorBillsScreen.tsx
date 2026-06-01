@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import {
   listVendorBills, insertVendorBill, updateVendorBill, voidBill,
   billHasPayments, listPaymentsForBill, insertBillPayment, deleteBillPayment,
@@ -400,18 +401,20 @@ export function VendorBillsScreen() {
   }
 
   return (
-    <div className="p-8 max-w-6xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Vendor Bills</h1>
+    <PageLayout
+      title="Vendor Bills"
+      subtitle="Enter and pay vendor invoices."
+      helpId="vendorBills"
+      actions={
         <button
           onClick={() => setModal({ mode: "add" })}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           + Add Bill
         </button>
-      </div>
-
+      }
+    >
+    <div className="max-w-6xl">
       {/* Status filter tabs */}
       <div className="flex gap-1 mb-4 border-b">
         {STATUS_FILTERS.map(([val, label]) => (
@@ -522,5 +525,6 @@ export function VendorBillsScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 import { listCategories } from "../repositories/categoryRepo";
 import type { Category } from "../types/category";
 
@@ -133,14 +134,12 @@ export function DuesBillingScreen() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dues Billing</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Bulk-post dues charges to all active lots in one operation.
-        </p>
-      </div>
-
+    <PageLayout
+      title="Dues Billing"
+      subtitle="Bulk-post dues assessments to all active lots."
+      helpId="duesBilling"
+    >
+    <div className="max-w-4xl">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
       )}
@@ -295,5 +294,6 @@ export function DuesBillingScreen() {
         )}
       </div>
     </div>
+    </PageLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -92,12 +93,11 @@ export function TransactionsScreen() {
   };
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">All Transactions</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{rows.length} most recent</p>
-        </div>
+    <PageLayout
+      title="All Transactions"
+      subtitle="Posted transactions across all accounts."
+      helpId="transactions"
+      actions={
         <select
           value={limit}
           onChange={(e) => setLimit(Number(e.target.value))}
@@ -108,56 +108,58 @@ export function TransactionsScreen() {
           <option value={250}>Last 250</option>
           <option value={500}>Last 500</option>
         </select>
-      </div>
+      }
+    >
+      <div className="max-w-5xl">
+        {loading && <p className="text-sm text-gray-400">Loading…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {!loading && !error && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && (
+        {!loading && !error && (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">
-                    No transactions yet.
-                  </td>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
                 </tr>
-              )}
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-2 text-gray-600">{r.txn_date}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      r.source_type === "PAYMENT" ? "bg-green-100 text-green-700"
-                      : r.source_type === "BILL_PAYMENT" ? "bg-red-100 text-red-700"
-                      : "bg-blue-100 text-blue-700"
-                    }`}>
-                      {SOURCE_LABELS[r.source_type] ?? r.source_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700">{r.description}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.account_name ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.lot_number ? `Lot ${r.lot_number}` : "—"}</td>
-                  <td className={`px-4 py-2 text-right font-mono ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>
-                    {fmt(r.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">
+                      No transactions yet.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-2 text-gray-600">{r.txn_date}</td>
+                    <td className="px-4 py-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        r.source_type === "PAYMENT" ? "bg-green-100 text-green-700"
+                        : r.source_type === "BILL_PAYMENT" ? "bg-red-100 text-red-700"
+                        : "bg-blue-100 text-blue-700"
+                      }`}>
+                        {SOURCE_LABELS[r.source_type] ?? r.source_type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">{r.description}</td>
+                    <td className="px-4 py-2 text-gray-500 text-xs">{r.account_name ?? "—"}</td>
+                    <td className="px-4 py-2 text-gray-500 text-xs">{r.lot_number ? `Lot ${r.lot_number}` : "—"}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>
+                      {fmt(r.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </PageLayout>
   );
 }

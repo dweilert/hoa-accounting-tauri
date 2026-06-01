@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import { listOwners, insertOwner, updateOwner, deactivateOwner } from "../repositories/ownerRepo";
 import { OwnerFormSchema, type OwnerWithLots, type OwnerFormValues, type OwnerTypeValue } from "../types/owner";
 
@@ -192,23 +193,21 @@ export function OwnersScreen() {
     catch (e) { alert(String(e)); }
   }
 
-  const active = owners.filter((o) => o.active_flag);
-  const inactive = owners.filter((o) => !o.active_flag);
-
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Owners</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{active.length} active · {inactive.length} inactive</p>
-        </div>
+    <PageLayout
+      title="Owners"
+      subtitle="Property owner directory."
+      helpId="owners"
+      actions={
         <button
           onClick={() => setModal({ mode: "add" })}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           + Add Owner
         </button>
-      </div>
+      }
+    >
+      <div className="max-w-5xl">
 
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -276,6 +275,7 @@ export function OwnersScreen() {
           )}
         </Modal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }

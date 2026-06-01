@@ -5,6 +5,7 @@ import { listOpeningBalances, upsertOpeningBalance } from "../repositories/openi
 import type { BankAccount } from "../types/bankAccount";
 import type { Lot } from "../types/lot";
 import type { OpeningBalance } from "../types/openingBalance";
+import { PageLayout } from "../components/PageLayout";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -369,14 +370,8 @@ export function OpeningBalancesScreen() {
   const [tab, setTab] = useState<Tab>("bank");
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Opening Balances</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Set starting balances for bank accounts and lot owner dues at the beginning of the fiscal year.
-        </p>
-      </div>
-
+    <PageLayout title="Opening Balances" subtitle="Enter starting balances when setting up the app." helpId="openingBalances">
+    <div className="max-w-5xl">
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b">
         {(["bank", "lots"] as Tab[]).map((t) => (
@@ -396,5 +391,6 @@ export function OpeningBalancesScreen() {
 
       {tab === "bank" ? <BankBalancesTab /> : <LotBalancesTab />}
     </div>
+    </PageLayout>
   );
 }

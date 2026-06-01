@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -257,12 +258,12 @@ export function LotTransferScreen() {
   const stepIdx = STEPS.indexOf(step);
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Lot Transfer Wizard</h1>
-        <p className="text-sm text-gray-500 mt-1">Transfer lot ownership when a property sells.</p>
-      </div>
-
+    <PageLayout
+      title="Lot Transfer Wizard"
+      subtitle="Transfer lot ownership when a property sells."
+      helpId="lotTransfer"
+    >
+    <div className="max-w-2xl">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
       )}
@@ -571,5 +572,6 @@ export function LotTransferScreen() {
         </div>
       )}
     </div>
+    </PageLayout>
   );
 }

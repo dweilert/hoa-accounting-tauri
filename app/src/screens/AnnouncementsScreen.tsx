@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import { useCurrentUser } from "../contexts/AuthContext";
 import {
   listAnnouncements,
@@ -166,20 +167,20 @@ export function AnnouncementsScreen() {
     !!item.expires_at && new Date(item.expires_at) < new Date();
 
   return (
-    <div className="p-8 max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Broadcast messages shown to all users on the dashboard.</p>
-        </div>
+    <PageLayout
+      title="Announcements"
+      subtitle="Post notices that appear on the dashboard."
+      helpId="announcements"
+      actions={
         <button
           onClick={() => setModal({ mode: "add" })}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
         >
           + Add Announcement
         </button>
-      </div>
-
+      }
+    >
+    <div className="max-w-3xl">
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -249,5 +250,6 @@ export function AnnouncementsScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

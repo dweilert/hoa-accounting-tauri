@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import { listVendors, insertVendor, updateVendor, deleteVendor, hasBills } from "../repositories/vendorRepo";
 import { VendorFormSchema, type Vendor, type VendorFormValues } from "../types/vendor";
 
@@ -167,15 +168,11 @@ export function VendorsScreen() {
   const inactiveCount = vendors.filter((v) => !v.active_flag).length;
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Vendors</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {vendors.filter((v) => v.active_flag).length} active
-            {inactiveCount > 0 && ` · ${inactiveCount} inactive`}
-          </p>
-        </div>
+    <PageLayout
+      title="Vendors"
+      subtitle="Vendor and contractor directory."
+      helpId="vendors"
+      actions={
         <div className="flex items-center gap-4">
           {inactiveCount > 0 && (
             <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -195,7 +192,9 @@ export function VendorsScreen() {
             + Add Vendor
           </button>
         </div>
-      </div>
+      }
+    >
+    <div className="max-w-5xl">
 
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -262,5 +261,6 @@ export function VendorsScreen() {
         </Modal>
       )}
     </div>
+    </PageLayout>
   );
 }

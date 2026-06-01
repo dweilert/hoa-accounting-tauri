@@ -1,7 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
-import { listBankAccounts } from "../repositories/bankAccountRepo";
-import type { BankAccount } from "../types/bankAccount";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -195,22 +193,6 @@ type OwnerLedgerRow = {
   running_balance: number;
 };
 
-type OwnerSummary = { id: number; display_name: string; lot_number: string | null };
-
-async function loadOwners(): Promise<OwnerSummary[]> {
-  const db = await getDb();
-  return db.select<OwnerSummary[]>(`
-    SELECT o.id, o.display_name,
-           GROUP_CONCAT(l.lot_number) AS lot_number
-    FROM owners o
-    LEFT JOIN lot_ownership lo ON lo.owner_id = o.id AND lo.end_date IS NULL
-    LEFT JOIN lots l ON l.id = lo.lot_id
-    WHERE o.active_flag = 1
-    GROUP BY o.id
-    ORDER BY o.display_name
-  `);
-}
-
 async function loadOwnerLedger(ownerId: number): Promise<OwnerLedgerRow[]> {
   const db = await getDb();
   const rows = await db.select<Omit<OwnerLedgerRow, "running_balance">[]>(`
@@ -232,17 +214,14 @@ async function loadOwnerLedger(ownerId: number): Promise<OwnerLedgerRow[]> {
   }).reverse();
 }
 
-function OwnerLedgerReport() {
-  const [owners, setOwners] = useState<OwnerSummary[]>([]);
-  const [selectedId, setSelectedId] = useState(0);
+function OwnerLedgerReport({ ownerId = 0 }: { ownerId?: number }) {
   const [rows, setRows] = useState<OwnerLedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const selectedId = ownerId;
 
   useEffect(() => {
-    loadOwners().then((o) => {
-      setOwners(o);
-      if (o[0]) setSelectedId(o[0].id);
-    }).finally(() => setLoading(false));
+    setLoading(true);
+    setRows([]);
   }, []);
 
   useEffect(() => {
@@ -254,12 +233,6 @@ function OwnerLedgerReport() {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end gap-3">
-        <select value={selectedId} onChange={(e) => setSelectedId(Number(e.target.value))}
-          className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          {owners.map((o) => <option key={o.id} value={o.id}>{o.display_name}{o.lot_number ? ` (Lot ${o.lot_number})` : ""}</option>)}
-        </select>
-      </div>
       {!loading && selectedId > 0 && (
         <div className={`p-3 rounded-lg text-sm font-medium ${balance >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
           Current Balance: {fmt(balance)} {balance >= 0 ? "(credit)" : "(balance due)"}
@@ -699,9 +672,8 @@ function DelinquencyReport() {
   );
 }
 
-function TransactionHistoryReport() {
+function TransactionHistoryReport({ limit = 500 }: { limit?: number }) {
   const [rows, setRows] = useState<TxnRow[]>([]);
-  const [limit, setLimit] = useState(100);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -716,13 +688,6 @@ function TransactionHistoryReport() {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <select value={limit} onChange={(e) => setLimit(Number(e.target.value))}
-          className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value={50}>Last 50</option><option value={100}>Last 100</option>
-          <option value={250}>Last 250</option><option value={500}>Last 500</option>
-        </select>
-      </div>
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!loading && (
@@ -789,45 +754,27 @@ async function loadLedger(bankAccountId: number, limit: number): Promise<LedgerR
   return rows.reverse();
 }
 
-function AccountDetailReport() {
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
-  const [selectedId, setSelectedId] = useState<number>(0);
+function AccountDetailReport({ accountId = 0, limit = 500 }: { accountId?: number; limit?: number }) {
   const [rows, setRows] = useState<LedgerRow[]>([]);
-  const [limit, setLimit] = useState(100);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    listBankAccounts().then((a) => { setAccounts(a); if (a[0]) setSelectedId(a[0].id); })
-      .catch((e) => { setError(String(e)); setLoading(false); });
-  }, []);
-
   const load = useCallback(async () => {
-    if (!selectedId) { setLoading(false); return; }
+    if (!accountId) { setLoading(false); return; }
     setLoading(true);
-    try { setRows(await loadLedger(selectedId, limit)); }
+    try { setRows(await loadLedger(accountId, limit)); }
     catch (e) { setError(String(e)); }
     finally { setLoading(false); }
-  }, [selectedId, limit]);
+  }, [accountId, limit]);
 
-  useEffect(() => { if (selectedId) void load(); }, [load, selectedId]);
+  useEffect(() => { if (accountId) void load(); }, [load, accountId]);
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end gap-3">
-        <select value={selectedId} onChange={(e) => setSelectedId(Number(e.target.value))}
-          className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name}</option>)}
-        </select>
-        <select value={limit} onChange={(e) => setLimit(Number(e.target.value))}
-          className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value={50}>Last 50</option><option value={100}>Last 100</option><option value={250}>Last 250</option>
-        </select>
-      </div>
-      {accounts.length === 0 && !loading && <p className="text-sm text-gray-500">No bank accounts yet. Add accounts in Bank → Accounts.</p>}
+      {!accountId && !loading && <p className="text-sm text-gray-500">No bank account selected. Select one above and click Run Report.</p>}
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {!loading && accounts.length > 0 && (
+      {!loading && rows.length > 0 && (
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
@@ -866,30 +813,331 @@ function AccountDetailReport() {
 
 // ── Report types ──────────────────────────────────────────────────────────────
 
-type ReportType =
-  | "ar_aging"
-  | "expense_summary"
-  | "income_summary"
-  | "txn_history"
-  | "account_detail"
-  | "contact_list"
-  | "owner_ledger"
-  | "budget_vs_actual"
-  | "expense_detail"
-  | "vendor_expenses"
-  | "deposits"
-  | "delinquency";
+// ── Inline summary report components ─────────────────────────────────────────
 
-const REPORTS: { key: ReportType; title: string; description: string }[] = [
-  { key: "ar_aging",         title: "AR Aging",             description: "Outstanding balances by lot, bucketed by age" },
-  { key: "delinquency",      title: "Delinquency",          description: "Overdue accounts ranked by days past due" },
-  { key: "income_summary",   title: "Income Summary",       description: "Total income by category for the year" },
-  { key: "expense_summary",  title: "Expense Summary",      description: "Total expenses by category for the year" },
-  { key: "expense_detail",   title: "Expense Detail",       description: "Every expense payment with vendor and check number" },
-  { key: "vendor_expenses",  title: "Vendor Expenses",      description: "Total invoiced and paid per vendor for the year" },
-  { key: "budget_vs_actual", title: "Budget vs Actual",     description: "Compare budgeted vs actual spending by category" },
-  { key: "deposits",         title: "Deposits",             description: "All deposit batches for the year" },
-  { key: "txn_history",      title: "Transaction History",  description: "All transactions across all accounts" },
+function ARAgingReport() {
+  const [rows, setRows] = useState<AgingBucket[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { loadARaging().then(setRows).finally(() => setLoading(false)); }, []);
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 border-b">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Current (0–30d)</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">31–60d</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">61–90d</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">90d+</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {rows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No outstanding balances.</td></tr>}
+          {rows.map((r) => (
+            <tr key={r.lot_number}>
+              <td className="px-4 py-2 font-medium text-gray-900">Lot {r.lot_number}</td>
+              <td className="px-4 py-2 text-gray-600 text-xs">{r.owner_name ?? "—"}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{r.current > 0 ? fmt(r.current) : "—"}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{r.d30 > 0 ? fmt(r.d30) : "—"}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs text-orange-600">{r.d60 > 0 ? fmt(r.d60) : "—"}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs text-red-600">{r.d90plus > 0 ? fmt(r.d90plus) : "—"}</td>
+              <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">{fmt(r.total)}</td>
+            </tr>
+          ))}
+          {rows.length > 0 && (
+            <tr className="bg-gray-50 font-semibold">
+              <td colSpan={2} className="px-4 py-2 text-gray-600 text-xs">Total</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.current, 0))}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.d30, 0))}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.d60, 0))}</td>
+              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.d90plus, 0))}</td>
+              <td className="px-4 py-2 text-right font-mono text-gray-900">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function IncomeSummaryReport({ year }: { year: number }) {
+  const [rows, setRows] = useState<IncomeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setLoading(true); loadIncomeSummary(year).then(setRows).finally(() => setLoading(false)); }, [year]);
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 border-b">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total {year}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {rows.length === 0 && <tr><td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">No income for {year}.</td></tr>}
+          {rows.map((r) => (
+            <tr key={r.category_name}>
+              <td className="px-4 py-2 text-gray-700">{r.category_name}</td>
+              <td className="px-4 py-2 text-right font-mono text-green-700">{fmt(r.total)}</td>
+            </tr>
+          ))}
+          {rows.length > 0 && (
+            <tr className="bg-gray-50 font-semibold">
+              <td className="px-4 py-2 text-gray-600">Total</td>
+              <td className="px-4 py-2 text-right font-mono text-green-800">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ExpenseSummaryReport({ year }: { year: number }) {
+  const [rows, setRows] = useState<ExpenseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setLoading(true); loadExpenseSummary(year).then(setRows).finally(() => setLoading(false)); }, [year]);
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 border-b">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total {year}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {rows.length === 0 && <tr><td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">No expenses for {year}.</td></tr>}
+          {rows.map((r) => (
+            <tr key={r.category_name}>
+              <td className="px-4 py-2 text-gray-700">{r.category_name}</td>
+              <td className="px-4 py-2 text-right font-mono text-red-600">{fmt(r.total)}</td>
+            </tr>
+          ))}
+          {rows.length > 0 && (
+            <tr className="bg-gray-50 font-semibold">
+              <td className="px-4 py-2 text-gray-600">Total</td>
+              <td className="px-4 py-2 text-right font-mono text-red-700">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Report definitions ────────────────────────────────────────────────────────
+
+type ReportType =
+  | "ar_aging" | "expense_summary" | "income_summary" | "txn_history"
+  | "account_detail" | "contact_list" | "owner_ledger" | "budget_vs_actual"
+  | "expense_detail" | "vendor_expenses" | "deposits" | "delinquency";
+
+type ParamType = "year" | "owner" | "account" | "limit" | "none";
+
+const REPORT_DEFS: { key: ReportType; title: string; description: string; params: ParamType[] }[] = [
+  { key: "ar_aging",         title: "AR Aging",            description: "Outstanding balances by lot, bucketed by age",              params: ["none"] },
+  { key: "delinquency",      title: "Delinquency",         description: "Overdue accounts ranked by days past due",                  params: ["none"] },
+  { key: "contact_list",     title: "Contact List",        description: "Homeowner directory with addresses and contact info",       params: ["none"] },
+  { key: "income_summary",   title: "Income Summary",      description: "Total income by category for the year",                    params: ["year"] },
+  { key: "expense_summary",  title: "Expense Summary",     description: "Total expenses by category for the year",                  params: ["year"] },
+  { key: "expense_detail",   title: "Expense Detail",      description: "Every expense payment with vendor and check number",       params: ["year"] },
+  { key: "vendor_expenses",  title: "Vendor Expenses",     description: "Total invoiced and paid per vendor for the year",          params: ["year"] },
+  { key: "budget_vs_actual", title: "Budget vs Actual",    description: "Compare budgeted vs actual spending by category",         params: ["year"] },
+  { key: "deposits",         title: "Deposits",            description: "All deposit batches for the year",                        params: ["year"] },
+  { key: "txn_history",      title: "Transaction History", description: "All transactions across all accounts",                    params: ["limit"] },
+  { key: "account_detail",   title: "Account Detail",      description: "Ledger with running balance for one bank account",        params: ["account", "limit"] },
+  { key: "owner_ledger",     title: "Owner Ledger",        description: "Full charge and payment history for a specific owner",    params: ["owner"] },
+];
+
+// Preserved for type compatibility — not used in new UI
+const REPORTS = REPORT_DEFS;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+void REPORTS;
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
+import { PageLayout } from "../components/PageLayout";
+
+export function ReportsScreen() {
+  const [selected, setSelected] = useState<ReportType | "">("");
+  const [year, setYear] = useState(CURRENT_YEAR);
+  const [ownerId, setOwnerId] = useState(0);
+  const [owners, setOwners] = useState<OwnerSummary[]>([]);
+  const [accountId, setAccountId] = useState(0);
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [txnLimit, setTxnLimit] = useState(100);
+  const [runKey, setRunKey] = useState(0);
+  const [hasRun, setHasRun] = useState(false);
+
+  const def = REPORT_DEFS.find((r) => r.key === selected);
+  const needsYear    = def?.params.includes("year");
+  const needsOwner   = def?.params.includes("owner");
+  const needsAccount = def?.params.includes("account");
+  const needsLimit   = def?.params.includes("limit");
+
+  useEffect(() => {
+    loadOwners().then((o) => { setOwners(o); if (o[0]) setOwnerId(o[0].id); }).catch(() => {});
+    listBankAccounts().then((a) => { setAccounts(a); if (a[0]) setAccountId(a[0].id); }).catch(() => {});
+  }, []);
+
+  useEffect(() => { setHasRun(false); }, [selected]);
+
+  function handleRun() {
+    setRunKey((k) => k + 1);
+    setHasRun(true);
+  }
+
+  return (
+    <PageLayout title="Reports" subtitle="Financial summaries and operational reports." helpId="reports">
+      <div className="max-w-5xl">
+        {/* Selector + params */}
+        <div className="bg-white border rounded-lg p-4 mb-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Report</label>
+              <select
+                value={selected}
+                onChange={(e) => setSelected(e.target.value as ReportType | "")}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">— Select a report —</option>
+                <optgroup label="AR &amp; Collections">
+                  {REPORT_DEFS.filter((r) => ["ar_aging","delinquency"].includes(r.key)).map((r) => (
+                    <option key={r.key} value={r.key}>{r.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Income &amp; Expenses">
+                  {REPORT_DEFS.filter((r) => ["income_summary","expense_summary","expense_detail","vendor_expenses","budget_vs_actual","deposits"].includes(r.key)).map((r) => (
+                    <option key={r.key} value={r.key}>{r.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Transactions &amp; Ledgers">
+                  {REPORT_DEFS.filter((r) => ["txn_history","account_detail","owner_ledger"].includes(r.key)).map((r) => (
+                    <option key={r.key} value={r.key}>{r.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Directory">
+                  {REPORT_DEFS.filter((r) => ["contact_list"].includes(r.key)).map((r) => (
+                    <option key={r.key} value={r.key}>{r.title}</option>
+                  ))}
+                </optgroup>
+              </select>
+              {def && <p className="mt-1 text-xs text-gray-500">{def.description}</p>}
+            </div>
+
+            {needsYear && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Year</label>
+                <select
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3].map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-400">Jan 1 – Dec 31, {year}</p>
+              </div>
+            )}
+
+            {needsOwner && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Owner</label>
+                <select
+                  value={ownerId}
+                  onChange={(e) => setOwnerId(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {owners.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.display_name}{o.lot_number ? ` (Lot ${o.lot_number})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsAccount && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Bank Account</label>
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>{a.account_name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsLimit && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Row Limit</label>
+                <select
+                  value={txnLimit}
+                  onChange={(e) => setTxnLimit(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value={50}>Last 50</option>
+                  <option value={100}>Last 100</option>
+                  <option value={250}>Last 250</option>
+                  <option value={500}>Last 500</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+            <button
+              onClick={handleRun}
+              disabled={!selected}
+              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Run Report
+            </button>
+            {hasRun && def && (
+              <span className="text-xs text-gray-400">
+                Showing: <strong>{def.title}</strong>
+                {needsYear && ` — ${year}`}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Report output */}
+        {!hasRun && (
+          <div className="text-center py-12 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+            Select a report above and click <strong className="text-gray-500">Run Report</strong>.
+          </div>
+        )}
+
+        {hasRun && selected === "ar_aging"         && <ARAgingReport        key={runKey} />}
+        {hasRun && selected === "delinquency"       && <DelinquencyReport    key={runKey} />}
+        {hasRun && selected === "contact_list"      && <ContactListReport    key={runKey} />}
+        {hasRun && selected === "income_summary"    && <IncomeSummaryReport  key={runKey} year={year} />}
+        {hasRun && selected === "expense_summary"   && <ExpenseSummaryReport key={runKey} year={year} />}
+        {hasRun && selected === "expense_detail"    && <ExpenseDetailReport  key={runKey} year={year} />}
+        {hasRun && selected === "vendor_expenses"   && <VendorExpensesReport key={runKey} year={year} />}
+        {hasRun && selected === "budget_vs_actual"  && <BudgetVsActualReport key={runKey} year={year} />}
+        {hasRun && selected === "deposits"          && <DepositsReport       key={runKey} year={year} />}
+        {hasRun && selected === "txn_history"       && <TransactionHistoryReport key={runKey} limit={txnLimit} />}
+        {hasRun && selected === "account_detail"    && <AccountDetailReport  key={runKey} accountId={accountId} limit={txnLimit} />}
+        {hasRun && selected === "owner_ledger"      && <OwnerLedgerReport    key={runKey} ownerId={ownerId} />}
+      </div>
+    </PageLayout>
+  );
+}
   { key: "account_detail",   title: "Account Detail",       description: "Ledger with running balance for one account" },
   { key: "owner_ledger",     title: "Owner Ledger",         description: "Charges and payments for a specific owner" },
   { key: "contact_list",     title: "Contact List",         description: "Homeowner directory with addresses and contact info" },

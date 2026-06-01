@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import { listCategories } from "../repositories/categoryRepo";
 import type { BankAccount } from "../types/bankAccount";
@@ -245,14 +246,12 @@ export function ReserveTransfersScreen() {
   const totalTransferred = transfers.reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Reserve Transfers</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Record fund transfers between operating and reserve bank accounts.
-        </p>
-      </div>
-
+    <PageLayout
+      title="Reserve Transfers"
+      subtitle="Record fund transfers between bank accounts."
+      helpId="reserveTransfers"
+    >
+    <div className="max-w-4xl">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
       )}
@@ -320,5 +319,6 @@ export function ReserveTransfersScreen() {
         </>
       )}
     </div>
+    </PageLayout>
   );
 }

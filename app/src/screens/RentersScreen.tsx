@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -214,12 +215,11 @@ export function RentersScreen() {
   }
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Renters</h1>
-          <p className="text-sm text-gray-500 mt-1">Track tenants living in HOA lots.</p>
-        </div>
+    <PageLayout
+      title="Renters"
+      subtitle="Track tenants living in HOA lots."
+      helpId="renters"
+      actions={
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
             <input type="checkbox" checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />
@@ -230,66 +230,68 @@ export function RentersScreen() {
             + Add Renter
           </button>
         </div>
-      </div>
+      }
+    >
+      <div className="max-w-4xl">
+        {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
-      {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
+        {showForm && !editing && <RenterForm lots={lots} onSave={handleSaveNew} onCancel={() => setShowForm(false)} />}
+        {editing && <RenterForm lots={lots} initial={editing} onSave={handleSaveEdit} onCancel={() => setEditing(null)} />}
 
-      {showForm && !editing && <RenterForm lots={lots} onSave={handleSaveNew} onCancel={() => setShowForm(false)} />}
-      {editing && <RenterForm lots={lots} initial={editing} onSave={handleSaveEdit} onCancel={() => setEditing(null)} />}
-
-      {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
-      ) : renters.length === 0 ? (
-        <p className="text-gray-400 text-sm">No renters{activeOnly ? " currently active" : ""} on record.</p>
-      ) : (
-        <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Lot</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Renter</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Contact</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Dates</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Status</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {renters.map((r) => (
-                <tr key={r.id} className={r.end_date ? "opacity-60" : "hover:bg-gray-50"}>
-                  <td className="px-4 py-2.5">
-                    <p className="font-medium text-gray-900">Lot {r.lot_number}</p>
-                    {r.street_address_1 && <p className="text-xs text-gray-400">{r.street_address_1}</p>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <p className="text-gray-900">{r.display_name}</p>
-                    {r.notes && <p className="text-xs text-gray-400 mt-0.5">{r.notes}</p>}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500">
-                    {r.email && <p>{r.email}</p>}
-                    {r.phone && <p>{r.phone}</p>}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500">
-                    {r.start_date}{r.end_date ? ` → ${r.end_date}` : " → present"}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${r.end_date ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}`}>
-                      {r.end_date ? "Past" : "Current"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-right space-x-3">
-                    <button onClick={() => setEditing(r)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                    <button onClick={() => void handleDelete(r.id)} disabled={deleting === r.id}
-                      className="text-xs text-red-500 hover:underline disabled:opacity-40">
-                      {deleting === r.id ? "…" : "Remove"}
-                    </button>
-                  </td>
+        {loading ? (
+          <p className="text-gray-400 text-sm">Loading…</p>
+        ) : renters.length === 0 ? (
+          <p className="text-gray-400 text-sm">No renters{activeOnly ? " currently active" : ""} on record.</p>
+        ) : (
+          <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Lot</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Renter</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Contact</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Dates</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {renters.map((r) => (
+                  <tr key={r.id} className={r.end_date ? "opacity-60" : "hover:bg-gray-50"}>
+                    <td className="px-4 py-2.5">
+                      <p className="font-medium text-gray-900">Lot {r.lot_number}</p>
+                      {r.street_address_1 && <p className="text-xs text-gray-400">{r.street_address_1}</p>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <p className="text-gray-900">{r.display_name}</p>
+                      {r.notes && <p className="text-xs text-gray-400 mt-0.5">{r.notes}</p>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                      {r.email && <p>{r.email}</p>}
+                      {r.phone && <p>{r.phone}</p>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                      {r.start_date}{r.end_date ? ` → ${r.end_date}` : " → present"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${r.end_date ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}`}>
+                        {r.end_date ? "Past" : "Current"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right space-x-3">
+                      <button onClick={() => setEditing(r)} className="text-xs text-blue-600 hover:underline">Edit</button>
+                      <button onClick={() => void handleDelete(r.id)} disabled={deleting === r.id}
+                        className="text-xs text-red-500 hover:underline disabled:opacity-40">
+                        {deleting === r.id ? "…" : "Remove"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </PageLayout>
   );
 }

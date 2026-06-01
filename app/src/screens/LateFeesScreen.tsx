@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -154,14 +155,12 @@ export function LateFeesScreen() {
   const totalFees = selected.length * feeAmt;
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Late Fees</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Find overdue lots and post late fee assessments in bulk.
-        </p>
-      </div>
-
+    <PageLayout
+      title="Late Fees"
+      subtitle="Find delinquent lots and bulk-post late fee assessments."
+      helpId="lateFees"
+    >
+    <div className="max-w-4xl">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
       )}
@@ -292,5 +291,6 @@ export function LateFeesScreen() {
         </>
       )}
     </div>
+    </PageLayout>
   );
 }

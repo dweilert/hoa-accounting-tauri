@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
 
@@ -134,15 +135,12 @@ export function ResaleFeeScreen() {
   if (loading) return <div className="p-8 text-gray-400 text-sm">Loading…</div>;
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Resale / Transfer Fee</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Record a resale certificate or transfer fee collected at closing.
-          Posts as non-dues income to the selected bank account.
-        </p>
-      </div>
-
+    <PageLayout
+      title="Resale / Transfer Fee"
+      subtitle="Record a resale certificate fee at lot closing."
+      helpId="resaleFee"
+    >
+    <div className="max-w-2xl">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
       <form onSubmit={(e) => void handleSubmit(e)} className="bg-white border rounded-lg p-5 space-y-4 mb-6">
@@ -227,5 +225,6 @@ export function ResaleFeeScreen() {
         </>
       )}
     </div>
+    </PageLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
+import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,14 +159,11 @@ export function AuditLogScreen() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Read-only history of all data changes — {total.toLocaleString()} entries
-        </p>
-      </div>
-
+    <PageLayout
+      title="Audit Log"
+      subtitle="Read-only history of all data changes."
+      helpId="auditLog"
+    >
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <select
@@ -278,6 +276,6 @@ export function AuditLogScreen() {
           </button>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

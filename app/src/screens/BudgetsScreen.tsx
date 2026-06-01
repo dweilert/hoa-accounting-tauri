@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { PageLayout } from "../components/PageLayout";
 import {
   listBudgets,
   getBudget,
@@ -361,12 +362,12 @@ export function BudgetsScreen() {
   }
 
   return (
-    <div className="p-8 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Annual expense budgets by category and month.</p>
-      </div>
-
+    <PageLayout
+      title="Budgets"
+      subtitle="12-month operating and reserve budget."
+      helpId="budgets"
+    >
+    <div className="max-w-6xl">
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -386,5 +387,6 @@ export function BudgetsScreen() {
         )
       )}
     </div>
+    </PageLayout>
   );
 }

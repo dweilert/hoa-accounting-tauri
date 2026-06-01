@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
+import { PageLayout } from "../components/PageLayout";
 import {
   getAssumptions, saveAssumptions,
   listAssets, insertAsset, updateAsset, deleteAsset,
@@ -717,13 +718,12 @@ export function ReserveStudyScreen() {
   if (loading) return <div className="p-8"><p className="text-sm text-gray-400">Loading…</p></div>;
 
   return (
-    <div className="p-8 max-w-6xl print:p-2">
-      <div className="mb-6 flex items-center justify-between print:block">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reserve Study</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Long-term capital reserve planning and funding projections.</p>
-        </div>
-        <div className="flex gap-2 print:hidden">
+    <PageLayout
+      title="Reserve Study"
+      subtitle="Long-term capital reserve planning."
+      helpId="reserveStudy"
+      actions={
+        <div className="flex gap-2">
           <button
             onClick={() => window.print()}
             className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
@@ -750,8 +750,9 @@ export function ReserveStudyScreen() {
             Export CSV
           </button>
         </div>
-      </div>
-
+      }
+    >
+    <div className="max-w-6xl print:p-2">
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Tabs */}
@@ -787,5 +788,6 @@ export function ReserveStudyScreen() {
         <ScenariosPanel assumptions={assumptions} />
       )}
     </div>
+    </PageLayout>
   );
 }

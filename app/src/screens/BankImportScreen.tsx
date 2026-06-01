@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import {
   insertBankTransaction, getExistingDedupKeys,
@@ -307,12 +308,8 @@ export function BankImportScreen() {
   const dupRows = preview.filter((r) => r.isDuplicate);
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Bank Import</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Import transactions from a CSV bank statement.</p>
-      </div>
-
+    <PageLayout title="Bank Import" subtitle="Import transactions from a CSV bank statement." helpId="bankImport">
+    <div className="max-w-4xl">
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Step indicators */}
@@ -482,5 +479,6 @@ export function BankImportScreen() {
 
       <RecentImports refreshKey={refreshKey} />
     </div>
+    </PageLayout>
   );
 }

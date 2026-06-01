@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { PageLayout } from "../components/PageLayout";
 import { listAllBankTransactions, updateTransactionStatus } from "../repositories/reconciliationRepo";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import { listCategories } from "../repositories/categoryRepo";
@@ -358,14 +359,11 @@ export function BankPendingScreen() {
   const unvalidatedCount = visible.filter((t) => t.validation_status === "UNVALIDATED").length;
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pending Transactions</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Imported bank transactions awaiting validation or classification.
-          </p>
-        </div>
+    <PageLayout
+      title="Bank Pending"
+      subtitle="Classify imported bank transactions."
+      helpId="bankPending"
+      actions={
         <div className="flex items-center gap-2">
           {unvalidatedCount > 0 && (
             <button
@@ -383,7 +381,9 @@ export function BankPendingScreen() {
             + Manual Entry
           </button>
         </div>
-      </div>
+      }
+    >
+      <div className="max-w-5xl">
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">
@@ -518,6 +518,7 @@ export function BankPendingScreen() {
           />
         </Modal>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }

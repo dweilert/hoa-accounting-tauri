@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { PageLayout } from "../components/PageLayout";
 import { countCategories, bulkInsertCategories } from "../repositories/categoryRepo";
 import type { CategoryFormValues, CategoryTypeValue, FundCodeValue } from "../types/category";
 
@@ -145,8 +146,8 @@ export function CoaWizardScreen() {
   // ── Welcome ───────────────────────────────────────────────────────────────
   if (step === "welcome") {
     return (
-      <div className="p-8 max-w-lg">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Chart of Accounts Setup</h1>
+      <PageLayout title="Chart of Accounts Wizard" subtitle="Answer questions to generate a starter chart of accounts." helpId="coaWizard" backTo="/categories" backLabel="Chart of Accounts">
+      <div className="max-w-lg">
         <p className="text-sm text-gray-600 mb-4">
           This wizard generates a standard HOA chart of accounts based on a few questions. You can review and
           deselect any categories before they are added.
@@ -172,14 +173,16 @@ export function CoaWizardScreen() {
           </button>
         </div>
       </div>
+      </PageLayout>
     );
   }
 
   // ── Questions ─────────────────────────────────────────────────────────────
   if (step === "questions") {
     return (
-      <div className="p-8 max-w-lg">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">A few quick questions</h1>
+      <PageLayout title="Chart of Accounts Wizard" subtitle="Answer questions to generate a starter chart of accounts." helpId="coaWizard" backTo="/categories" backLabel="Chart of Accounts">
+      <div className="max-w-lg">
+        <p className="text-sm font-semibold text-gray-700 mb-1">A few quick questions</p>
         <p className="text-sm text-gray-500 mb-6">Answer these to tailor the category list for your HOA.</p>
 
         <div className="space-y-5">
@@ -235,6 +238,7 @@ export function CoaWizardScreen() {
           </button>
         </div>
       </div>
+      </PageLayout>
     );
   }
 
@@ -247,8 +251,9 @@ export function CoaWizardScreen() {
     })).filter((g) => g.rows.length > 0);
 
     return (
-      <div className="p-8 max-w-2xl">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Review Categories</h1>
+      <PageLayout title="Chart of Accounts Wizard" subtitle="Answer questions to generate a starter chart of accounts." helpId="coaWizard" backTo="/categories" backLabel="Chart of Accounts">
+      <div className="max-w-2xl">
+        <p className="text-sm font-semibold text-gray-700 mb-1">Review Categories</p>
         <p className="text-sm text-gray-500 mb-4">
           {selected.size} of {template.length} categories selected. Uncheck any you don't need.
         </p>
@@ -332,13 +337,15 @@ export function CoaWizardScreen() {
           </button>
         </div>
       </div>
+      </PageLayout>
     );
   }
 
   // ── Done ──────────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 max-w-lg">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Chart of Accounts Ready</h1>
+    <PageLayout title="Chart of Accounts Wizard" subtitle="Answer questions to generate a starter chart of accounts." helpId="coaWizard" backTo="/categories" backLabel="Chart of Accounts">
+    <div className="max-w-lg">
+      <p className="text-sm font-semibold text-gray-700 mb-2">Chart of Accounts Ready</p>
       <p className="text-sm text-gray-600 mb-6">
         Your categories have been added. You can edit, add, or remove them at any time from the Chart of Accounts screen.
       </p>
@@ -357,5 +364,6 @@ export function CoaWizardScreen() {
         </button>
       </div>
     </div>
+    </PageLayout>
   );
 }

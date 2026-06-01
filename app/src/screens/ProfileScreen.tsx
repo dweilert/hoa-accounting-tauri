@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PageLayout } from "../components/PageLayout";
 import { useAuth, useCurrentUser } from "../contexts/AuthContext";
 import { updateUser, setPassword, getUserByEmail } from "../repositories/userRepo";
 import { verifyPassword, saveSession } from "../lib/auth";
@@ -65,8 +66,8 @@ export function ProfileScreen() {
   }
 
   return (
-    <div className="p-8 max-w-lg">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">My Profile</h1>
+    <PageLayout title="Profile" subtitle="Your account settings." helpId="profile">
+    <div className="max-w-lg">
       <p className="text-sm text-gray-500 mb-8">{currentUser.email} · {currentUser.role}</p>
 
       {/* Display name */}
@@ -142,5 +143,6 @@ export function ProfileScreen() {
         </form>
       </section>
     </div>
+    </PageLayout>
   );
 }

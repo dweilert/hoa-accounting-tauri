@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLayout } from "../components/PageLayout";
 import { getDb } from "../lib/db";
 import { readConfig, writeConfig } from "../lib/config";
 import { pushDbBackup } from "../lib/s3";
@@ -333,12 +334,8 @@ export function SettingsScreen() {
   if (loading) return <div className="p-8"><p className="text-sm text-gray-400">Loading…</p></div>;
 
   return (
-    <div className="p-8 max-w-xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Organization configuration.</p>
-      </div>
-
+    <PageLayout title="Settings" subtitle="Organization configuration and database tools." helpId="settings">
+    <div className="max-w-xl">
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Database path — native app only */}
@@ -424,5 +421,6 @@ export function SettingsScreen() {
         </div>
       </form>
     </div>
+    </PageLayout>
   );
 }

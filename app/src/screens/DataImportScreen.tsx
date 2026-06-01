@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PageLayout } from "../components/PageLayout";
 import { getDb } from "../lib/db";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -251,12 +252,8 @@ export function DataImportScreen() {
   const stepIdx = STEP_LABELS.indexOf(step);
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Data Import</h1>
-        <p className="text-sm text-gray-500 mt-1">Import lots, owners, or payments from a CSV file.</p>
-      </div>
-
+    <PageLayout title="Data Import" subtitle="Bulk import lots, owners, or payments from CSV." helpId="dataImport">
+    <div className="max-w-4xl">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
       {step !== "done" && (
@@ -415,5 +412,6 @@ export function DataImportScreen() {
         </div>
       )}
     </div>
+    </PageLayout>
   );
 }
