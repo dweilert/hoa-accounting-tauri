@@ -18,8 +18,6 @@ const NAV: NavSection[] = [
   {
     heading: "Transactions",
     items: [
-      { label: "All Transactions", to: "/transactions" },
-      { label: "Ledger by Account", to: "/ledger/by-account" },
       { label: "Opening Balances", to: "/opening-balances" },
     ],
   },

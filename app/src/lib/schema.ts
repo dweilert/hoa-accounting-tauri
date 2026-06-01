@@ -325,6 +325,11 @@ CREATE TABLE IF NOT EXISTS budget_lines (
   UNIQUE(budget_id, category_id, fiscal_period)
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS reserve_study_assumptions (
   id                       INTEGER PRIMARY KEY AUTOINCREMENT,
   study_year               INTEGER NOT NULL,
