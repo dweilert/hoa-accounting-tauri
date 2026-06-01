@@ -1034,6 +1034,8 @@ export function ReportsScreen() {
   const [txnLimit, setTxnLimit] = useState(100);
   const [runKey, setRunKey] = useState(0);
   const [hasRun, setHasRun] = useState(false);
+  const [runDate, setRunDate] = useState("");
+  const [hoaName, setHoaName] = useState("HOA Accounting");
 
   const def = REPORT_DEFS.find((r) => r.key === selected);
   const needsYear    = def?.params.includes("year");
@@ -1044,6 +1046,13 @@ export function ReportsScreen() {
   useEffect(() => {
     loadOwners().then((o) => { setOwners(o); if (o[0]) setOwnerId(o[0].id); }).catch(() => {});
     listBankAccounts().then((a) => { setAccounts(a); if (a[0]) setAccountId(a[0].id); }).catch(() => {});
+    // Load association name
+    getDb()
+      .then((db) => db.select<{ value: string }[]>(
+        "SELECT value FROM app_settings WHERE key = 'hoa_name' LIMIT 1"
+      ))
+      .then((rows) => { if (rows[0]?.value) setHoaName(rows[0].value); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => { setHasRun(false); }, [selected]);
@@ -1051,6 +1060,10 @@ export function ReportsScreen() {
   function handleRun() {
     setRunKey((k) => k + 1);
     setHasRun(true);
+    setRunDate(new Date().toLocaleString("en-US", {
+      year: "numeric", month: "long", day: "numeric",
+      hour: "numeric", minute: "2-digit",
+    }));
   }
 
   return (
@@ -1180,18 +1193,63 @@ export function ReportsScreen() {
           </div>
         )}
 
-        {hasRun && selected === "ar_aging"         && <ARAgingReport        key={runKey} />}
-        {hasRun && selected === "delinquency"       && <DelinquencyReport    key={runKey} />}
-        {hasRun && selected === "contact_list"      && <ContactListReport    key={runKey} />}
-        {hasRun && selected === "income_summary"    && <IncomeSummaryReport  key={runKey} year={year} />}
-        {hasRun && selected === "expense_summary"   && <ExpenseSummaryReport key={runKey} year={year} />}
-        {hasRun && selected === "expense_detail"    && <ExpenseDetailReport  key={runKey} year={year} />}
-        {hasRun && selected === "vendor_expenses"   && <VendorExpensesReport key={runKey} year={year} />}
-        {hasRun && selected === "budget_vs_actual"  && <BudgetVsActualReport key={runKey} year={year} />}
-        {hasRun && selected === "deposits"          && <DepositsReport       key={runKey} year={year} />}
-        {hasRun && selected === "txn_history"       && <TransactionHistoryReport key={runKey} limit={txnLimit} />}
-        {hasRun && selected === "account_detail"    && <AccountDetailReport  key={runKey} accountId={accountId} limit={txnLimit} />}
-        {hasRun && selected === "owner_ledger"      && <OwnerLedgerReport    key={runKey} ownerId={ownerId} year={year} />}
+        {hasRun && (
+          <>
+            {/* Print page-number CSS — injected only when a report is shown */}
+            <style>{`
+              @media print {
+                @page { margin: 15mm 12mm 22mm 12mm; }
+                .report-page-num {
+                  position: fixed;
+                  bottom: 6mm;
+                  left: 0;
+                  right: 0;
+                  text-align: center;
+                  font-size: 9pt;
+                  color: #666;
+                }
+                .report-page-num::after {
+                  content: "Page " counter(page);
+                }
+              }
+            `}</style>
+
+            {/* Fixed page-number footer — visible only in print */}
+            <div className="report-page-num hidden print:block" />
+
+            {/* Print button — visible on screen, hidden when printing */}
+            <div className="flex justify-end mb-4 print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              >
+                <span>🖨</span>
+                Print Report
+              </button>
+            </div>
+
+            {/* Print-only report header */}
+            <div className="hidden print:block mb-5 pb-3 border-b border-gray-300">
+              <p className="text-xs text-gray-500 mb-1">Created: {runDate}</p>
+              <p className="text-xl font-bold text-gray-900">{hoaName}</p>
+              <p className="text-base font-semibold text-gray-700">{def?.title ?? "Report"}</p>
+            </div>
+
+            {/* Report components */}
+            {selected === "ar_aging"         && <ARAgingReport        key={runKey} />}
+            {selected === "delinquency"       && <DelinquencyReport    key={runKey} />}
+            {selected === "contact_list"      && <ContactListReport    key={runKey} />}
+            {selected === "income_summary"    && <IncomeSummaryReport  key={runKey} year={year} />}
+            {selected === "expense_summary"   && <ExpenseSummaryReport key={runKey} year={year} />}
+            {selected === "expense_detail"    && <ExpenseDetailReport  key={runKey} year={year} />}
+            {selected === "vendor_expenses"   && <VendorExpensesReport key={runKey} year={year} />}
+            {selected === "budget_vs_actual"  && <BudgetVsActualReport key={runKey} year={year} />}
+            {selected === "deposits"          && <DepositsReport       key={runKey} year={year} />}
+            {selected === "txn_history"       && <TransactionHistoryReport key={runKey} limit={txnLimit} />}
+            {selected === "account_detail"    && <AccountDetailReport  key={runKey} accountId={accountId} limit={txnLimit} />}
+            {selected === "owner_ledger"      && <OwnerLedgerReport    key={runKey} ownerId={ownerId} year={year} />}
+          </>
+        )}
       </div>
     </PageLayout>
   );
