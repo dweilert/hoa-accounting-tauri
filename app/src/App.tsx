@@ -37,6 +37,9 @@ import { AuditLogScreen } from "./screens/AuditLogScreen";
 import { ReserveTransfersScreen } from "./screens/ReserveTransfersScreen";
 import { LotTransferScreen } from "./screens/LotTransferScreen";
 import { LateFeesScreen } from "./screens/LateFeesScreen";
+import { AccountingPeriodsScreen } from "./screens/AccountingPeriodsScreen";
+import { BoardMembersScreen } from "./screens/BoardMembersScreen";
+import { DataImportScreen } from "./screens/DataImportScreen";
 
 export default function App() {
   return (
@@ -100,7 +103,12 @@ export default function App() {
             <Route path="billing/late-fees" element={<RequireAdmin><LateFeesScreen /></RequireAdmin>} />
             <Route path="edit-records" element={<EditRecordsScreen />} />
 
+            {/* Board Members */}
+            <Route path="board-members" element={<BoardMembersScreen />} />
+
             {/* Admin — requires admin role */}
+            <Route path="accounting-periods" element={<RequireAdmin><AccountingPeriodsScreen /></RequireAdmin>} />
+            <Route path="data-import" element={<RequireAdmin><DataImportScreen /></RequireAdmin>} />
             <Route path="announcements" element={<RequireAdmin><AnnouncementsScreen /></RequireAdmin>} />
             <Route path="categories/wizard" element={<RequireAdmin><CoaWizardScreen /></RequireAdmin>} />
             <Route path="categories" element={<RequireAdmin><CategoriesScreen /></RequireAdmin>} />

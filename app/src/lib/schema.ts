@@ -570,6 +570,34 @@ CREATE TABLE IF NOT EXISTS backup_metadata (
   journal_entry_count INTEGER,
   last_gl_entry_date  TEXT
 );
+
+CREATE TABLE IF NOT EXISTS accounting_periods (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  period_year INTEGER NOT NULL,
+  period_month INTEGER NOT NULL CHECK(period_month BETWEEN 1 AND 12),
+  status      TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','LOCKED')),
+  locked_at   TEXT,
+  locked_by   TEXT,
+  notes       TEXT,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(period_year, period_month)
+);
+
+CREATE TABLE IF NOT EXISTS board_members (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_id     INTEGER REFERENCES owners(id),
+  display_name TEXT NOT NULL,
+  role         TEXT NOT NULL DEFAULT 'MEMBER'
+                    CHECK(role IN ('PRESIDENT','VICE_PRESIDENT','SECRETARY','TREASURER','MEMBER','AT_LARGE')),
+  term_start   TEXT NOT NULL,
+  term_end     TEXT,
+  email        TEXT,
+  phone        TEXT,
+  notes        TEXT,
+  active_flag  INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 const SEEDS: Array<[string, string, string, string, number, number]> = [

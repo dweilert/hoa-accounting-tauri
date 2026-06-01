@@ -14,6 +14,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Lots", to: "/lots" },
       { label: "Owners", to: "/owners" },
+      { label: "Board Members", to: "/board-members" },
     ],
   },
   {
@@ -80,6 +81,8 @@ const NAV: NavSection[] = [
       { label: "Chart of Accounts", to: "/categories" },
       { label: "Transaction Rules", to: "/admin/transaction-rules" },
       { label: "Lot Transfer Wizard", to: "/lots/transfer" },
+      { label: "Accounting Periods", to: "/accounting-periods" },
+      { label: "Data Import", to: "/data-import" },
       { label: "Audit Log", to: "/audit-log" },
       { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },
