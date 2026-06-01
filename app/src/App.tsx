@@ -32,6 +32,9 @@ import { AnnouncementsScreen } from "./screens/AnnouncementsScreen";
 import { DuesBillingScreen } from "./screens/DuesBillingScreen";
 import { EditRecordsScreen } from "./screens/EditRecordsScreen";
 import { TransactionRulesScreen } from "./screens/TransactionRulesScreen";
+import { WorkflowGuideScreen } from "./screens/WorkflowGuideScreen";
+import { AuditLogScreen } from "./screens/AuditLogScreen";
+import { ReserveTransfersScreen } from "./screens/ReserveTransfersScreen";
 
 export default function App() {
   return (
@@ -75,6 +78,13 @@ export default function App() {
 
             {/* Reserve Study */}
             <Route path="reserve" element={<ReserveStudyScreen />} />
+            <Route path="reserve/transfers" element={<ReserveTransfersScreen />} />
+
+            {/* Workflow Guide */}
+            <Route path="workflow-guide" element={<WorkflowGuideScreen />} />
+
+            {/* Audit Log */}
+            <Route path="audit-log" element={<RequireAdmin><AuditLogScreen /></RequireAdmin>} />
 
             {/* Reports */}
             <Route path="reports" element={<ReportsScreen />} />

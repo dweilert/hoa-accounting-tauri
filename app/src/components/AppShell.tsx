@@ -59,7 +59,14 @@ const NAV: NavSection[] = [
   },
   {
     heading: "Reserve Study",
-    items: [{ label: "Reserve Study", to: "/reserve" }],
+    items: [
+      { label: "Reserve Study", to: "/reserve" },
+      { label: "Reserve Transfers", to: "/reserve/transfers" },
+    ],
+  },
+  {
+    heading: "Workflow Guide",
+    items: [{ label: "Workflow Guide", to: "/workflow-guide" }],
   },
   {
     heading: "Reports",
@@ -71,6 +78,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Chart of Accounts", to: "/categories" },
       { label: "Transaction Rules", to: "/admin/transaction-rules" },
+      { label: "Audit Log", to: "/audit-log" },
       { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },
       { label: "Settings", to: "/settings" },

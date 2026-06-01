@@ -6,6 +6,7 @@ import {
   listImportBatches, undoImportBatch,
   type ImportBatch,
 } from "../repositories/reconciliationRepo";
+import { getDb } from "../lib/db";
 import type { BankAccount } from "../types/bankAccount";
 
 type ParsedRow = {
@@ -58,6 +59,38 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
   const headers = parse(lines[0] ?? "");
   const rows = lines.slice(1).filter((l) => l.trim()).map(parse);
   return { headers, rows };
+}
+
+// ── CSV Fingerprint memory ────────────────────────────────────────────────────
+
+function buildFingerprint(headers: string[]): string {
+  return headers.map((h) => h.toLowerCase().trim()).sort().join("|");
+}
+
+async function loadSavedMapping(accountId: number, fingerprint: string): Promise<ColMap | null> {
+  try {
+    const db = await getDb();
+    const rows = await db.select<{ mapping_json: string }[]>(
+      "SELECT mapping_json FROM bank_account_file_formats WHERE bank_account_id=? AND fingerprint=? LIMIT 1",
+      [accountId, fingerprint]
+    );
+    if (rows.length > 0 && rows[0]) return JSON.parse(rows[0].mapping_json) as ColMap;
+  } catch { /* ignore */ }
+  return null;
+}
+
+async function saveMapping(accountId: number, fingerprint: string, colMap: ColMap, headers: string[]): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.execute(
+      `INSERT INTO bank_account_file_formats (bank_account_id, fingerprint, mapping_json, sample_headers_json)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(bank_account_id, fingerprint) DO UPDATE SET
+         mapping_json = excluded.mapping_json,
+         sample_headers_json = excluded.sample_headers_json`,
+      [accountId, fingerprint, JSON.stringify(colMap), JSON.stringify(headers)]
+    );
+  } catch { /* ignore — non-critical */ }
 }
 
 function rowsToTransactions(rows: string[][], colMap: ColMap): ParsedRow[] {
@@ -163,6 +196,8 @@ export function BankImportScreen() {
   const [fileText, setFileText] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
   const [colMap, setColMap] = useState<ColMap>({ date: -1, amount: null, debit: null, credit: null, description: -1 });
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const [mappingRecalled, setMappingRecalled] = useState(false);
   const [preview, setPreview] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
   const [lastBatchId, setLastBatchId] = useState<number | null>(null);
@@ -187,7 +222,13 @@ export function BankImportScreen() {
       setFileText(text);
       const { headers: h } = parseCSV(text);
       setHeaders(h);
-      setColMap(detectColumns(h));
+      const fp = buildFingerprint(h);
+      setFingerprint(fp);
+      setMappingRecalled(false);
+      loadSavedMapping(accountId, fp).then((saved) => {
+        if (saved) { setColMap(saved); setMappingRecalled(true); }
+        else setColMap(detectColumns(h));
+      });
       setStep("map");
     };
     reader.readAsText(file);
@@ -222,6 +263,7 @@ export function BankImportScreen() {
         else skipped++;
       }
       await finalizeImportBatch(batchId, imported, skipped);
+      if (fingerprint) await saveMapping(accountId, fingerprint, colMap, headers);
       setLastBatchId(batchId);
       setImportedCount(imported);
       setSkippedCount(skipped);
@@ -256,6 +298,8 @@ export function BankImportScreen() {
     setPreview([]);
     setImportedCount(0);
     setSkippedCount(0);
+    setFingerprint(null);
+    setMappingRecalled(false);
     setError(null);
   }
 
@@ -312,7 +356,14 @@ export function BankImportScreen() {
       {/* Step 2: Column mapping */}
       {step === "map" && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Map your CSV columns. Auto-detected values are shown — adjust if needed.</p>
+          {mappingRecalled ? (
+            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+              <span>✓</span>
+              <span>Column mapping recalled from a previous import for this account — adjust if needed.</span>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">Map your CSV columns. Auto-detected values are shown — adjust if needed.</p>
+          )}
           <div className="grid grid-cols-2 gap-4">
             {(["date", "description", "amount", "debit", "credit"] as const).map((field) => {
               const value = colMap[field] ?? -1;

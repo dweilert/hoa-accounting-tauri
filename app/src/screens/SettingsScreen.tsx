@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { readConfig, writeConfig } from "../lib/config";
+import { pushDbBackup } from "../lib/s3";
 
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -111,6 +112,177 @@ function DbPathSection() {
   );
 }
 
+// ── Database Admin section ────────────────────────────────────────────────────
+
+const EXPORT_TABLES = [
+  "lots", "owners", "lot_ownership", "bank_accounts", "categories", "vendors",
+  "assessments", "payments", "deposit_batches", "vendor_bills", "bill_payments",
+  "bank_transactions", "bank_reconciliations", "budgets", "budget_lines",
+  "opening_balances", "income_batches", "audit_log",
+];
+
+function DatabaseAdminSection() {
+  const [vacuumResult, setVacuumResult] = useState<string | null>(null);
+  const [integrityResult, setIntegrityResult] = useState<string | null>(null);
+  const [running, setRunning] = useState<"vacuum" | "integrity" | "export" | null>(null);
+  const [exportTable, setExportTable] = useState(EXPORT_TABLES[0] ?? "lots");
+
+  async function handleVacuum() {
+    setRunning("vacuum");
+    setVacuumResult(null);
+    try {
+      const db = await getDb();
+      await db.execute("VACUUM");
+      setVacuumResult("✓ VACUUM completed — database file optimized.");
+    } catch (e) {
+      setVacuumResult(`✗ ${String(e)}`);
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  async function handleIntegrity() {
+    setRunning("integrity");
+    setIntegrityResult(null);
+    try {
+      const db = await getDb();
+      const rows = await db.select<{ integrity_check: string }[]>("PRAGMA integrity_check");
+      const msg = rows.map((r) => r.integrity_check).join(", ");
+      setIntegrityResult(msg === "ok" ? "✓ Integrity check passed — no issues found." : `Issues: ${msg}`);
+    } catch (e) {
+      setIntegrityResult(`✗ ${String(e)}`);
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  async function handleExport() {
+    setRunning("export");
+    try {
+      const db = await getDb();
+      const rows = await db.select<Record<string, unknown>[]>(`SELECT * FROM ${exportTable}`);
+      if (rows.length === 0) { alert(`No rows in ${exportTable}.`); return; }
+      const headers = Object.keys(rows[0] ?? {});
+      const escape = (v: unknown) => {
+        const s = v === null || v === undefined ? "" : String(v);
+        return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${exportTable}_export.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  return (
+    <div className="bg-white border rounded-lg p-5 space-y-4">
+      <h2 className="font-semibold text-gray-800 text-sm">Database Admin</h2>
+
+      <div className="flex flex-wrap gap-3 items-start">
+        <div>
+          <button
+            onClick={() => void handleVacuum()}
+            disabled={running !== null}
+            className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+          >
+            {running === "vacuum" ? "Running…" : "VACUUM"}
+          </button>
+          {vacuumResult && (
+            <p className={`mt-1 text-xs ${vacuumResult.startsWith("✓") ? "text-green-700" : "text-red-600"}`}>
+              {vacuumResult}
+            </p>
+          )}
+          <p className="text-xs text-gray-400 mt-0.5">Reclaim space, rebuild indexes</p>
+        </div>
+
+        <div>
+          <button
+            onClick={() => void handleIntegrity()}
+            disabled={running !== null}
+            className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+          >
+            {running === "integrity" ? "Checking…" : "Integrity Check"}
+          </button>
+          {integrityResult && (
+            <p className={`mt-1 text-xs ${integrityResult.startsWith("✓") ? "text-green-700" : "text-red-600"}`}>
+              {integrityResult}
+            </p>
+          )}
+          <p className="text-xs text-gray-400 mt-0.5">Verify database structure</p>
+        </div>
+      </div>
+
+      <div className="border-t pt-3">
+        <p className="text-xs font-medium text-gray-700 mb-2">Export Table to CSV</p>
+        <div className="flex items-center gap-2">
+          <select
+            value={exportTable}
+            onChange={(e) => setExportTable(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1.5 text-xs bg-white"
+          >
+            {EXPORT_TABLES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <button
+            onClick={() => void handleExport()}
+            disabled={running !== null}
+            className="px-3 py-1.5 text-xs bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
+          >
+            {running === "export" ? "Exporting…" : "Download CSV"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── S3 Backup section ─────────────────────────────────────────────────────────
+
+function S3BackupSection() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function handleBackup() {
+    setRunning(true);
+    setResult(null);
+    const r = await pushDbBackup();
+    setResult(r);
+    setRunning(false);
+  }
+
+  return (
+    <div className="bg-white border rounded-lg p-5 space-y-3">
+      <div>
+        <h2 className="font-semibold text-gray-800 text-sm">Database Backup (S3)</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Encrypts and uploads the HOA database to Amazon S3. Requires{" "}
+          <code className="bg-gray-100 px-1 rounded">~/hoa-system/tauri/s3_config.json</code>{" "}
+          with AWS credentials.
+        </p>
+      </div>
+      <button
+        onClick={handleBackup}
+        disabled={running}
+        className="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+      >
+        {running ? "Backing up…" : "Backup to S3 Now"}
+      </button>
+      {result && (
+        <p className={`text-xs ${result.ok ? "text-green-700" : "text-red-600"}`}>
+          {result.ok ? "✓ " : "✗ "}{result.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export function SettingsScreen() {
@@ -187,6 +359,18 @@ export function SettingsScreen() {
           </p>
         </div>
       )}
+
+      {/* S3 Backup — native app only */}
+      {IS_TAURI && (
+        <div className="mb-5">
+          <S3BackupSection />
+        </div>
+      )}
+
+      {/* Database Admin */}
+      <div className="mb-5">
+        <DatabaseAdminSection />
+      </div>
 
       <form onSubmit={handleSave} className="space-y-5">
         <div className="bg-white border rounded-lg p-5 space-y-4">
