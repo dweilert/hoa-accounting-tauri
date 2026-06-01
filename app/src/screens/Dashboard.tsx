@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getDb, getConfiguredDbPath } from "../lib/db";
+import { getDb } from "../lib/db";
+import { readConfig } from "../lib/config";
 import { listActiveAnnouncements, type Announcement } from "../repositories/announcementRepo";
 
 function fmt(n: number) {
@@ -122,11 +123,18 @@ export function Dashboard() {
   const [dbDiag, setDbDiag] = useState<string>("checking…");
 
   useEffect(() => {
-    const path = getConfiguredDbPath();
-    getDb()
-      .then((db) => db.select<[{n:number}]>("SELECT COUNT(*) as n FROM lots"))
-      .then(([r]) => setDbDiag(`✓ connected | path: ${path} | lots: ${r?.n ?? 0}`))
-      .catch((e: unknown) => setDbDiag(`✗ ERROR: ${String(e)} | path: ${path}`));
+    Promise.all([getDb(), readConfig()])
+      .then(async ([db, cfg]) => {
+        const [lotRows, ownerRows, userRows] = await Promise.all([
+          db.select<[{n:number}]>("SELECT COUNT(*) as n FROM lots"),
+          db.select<[{n:number}]>("SELECT COUNT(*) as n FROM owners"),
+          db.select<[{n:number}]>("SELECT COUNT(*) as n FROM local_users"),
+        ]);
+        setDbDiag(
+          `✓ connected | path: ${cfg?.db_path ?? "browser"} | lots: ${lotRows[0]?.n ?? 0} | owners: ${ownerRows[0]?.n ?? 0} | users: ${userRows[0]?.n ?? 0}`
+        );
+      })
+      .catch((e: unknown) => setDbDiag(`✗ ERROR: ${String(e)}`));
   }, []);
 
   useEffect(() => {

@@ -1,26 +1,11 @@
 import type { DbHandle } from "./dbTypes";
 import { initSchema } from "./schema";
+import { readConfig } from "./config";
 
 let _db: DbHandle | null = null;
 
-function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI__" in window;
-}
-
-// Key used in localStorage to remember the configured database path.
-export const DB_PATH_KEY = "hoa_db_path";
-
-// Relative path resolves to the Tauri app data directory.
-// hoa.db there is a symlink → /Users/bob/hoa-system/data/hoa_accounting.db
-export const DEFAULT_DB_PATH = "sqlite:hoa.db";
-
-export function getConfiguredDbPath(): string {
-  return localStorage.getItem(DB_PATH_KEY) ?? DEFAULT_DB_PATH;
-}
-
-export function setConfiguredDbPath(path: string): void {
-  localStorage.setItem(DB_PATH_KEY, path);
-  _db = null; // force reconnect on next getDb() call
+export function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 export function resetDb(): void {
@@ -31,12 +16,15 @@ export async function getDb(): Promise<DbHandle> {
   if (_db) return _db;
 
   if (isTauri()) {
-    // Native build — use Tauri's SQLite plugin.
-    // Path is configurable via Settings; defaults to hoa.db in the app-data dir.
+    const config = await readConfig();
+    if (!config?.db_path) {
+      throw new Error(
+        "No database configured. Add a db_path entry to ~/hoa-system/tauri/config.json"
+      );
+    }
     const Database = (await import("@tauri-apps/plugin-sql")).default;
-    _db = await Database.load(getConfiguredDbPath());
+    _db = await Database.load(`sqlite:${config.db_path}`);
   } else {
-    // Browser / Preview — use sql.js (in-memory; no file access in browser context).
     const { getBrowserDb } = await import("./db.browser");
     _db = await getBrowserDb();
   }

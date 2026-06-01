@@ -29,6 +29,9 @@ import { UsersScreen } from "./screens/UsersScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { CoaWizardScreen } from "./screens/CoaWizardScreen";
 import { AnnouncementsScreen } from "./screens/AnnouncementsScreen";
+import { DuesBillingScreen } from "./screens/DuesBillingScreen";
+import { EditRecordsScreen } from "./screens/EditRecordsScreen";
+import { TransactionRulesScreen } from "./screens/TransactionRulesScreen";
 
 export default function App() {
   return (
@@ -79,10 +82,15 @@ export default function App() {
             {/* Profile */}
             <Route path="profile" element={<ProfileScreen />} />
 
+            {/* Billing & Editing */}
+            <Route path="billing/dues" element={<RequireAdmin><DuesBillingScreen /></RequireAdmin>} />
+            <Route path="edit-records" element={<EditRecordsScreen />} />
+
             {/* Admin — requires admin role */}
             <Route path="announcements" element={<RequireAdmin><AnnouncementsScreen /></RequireAdmin>} />
             <Route path="categories/wizard" element={<RequireAdmin><CoaWizardScreen /></RequireAdmin>} />
             <Route path="categories" element={<RequireAdmin><CategoriesScreen /></RequireAdmin>} />
+            <Route path="admin/transaction-rules" element={<RequireAdmin><TransactionRulesScreen /></RequireAdmin>} />
             <Route path="users" element={<RequireAdmin><UsersScreen /></RequireAdmin>} />
             <Route path="settings" element={<RequireAdmin><SettingsScreen /></RequireAdmin>} />
           </Route>

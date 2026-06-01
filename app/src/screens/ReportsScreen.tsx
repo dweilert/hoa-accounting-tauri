@@ -105,6 +105,600 @@ async function loadTransactionHistory(limit: number): Promise<TxnRow[]> {
 
 const SOURCE_LABELS: Record<string, string> = { PAYMENT: "Payment", BILL_PAYMENT: "Bill Payment", INCOME: "Income" };
 
+// ── Homeowner Contact List ────────────────────────────────────────────────────
+
+type ContactRow = {
+  lot_number: string;
+  owner_name: string | null;
+  owner_type: string | null;
+  email: string | null;
+  phone: string | null;
+  home_phone: string | null;
+  mailing_address_1: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+};
+
+async function loadContactList(): Promise<ContactRow[]> {
+  const db = await getDb();
+  return db.select<ContactRow[]>(`
+    SELECT l.lot_number,
+           o.display_name AS owner_name, o.owner_type,
+           o.email, o.phone, o.home_phone,
+           o.mailing_address_1, o.city, o.state, o.postal_code
+    FROM lots l
+    LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
+    LEFT JOIN owners o ON o.id = lo.owner_id
+    WHERE l.active_flag = 1
+    ORDER BY l.lot_number
+  `);
+}
+
+function ContactListReport() {
+  const [rows, setRows] = useState<ContactRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadContactList()
+      .then(setRows)
+      .catch((e) => setError(String(e)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {!loading && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Email</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Phone</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Mailing Address</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.map((r) => (
+                <tr key={r.lot_number}>
+                  <td className="px-4 py-2 font-medium text-gray-900">Lot {r.lot_number}</td>
+                  <td className="px-4 py-2 text-gray-700 text-xs">{r.owner_name ?? "— No owner —"}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.email ?? "—"}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.phone ?? r.home_phone ?? "—"}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">
+                    {r.mailing_address_1
+                      ? `${r.mailing_address_1}${r.city ? `, ${r.city}` : ""}${r.state ? ` ${r.state}` : ""}${r.postal_code ? ` ${r.postal_code}` : ""}`
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Owner Ledger ──────────────────────────────────────────────────────────────
+
+type OwnerLedgerRow = {
+  txn_date: string;
+  type: string;
+  description: string;
+  amount: number;
+  running_balance: number;
+};
+
+type OwnerSummary = { id: number; display_name: string; lot_number: string | null };
+
+async function loadOwners(): Promise<OwnerSummary[]> {
+  const db = await getDb();
+  return db.select<OwnerSummary[]>(`
+    SELECT o.id, o.display_name,
+           GROUP_CONCAT(l.lot_number) AS lot_number
+    FROM owners o
+    LEFT JOIN lot_ownership lo ON lo.owner_id = o.id AND lo.end_date IS NULL
+    LEFT JOIN lots l ON l.id = lo.lot_id
+    WHERE o.active_flag = 1
+    GROUP BY o.id
+    ORDER BY o.display_name
+  `);
+}
+
+async function loadOwnerLedger(ownerId: number): Promise<OwnerLedgerRow[]> {
+  const db = await getDb();
+  const rows = await db.select<Omit<OwnerLedgerRow, "running_balance">[]>(`
+    SELECT txn_date, type, description, amount FROM (
+      SELECT a.assessment_date AS txn_date, 'CHARGE' AS type,
+             COALESCE(a.description, a.charge_type) AS description,
+             -a.amount AS amount
+      FROM assessments a WHERE a.owner_id = ?
+      UNION ALL
+      SELECT p.payment_date, 'PAYMENT', COALESCE(p.memo, 'Payment'), p.amount
+      FROM payments p WHERE p.owner_id = ?
+    ) ORDER BY txn_date ASC
+  `, [ownerId, ownerId]);
+
+  let balance = 0;
+  return rows.map((r) => {
+    balance += r.amount;
+    return { ...r, running_balance: balance };
+  }).reverse();
+}
+
+function OwnerLedgerReport() {
+  const [owners, setOwners] = useState<OwnerSummary[]>([]);
+  const [selectedId, setSelectedId] = useState(0);
+  const [rows, setRows] = useState<OwnerLedgerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadOwners().then((o) => {
+      setOwners(o);
+      if (o[0]) setSelectedId(o[0].id);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    loadOwnerLedger(selectedId).then(setRows);
+  }, [selectedId]);
+
+  const balance = rows[0]?.running_balance ?? 0;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end gap-3">
+        <select value={selectedId} onChange={(e) => setSelectedId(Number(e.target.value))}
+          className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {owners.map((o) => <option key={o.id} value={o.id}>{o.display_name}{o.lot_number ? ` (Lot ${o.lot_number})` : ""}</option>)}
+        </select>
+      </div>
+      {!loading && selectedId > 0 && (
+        <div className={`p-3 rounded-lg text-sm font-medium ${balance >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          Current Balance: {fmt(balance)} {balance >= 0 ? "(credit)" : "(balance due)"}
+        </div>
+      )}
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {!loading && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions for this owner.</td></tr>}
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 text-gray-600 text-xs">{r.txn_date}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.type === "PAYMENT" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{r.type}</span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-700 text-xs">{r.description}</td>
+                  <td className={`px-4 py-2 text-right font-mono text-xs ${r.amount >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(r.amount)}</td>
+                  <td className={`px-4 py-2 text-right font-mono text-xs ${r.running_balance >= 0 ? "text-gray-700" : "text-red-600"}`}>{fmt(r.running_balance)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Budget vs Actual ──────────────────────────────────────────────────────────
+
+type BvARow = { category_name: string; budget_amount: number; actual_amount: number; variance: number };
+
+async function loadBudgetVsActual(year: number): Promise<BvARow[]> {
+  const db = await getDb();
+  return db.select<BvARow[]>(`
+    SELECT c.name AS category_name,
+           COALESCE(SUM(bl.budget_amount), 0) AS budget_amount,
+           COALESCE(SUM(bp.amount), 0) AS actual_amount,
+           COALESCE(SUM(bl.budget_amount), 0) - COALESCE(SUM(bp.amount), 0) AS variance
+    FROM categories c
+    LEFT JOIN budgets b ON b.fiscal_year = ? AND b.fund_code = c.fund_code
+    LEFT JOIN budget_lines bl ON bl.budget_id = b.id AND bl.category_id = c.id
+    LEFT JOIN vendor_bills vb ON vb.category_id = c.id
+    LEFT JOIN bill_payments bp ON bp.vendor_bill_id = vb.id AND strftime('%Y', bp.payment_date) = ?
+    WHERE c.category_type = 'EXPENSE'
+    GROUP BY c.id, c.name
+    HAVING budget_amount > 0 OR actual_amount > 0
+    ORDER BY c.sort_order, c.name
+  `, [year, String(year)]);
+}
+
+function BudgetVsActualReport({ year }: { year: number }) {
+  const [rows, setRows] = useState<BvARow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    loadBudgetVsActual(year).then(setRows).finally(() => setLoading(false));
+  }, [year]);
+
+  const totalBudget = rows.reduce((s, r) => s + r.budget_amount, 0);
+  const totalActual = rows.reduce((s, r) => s + r.actual_amount, 0);
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {!loading && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Budget</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Actual</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Variance</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">vs Budget</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No budget or expense data for {year}.</td></tr>}
+              {rows.map((r) => {
+                const pct = r.budget_amount > 0 ? (r.actual_amount / r.budget_amount) * 100 : null;
+                return (
+                  <tr key={r.category_name}>
+                    <td className="px-4 py-2 text-gray-700">{r.category_name}</td>
+                    <td className="px-4 py-2 text-right font-mono text-xs text-gray-500">{fmt(r.budget_amount)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-xs text-red-600">{fmt(r.actual_amount)}</td>
+                    <td className={`px-4 py-2 text-right font-mono text-xs ${r.variance >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(r.variance)}</td>
+                    <td className="px-4 py-2 text-xs">
+                      {pct !== null ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                            <div className={`h-1.5 rounded-full ${pct > 100 ? "bg-red-500" : pct > 80 ? "bg-orange-400" : "bg-green-500"}`}
+                              style={{ width: `${Math.min(pct, 100)}%` }} />
+                          </div>
+                          <span className="text-gray-500">{pct.toFixed(0)}%</span>
+                        </div>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length > 0 && (
+                <tr className="bg-gray-50 font-semibold">
+                  <td className="px-4 py-2 text-gray-600 text-xs">Total</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">{fmt(totalBudget)}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-red-700">{fmt(totalActual)}</td>
+                  <td className={`px-4 py-2 text-right font-mono text-xs ${totalBudget - totalActual >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(totalBudget - totalActual)}</td>
+                  <td className="px-4 py-2" />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Expense Detail ────────────────────────────────────────────────────────────
+
+type ExpenseDetailRow = {
+  payment_date: string;
+  vendor_name: string;
+  invoice_number: string;
+  category_name: string;
+  amount: number;
+  check_number: string | null;
+};
+
+async function loadExpenseDetail(year: number): Promise<ExpenseDetailRow[]> {
+  const db = await getDb();
+  return db.select<ExpenseDetailRow[]>(`
+    SELECT bp.payment_date, v.vendor_name, vb.invoice_number,
+           c.name AS category_name, bp.amount, bp.check_number
+    FROM bill_payments bp
+    JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
+    JOIN vendors v ON v.id = vb.vendor_id
+    LEFT JOIN categories c ON c.id = vb.category_id
+    WHERE strftime('%Y', bp.payment_date) = ?
+    ORDER BY bp.payment_date DESC
+  `, [String(year)]);
+}
+
+function ExpenseDetailReport({ year }: { year: number }) {
+  const [rows, setRows] = useState<ExpenseDetailRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    loadExpenseDetail(year).then(setRows).finally(() => setLoading(false));
+  }, [year]);
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {!loading && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Vendor</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Invoice</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Check #</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No expense payments for {year}.</td></tr>}
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 text-gray-600 text-xs">{r.payment_date}</td>
+                  <td className="px-4 py-2 text-gray-700 text-xs">{r.vendor_name}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.invoice_number}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.category_name ?? "—"}</td>
+                  <td className="px-4 py-2 text-gray-400 text-xs">{r.check_number ?? "—"}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-red-600">{fmt(r.amount)}</td>
+                </tr>
+              ))}
+              {rows.length > 0 && (
+                <tr className="bg-gray-50 font-semibold">
+                  <td colSpan={5} className="px-4 py-2 text-gray-600 text-xs">Total</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-red-700">{fmt(rows.reduce((s, r) => s + r.amount, 0))}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Vendor Expenses ───────────────────────────────────────────────────────────
+
+type VendorExpenseRow = { vendor_name: string; paid: number; open: number; total: number };
+
+async function loadVendorExpenses(year: number): Promise<VendorExpenseRow[]> {
+  const db = await getDb();
+  return db.select<VendorExpenseRow[]>(`
+    SELECT v.vendor_name,
+           COALESCE(SUM(CASE WHEN vb.status IN ('PAID','PARTIAL') THEN bp.amount ELSE 0 END), 0) AS paid,
+           COALESCE(SUM(CASE WHEN vb.status = 'OPEN' THEN vb.amount ELSE 0 END), 0) AS open,
+           COALESCE(SUM(vb.amount), 0) AS total
+    FROM vendors v
+    JOIN vendor_bills vb ON vb.vendor_id = v.id AND strftime('%Y', vb.invoice_date) = ?
+    LEFT JOIN bill_payments bp ON bp.vendor_bill_id = vb.id
+    GROUP BY v.id, v.vendor_name
+    ORDER BY total DESC
+  `, [String(year)]);
+}
+
+function VendorExpensesReport({ year }: { year: number }) {
+  const [rows, setRows] = useState<VendorExpenseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    loadVendorExpenses(year).then(setRows).finally(() => setLoading(false));
+  }, [year]);
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {!loading && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Vendor</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Paid</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Open</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total Invoiced</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">No vendor invoices for {year}.</td></tr>}
+              {rows.map((r) => (
+                <tr key={r.vendor_name}>
+                  <td className="px-4 py-2 text-gray-700">{r.vendor_name}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-green-700">{fmt(r.paid)}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-orange-600">{r.open > 0 ? fmt(r.open) : "—"}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs font-semibold text-gray-900">{fmt(r.total)}</td>
+                </tr>
+              ))}
+              {rows.length > 0 && (
+                <tr className="bg-gray-50 font-semibold">
+                  <td className="px-4 py-2 text-gray-600 text-xs">Total</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-green-800">{fmt(rows.reduce((s, r) => s + r.paid, 0))}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-orange-700">{fmt(rows.reduce((s, r) => s + r.open, 0))}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-gray-900">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Deposits Report ───────────────────────────────────────────────────────────
+
+type DepositReportRow = {
+  deposit_date: string;
+  account_name: string;
+  check_count: number;
+  total_amount: number;
+  status: string;
+};
+
+async function loadDepositsReport(year: number): Promise<DepositReportRow[]> {
+  const db = await getDb();
+  return db.select<DepositReportRow[]>(`
+    SELECT d.deposit_date, b.account_name, d.check_count, d.total_amount, d.status
+    FROM deposit_batches d
+    JOIN bank_accounts b ON b.id = d.bank_account_id
+    WHERE strftime('%Y', d.deposit_date) = ?
+    ORDER BY d.deposit_date DESC
+  `, [String(year)]);
+}
+
+function DepositsReport({ year }: { year: number }) {
+  const [rows, setRows] = useState<DepositReportRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    loadDepositsReport(year).then(setRows).finally(() => setLoading(false));
+  }, [year]);
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {!loading && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Checks</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No deposits for {year}.</td></tr>}
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 text-gray-600 text-xs">{r.deposit_date}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.account_name}</td>
+                  <td className="px-4 py-2 text-right text-gray-500 text-xs">{r.check_count}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-green-700">{fmt(r.total_amount)}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {rows.length > 0 && (
+                <tr className="bg-gray-50 font-semibold">
+                  <td colSpan={2} className="px-4 py-2 text-gray-600 text-xs">Total</td>
+                  <td className="px-4 py-2 text-right text-xs">{rows.reduce((s, r) => s + r.check_count, 0)}</td>
+                  <td className="px-4 py-2 text-right font-mono text-xs text-green-800">{fmt(rows.reduce((s, r) => s + r.total_amount, 0))}</td>
+                  <td className="px-4 py-2" />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Delinquency Report ────────────────────────────────────────────────────────
+
+type DelinquencyRow = {
+  lot_number: string;
+  owner_name: string | null;
+  email: string | null;
+  phone: string | null;
+  open_amount: number;
+  oldest_due_date: string | null;
+  days_overdue: number;
+};
+
+async function loadDelinquency(): Promise<DelinquencyRow[]> {
+  const db = await getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  return db.select<DelinquencyRow[]>(`
+    SELECT l.lot_number, o.display_name AS owner_name, o.email, o.phone,
+           SUM(a.amount) AS open_amount,
+           MIN(COALESCE(a.due_date, a.assessment_date)) AS oldest_due_date,
+           CAST(julianday(?) - julianday(MIN(COALESCE(a.due_date, a.assessment_date))) AS INTEGER) AS days_overdue
+    FROM assessments a
+    JOIN lots l ON l.id = a.lot_id
+    LEFT JOIN owners o ON o.id = a.owner_id
+    WHERE a.status IN ('OPEN','PARTIAL')
+      AND julianday(?) > julianday(COALESCE(a.due_date, a.assessment_date))
+    GROUP BY l.id
+    ORDER BY days_overdue DESC
+  `, [today, today]);
+}
+
+function DelinquencyReport() {
+  const [rows, setRows] = useState<DelinquencyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDelinquency()
+      .then(setRows)
+      .catch((e) => setError(String(e)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-gray-400">Loading…</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {!loading && rows.length === 0 && (
+        <div className="p-6 text-center text-sm text-green-700 bg-green-50 rounded-lg border border-green-200">
+          No delinquent accounts — all assessments are current.
+        </div>
+      )}
+      {!loading && rows.length > 0 && (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Contact</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Oldest Due</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Days Overdue</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Balance Due</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {rows.map((r) => (
+                <tr key={r.lot_number} className={r.days_overdue > 90 ? "bg-red-50" : r.days_overdue > 30 ? "bg-orange-50" : ""}>
+                  <td className="px-4 py-2 font-medium text-gray-900">Lot {r.lot_number}</td>
+                  <td className="px-4 py-2 text-gray-700 text-xs">{r.owner_name ?? "—"}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.email ?? r.phone ?? "—"}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{r.oldest_due_date ?? "—"}</td>
+                  <td className={`px-4 py-2 text-right font-mono text-xs font-semibold ${r.days_overdue > 90 ? "text-red-600" : r.days_overdue > 30 ? "text-orange-600" : "text-yellow-700"}`}>
+                    {r.days_overdue}d
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono font-semibold text-red-700">{fmt(r.open_amount)}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-50 font-semibold">
+                <td colSpan={5} className="px-4 py-2 text-gray-600 text-xs">Total ({rows.length} lots)</td>
+                <td className="px-4 py-2 text-right font-mono text-xs text-red-700">{fmt(rows.reduce((s, r) => s + r.open_amount, 0))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TransactionHistoryReport() {
   const [rows, setRows] = useState<TxnRow[]>([]);
   const [limit, setLimit] = useState(100);
@@ -272,14 +866,33 @@ function AccountDetailReport() {
 
 // ── Report types ──────────────────────────────────────────────────────────────
 
-type ReportType = "ar_aging" | "expense_summary" | "income_summary" | "txn_history" | "account_detail";
+type ReportType =
+  | "ar_aging"
+  | "expense_summary"
+  | "income_summary"
+  | "txn_history"
+  | "account_detail"
+  | "contact_list"
+  | "owner_ledger"
+  | "budget_vs_actual"
+  | "expense_detail"
+  | "vendor_expenses"
+  | "deposits"
+  | "delinquency";
 
 const REPORTS: { key: ReportType; title: string; description: string }[] = [
-  { key: "ar_aging",       title: "AR Aging",            description: "Outstanding balances by lot, bucketed by age" },
-  { key: "expense_summary", title: "Expense Summary",    description: "Total expenses by category for the year" },
-  { key: "income_summary", title: "Income Summary",      description: "Total income by category for the year" },
-  { key: "txn_history",    title: "Transaction History", description: "All transactions across all accounts" },
-  { key: "account_detail", title: "Account Detail",      description: "Ledger with running balance for one account" },
+  { key: "ar_aging",         title: "AR Aging",             description: "Outstanding balances by lot, bucketed by age" },
+  { key: "delinquency",      title: "Delinquency",          description: "Overdue accounts ranked by days past due" },
+  { key: "income_summary",   title: "Income Summary",       description: "Total income by category for the year" },
+  { key: "expense_summary",  title: "Expense Summary",      description: "Total expenses by category for the year" },
+  { key: "expense_detail",   title: "Expense Detail",       description: "Every expense payment with vendor and check number" },
+  { key: "vendor_expenses",  title: "Vendor Expenses",      description: "Total invoiced and paid per vendor for the year" },
+  { key: "budget_vs_actual", title: "Budget vs Actual",     description: "Compare budgeted vs actual spending by category" },
+  { key: "deposits",         title: "Deposits",             description: "All deposit batches for the year" },
+  { key: "txn_history",      title: "Transaction History",  description: "All transactions across all accounts" },
+  { key: "account_detail",   title: "Account Detail",       description: "Ledger with running balance for one account" },
+  { key: "owner_ledger",     title: "Owner Ledger",         description: "Charges and payments for a specific owner" },
+  { key: "contact_list",     title: "Contact List",         description: "Homeowner directory with addresses and contact info" },
 ];
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -293,8 +906,13 @@ export function ReportsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const SELF_LOADING: ReportType[] = [
+    "txn_history", "account_detail", "contact_list", "owner_ledger",
+    "budget_vs_actual", "expense_detail", "vendor_expenses", "deposits", "delinquency",
+  ];
+
   async function runReport() {
-    if (selected === "txn_history" || selected === "account_detail") return; // handled by sub-components
+    if (SELF_LOADING.includes(selected)) return;
     setLoading(true);
     setError(null);
     try {
@@ -332,7 +950,7 @@ export function ReportsScreen() {
             {r.title}
           </button>
         ))}
-        {(selected === "expense_summary" || selected === "income_summary") && (
+        {(["expense_summary","income_summary","budget_vs_actual","expense_detail","vendor_expenses","deposits"] as ReportType[]).includes(selected) && (
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
@@ -429,6 +1047,15 @@ export function ReportsScreen() {
 
       {/* Account Detail */}
       {selected === "account_detail" && <AccountDetailReport />}
+
+      {/* New self-loading reports */}
+      {selected === "contact_list" && <ContactListReport />}
+      {selected === "owner_ledger" && <OwnerLedgerReport />}
+      {selected === "budget_vs_actual" && <BudgetVsActualReport year={year} />}
+      {selected === "expense_detail" && <ExpenseDetailReport year={year} />}
+      {selected === "vendor_expenses" && <VendorExpensesReport year={year} />}
+      {selected === "deposits" && <DepositsReport year={year} />}
+      {selected === "delinquency" && <DelinquencyReport />}
 
       {/* Income Summary */}
       {!loading && selected === "income_summary" && (

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { getDb } from "../lib/db";
 import { DepositBatchSchema, PaymentSchema, type DepositBatch, type Payment, type PaymentFormValues } from "../types/deposit";
 
@@ -13,8 +14,8 @@ const PAYMENT_BASE = `
 export type PaymentRow = Payment & { lot_number: string; owner_name: string | null };
 
 const PaymentRowSchema = PaymentSchema.extend({
-  lot_number: PaymentSchema.shape.memo.unwrap(),
-  owner_name: PaymentSchema.shape.memo,
+  lot_number: z.string(),
+  owner_name: z.string().nullable(),
 });
 
 export async function listDepositBatches(limit = 100): Promise<(DepositBatch & { account_name: string })[]> {
@@ -26,7 +27,7 @@ export async function listDepositBatches(limit = 100): Promise<(DepositBatch & {
      ORDER BY d.deposit_date DESC LIMIT ?`,
     [limit]
   );
-  return rows.map((r) => DepositBatchSchema.extend({ account_name: DepositBatchSchema.shape.notes.unwrap() }).parse(r));
+  return rows.map((r) => DepositBatchSchema.extend({ account_name: z.string() }).parse(r));
 }
 
 export async function insertDepositBatch(

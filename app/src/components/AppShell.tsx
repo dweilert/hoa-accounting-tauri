@@ -46,8 +46,15 @@ const NAV: NavSection[] = [
     heading: "Assessments",
     items: [
       { label: "Assessments", to: "/assessments" },
+      { label: "Dues Billing", to: "/billing/dues" },
       { label: "Accounts Receivable", to: "/ar" },
       { label: "Deposits", to: "/deposits" },
+    ],
+  },
+  {
+    heading: "Corrections",
+    items: [
+      { label: "Edit Records", to: "/edit-records" },
     ],
   },
   {
@@ -63,6 +70,7 @@ const NAV: NavSection[] = [
     adminOnly: true,
     items: [
       { label: "Chart of Accounts", to: "/categories" },
+      { label: "Transaction Rules", to: "/admin/transaction-rules" },
       { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },
       { label: "Settings", to: "/settings" },
@@ -93,11 +101,9 @@ export function AppShell() {
         <nav className="flex-1 px-2 py-3 space-y-4">
           {NAV.filter((s) => !s.adminOnly || isAdmin).map((section) => (
             <div key={section.heading}>
-              {section.items.length > 1 && (
-                <p className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  {section.heading}
-                </p>
-              )}
+              <p className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {section.heading}
+              </p>
               <ul className="space-y-0.5">
                 {section.items.map((item) => (
                   <li key={item.to}>

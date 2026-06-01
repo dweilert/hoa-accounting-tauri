@@ -10,21 +10,20 @@ import {
 
 export async function listVendorBills(statusFilter?: string): Promise<VendorBill[]> {
   const db = await getDb();
-  const where = statusFilter && statusFilter !== "ALL"
-    ? `WHERE vb.status = '${statusFilter}'`
-    : "";
-  const rows = await db.select<unknown[]>(`
-    SELECT vb.*,
-           v.vendor_name,
-           c.code AS category_code,
-           COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp WHERE bp.vendor_bill_id = vb.id), 0) AS amount_paid
-    FROM   vendor_bills vb
-    JOIN   vendors v   ON v.id = vb.vendor_id
-    LEFT JOIN categories c ON c.id = vb.category_id
-    ${where}
-    ORDER BY vb.invoice_date DESC, vb.id DESC
-    LIMIT 200
-  `);
+  const filtered = statusFilter && statusFilter !== "ALL";
+  const rows = await db.select<unknown[]>(
+    `SELECT vb.*,
+            v.vendor_name,
+            c.code AS category_code,
+            COALESCE((SELECT SUM(bp.amount) FROM bill_payments bp WHERE bp.vendor_bill_id = vb.id), 0) AS amount_paid
+     FROM   vendor_bills vb
+     JOIN   vendors v   ON v.id = vb.vendor_id
+     LEFT JOIN categories c ON c.id = vb.category_id
+     ${filtered ? "WHERE vb.status = ?" : ""}
+     ORDER BY vb.invoice_date DESC, vb.id DESC
+     LIMIT 200`,
+    filtered ? [statusFilter] : []
+  );
   return rows.map((r) => VendorBillSchema.parse(r));
 }
 

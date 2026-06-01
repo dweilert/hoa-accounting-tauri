@@ -1,18 +1,21 @@
+import { z } from "zod";
 import { getDb } from "../lib/db";
 import { BankReconciliationSchema, BankTransactionSchema, type BankReconciliation, type BankTransaction } from "../types/reconciliation";
 
 export async function listReconciliations(bankAccountId?: number): Promise<(BankReconciliation & { account_name: string })[]> {
   const db = await getDb();
-  const where = bankAccountId ? `WHERE r.bank_account_id = ${bankAccountId}` : "";
+  const where = bankAccountId ? "WHERE r.bank_account_id = ?" : "";
+  const params = bankAccountId ? [bankAccountId] : [];
   const rows = await db.select<unknown[]>(
     `SELECT r.*, b.account_name
      FROM bank_reconciliations r
      JOIN bank_accounts b ON b.id = r.bank_account_id
      ${where}
-     ORDER BY r.statement_ending_date DESC`
+     ORDER BY r.statement_ending_date DESC`,
+    params
   );
   return rows.map((r) =>
-    BankReconciliationSchema.extend({ account_name: BankReconciliationSchema.shape.notes.unwrap() }).parse(r)
+    BankReconciliationSchema.extend({ account_name: z.string() }).parse(r)
   );
 }
 
@@ -87,7 +90,7 @@ export async function listAllBankTransactions(opts?: { limit?: number }): Promis
      ORDER BY t.transaction_date DESC ${limit}`
   );
   return rows.map((r) =>
-    BankTransactionSchema.extend({ account_name: BankTransactionSchema.shape.description.unwrap() }).parse(r)
+    BankTransactionSchema.extend({ account_name: z.string() }).parse(r)
   );
 }
 

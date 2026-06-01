@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { getDb } from "../lib/db";
 import { AssessmentSchema, type Assessment, type AssessmentFormValues } from "../types/assessment";
 
@@ -13,8 +14,8 @@ const BASE = `
 export type AssessmentRow = Assessment & { lot_number: string; owner_name: string | null };
 
 const RowSchema = AssessmentSchema.extend({
-  lot_number: AssessmentSchema.shape.description.unwrap(),
-  owner_name: AssessmentSchema.shape.description,
+  lot_number: z.string(),
+  owner_name: z.string().nullable(),
 });
 
 export async function listAssessments(opts?: {

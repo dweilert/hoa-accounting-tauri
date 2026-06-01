@@ -413,6 +413,163 @@ CREATE TABLE IF NOT EXISTS reserve_study_scenarios (
   created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS hoa_profile (
+  id                      INTEGER PRIMARY KEY CHECK (id = 1),
+  legal_name              TEXT NOT NULL DEFAULT '',
+  display_name            TEXT NOT NULL DEFAULT '',
+  fiscal_year_start_month INTEGER NOT NULL DEFAULT 1
+                                  CHECK(fiscal_year_start_month BETWEEN 1 AND 12),
+  timezone                TEXT NOT NULL DEFAULT 'America/Chicago',
+  default_annual_dues     TEXT NOT NULL DEFAULT '0.00',
+  mailing_address_1       TEXT,
+  city                    TEXT,
+  state                   TEXT,
+  postal_code             TEXT,
+  phone                   TEXT,
+  email                   TEXT,
+  website                 TEXT,
+  federal_tax_id          TEXT,
+  created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_time   TEXT    NOT NULL DEFAULT (datetime('now')),
+  entity_type  TEXT    NOT NULL,
+  entity_id    INTEGER NOT NULL,
+  action       TEXT    NOT NULL,
+  before_json  TEXT,
+  after_json   TEXT,
+  changed_by   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS workflow_tabs (
+  id          INTEGER PRIMARY KEY,
+  tab_key     TEXT    NOT NULL UNIQUE,
+  icon        TEXT    NOT NULL DEFAULT '',
+  label       TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  sort_order  INTEGER NOT NULL DEFAULT 100,
+  is_system   INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS workflow_sections (
+  id          INTEGER PRIMARY KEY,
+  tab_id      INTEGER NOT NULL REFERENCES workflow_tabs(id),
+  label       TEXT    NOT NULL,
+  tip_text    TEXT    NOT NULL DEFAULT '',
+  sort_order  INTEGER NOT NULL DEFAULT 100,
+  is_system   INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS workflow_cards (
+  id          INTEGER PRIMARY KEY,
+  section_id  INTEGER NOT NULL REFERENCES workflow_sections(id),
+  num_label   TEXT    NOT NULL DEFAULT '',
+  icon        TEXT    NOT NULL DEFAULT '',
+  title       TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  href        TEXT    NOT NULL DEFAULT '#',
+  link_label  TEXT    NOT NULL DEFAULT '',
+  color       TEXT    NOT NULL DEFAULT 'slate',
+  sort_order  INTEGER NOT NULL DEFAULT 100,
+  is_system   INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS dues_billing_history (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  cycle_type      TEXT    NOT NULL,
+  period_label    TEXT    NOT NULL,
+  period_year     INTEGER NOT NULL,
+  period_sequence INTEGER NOT NULL,
+  amount          NUMERIC NOT NULL,
+  owner_count     INTEGER NOT NULL DEFAULT 0,
+  billed_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bank_account_file_formats (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  bank_account_id      INTEGER NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+  fingerprint          TEXT    NOT NULL,
+  mapping_json         TEXT    NOT NULL,
+  sample_headers_json  TEXT    NOT NULL,
+  created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(bank_account_id, fingerprint)
+);
+
+CREATE TABLE IF NOT EXISTS wizard_groups (
+  id          INTEGER PRIMARY KEY,
+  step_number INTEGER NOT NULL,
+  group_id    TEXT    NOT NULL,
+  label       TEXT    NOT NULL,
+  sort_order  INTEGER NOT NULL DEFAULT 100,
+  is_system   INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  UNIQUE(step_number, group_id)
+);
+
+CREATE TABLE IF NOT EXISTS wizard_options (
+  id          INTEGER PRIMARY KEY,
+  step_number INTEGER NOT NULL,
+  group_id    TEXT    NOT NULL,
+  option_id   TEXT    NOT NULL,
+  label       TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  sort_order  INTEGER NOT NULL DEFAULT 100,
+  is_system   INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  is_always   INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(step_number, option_id)
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_alert_settings (
+  alert_key   TEXT PRIMARY KEY,
+  label       TEXT NOT NULL,
+  description TEXT,
+  enabled     INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_cards (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  title       TEXT    NOT NULL,
+  description TEXT,
+  card_type   TEXT    NOT NULL DEFAULT 'NAV'
+                      CHECK(card_type IN ('NAV','REPORT','COMMENT','FINANCIAL','SECTION')),
+  target_url  TEXT,
+  report_name TEXT,
+  color       TEXT    NOT NULL DEFAULT '#4a5462',
+  is_system   INTEGER NOT NULL DEFAULT 0,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_layout (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  card_id    INTEGER NOT NULL REFERENCES dashboard_cards(id) ON DELETE CASCADE,
+  position   INTEGER NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(card_id),
+  UNIQUE(position)
+);
+
+CREATE TABLE IF NOT EXISTS backup_metadata (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  backed_up_at        TEXT    NOT NULL,
+  lot_count           INTEGER,
+  owner_count         INTEGER,
+  renter_count        INTEGER,
+  journal_entry_count INTEGER,
+  last_gl_entry_date  TEXT
+);
 `;
 
 const SEEDS: Array<[string, string, string, string, number, number]> = [
