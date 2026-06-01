@@ -16,6 +16,10 @@ import { AssessmentsScreen } from "./screens/AssessmentsScreen";
 import { ARScreen } from "./screens/ARScreen";
 import { DepositsScreen } from "./screens/DepositsScreen";
 import { BudgetsScreen } from "./screens/BudgetsScreen";
+import { TransactionsScreen } from "./screens/TransactionsScreen";
+import { LedgerByAccountScreen } from "./screens/LedgerByAccountScreen";
+import { ReportsScreen } from "./screens/ReportsScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { Placeholder } from "./screens/Placeholder";
 
 export default function App() {
@@ -33,8 +37,8 @@ export default function App() {
             <Route path="owners" element={<OwnersScreen />} />
 
             {/* Transactions */}
-            <Route path="transactions" element={<Placeholder title="All Transactions" />} />
-            <Route path="ledger/by-account" element={<Placeholder title="Ledger by Account" />} />
+            <Route path="transactions" element={<TransactionsScreen />} />
+            <Route path="ledger/by-account" element={<LedgerByAccountScreen />} />
             <Route path="opening-balances" element={<OpeningBalancesScreen />} />
 
             {/* Bank */}
@@ -60,12 +64,12 @@ export default function App() {
             <Route path="reserve" element={<Placeholder title="Reserve Study" />} />
 
             {/* Reports */}
-            <Route path="reports" element={<Placeholder title="Reports" />} />
+            <Route path="reports" element={<ReportsScreen />} />
 
             {/* Admin */}
             <Route path="categories" element={<CategoriesScreen />} />
             <Route path="users" element={<Placeholder title="Users" />} />
-            <Route path="settings" element={<Placeholder title="Settings" />} />
+            <Route path="settings" element={<SettingsScreen />} />
           </Route>
         </Routes>
       </BrowserRouter>
