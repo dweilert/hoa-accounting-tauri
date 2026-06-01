@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getDb } from "../lib/db";
+import { getDb, getConfiguredDbPath } from "../lib/db";
 import { listActiveAnnouncements, type Announcement } from "../repositories/announcementRepo";
 
 function fmt(n: number) {
@@ -119,6 +119,15 @@ export function Dashboard() {
   const [onboarding, setOnboarding] = useState<{ obEntered: boolean; dismissed: boolean } | null>(null);
   const [banners, setBanners] = useState<Announcement[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [dbDiag, setDbDiag] = useState<string>("checking…");
+
+  useEffect(() => {
+    const path = getConfiguredDbPath();
+    getDb()
+      .then((db) => db.select<[{n:number}]>("SELECT COUNT(*) as n FROM lots"))
+      .then(([r]) => setDbDiag(`✓ connected | path: ${path} | lots: ${r?.n ?? 0}`))
+      .catch((e: unknown) => setDbDiag(`✗ ERROR: ${String(e)} | path: ${path}`));
+  }, []);
 
   useEffect(() => {
     Promise.all([loadStats(), loadOnboardingState(), listActiveAnnouncements()])
@@ -138,6 +147,11 @@ export function Dashboard() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">HOA Accounting overview.</p>
+      </div>
+
+      {/* TEMP DB DIAGNOSTIC — remove once confirmed working */}
+      <div className="font-mono text-xs p-2 bg-black text-green-400 rounded break-all">
+        {dbDiag}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
