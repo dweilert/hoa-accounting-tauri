@@ -59,10 +59,13 @@ async function prompt(question) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const DEFAULT_DB = join(
-  homedir(),
-  "Library/Application Support/io.github.dweilert.hoa-accounting/hoa.db"
-);
+// Common database locations — pick the one that matches your app
+const TAURI_DB  = join(homedir(), "Library/Application Support/io.github.dweilert.hoa-accounting/hoa.db");
+const PYTHON_DB = join(homedir(), "Library/Application Support/HOAAccounting/hoa_accounting.db");
+
+// Default to whichever exists; prefer the Tauri app
+import { existsSync } from "node:fs";
+const DEFAULT_DB = existsSync(TAURI_DB) ? TAURI_DB : existsSync(PYTHON_DB) ? PYTHON_DB : TAURI_DB;
 
 let [, , dbPathArg, emailArg, passwordArg] = process.argv;
 
