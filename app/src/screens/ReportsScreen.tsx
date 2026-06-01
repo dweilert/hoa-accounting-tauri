@@ -235,23 +235,20 @@ async function loadOwnerLedger(ownerId: number): Promise<OwnerLedgerRow[]> {
 function OwnerLedgerReport({ ownerId = 0 }: { ownerId?: number }) {
   const [rows, setRows] = useState<OwnerLedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const selectedId = ownerId;
 
   useEffect(() => {
+    if (!ownerId) { setLoading(false); return; }
     setLoading(true);
-    setRows([]);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedId) return;
-    loadOwnerLedger(selectedId).then(setRows);
-  }, [selectedId]);
+    loadOwnerLedger(ownerId)
+      .then(setRows)
+      .finally(() => setLoading(false));
+  }, [ownerId]);
 
   const balance = rows[0]?.running_balance ?? 0;
 
   return (
     <div className="space-y-3">
-      {!loading && selectedId > 0 && (
+      {!loading && ownerId > 0 && (
         <div className={`p-3 rounded-lg text-sm font-medium ${balance >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
           Current Balance: {fmt(balance)} {balance >= 0 ? "(credit)" : "(balance due)"}
         </div>
