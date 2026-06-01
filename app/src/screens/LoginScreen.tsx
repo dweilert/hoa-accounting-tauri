@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { verifyPassword, saveSession } from "../lib/auth";
+import { verifyPassword, saveSession, hashPassword } from "../lib/auth";
 import { getUserByEmail, recordLogin, createUser } from "../repositories/userRepo";
+import { getDb } from "../lib/db";
 import { useAuth } from "../contexts/AuthContext";
 
 // ── First-run setup (no users exist) ─────────────────────────────────────────
@@ -92,7 +93,7 @@ function FirstRunSetup({ onCreated }: { onCreated: () => void }) {
 
 // ── Login form ────────────────────────────────────────────────────────────────
 
-export function LoginScreen({ onNoUsers }: { onNoUsers: () => void }) {
+export function LoginScreen({ onNoUsers, onForgotPassword }: { onNoUsers: () => void; onForgotPassword: () => void }) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -180,6 +181,122 @@ export function LoginScreen({ onNoUsers }: { onNoUsers: () => void }) {
         >
           First time? Set up admin account →
         </button>
+        <button
+          onClick={onForgotPassword}
+          className="mt-1 text-xs text-gray-300 hover:text-gray-500 w-full text-center"
+        >
+          Forgot password?
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Emergency password reset (local-app only — physical access = authorization) ──
+
+function EmergencyReset({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) { setError("Enter the account email."); return; }
+    if (!password) { setError("Enter a new password."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm) { setError("Passwords do not match."); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const db = await getDb();
+      const rows = await db.select<{ id: number }[]>(
+        "SELECT id FROM local_users WHERE email = ? COLLATE NOCASE",
+        [email.trim()]
+      );
+      if (rows.length === 0) { setError("No account found with that email."); return; }
+      const hash = await hashPassword(password);
+      await db.execute("UPDATE local_users SET password_hash = ? WHERE id = ?", [hash, rows[0]!.id]);
+      setSuccess(true);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-8">
+        <h1 className="text-xl font-bold text-gray-900 mb-1">Reset Password</h1>
+        <p className="text-xs text-gray-400 mb-5">
+          Emergency reset — enter the email of the account and a new password.
+          No old password required.
+        </p>
+
+        {success ? (
+          <div className="text-center">
+            <p className="text-sm text-green-700 font-medium mb-4">Password reset. You can now sign in.</p>
+            <button
+              onClick={onDone}
+              className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            >
+              Back to Sign In
+            </button>
+          </div>
+        ) : (
+          <>
+            {error && <p className="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Account Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
+                  autoComplete="email"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 mt-1"
+              >
+                {saving ? "Resetting…" : "Reset Password"}
+              </button>
+            </form>
+            <button
+              onClick={onDone}
+              className="mt-4 text-xs text-gray-400 hover:text-gray-500 w-full text-center"
+            >
+              ← Back to Sign In
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -190,6 +307,7 @@ export function LoginScreen({ onNoUsers }: { onNoUsers: () => void }) {
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
   const [showSetup, setShowSetup] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
   if (state.status === "loading") {
     return (
@@ -202,14 +320,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (state.status === "authenticated") return <>{children}</>;
 
   if (showSetup) {
-    return (
-      <FirstRunSetup
-        onCreated={() => setShowSetup(false)}
-      />
-    );
+    return <FirstRunSetup onCreated={() => setShowSetup(false)} />;
+  }
+
+  if (showReset) {
+    return <EmergencyReset onDone={() => setShowReset(false)} />;
   }
 
   return (
-    <LoginScreen onNoUsers={() => setShowSetup(true)} />
+    <LoginScreen
+      onNoUsers={() => setShowSetup(true)}
+      onForgotPassword={() => setShowReset(true)}
+    />
   );
 }
