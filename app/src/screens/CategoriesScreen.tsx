@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import {
   listCategories,
@@ -304,12 +305,22 @@ export function CategoriesScreen() {
             {categories.length} categories
           </p>
         </div>
-        <button
-          onClick={() => setModal({ mode: "add" })}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-        >
-          + Add Category
-        </button>
+        <div className="flex gap-2">
+          {categories.length === 0 && (
+            <Link
+              to="/categories/wizard"
+              className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+            >
+              Setup Wizard
+            </Link>
+          )}
+          <button
+            onClick={() => setModal({ mode: "add" })}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+          >
+            + Add Category
+          </button>
+        </div>
       </div>
 
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}

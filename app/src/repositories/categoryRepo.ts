@@ -67,6 +67,23 @@ export async function deleteCategory(id: number): Promise<void> {
   await db.execute("DELETE FROM categories WHERE id = ? AND system_required = 0", [id]);
 }
 
+export async function countCategories(): Promise<number> {
+  const db = await getDb();
+  const rows = await db.select<[{ n: number }]>("SELECT COUNT(*) as n FROM categories");
+  return rows[0]?.n ?? 0;
+}
+
+export async function bulkInsertCategories(items: CategoryFormValues[]): Promise<void> {
+  const db = await getDb();
+  for (const v of items) {
+    await db.execute(
+      `INSERT OR IGNORE INTO categories (code, name, category_type, fund_code, sort_order, group_name, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [v.code, v.name, v.category_type, v.fund_code, v.sort_order, v.group_name ?? null, v.description ?? null]
+    );
+  }
+}
+
 export async function usageCount(id: number): Promise<number> {
   const db = await getDb();
   const rows = await db.select<[{ n: number }]>(
