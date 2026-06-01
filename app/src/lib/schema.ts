@@ -330,6 +330,36 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS local_users (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  email          TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  display_name   TEXT    NOT NULL DEFAULT '',
+  role           TEXT    NOT NULL DEFAULT 'reports'
+                         CHECK(role IN ('admin', 'reports')),
+  password_hash  TEXT    NOT NULL,
+  is_active      INTEGER NOT NULL DEFAULT 1,
+  last_login_at  TEXT,
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS local_role_overrides (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  role       TEXT    NOT NULL CHECK(role IN ('admin', 'reports')),
+  note       TEXT,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_announcements (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  message     TEXT    NOT NULL,
+  severity    TEXT    NOT NULL DEFAULT 'info' CHECK(severity IN ('info', 'warning', 'urgent')),
+  expires_at  TEXT,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  created_by  TEXT,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS bank_import_batches (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   bank_account_id  INTEGER NOT NULL REFERENCES bank_accounts(id),

@@ -63,6 +63,7 @@ const NAV: NavSection[] = [
     adminOnly: true,
     items: [
       { label: "Chart of Accounts", to: "/categories" },
+      { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },
       { label: "Settings", to: "/settings" },
     ],

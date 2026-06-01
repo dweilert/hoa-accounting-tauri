@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getDb } from "../lib/db";
+import { listActiveAnnouncements, type Announcement } from "../repositories/announcementRepo";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -107,14 +108,21 @@ function StatCard({ label, value, sub, to }: { label: string; value: string; sub
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
+const BANNER_STYLE: Record<string, string> = {
+  info:    "bg-blue-50 border-blue-200 text-blue-900",
+  warning: "bg-amber-50 border-amber-200 text-amber-900",
+  urgent:  "bg-red-50 border-red-200 text-red-900",
+};
+
 export function Dashboard() {
   const [stats, setStats] = useState<DashStats | null>(null);
   const [onboarding, setOnboarding] = useState<{ obEntered: boolean; dismissed: boolean } | null>(null);
+  const [banners, setBanners] = useState<Announcement[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([loadStats(), loadOnboardingState()])
-      .then(([s, o]) => { setStats(s); setOnboarding(o); })
+    Promise.all([loadStats(), loadOnboardingState(), listActiveAnnouncements()])
+      .then(([s, o, b]) => { setStats(s); setOnboarding(o); setBanners(b); })
       .catch((e) => setError(String(e)));
   }, []);
 
@@ -133,6 +141,13 @@ export function Dashboard() {
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {/* Announcement banners */}
+      {banners.map((b) => (
+        <div key={b.id} className={`border rounded-lg px-4 py-3 ${BANNER_STYLE[b.severity]}`}>
+          <p className="text-sm font-medium">{b.message}</p>
+        </div>
+      ))}
 
       {/* Onboarding alert */}
       {showObAlert && (

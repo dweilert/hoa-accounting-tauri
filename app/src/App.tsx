@@ -28,6 +28,7 @@ import { ReserveStudyScreen } from "./screens/ReserveStudyScreen";
 import { UsersScreen } from "./screens/UsersScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { CoaWizardScreen } from "./screens/CoaWizardScreen";
+import { AnnouncementsScreen } from "./screens/AnnouncementsScreen";
 
 export default function App() {
   return (
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="profile" element={<ProfileScreen />} />
 
             {/* Admin — requires admin role */}
+            <Route path="announcements" element={<RequireAdmin><AnnouncementsScreen /></RequireAdmin>} />
             <Route path="categories/wizard" element={<RequireAdmin><CoaWizardScreen /></RequireAdmin>} />
             <Route path="categories" element={<RequireAdmin><CategoriesScreen /></RequireAdmin>} />
             <Route path="users" element={<RequireAdmin><UsersScreen /></RequireAdmin>} />
