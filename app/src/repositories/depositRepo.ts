@@ -5,7 +5,13 @@ import { DepositBatchSchema, PaymentSchema, type DepositBatch, type Payment, typ
 const PAYMENT_BASE = `
   SELECT p.*,
          l.lot_number,
-         o.display_name AS owner_name
+         COALESCE(
+           (SELECT GROUP_CONCAT(o2.display_name, ' / ')
+            FROM lot_ownership lo2
+            JOIN owners o2 ON o2.id = lo2.owner_id
+            WHERE lo2.lot_id = l.id AND lo2.end_date IS NULL),
+           o.display_name
+         ) AS owner_name
   FROM payments p
   JOIN lots l ON l.id = p.lot_id
   LEFT JOIN owners o ON o.id = p.owner_id
