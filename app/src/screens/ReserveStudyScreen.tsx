@@ -753,7 +753,7 @@ export function ReserveStudyScreen() {
         </div>
       }
     >
-    <div id="reserve-study-content" className="max-w-6xl print:p-2">
+    <div id="reserve-study-content" className="print:p-2">
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Tabs */}

@@ -112,6 +112,7 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
   const [clearedIds, setClearedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
+  const [unclearedOnly, setUnclearedOnly] = useState(false);
 
   const load = useCallback(async () => {
     const [txns, cleared] = await Promise.all([
@@ -220,7 +221,23 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
         </div>
       )}
 
-      {/* Transactions table */}
+      {/* Filter + Transactions table */}
+      <div className="flex items-center gap-3 mb-2">
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={unclearedOnly}
+            onChange={(e) => setUnclearedOnly(e.target.checked)}
+            className="rounded"
+          />
+          Show uncleared only
+        </label>
+        <span className="text-xs text-gray-400">
+          {unclearedOnly
+            ? `${transactions.filter((t) => !clearedIds.has(t.id)).length} uncleared`
+            : `${transactions.length} total`}
+        </span>
+      </div>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
@@ -240,7 +257,7 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
                 </td>
               </tr>
             )}
-            {transactions.map((t) => {
+            {transactions.filter((t) => !unclearedOnly || !clearedIds.has(t.id)).map((t) => {
               const cleared = clearedIds.has(t.id);
               return (
                 <tr
@@ -330,7 +347,7 @@ export function ReconciliationsScreen() {
   if (selected) {
     return (
       <PageLayout title="Reconciliations" subtitle="Match book balance to bank statement." helpId="reconciliations">
-        <div className="max-w-5xl">
+        <div>
           <ReconWorkspace
             recon={selected}
             onBack={() => setSelected(null)}
@@ -357,7 +374,7 @@ export function ReconciliationsScreen() {
         ) : undefined
       }
     >
-      <div className="max-w-4xl">
+      <div>
 
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}

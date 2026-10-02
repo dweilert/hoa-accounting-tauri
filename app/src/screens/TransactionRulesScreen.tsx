@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
 import {
@@ -8,13 +8,17 @@ import {
   toggleRuleActive,
   deleteTransactionRule,
   testRuleAgainstDescription,
+  checkRuleConflicts,
   type TransactionRule,
   type TransactionRuleFormValues,
+  type RuleConflict,
 } from "../repositories/transactionRuleRepo";
 import { listCategories } from "../repositories/categoryRepo";
 import { listVendors } from "../repositories/vendorRepo";
+import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { Category } from "../types/category";
 import type { Vendor } from "../types/vendor";
+import type { BankAccount } from "../types/bankAccount";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -40,6 +44,7 @@ const BLANK_FORM: TransactionRuleFormValues = {
   action_type: "CATEGORIZE",
   category_id: null,
   vendor_id: null,
+  bank_account_id: null,
   confidence_mode: "REVIEW_FIRST",
 };
 
@@ -47,12 +52,14 @@ function RuleForm({
   initial,
   categories,
   vendors,
+  bankAccounts,
   onSave,
   onCancel,
 }: {
   initial?: TransactionRule | undefined;
   categories: Category[];
   vendors: Vendor[];
+  bankAccounts: BankAccount[];
   onSave: (v: TransactionRuleFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -67,19 +74,42 @@ function RuleForm({
           action_type: initial.action_type,
           category_id: initial.category_id,
           vendor_id: initial.vendor_id,
+          bank_account_id: initial.bank_account_id ?? null,
           confidence_mode: initial.confidence_mode,
         }
       : BLANK_FORM
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState<RuleConflict[]>([]);
 
   const set = <K extends keyof TransactionRuleFormValues>(k: K, v: TransactionRuleFormValues[K]) =>
     setValues((p) => ({ ...p, [k]: v }));
 
+  async function runConflictCheck(desc: string) {
+    if (!desc.trim()) { setConflicts([]); return; }
+    const found = await checkRuleConflicts(desc, initial?.id);
+    setConflicts(found);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!values.rule_name.trim()) { setError("Rule name is required."); return; }
+    const hasCondition =
+      values.description_contains.trim() !== "" ||
+      values.amount_min !== "" ||
+      values.amount_max !== "";
+    if (!hasCondition) {
+      setError("At least one match condition is required (description, min amount, or max amount). A rule with no conditions matches every transaction and blocks all rules with higher IDs.");
+      return;
+    }
+    // Re-check conflicts at save time; block on duplicates
+    const liveConflicts = await checkRuleConflicts(values.description_contains, initial?.id);
+    setConflicts(liveConflicts);
+    if (liveConflicts.some((c) => c.kind === "duplicate")) {
+      setError("Duplicate rule: another active rule already matches the same description. Edit or disable that rule first.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try { await onSave(values); } catch (e) { setError(String(e)); setSaving(false); }
@@ -107,14 +137,49 @@ function RuleForm({
         <legend className="text-xs font-semibold text-gray-500 px-1">Match Conditions (all must be true)</legend>
         <div className="space-y-3 mt-2">
           <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Bank Account</label>
+            <select
+              value={values.bank_account_id ?? ""}
+              onChange={(e) => set("bank_account_id", e.target.value ? Number(e.target.value) : null)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Any account —</option>
+              {bankAccounts.map((a) => <option key={a.id} value={a.id}>{a.account_name}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">Restrict rule to transactions from a specific account. Leave blank to match all accounts.</p>
+          </div>
+          <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Description Contains</label>
             <input
               type="text"
               value={values.description_contains}
               onChange={(e) => set("description_contains", e.target.value)}
+              onBlur={(e) => void runConflictCheck(e.target.value)}
               placeholder="e.g. DUES, LANDSCAPING (case-insensitive)"
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="mt-1 text-xs text-gray-400">
+              If set, a matching description is sufficient to match this rule — amount filters are ignored.
+            </p>
+            {conflicts.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {conflicts.map((c, i) => (
+                  <div
+                    key={i}
+                    className={`rounded px-3 py-2 text-xs ${
+                      c.kind === "duplicate"
+                        ? "bg-red-50 border border-red-300 text-red-800"
+                        : "bg-amber-50 border border-amber-300 text-amber-800"
+                    }`}
+                  >
+                    <span className="font-semibold mr-1">
+                      {c.kind === "duplicate" ? "⛔ Duplicate:" : "⚠ Conflict:"}
+                    </span>
+                    {c.message}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -284,26 +349,64 @@ function RuleTester({ rules }: { rules: TransactionRule[] }) {
   );
 }
 
+type RuleSortCol = "name" | "action" | "mode" | "hits";
+
+function SortTh({ col, active, dir, onClick, children, right }: {
+  col: RuleSortCol; active: RuleSortCol; dir: "asc" | "desc";
+  onClick: (c: RuleSortCol) => void; children: React.ReactNode; right?: boolean;
+}) {
+  return (
+    <th
+      className={`px-4 py-2 text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-gray-900 ${right ? "text-right" : "text-left"}`}
+      onClick={() => onClick(col)}
+    >
+      {children}{active === col ? (dir === "asc" ? " ↑" : " ↓") : ""}
+    </th>
+  );
+}
+
 type ModalState = { mode: "add" } | { mode: "edit"; rule: TransactionRule } | null;
 
 export function TransactionRulesScreen() {
   const [rules, setRules] = useState<TransactionRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
+  const [sortCol, setSortCol] = useState<RuleSortCol>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function toggleSort(col: RuleSortCol) {
+    if (col === sortCol) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+  }
+
+  const sorted = useMemo(() => {
+    const cmp = (a: TransactionRule, b: TransactionRule): number => {
+      let v = 0;
+      if (sortCol === "name") v = a.rule_name.localeCompare(b.rule_name);
+      else if (sortCol === "action") v = a.action_type.localeCompare(b.action_type);
+      else if (sortCol === "mode") v = a.confidence_mode.localeCompare(b.confidence_mode);
+      else if (sortCol === "hits") v = (a.match_count ?? 0) - (b.match_count ?? 0);
+      return sortDir === "asc" ? v : -v;
+    };
+    return [...rules].sort(cmp);
+  }, [rules, sortCol, sortDir]);
 
   const load = useCallback(async () => {
     try {
-      const [r, c, v] = await Promise.all([
+      const [r, c, v, a] = await Promise.all([
         listTransactionRules(),
         listCategories(),
         listVendors(),
+        listBankAccounts(),
       ]);
       setRules(r);
       setCategories(c);
       setVendors(v);
+      setBankAccounts(a);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -348,36 +451,55 @@ export function TransactionRulesScreen() {
         </button>
       }
     >
-      <div className="max-w-4xl">
+      <div>
         {loading && <p className="text-sm text-gray-400">Loading…</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         {!loading && !error && (
           <>
+            {rules.some(r => r.active_flag === 1 && !r.description_contains && r.amount_min === null && r.amount_max === null) && (
+              <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <strong>Warning:</strong> One or more active rules have no match conditions and will catch every transaction, blocking all rules that follow them (higher IDs).{" "}
+                Rules affected:{" "}
+                {rules
+                  .filter(r => r.active_flag === 1 && !r.description_contains && r.amount_min === null && r.amount_max === null)
+                  .map(r => <strong key={r.id}>{r.rule_name}</strong>)
+                  .reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, ", ", el], [])}
+                . Edit them to add at least one condition.
+              </div>
+            )}
             <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Rule</th>
+                  <SortTh col="name" active={sortCol} dir={sortDir} onClick={toggleSort}>Rule</SortTh>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Match</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Action</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Mode</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Hits</th>
+                  <SortTh col="action" active={sortCol} dir={sortDir} onClick={toggleSort}>Action</SortTh>
+                  <SortTh col="mode" active={sortCol} dir={sortDir} onClick={toggleSort}>Mode</SortTh>
+                  <SortTh col="hits" active={sortCol} dir={sortDir} onClick={toggleSort} right>Hits</SortTh>
                   <th className="px-4 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rules.length === 0 && (
+                {sorted.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">
                       No rules yet. Create one to auto-classify imported transactions.
                     </td>
                   </tr>
                 )}
-                {rules.map((r) => (
+                {sorted.map((r) => (
                   <tr key={r.id} className={r.active_flag === 0 ? "opacity-40" : ""}>
                     <td className="px-4 py-3">
                       <span className="font-medium text-gray-900">{r.rule_name}</span>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {r.bank_account_name ? (
+                        <span className="px-2 py-0.5 rounded font-medium bg-indigo-100 text-indigo-700">{r.bank_account_name}</span>
+                      ) : (
+                        <span className="text-gray-400">Any</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       {r.description_contains && <span>desc: <em>{r.description_contains}</em></span>}
@@ -445,6 +567,7 @@ export function TransactionRulesScreen() {
               initial={modal.mode === "edit" ? modal.rule : undefined}
               categories={categories}
               vendors={vendors}
+              bankAccounts={bankAccounts}
               onSave={handleSave}
               onCancel={() => setModal(null)}
             />

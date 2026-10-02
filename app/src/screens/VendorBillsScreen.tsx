@@ -414,7 +414,7 @@ export function VendorBillsScreen() {
         </button>
       }
     >
-    <div className="max-w-6xl">
+    <div>
       {/* Status filter tabs */}
       <div className="flex gap-1 mb-4 border-b">
         {STATUS_FILTERS.map(([val, label]) => (

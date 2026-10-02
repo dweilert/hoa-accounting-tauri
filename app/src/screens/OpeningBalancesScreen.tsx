@@ -371,7 +371,7 @@ export function OpeningBalancesScreen() {
 
   return (
     <PageLayout title="Opening Balances" subtitle="Enter starting balances when setting up the app." helpId="openingBalances">
-    <div className="max-w-5xl">
+    <div>
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b">
         {(["bank", "lots"] as Tab[]).map((t) => (

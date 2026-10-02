@@ -209,7 +209,7 @@ export function VendorsScreen() {
         </div>
       }
     >
-    <div className="max-w-5xl">
+    <div>
 
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}

@@ -251,7 +251,7 @@ export function ReserveTransfersScreen() {
       subtitle="Record fund transfers between bank accounts."
       helpId="reserveTransfers"
     >
-    <div className="max-w-4xl">
+    <div>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
       )}
@@ -301,7 +301,7 @@ export function ReserveTransfersScreen() {
                     <td className="px-4 py-2 text-gray-700">{t.to_account}</td>
                     <td className="px-4 py-2 text-right font-mono font-medium text-blue-700">{fmt(t.amount)}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{t.category_name ?? "—"}</td>
-                    <td className="px-4 py-2 text-gray-500 text-xs truncate max-w-xs">{t.description ?? "—"}</td>
+                    <td className="px-4 py-2 text-gray-500 text-xs truncate ">{t.description ?? "—"}</td>
                     <td className="px-4 py-2 text-right">
                       <button
                         onClick={() => void handleDelete(t.id)}

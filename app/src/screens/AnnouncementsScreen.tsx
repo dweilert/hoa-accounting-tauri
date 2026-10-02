@@ -180,7 +180,7 @@ export function AnnouncementsScreen() {
         </button>
       }
     >
-    <div className="max-w-3xl">
+    <div>
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 

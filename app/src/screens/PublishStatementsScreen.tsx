@@ -199,7 +199,7 @@ export function PublishStatementsScreen() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <PageLayout title="Publish Statements" subtitle="Generate Owner Ledger PDFs and push to S3 for homeowner access.">
-      <div className="max-w-4xl space-y-5">
+      <div className="space-y-5">
 
         {/* Config card */}
         <div className="bg-white border rounded-lg p-4 space-y-4">

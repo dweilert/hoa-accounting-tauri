@@ -253,7 +253,7 @@ export function DataImportScreen() {
 
   return (
     <PageLayout title="Data Import" subtitle="Bulk import lots, owners, or payments from CSV." helpId="dataImport">
-    <div className="max-w-4xl">
+    <div>
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
       {step !== "done" && (

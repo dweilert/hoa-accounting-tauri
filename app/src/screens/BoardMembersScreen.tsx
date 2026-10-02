@@ -234,7 +234,7 @@ export function BoardMembersScreen() {
         </button>
       }
     >
-    <div className="max-w-3xl">
+    <div>
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
       {(showForm && !editing) && (

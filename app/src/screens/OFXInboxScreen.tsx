@@ -205,7 +205,7 @@ async function importFile(
     const acctidMatch = /<ACCTID>([^<\r\n]+)/i.exec(text);
     const acctid = acctidMatch?.[1]?.trim() ?? "";
     const last4 = acctid.slice(-4);
-    const account = accounts.find((a) => a.account_number?.slice(-4) === last4) ?? accounts[0];
+    const account = accounts.find((a) => a.account_last4 === last4) ?? accounts[0];
     if (!account) return { imported: 0, skipped: 0, error: "No matching bank account found" };
 
     const existing = await getExistingDedupKeys(account.id).catch(() => new Set<string>());
@@ -350,7 +350,7 @@ export function OFXInboxScreen() {
 
   return (
     <PageLayout title="OFX Inbox" subtitle="Manage OFX files downloaded by the Frost fetcher daemon." helpId="ofxInbox">
-      <div className="max-w-4xl space-y-4">
+      <div className="space-y-4">
 
         {/* Banner */}
         <div className={`p-3 border rounded text-sm ${bannerColors[banner.level]}`}>

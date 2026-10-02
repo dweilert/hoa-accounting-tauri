@@ -134,7 +134,7 @@ export function DuesBillingScreen() {
       subtitle="Bulk-post dues assessments to all active lots."
       helpId="duesBilling"
     >
-    <div className="max-w-4xl">
+    <div>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
       )}

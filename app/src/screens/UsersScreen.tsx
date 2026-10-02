@@ -203,7 +203,7 @@ export function UsersScreen() {
         </button>
       }
     >
-    <div className="max-w-4xl">
+    <div>
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 

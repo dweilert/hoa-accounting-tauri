@@ -166,7 +166,7 @@ function RecentImports({ refreshKey }: { refreshKey: number }) {
               <tr key={b.id}>
                 <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime(b.imported_at)}</td>
                 <td className="px-4 py-2 text-xs text-gray-700">{b.account_name ?? "—"}</td>
-                <td className="px-4 py-2 text-xs text-gray-500 max-w-xs truncate">{b.filename ?? "—"}</td>
+                <td className="px-4 py-2 text-xs text-gray-500 truncate">{b.filename ?? "—"}</td>
                 <td className="px-4 py-2 text-right text-xs text-green-700 font-medium">{b.imported_count}</td>
                 <td className="px-4 py-2 text-right text-xs text-gray-400">{b.skipped_count}</td>
                 <td className="px-4 py-2 text-right">
@@ -309,7 +309,7 @@ export function BankImportScreen() {
 
   return (
     <PageLayout title="Bank Import" subtitle="Import transactions from a CSV bank statement." helpId="bankImport">
-    <div className="max-w-4xl">
+    <div>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Step indicators */}

@@ -325,7 +325,7 @@ export function AssessmentsScreen() {
         </div>
       }
     >
-    <div className="max-w-5xl">
+    <div>
 
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}

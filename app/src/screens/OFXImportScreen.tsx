@@ -186,7 +186,7 @@ export function OFXImportScreen() {
 
   return (
     <PageLayout title="OFX / QFX Import" subtitle="Import transactions from an OFX or QFX bank file." helpId="ofxImport">
-    <div className="max-w-4xl">
+    <div>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Step indicators */}
@@ -272,7 +272,7 @@ export function OFXImportScreen() {
                   <tr key={i} className={t.isDuplicate ? "opacity-40 bg-gray-50" : ""}>
                     <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">{t.dtposted}</td>
                     <td className="px-3 py-1.5 text-gray-400">{t.trntype}</td>
-                    <td className="px-3 py-1.5 text-gray-700 max-w-xs truncate">
+                    <td className="px-3 py-1.5 text-gray-700 truncate">
                       {[t.name, t.memo].filter(Boolean).join(" — ") || "—"}
                     </td>
                     <td className={`px-3 py-1.5 text-right font-mono ${t.trnamt < 0 ? "text-red-600" : "text-green-700"}`}>

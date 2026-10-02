@@ -232,7 +232,7 @@ export function RentersScreen() {
         </div>
       }
     >
-      <div className="max-w-4xl">
+      <div>
         {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
         {showForm && !editing && <RenterForm lots={lots} onSave={handleSaveNew} onCancel={() => setShowForm(false)} />}

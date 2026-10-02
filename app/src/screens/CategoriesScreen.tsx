@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
@@ -232,6 +232,22 @@ function CategoryForm({ initial, onSave, onCancel }: FormProps) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+type CatSortCol = "code" | "name" | "fund" | "group" | "status";
+
+function SortTh({ col, active, dir, onClick, children }: {
+  col: CatSortCol; active: CatSortCol; dir: "asc" | "desc";
+  onClick: (c: CatSortCol) => void; children: React.ReactNode;
+}) {
+  return (
+    <th
+      className="px-4 py-2 text-left font-medium text-gray-600 text-xs cursor-pointer select-none hover:text-gray-900"
+      onClick={() => onClick(col)}
+    >
+      {children}{active === col ? (dir === "asc" ? " ↑" : " ↓") : ""}
+    </th>
+  );
+}
+
 type ModalState =
   | { mode: "add" }
   | { mode: "edit"; category: Category }
@@ -245,6 +261,13 @@ export function CategoriesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
+  const [sortCol, setSortCol] = useState<CatSortCol>("code");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function toggleSort(col: CatSortCol) {
+    if (col === sortCol) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -278,10 +301,21 @@ export function CategoriesScreen() {
     }
   }
 
-  const grouped = TYPE_ORDER.map((type) => ({
-    type,
-    rows: categories.filter((c) => c.category_type === type),
-  }));
+  const grouped = useMemo(() => {
+    const cmp = (a: Category, b: Category): number => {
+      let v = 0;
+      if (sortCol === "code") v = a.code.localeCompare(b.code);
+      else if (sortCol === "name") v = a.name.localeCompare(b.name);
+      else if (sortCol === "fund") v = a.fund_code.localeCompare(b.fund_code);
+      else if (sortCol === "group") v = (a.group_name ?? "").localeCompare(b.group_name ?? "");
+      else if (sortCol === "status") v = b.active_flag - a.active_flag;
+      return sortDir === "asc" ? v : -v;
+    };
+    return TYPE_ORDER.map((type) => ({
+      type,
+      rows: categories.filter((c) => c.category_type === type).sort(cmp),
+    }));
+  }, [categories, sortCol, sortDir]);
 
   const fundBadge = (f: string) => {
     const colors: Record<string, string> = {
@@ -320,7 +354,7 @@ export function CategoriesScreen() {
         </div>
       }
     >
-    <div className="max-w-5xl">
+    <div>
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
@@ -335,11 +369,11 @@ export function CategoriesScreen() {
             <table className="w-full text-sm bg-white">
               <thead className="border-b bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600 text-xs">Code</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600 text-xs">Name</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600 text-xs">Fund</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600 text-xs">Group</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-600 text-xs">Status</th>
+                  <SortTh col="code" active={sortCol} dir={sortDir} onClick={toggleSort}>Code</SortTh>
+                  <SortTh col="name" active={sortCol} dir={sortDir} onClick={toggleSort}>Name</SortTh>
+                  <SortTh col="fund" active={sortCol} dir={sortDir} onClick={toggleSort}>Fund</SortTh>
+                  <SortTh col="group" active={sortCol} dir={sortDir} onClick={toggleSort}>Group</SortTh>
+                  <SortTh col="status" active={sortCol} dir={sortDir} onClick={toggleSort}>Status</SortTh>
                   <th className="px-4 py-2" />
                 </tr>
               </thead>

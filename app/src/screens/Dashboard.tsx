@@ -21,17 +21,29 @@ const ROUTE_MAP: Record<string, string> = {
   "/income": "/bank/pending",
   "/income/new": "/bank/pending",
   "/reconciliations": "/bank/reconciliations",
-  "/reconciliations/new": "/bank/reconciliations/new",
+  "/reconciliations/new": "/bank/reconciliations",
   "/assessments/bill": "/assessments",
   "/ar/lots": "/ar",
   "/ar": "/ar",
   "/late-fees": "/billing/late-fees",
   "/batch-pdf": "/reports",
-  "/resale-fee": "/assessments",
+  "/resale-fee": "/billing/resale-fee",
   "/ledger/transactions": "/transactions",
   "/ledger/by-account": "/ledger/by-account",
   "/journal-entry-new": "/edit-records",
   "/journal-entries": "/edit-records",
+  // Flask admin paths → Tauri equivalents
+  "/admin/audit-log": "/audit-log",
+  "/admin/transaction-rules": "/admin/transaction-rules",
+  "/admin/database": "#",
+  "/manage/edit-records": "/edit-records",
+  // Flask bank paths
+  "/bank-transactions/pending": "/bank/pending",
+  "/bank-import/upload": "/bank/import",
+  "/ofx-inbox": "/bank/ofx-inbox",
+  // Reserve
+  "/reserve-study": "/reserve",
+  "/reserve-transfers": "/reserve/transfers",
 };
 
 function resolveRoute(url: string | null): string {
@@ -172,90 +184,84 @@ async function loadRecentTxns() {
   `);
 }
 
-// ── Financial card renderers ──────────────────────────────────────────────────
+// ── Prominent fin-tiles (top of dashboard, like Flask) ───────────────────────
 
-function BankTilesCard({ color }: { color: string }) {
-  const [tiles, setTiles] = useState<BankTile[]>([]);
-  useEffect(() => { loadBankTiles().then(setTiles).catch(() => {}); }, []);
-  return (
-    <div className="rounded-lg border p-4 space-y-2" style={{ borderColor: color + "66" }}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Bank Balances</p>
-      {tiles.map((t) => (
-        <div key={t.account_name} className="flex justify-between items-baseline">
-          <span className="text-xs text-gray-600 truncate">{t.account_name}</span>
-          <span className={`text-sm font-bold ml-2 ${t.current_balance < 0 ? "text-red-600" : "text-gray-900"}`}>
-            {fmt(t.current_balance)}
-          </span>
-        </div>
-      ))}
-      <Link to="/bank/accounts" className="text-xs text-blue-600 hover:underline">View accounts →</Link>
-    </div>
-  );
-}
+const BANK_COLORS = ["#2f6046", "#26503a", "#1e3d2c", "#3a7a5a"];
 
-function LastReconCard({ color }: { color: string }) {
+function FinTileRow() {
+  const [bankTiles, setBankTiles] = useState<BankTile[]>([]);
   const [recon, setRecon] = useState<LastRecon>(null);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => { loadLastRecon().then((r) => { setRecon(r); setLoaded(true); }).catch(() => setLoaded(true)); }, []);
+  const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
+
+  useEffect(() => {
+    Promise.all([loadBankTiles(), loadLastRecon(), loadBudgetCategories()])
+      .then(([b, r, bl]) => { setBankTiles(b); setRecon(r); setBudgetLines(bl); })
+      .catch(() => {});
+  }, []);
+
+  const year = new Date().getFullYear();
+  const totalBudgeted = budgetLines.reduce((s, l) => s + l.budgeted, 0);
+  const totalActual   = budgetLines.reduce((s, l) => s + l.actual, 0);
+  const budgetPct     = totalBudgeted > 0 ? Math.round((totalActual / totalBudgeted) * 100) : null;
+  const overBudget    = budgetLines.filter((l) => l.actual > l.budgeted).length;
+  const onTrack       = budgetLines.filter((l) => l.actual <= l.budgeted).length;
+
   return (
-    <div className="rounded-lg border p-4 space-y-1" style={{ borderColor: color + "66" }}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Last Reconciliation</p>
-      {!loaded ? <p className="text-xs text-gray-400">Loading…</p> :
-       !recon ? <p className="text-xs text-gray-400">No reconciliations yet.</p> : (
-        <>
-          <p className="text-sm font-bold text-gray-900">{recon.bank_account}</p>
-          <p className="text-xs text-gray-500">Through {recon.end_date}</p>
-          <p className="text-sm text-gray-700">{fmt(recon.ending_balance)}</p>
-        </>
-      )}
-      <Link to="/bank/reconciliations" className="text-xs text-blue-600 hover:underline">Reconciliations →</Link>
+    <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: `repeat(${bankTiles.length + 2}, minmax(0,1fr))` }}>
+      {bankTiles.map((t, i) => (
+        <Link key={t.account_name} to="/bank/accounts"
+          className="rounded-lg p-4 text-white hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: BANK_COLORS[i % BANK_COLORS.length] }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ opacity: 0.75 }}>{t.account_name}</p>
+          <p className="text-2xl font-bold mt-1">{fmt(t.current_balance)}</p>
+          <p className="text-xs mt-0.5" style={{ opacity: 0.6 }}>{t.fund_code} Fund</p>
+        </Link>
+      ))}
+
+      <Link to="/budgets"
+        className="rounded-lg p-4 text-white hover:opacity-90 transition-opacity"
+        style={{ backgroundColor: "#7a5312" }}
+      >
+        <p className="text-xs font-semibold uppercase tracking-wide" style={{ opacity: 0.75 }}>{year} Expenses vs Budget</p>
+        {budgetPct !== null ? (
+          <>
+            <p className="text-2xl font-bold mt-1">{budgetPct}%</p>
+            <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.25)" }}>
+              <div className="h-full rounded-full bg-white" style={{ width: `${Math.min(100, budgetPct)}%` }} />
+            </div>
+            <p className="text-xs mt-1" style={{ opacity: 0.7 }}>
+              {overBudget} over budget · {onTrack} on track
+            </p>
+          </>
+        ) : (
+          <p className="text-sm mt-2" style={{ opacity: 0.75 }}>No budget data</p>
+        )}
+      </Link>
+
+      <Link to="/bank/reconciliations"
+        className="rounded-lg p-4 text-white hover:opacity-90 transition-opacity"
+        style={{ backgroundColor: "#5a3a7a" }}
+      >
+        <p className="text-xs font-semibold uppercase tracking-wide" style={{ opacity: 0.75 }}>Last Reconciliation</p>
+        {recon ? (
+          <>
+            <p className="text-2xl font-bold mt-1">{fmt(recon.ending_balance)}</p>
+            <p className="text-xs mt-0.5" style={{ opacity: 0.7 }}>{recon.bank_account} · {recon.end_date}</p>
+          </>
+        ) : (
+          <p className="text-sm mt-2" style={{ opacity: 0.75 }}>No reconciliations yet</p>
+        )}
+      </Link>
     </div>
   );
 }
 
-function BudgetCategoriesCard({ color }: { color: string }) {
-  const [lines, setLines] = useState<BudgetLine[]>([]);
-  useEffect(() => { loadBudgetCategories().then(setLines).catch(() => {}); }, []);
-  return (
-    <div className="rounded-lg border p-4 space-y-2" style={{ borderColor: color + "66" }}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Expense vs Budget ({new Date().getFullYear()})
-      </p>
-      {lines.length === 0
-        ? <p className="text-xs text-gray-400">No budget data.</p>
-        : lines.map((l) => {
-          const pct = l.budgeted > 0 ? Math.min(100, Math.round((l.actual / l.budgeted) * 100)) : 0;
-          return (
-            <div key={l.category_name}>
-              <div className="flex justify-between text-xs mb-0.5">
-                <span className="text-gray-600 truncate">{l.category_name}</span>
-                <span className="text-gray-500 ml-2">{pct}%</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-green-500"}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
-          );
-        })
-      }
-      <Link to="/budgets" className="text-xs text-blue-600 hover:underline">View budgets →</Link>
-    </div>
-  );
-}
+// ── Financial card renderers (used in DB-driven sections) ─────────────────────
 
 function FinancialCard({ card }: { card: DashCard }) {
-  if (card.report_name === "bank_tiles" || card.report_name === "budget_ytd") {
-    return <BankTilesCard color={card.color} />;
-  }
-  if (card.report_name === "last_recon") {
-    return <LastReconCard color={card.color} />;
-  }
-  if (card.report_name === "budget_categories") {
-    return <BudgetCategoriesCard color={card.color} />;
-  }
+  // These are now replaced by FinTileRow at top; render nothing to avoid duplication
+  void card;
   return null;
 }
 
@@ -270,9 +276,9 @@ function NavCard({ card }: { card: DashCard }) {
     <button
       onClick={() => canNav && navigate(route, { state: { from: "/dashboard", fromLabel: "Dashboard" } })}
       disabled={!canNav}
-      className={`w-full text-left rounded-lg border-l-4 bg-white p-3.5 shadow-sm transition-all
+      className={`w-full text-left rounded-lg border-t-4 bg-white p-3.5 shadow-sm transition-all
         ${canNav ? "hover:shadow-md hover:-translate-y-0.5 cursor-pointer" : "opacity-60 cursor-not-allowed"}`}
-      style={{ borderLeftColor: card.color }}
+      style={{ borderTopColor: card.color }}
     >
       <p className="font-semibold text-gray-900 text-sm">{card.title}</p>
       {card.description && (
@@ -399,11 +405,14 @@ export function Dashboard() {
 
   return (
     <PageLayout title="Dashboard" subtitle="HOA Accounting overview." helpId="dashboard">
-      <div className="max-w-5xl space-y-6">
+      <div className="space-y-6">
       {/* DB diagnostic */}
       <div className="font-mono text-xs p-2 bg-black text-green-400 rounded break-all">
         {dbDiag}
       </div>
+
+      {/* Prominent financial tiles */}
+      <FinTileRow />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

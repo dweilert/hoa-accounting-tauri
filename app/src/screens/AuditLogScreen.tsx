@@ -75,8 +75,8 @@ function JsonDiff({ before, after }: { before: string | null; after: string | nu
                 return (
                   <tr key={k} className={diff ? "bg-yellow-50" : ""}>
                     <td className="px-2 py-0.5 font-semibold text-gray-700 whitespace-nowrap">{k}</td>
-                    <td className={`px-2 py-0.5 ${diff ? "text-red-700" : "text-gray-600"} max-w-xs truncate`}>{bv}</td>
-                    <td className={`px-2 py-0.5 ${diff ? "text-green-700" : "text-gray-600"} max-w-xs truncate`}>{av}</td>
+                    <td className={`px-2 py-0.5 ${diff ? "text-red-700" : "text-gray-600"} truncate`}>{bv}</td>
+                    <td className={`px-2 py-0.5 ${diff ? "text-green-700" : "text-gray-600"} truncate`}>{av}</td>
                   </tr>
                 );
               })}

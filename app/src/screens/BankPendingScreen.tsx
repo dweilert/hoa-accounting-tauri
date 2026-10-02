@@ -574,7 +574,7 @@ export function BankPendingScreen() {
         </div>
       }
     >
-      <div className="max-w-5xl">
+      <div>
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">

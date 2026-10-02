@@ -8,7 +8,11 @@ import {
   insertPayment,
   deletePayment,
   postDepositBatch,
+  listCandidateBankTxns,
+  linkDepositToTxn,
+  unlinkDepositTxn,
   type PaymentRow,
+  type OFXCandidate,
 } from "../repositories/depositRepo";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import { listLots } from "../repositories/lotRepo";
@@ -25,11 +29,13 @@ function fmt(n: number) {
 type BatchRow = {
   id: number;
   deposit_date: string;
+  bank_account_id: number;
   account_name: string;
   total_amount: number;
   check_count: number;
   notes: string | null;
   status: string;
+  bank_transaction_id: number | null;
 };
 
 type SortCol = "date" | "account" | "payments" | "total" | "status";
@@ -220,6 +226,7 @@ function SortTh({ col, active, dir, onClick, children, right }: {
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 type ModalState = { mode: "newBatch" } | { mode: "addPayment"; batchId: number } | null;
+type MatchingState = { batchId: number; candidates: OFXCandidate[]; loading: boolean } | null;
 
 export function DepositsScreen() {
   const [batches, setBatches] = useState<BatchRow[]>([]);
@@ -256,6 +263,7 @@ export function DepositsScreen() {
   useEffect(() => { void loadBatches().catch((e) => setError(String(e))); }, [loadBatches]);
 
   const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
+  const [matching, setMatching] = useState<MatchingState>(null);
 
   async function toggleBatch(batchId: number) {
     if (selectedId === batchId) { setSelectedId(null); return; }
@@ -293,6 +301,31 @@ export function DepositsScreen() {
     setPayments((prev) => new Map(prev).set(batchId, rows));
   }
 
+  async function handleOpenMatching(batch: BatchRow) {
+    setMatching({ batchId: batch.id, candidates: [], loading: true });
+    try {
+      const candidates = await listCandidateBankTxns(
+        batch.bank_account_id,
+        batch.total_amount,
+        batch.deposit_date
+      );
+      setMatching({ batchId: batch.id, candidates, loading: false });
+    } catch (e) {
+      setMatching({ batchId: batch.id, candidates: [], loading: false });
+    }
+  }
+
+  async function handleLink(batchId: number, txnId: number) {
+    await linkDepositToTxn(batchId, txnId);
+    setMatching(null);
+    await loadBatches();
+  }
+
+  async function handleUnlink(batchId: number) {
+    await unlinkDepositTxn(batchId);
+    await loadBatches();
+  }
+
   async function handlePost(batchId: number) {
     if (!confirm("Post this deposit batch? It will be locked.")) return;
     await postDepositBatch(batchId);
@@ -324,7 +357,7 @@ export function DepositsScreen() {
         </button>
       }
     >
-      <div className="max-w-5xl space-y-4">
+      <div className="space-y-4">
 
         {loading && <p className="text-sm text-gray-400">Loading…</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -346,6 +379,7 @@ export function DepositsScreen() {
                       <SortTh col="account"  active={sortCol} dir={sortDir} onClick={toggleSort}>Account</SortTh>
                       <SortTh col="payments" active={sortCol} dir={sortDir} onClick={toggleSort}>Payments</SortTh>
                       <SortTh col="status"   active={sortCol} dir={sortDir} onClick={toggleSort}>Status</SortTh>
+                      <th className="px-4 py-2.5 text-xs font-medium text-gray-600 text-left">OFX Match</th>
                       <SortTh col="total"    active={sortCol} dir={sortDir} onClick={toggleSort} right>Total</SortTh>
                     </tr>
                   </thead>
@@ -376,20 +410,55 @@ export function DepositsScreen() {
                                 {batch.status}
                               </span>
                             </td>
+                            <td className="px-4 py-2.5">
+                              {batch.bank_transaction_id ? (
+                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                                  Matched ✓
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                                  Unmatched
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-2.5 text-right font-mono font-semibold text-gray-900">
                               {fmt(batch.total_amount)}
                             </td>
                           </tr>
                           {isOpen && (
                             <tr key={`${batch.id}-detail`} className="bg-blue-50">
-                              <td colSpan={6} className="px-0 py-0">
+                              <td colSpan={7} className="px-0 py-0">
                                 {/* ── inline detail panel ── */}
                                 <div className="border-t border-blue-200">
-                                  <div className="px-4 py-2 bg-blue-100 flex items-center justify-between">
+                                  <div className="px-4 py-2 bg-blue-100 flex items-center justify-between flex-wrap gap-2">
                                     <span className="text-xs text-blue-700 font-medium">
                                       {batch.notes ? batch.notes : "Payments"}
                                     </span>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {/* OFX match controls */}
+                                      {batch.bank_transaction_id ? (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-xs text-teal-700 font-medium">OFX matched (txn #{batch.bank_transaction_id})</span>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); void handleUnlink(batch.id); }}
+                                            className="px-2 py-0.5 text-xs border border-orange-400 text-orange-600 rounded hover:bg-orange-50"
+                                          >
+                                            Unlink
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (matching?.batchId === batch.id) { setMatching(null); }
+                                            else { void handleOpenMatching(batch); }
+                                          }}
+                                          className="px-2 py-0.5 text-xs border rounded"
+                                          style={{ borderColor: "#2a6b5e", color: "#2a6b5e" }}
+                                        >
+                                          {matching?.batchId === batch.id ? "Hide OFX" : "Match OFX"}
+                                        </button>
+                                      )}
                                       {batch.status === "OPEN" && (
                                         <>
                                           <button
@@ -408,6 +477,52 @@ export function DepositsScreen() {
                                       )}
                                     </div>
                                   </div>
+                                  {/* OFX candidate picker */}
+                                  {matching?.batchId === batch.id && (
+                                    <div className="border-t border-teal-200 bg-teal-50 px-4 py-3">
+                                      <p className="text-xs font-semibold text-teal-800 mb-2">
+                                        OFX candidates — same account, within ±5% amount and ±14 days of {batch.deposit_date}
+                                      </p>
+                                      {matching.loading ? (
+                                        <p className="text-xs text-teal-600">Searching…</p>
+                                      ) : matching.candidates.length === 0 ? (
+                                        <p className="text-xs text-orange-700">
+                                          No matching bank transactions found. Check that the OFX file was imported for this account.
+                                        </p>
+                                      ) : (
+                                        <table className="w-full text-xs">
+                                          <thead>
+                                            <tr className="text-teal-700">
+                                              <th className="text-left py-1 pr-3 font-medium">Date</th>
+                                              <th className="text-left py-1 pr-3 font-medium">Description</th>
+                                              <th className="text-right py-1 pr-3 font-medium">Amount</th>
+                                              <th className="text-right py-1 pr-3 font-medium">Days off</th>
+                                              <th className="py-1" />
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {matching.candidates.map((c) => (
+                                              <tr key={c.id} className="border-t border-teal-100 hover:bg-teal-100">
+                                                <td className="py-1 pr-3 text-gray-700">{c.transaction_date}</td>
+                                                <td className="py-1 pr-3 text-gray-700 truncate">{c.description}</td>
+                                                <td className="py-1 pr-3 text-right font-mono text-gray-800">{fmt(c.amount)}</td>
+                                                <td className="py-1 pr-3 text-right text-gray-500">{Math.round(c.days_diff)}</td>
+                                                <td className="py-1 text-right">
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); void handleLink(batch.id, c.id); }}
+                                                    className="px-2 py-0.5 rounded text-white text-xs"
+                                                    style={{ backgroundColor: "#2f6046" }}
+                                                  >
+                                                    Link
+                                                  </button>
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      )}
+                                    </div>
+                                  )}
                                   {isLoadingDetail ? (
                                     <p className="px-6 py-3 text-xs text-gray-400">Loading…</p>
                                   ) : (
@@ -473,7 +588,7 @@ export function DepositsScreen() {
                   </tbody>
                   <tfoot className="bg-gray-50 border-t border-gray-200">
                     <tr>
-                      <td colSpan={5} className="px-4 py-2 text-xs text-gray-500">{batches.length} batches</td>
+                      <td colSpan={6} className="px-4 py-2 text-xs text-gray-500">{batches.length} batches</td>
                       <td className="px-4 py-2 text-right font-mono font-semibold text-gray-800 text-sm">
                         {fmt(batches.reduce((s, b) => s + b.total_amount, 0))}
                       </td>

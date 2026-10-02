@@ -157,7 +157,7 @@ function PaymentsTab() {
           placeholder="Filter by lot, owner, method, check#, memo…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 max-w-md border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {filter && (
           <button onClick={() => setFilter("")} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
@@ -375,7 +375,7 @@ function IncomeTab() {
           placeholder="Filter by date, category, account, description…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 max-w-md border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {filter && (
           <button onClick={() => setFilter("")} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
@@ -589,7 +589,7 @@ function AssessmentsTab() {
           placeholder="Filter by lot, owner, type, status, description…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 max-w-md border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {filter && (
           <button onClick={() => setFilter("")} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
@@ -704,7 +704,7 @@ export function EditRecordsScreen() {
       subtitle="Correct posted payments, income, and assessments."
       helpId="editRecords"
     >
-      <div className="max-w-5xl">
+      <div>
         <div className="flex gap-1 border-b border-gray-200 mb-6">
           {TABS.map((t) => (
             <button

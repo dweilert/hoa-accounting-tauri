@@ -118,7 +118,7 @@ export function LotDetailScreen() {
         </div>
       }
     >
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
 
       {/* AR summary */}
       <ARSummary assessments={assessments} />
