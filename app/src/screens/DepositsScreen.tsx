@@ -229,7 +229,6 @@ export function DepositsScreen() {
   const [owners, setOwners] = useState<OwnerWithLots[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [sortCol, setSortCol] = useState<SortCol>("date");
@@ -256,15 +255,18 @@ export function DepositsScreen() {
 
   useEffect(() => { void loadBatches().catch((e) => setError(String(e))); }, [loadBatches]);
 
-  async function selectBatch(batchId: number) {
+  const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
+
+  async function toggleBatch(batchId: number) {
+    if (selectedId === batchId) { setSelectedId(null); return; }
     setSelectedId(batchId);
     if (!payments.has(batchId)) {
-      setDetailLoading(true);
+      setLoadingIds((s) => new Set(s).add(batchId));
       try {
         const rows = await listPaymentsForBatch(batchId);
         setPayments((prev) => new Map(prev).set(batchId, rows));
       } finally {
-        setDetailLoading(false);
+        setLoadingIds((s) => { const n = new Set(s); n.delete(batchId); return n; });
       }
     }
   }
@@ -307,8 +309,6 @@ export function DepositsScreen() {
     return sortDir === "asc" ? cmp : -cmp;
   });
 
-  const selectedBatch = batches.find((b) => b.id === selectedId) ?? null;
-  const selectedPayments = selectedId != null ? (payments.get(selectedId) ?? []) : [];
 
   return (
     <PageLayout
@@ -341,158 +341,148 @@ export function DepositsScreen() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
+                      <th className="w-6 px-4 py-2.5" />
                       <SortTh col="date"     active={sortCol} dir={sortDir} onClick={toggleSort}>Date</SortTh>
                       <SortTh col="account"  active={sortCol} dir={sortDir} onClick={toggleSort}>Account</SortTh>
                       <SortTh col="payments" active={sortCol} dir={sortDir} onClick={toggleSort}>Payments</SortTh>
                       <SortTh col="status"   active={sortCol} dir={sortDir} onClick={toggleSort}>Status</SortTh>
                       <SortTh col="total"    active={sortCol} dir={sortDir} onClick={toggleSort} right>Total</SortTh>
-                      <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody>
                     {sorted.map((batch) => {
-                      const isSelected = batch.id === selectedId;
+                      const isOpen = batch.id === selectedId;
+                      const batchPayments = payments.get(batch.id) ?? [];
+                      const isLoadingDetail = loadingIds.has(batch.id);
                       return (
-                        <tr
-                          key={batch.id}
-                          onClick={() => void selectBatch(batch.id)}
-                          className={`cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                        >
-                          <td className={`px-4 py-2.5 font-medium ${isSelected ? "text-blue-900" : "text-gray-900"}`}>
-                            {batch.deposit_date}
-                          </td>
-                          <td className="px-4 py-2.5 text-gray-600 text-xs">{batch.account_name}</td>
-                          <td className="px-4 py-2.5 text-gray-500 text-xs">{batch.check_count}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              batch.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                            }`}>
-                              {batch.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-mono font-semibold text-gray-900">
-                            {fmt(batch.total_amount)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            {isSelected && <span className="text-blue-500 text-xs">▼ selected</span>}
-                          </td>
-                        </tr>
+                        <>
+                          <tr
+                            key={batch.id}
+                            onClick={() => void toggleBatch(batch.id)}
+                            className={`cursor-pointer transition-colors border-t border-gray-100 first:border-t-0 ${isOpen ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                          >
+                            <td className="px-4 py-2.5 w-6 text-gray-400 text-xs select-none">
+                              {isOpen ? "▼" : "▶"}
+                            </td>
+                            <td className={`px-4 py-2.5 font-medium ${isOpen ? "text-blue-900" : "text-gray-900"}`}>
+                              {batch.deposit_date}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-600 text-xs">{batch.account_name}</td>
+                            <td className="px-4 py-2.5 text-gray-500 text-xs">{batch.check_count}</td>
+                            <td className="px-4 py-2.5">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                batch.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                              }`}>
+                                {batch.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono font-semibold text-gray-900">
+                              {fmt(batch.total_amount)}
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr key={`${batch.id}-detail`} className="bg-blue-50">
+                              <td colSpan={6} className="px-0 py-0">
+                                {/* ── inline detail panel ── */}
+                                <div className="border-t border-blue-200">
+                                  <div className="px-4 py-2 bg-blue-100 flex items-center justify-between">
+                                    <span className="text-xs text-blue-700 font-medium">
+                                      {batch.notes ? batch.notes : "Payments"}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      {batch.status === "OPEN" && (
+                                        <>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); setModal({ mode: "addPayment", batchId: batch.id }); }}
+                                            className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                          >
+                                            + Payment
+                                          </button>
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); void handlePost(batch.id); }}
+                                            className="px-2 py-0.5 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                                          >
+                                            Post Batch
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {isLoadingDetail ? (
+                                    <p className="px-6 py-3 text-xs text-gray-400">Loading…</p>
+                                  ) : (
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-blue-50">
+                                        <tr>
+                                          <th className="pl-8 pr-4 py-1.5 text-left text-gray-500 font-medium">Date</th>
+                                          <th className="px-4 py-1.5 text-left text-gray-500 font-medium">Lot</th>
+                                          <th className="px-4 py-1.5 text-left text-gray-500 font-medium">Owner</th>
+                                          <th className="px-4 py-1.5 text-left text-gray-500 font-medium">Method</th>
+                                          <th className="px-4 py-1.5 text-left text-gray-500 font-medium">Check #</th>
+                                          <th className="px-4 py-1.5 text-right text-gray-500 font-medium pr-8">Amount</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-blue-100">
+                                        {batchPayments.length === 0 && (
+                                          <tr>
+                                            <td colSpan={6} className="pl-8 py-3 text-gray-400 italic">No payments in this batch.</td>
+                                          </tr>
+                                        )}
+                                        {batchPayments.map((p) => (
+                                          <tr key={p.id} className="hover:bg-blue-100">
+                                            <td className="pl-8 pr-4 py-1.5 text-gray-500">{p.payment_date}</td>
+                                            <td className="px-4 py-1.5 font-medium text-gray-800">Lot {p.lot_number}</td>
+                                            <td className="px-4 py-1.5 text-gray-500">{p.owner_name ?? "—"}</td>
+                                            <td className="px-4 py-1.5 text-gray-500">{p.payment_method}</td>
+                                            <td className="px-4 py-1.5 text-gray-500">{p.check_number ?? "—"}</td>
+                                            <td className="px-4 py-1.5 text-right font-mono text-gray-800 pr-6">
+                                              {fmt(p.amount)}
+                                              {batch.status === "OPEN" && (
+                                                <button
+                                                  onClick={(e) => { e.stopPropagation(); void handleDeletePayment(p.id, batch.id); }}
+                                                  className="ml-2 text-red-400 hover:text-red-600"
+                                                >
+                                                  ✕
+                                                </button>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      {batchPayments.length > 0 && (
+                                        <tfoot className="bg-blue-50 border-t border-blue-200">
+                                          <tr>
+                                            <td colSpan={5} className="pl-8 py-1.5 text-gray-500">
+                                              {batchPayments.length} payment{batchPayments.length !== 1 ? "s" : ""}
+                                            </td>
+                                            <td className="px-4 py-1.5 text-right font-mono font-semibold text-gray-800 pr-8">
+                                              {fmt(batchPayments.reduce((s, p) => s + p.amount, 0))}
+                                            </td>
+                                          </tr>
+                                        </tfoot>
+                                      )}
+                                    </table>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       );
                     })}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t border-gray-200">
                     <tr>
-                      <td colSpan={4} className="px-4 py-2 text-xs text-gray-500">{batches.length} batches</td>
+                      <td colSpan={5} className="px-4 py-2 text-xs text-gray-500">{batches.length} batches</td>
                       <td className="px-4 py-2 text-right font-mono font-semibold text-gray-800 text-sm">
                         {fmt(batches.reduce((s, b) => s + b.total_amount, 0))}
                       </td>
-                      <td />
                     </tr>
                   </tfoot>
                 </table>
               )}
             </div>
 
-            {/* ── Detail panel ── */}
-            {selectedBatch && (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-900">
-                      Deposit — {selectedBatch.deposit_date}
-                    </span>
-                    <span className="text-xs text-gray-500">{selectedBatch.account_name}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      selectedBatch.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {selectedBatch.status}
-                    </span>
-                    {selectedBatch.notes && (
-                      <span className="text-xs text-gray-400 italic">{selectedBatch.notes}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-gray-900">{fmt(selectedBatch.total_amount)}</span>
-                    {selectedBatch.status === "OPEN" && (
-                      <>
-                        <button
-                          onClick={() => setModal({ mode: "addPayment", batchId: selectedBatch.id })}
-                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                          + Payment
-                        </button>
-                        <button
-                          onClick={() => void handlePost(selectedBatch.id)}
-                          className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                        >
-                          Post Batch
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {detailLoading ? (
-                  <p className="px-6 py-6 text-sm text-gray-400 text-center">Loading payments…</p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Lot</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Method</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Check #</th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
-                        <th className="px-4 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedPayments.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="px-6 py-6 text-center text-gray-400 text-xs">
-                            No payments in this batch.
-                          </td>
-                        </tr>
-                      )}
-                      {selectedPayments.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-gray-600 text-xs">{p.payment_date}</td>
-                          <td className="px-4 py-2 font-medium text-gray-900">Lot {p.lot_number}</td>
-                          <td className="px-4 py-2 text-gray-500 text-xs">{p.owner_name ?? "—"}</td>
-                          <td className="px-4 py-2 text-gray-500 text-xs">{p.payment_method}</td>
-                          <td className="px-4 py-2 text-gray-500 text-xs">{p.check_number ?? "—"}</td>
-                          <td className="px-4 py-2 text-right font-mono text-gray-800">{fmt(p.amount)}</td>
-                          <td className="px-4 py-2 text-right">
-                            {selectedBatch.status === "OPEN" && (
-                              <button
-                                onClick={() => void handleDeletePayment(p.id, selectedBatch.id)}
-                                className="text-xs text-red-500 hover:underline"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    {selectedPayments.length > 0 && (
-                      <tfoot className="bg-gray-50 border-t border-gray-200">
-                        <tr>
-                          <td colSpan={5} className="px-4 py-2 text-xs text-gray-500">
-                            {selectedPayments.length} payment{selectedPayments.length !== 1 ? "s" : ""}
-                          </td>
-                          <td className="px-4 py-2 text-right font-mono font-semibold text-gray-800">
-                            {fmt(selectedPayments.reduce((s, p) => s + p.amount, 0))}
-                          </td>
-                          <td />
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                )}
-              </div>
-            )}
           </>
         )}
 
