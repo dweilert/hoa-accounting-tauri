@@ -138,7 +138,7 @@ export function LotDetailScreen() {
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Ownership %</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {currentOwners.map((o) => (
                   <tr key={o.id}>
                     <td className="px-4 py-2 font-medium text-gray-800">{o.display_name}</td>
@@ -166,7 +166,7 @@ export function LotDetailScreen() {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {assessments.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No assessments.</td></tr>
               )}
@@ -202,7 +202,7 @@ export function LotDetailScreen() {
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {payments.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No payments on record.</td></tr>
               )}
@@ -242,7 +242,7 @@ export function LotDetailScreen() {
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">%</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {ownership.filter((o) => o.end_date).map((o) => (
                   <tr key={o.id} className="opacity-60">
                     <td className="px-4 py-2 text-gray-700">{o.display_name}</td>

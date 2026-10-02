@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
@@ -135,7 +135,13 @@ async function loadContactList(): Promise<ContactRow[]> {
   `);
 }
 
-function ContactListReport() {
+function ContactListReport({
+  hoaName = "",
+  runDate = "",
+}: {
+  hoaName?: string;
+  runDate?: string;
+}) {
   const [rows, setRows] = useState<ContactRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,53 +153,126 @@ function ContactListReport() {
       .finally(() => setLoading(false));
   }, []);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  if (error)   return <p className="text-sm text-red-600">{error}</p>;
+
+  // Page splitting. Each row has a 2-line address (~47px tall).
+  // 10.5in page, 0.5in padding each side = 9.5in usable.
+  // PDF confirmed ~16-17 rows fit on page 1 before overflow — use 16.
+  // Continuation pages have a smaller header so can fit slightly more — use 18.
+  const ROWS_PAGE_1 = 16;
+  const ROWS_PER_PAGE = 18;
+
+  const page1Rows = rows.slice(0, ROWS_PAGE_1);
+  const remaining = rows.slice(ROWS_PAGE_1);
+  const extraPages: ContactRow[][] = [];
+  for (let i = 0; i < remaining.length; i += ROWS_PER_PAGE) {
+    extraPages.push(remaining.slice(i, i + ROWS_PER_PAGE));
+  }
+  const totalPages = 1 + extraPages.length;
+
+  function TableHead() {
+    return (
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Email</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap">Phone</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Mailing Address</th>
+        </tr>
+      </thead>
+    );
+  }
+
+  function TableRows({ pageRows }: { pageRows: ContactRow[] }) {
+    return (
+      <tbody className="divide-y divide-gray-100">
+        {pageRows.length === 0 && (
+          <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No homeowners found.</td></tr>
+        )}
+        {pageRows.map((r) => {
+          const phone = r.phone ?? r.home_phone;
+          const hasOwner = !!r.owner_name;
+          return (
+            <tr key={r.lot_number} className={hasOwner ? "" : "bg-gray-50"}>
+              <td className="px-3 py-2">
+                {hasOwner
+                  ? <span className="font-semibold text-gray-900">{r.owner_name}</span>
+                  : <span className="italic text-gray-400">— No owner —</span>}
+              </td>
+              <td className="px-3 py-2 text-gray-500">{r.email ?? <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{phone ?? <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2 text-gray-500">
+                {r.mailing_address_1 ? (
+                  <>
+                    <span>{r.mailing_address_1}</span>
+                    {(r.city || r.state || r.postal_code) && (
+                      <><br /><span>{[r.city, r.state, r.postal_code].filter(Boolean).join(", ")}</span></>
+                    )}
+                  </>
+                ) : <span className="text-gray-300">—</span>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    );
+  }
+
   return (
-    <div>
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Email</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Phone</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Mailing Address</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.map((r) => (
-                <tr key={r.lot_number}>
-                  <td className="px-4 py-2 font-medium text-gray-900">Lot {r.lot_number}</td>
-                  <td className="px-4 py-2 text-gray-700 text-xs">{r.owner_name ?? "— No owner —"}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.email ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.phone ?? r.home_phone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">
-                    {r.mailing_address_1
-                      ? `${r.mailing_address_1}${r.city ? `, ${r.city}` : ""}${r.state ? ` ${r.state}` : ""}${r.postal_code ? ` ${r.postal_code}` : ""}`
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <>
+      {/* Page 1 */}
+      <div className="rpt-wrap">
+        <div className="rpt-inner">
+          <div className="rpt-content">
+            <div className="hidden print:block mb-4 pb-3 border-b-2 border-gray-400">
+              <p className="text-[9px] text-gray-400 mb-1">{runDate}</p>
+              {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
+              <p className="text-sm font-semibold text-gray-700 text-center mt-0.5">Contact List</p>
+            </div>
+            <table className="w-full text-[11px]">
+              <TableHead />
+              <TableRows pageRows={page1Rows} />
+            </table>
+          </div>
+          <div className="rpt-footer">
+            <span>{hoaName}</span>
+            <span>Page 1 of {totalPages}</span>
+          </div>
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Continuation pages */}
+      {extraPages.map((pageRows, i) => (
+        <div key={i} className="rpt-wrap">
+          <div className="rpt-inner">
+            <div className="rpt-content">
+              <div className="hidden print:block mb-3">
+                {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
+                <p className="text-[10px] text-gray-500 text-center">Contact List (continued)</p>
+              </div>
+              <table className="w-full text-[11px]">
+                <TableHead />
+                <TableRows pageRows={pageRows} />
+              </table>
+            </div>
+            <div className="rpt-footer">
+              <span>{hoaName}</span>
+              <span>Page {i + 2} of {totalPages}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
 // ── Owner Ledger ──────────────────────────────────────────────────────────────
-
-type OwnerLedgerRow = {
-  txn_date: string;
-  type: string;
-  description: string;
-  amount: number;
-  running_balance: number;
-};
+// Types and data loaders shared with PublishStatementsScreen via lib/ownerLedgerData.ts
+import {
+  loadOwnerLedger, loadOwnerDetails,
+  type OLOwnerInfo, type OwnerLedgerResult,
+} from "../lib/ownerLedgerData";
 
 type OwnerSummary = { id: number; display_name: string; lot_number: string | null };
 
@@ -211,122 +290,211 @@ async function loadOwners(): Promise<OwnerSummary[]> {
   `);
 }
 
-type OwnerLedgerResult = { rows: OwnerLedgerRow[]; beginningBalance: number };
-
-async function loadOwnerLedger(ownerId: number, year: number): Promise<OwnerLedgerResult> {
-  const db = await getDb();
-  const yearStart = `${year}-01-01`;
-  const yearEnd   = `${year}-12-31`;
-
-  // Beginning balance: sum all transactions strictly before this year
-  const beginRows = await db.select<[{ bal: number }]>(`
-    SELECT COALESCE(SUM(amount), 0) AS bal FROM (
-      SELECT -a.amount AS amount
-      FROM assessments a WHERE a.owner_id = ? AND a.assessment_date < ?
-      UNION ALL
-      SELECT p.amount
-      FROM payments p WHERE p.owner_id = ? AND p.payment_date < ?
-    )
-  `, [ownerId, yearStart, ownerId, yearStart]);
-
-  const beginningBalance = beginRows[0]?.bal ?? 0;
-
-  // Transactions for the selected year only
-  const rows = await db.select<Omit<OwnerLedgerRow, "running_balance">[]>(`
-    SELECT txn_date, type, description, amount FROM (
-      SELECT a.assessment_date AS txn_date, 'CHARGE' AS type,
-             COALESCE(a.description, a.charge_type) AS description,
-             -a.amount AS amount
-      FROM assessments a
-      WHERE a.owner_id = ? AND a.assessment_date BETWEEN ? AND ?
-      UNION ALL
-      SELECT p.payment_date, 'PAYMENT', COALESCE(p.memo, 'Payment'), p.amount
-      FROM payments p
-      WHERE p.owner_id = ? AND p.payment_date BETWEEN ? AND ?
-    ) ORDER BY txn_date ASC
-  `, [ownerId, yearStart, yearEnd, ownerId, yearStart, yearEnd]);
-
-  let balance = beginningBalance;
-  const ledgerRows = rows.map((r) => {
-    balance += r.amount;
-    return { ...r, running_balance: balance };
-  });
-
-  return { rows: ledgerRows.reverse(), beginningBalance };
+function olFmtAbs(n: number) {
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(n));
+}
+function olFmtBal(n: number) { return n < 0 ? `-${olFmtAbs(n)}` : olFmtAbs(n); }
+function olBalColor(n: number) { return n < 0 ? "text-red-600" : "text-gray-900"; }
+function olFmtCharge(ct: string | null) {
+  if (!ct) return "Charge";
+  return ct.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function balanceLabel(b: number) {
-  if (b < 0) return { text: fmt(-b), tag: "Balance Due",  cls: "bg-red-50 border-red-200 text-red-700" };
-  if (b > 0) return { text: fmt(b),  tag: "Credit",       cls: "bg-green-50 border-green-200 text-green-700" };
-  return            { text: "$0.00", tag: "Paid in Full", cls: "bg-gray-50 border-gray-200 text-gray-600" };
-}
-
-function OwnerLedgerReport({ ownerId = 0, year = new Date().getFullYear() }: { ownerId?: number; year?: number }) {
-  const [result, setResult] = useState<OwnerLedgerResult | null>(null);
-  const [loading, setLoading] = useState(true);
+function OwnerLedgerReport({
+  ownerId = 0,
+  year = new Date().getFullYear(),
+  hoaName = "",
+  runDate = "",
+}: {
+  ownerId?: number;
+  year?: number;
+  hoaName?: string;
+  runDate?: string;
+}) {
+  const [result, setResult]           = useState<OwnerLedgerResult | null>(null);
+  const [ownerDetails, setOwnerDetails] = useState<OLOwnerInfo[]>([]);
+  const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
     if (!ownerId) { setLoading(false); return; }
     setLoading(true);
-    loadOwnerLedger(ownerId, year)
-      .then(setResult)
+    Promise.all([loadOwnerLedger(ownerId, year), loadOwnerDetails(ownerId)])
+      .then(([res, details]) => { setResult(res); setOwnerDetails(details); })
       .finally(() => setLoading(false));
   }, [ownerId, year]);
 
-  const rows = result?.rows ?? [];
-  const beginBal = result?.beginningBalance ?? 0;
-  const endBal   = rows[0]?.running_balance ?? beginBal;
-  const begin    = balanceLabel(beginBal);
-  const end      = balanceLabel(endBal);
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  if (!result)  return null;
+
+  const rows       = result.rows;
+  const beginBal   = result.beginningBalance;
+  const closingBal = rows[0]?.running_balance ?? beginBal;
+  const duesBal    = result.beginBalanceDetail.filter((i) => i.label === "DUES").reduce((s, i) => s + i.amount, 0);
+  const assessBal  = result.beginBalanceDetail.filter((i) => i.label !== "DUES" && i.label !== "Prior Payments").reduce((s, i) => s + i.amount, 0);
+
+  // Page splitting
+  const ROWS_PAGE_1 = 15;
+  const ROWS_PER_PAGE = 25;
+
+  const page1Rows = rows.slice(0, ROWS_PAGE_1);
+  const remainingRows = rows.slice(ROWS_PAGE_1);
+  const extraPageRows: typeof rows[] = [];
+  for (let i = 0; i < remainingRows.length; i += ROWS_PER_PAGE) {
+    extraPageRows.push(remainingRows.slice(i, i + ROWS_PER_PAGE));
+  }
+  const totalPages = 1 + extraPageRows.length;
+
+  function TxnRows({ pageRows, isLastPage }: { pageRows: typeof rows; isLastPage: boolean }) {
+    return (
+      <table className="w-full">
+        <thead>
+          <tr className="bg-slate-800 text-white">
+            <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
+            <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
+            <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold">Charge</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold">Payment</th>
+            <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {pageRows.length === 0 && <tr><td colSpan={6} className="px-3 py-4 text-center text-gray-400">No transactions for {year}.</td></tr>}
+          {pageRows.map((r, i) => (
+            <tr key={i}>
+              <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
+              <td className="px-3 py-1.5">
+                {r.type === "PAYMENT"
+                  ? <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 text-center min-w-[60px]">Payment</span>
+                  : <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 text-center min-w-[60px]">{olFmtCharge(r.charge_type)}</span>
+                }
+              </td>
+              <td className="px-3 py-1.5 text-gray-700">{r.description}</td>
+              <td className="px-3 py-1.5 text-right font-mono text-gray-800">{r.amount < 0 ? olFmtAbs(r.amount) : ""}</td>
+              <td className="px-3 py-1.5 text-right font-mono text-gray-800">{r.amount >= 0 ? olFmtAbs(r.amount) : ""}</td>
+              <td className={`px-3 py-1.5 text-right font-mono ${olBalColor(r.running_balance)}`}>{olFmtBal(r.running_balance)}</td>
+            </tr>
+          ))}
+        </tbody>
+        {isLastPage && (
+          <tfoot>
+            <tr className="border-t-2 border-gray-300">
+              <td colSpan={5} className="px-3 py-2 text-right font-bold text-gray-800">Closing Balance</td>
+              <td className={`px-3 py-2 text-right font-bold font-mono ${olBalColor(closingBal)}`}>{olFmtBal(closingBal)}</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      {/* Beginning / Ending balance summary */}
-      {!loading && ownerId > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className={`border rounded-lg p-3 ${begin.cls}`}>
-            <p className="text-xs font-medium opacity-70 mb-0.5">Beginning Balance — Jan 1, {year}</p>
-            <p className="text-lg font-bold">{begin.text}</p>
-            <p className="text-xs font-medium">{begin.tag}</p>
+    <>
+      {/* Page 1 */}
+      <div className="rpt-wrap">
+        <div className="rpt-inner">
+        <div className="rpt-content">
+          {/* Print-only header */}
+          <div className="hidden print:block mb-4 pb-3 border-b-2 border-gray-400">
+            <p className="text-[9px] text-gray-400 mb-1">{runDate}</p>
+            {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
+            <p className="text-sm font-semibold text-gray-700 text-center mt-0.5">Owner Ledger — {year}</p>
           </div>
-          <div className={`border rounded-lg p-3 ${end.cls}`}>
-            <p className="text-xs font-medium opacity-70 mb-0.5">Ending Balance — Dec 31, {year}</p>
-            <p className="text-lg font-bold">{end.text}</p>
-            <p className="text-xs font-medium">{end.tag}</p>
+
+          <div className="space-y-3 text-[11px]">
+            {/* Owners */}
+            {ownerDetails.length > 0 && (
+              <div className="border border-gray-300 rounded">
+                <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Owners</div>
+                <div className="p-4 grid grid-cols-2 gap-4">
+                  {ownerDetails.map((o, i) => (
+                    <div key={i}>
+                      <p className="font-bold text-gray-900">{o.display_name}</p>
+                      {o.email && <p className="text-gray-500 mt-0.5">Email: {o.email}</p>}
+                      {o.phone && <p className="text-gray-500">Phone: {o.phone}</p>}
+                      {o.mailing_address_1 && <p className="text-gray-500 mt-0.5">{o.mailing_address_1}</p>}
+                      {(o.city || o.state || o.postal_code) && (
+                        <p className="text-gray-500">{[o.city, o.state, o.postal_code].filter(Boolean).join(" ")}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Summary strip */}
+            <div className="border border-gray-300 rounded">
+              <div className="grid grid-cols-4 divide-x divide-gray-200 bg-gray-50 text-[9px] font-medium text-gray-500 uppercase tracking-wide">
+                {["Year", "Opening Dues Balance", "Opening Assessments Balance", "Closing Balance"].map((h) => (
+                  <div key={h} className="px-4 py-1">{h}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-4 divide-x divide-gray-200">
+                <div className="px-4 py-1.5 font-semibold text-[11px] text-gray-900">{year}</div>
+                <div className={`px-4 py-1.5 font-semibold text-[11px] ${olBalColor(duesBal)}`}>{olFmtBal(duesBal)}</div>
+                <div className={`px-4 py-1.5 font-semibold text-[11px] ${olBalColor(assessBal)}`}>{olFmtBal(assessBal)}</div>
+                <div className={`px-4 py-1.5 font-semibold text-[11px] ${olBalColor(closingBal)}`}>{olFmtBal(closingBal)}</div>
+              </div>
+            </div>
+
+            {/* Beginning Balance Detail */}
+            {result.beginBalanceDetail.length > 0 && (
+              <div className="border border-gray-300 rounded">
+                <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Beginning Balance Detail</div>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="px-4 py-1.5 text-left text-[10px] font-medium text-gray-500">Charge Type</th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-medium text-gray-500">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {result.beginBalanceDetail.map((item, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-1.5 text-gray-700">Prior Balance — {olFmtCharge(item.label)}</td>
+                        <td className={`px-4 py-1.5 text-right font-mono ${olBalColor(item.amount)}`}>{olFmtBal(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-gray-200">
+                      <td className="px-4 py-1.5 text-right font-semibold text-gray-700">Total Opening Balance</td>
+                      <td className={`px-4 py-1.5 text-right font-bold font-mono ${olBalColor(beginBal)}`}>{olFmtBal(beginBal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {/* Transaction table — page 1 rows */}
+            <TxnRows pageRows={page1Rows} isLastPage={totalPages === 1} />
           </div>
         </div>
-      )}
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Balance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions for {year}.</td></tr>}
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-2 text-gray-600 text-xs">{r.txn_date}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.type === "PAYMENT" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{r.type}</span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700 text-xs">{r.description}</td>
-                  <td className={`px-4 py-2 text-right font-mono text-xs ${r.amount >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(r.amount)}</td>
-                  <td className={`px-4 py-2 text-right font-mono text-xs ${r.running_balance >= 0 ? "text-gray-700" : "text-red-600"}`}>{fmt(r.running_balance)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rpt-footer">
+          <span>{hoaName}</span>
+          <span>Page 1 of {totalPages}</span>
         </div>
-      )}
-    </div>
+        </div>
+      </div>
+
+      {/* Additional pages */}
+      {extraPageRows.map((pageRows, i) => (
+        <div key={i} className="rpt-wrap">
+          <div className="rpt-inner">
+          <div className="rpt-content">
+            <div className="hidden print:block mb-4">
+              {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
+              <p className="text-[10px] text-gray-500 text-center">Owner Ledger — {year} (continued)</p>
+            </div>
+            <TxnRows pageRows={pageRows} isLastPage={i === extraPageRows.length - 1} />
+          </div>
+          <div className="rpt-footer">
+            <span>{hoaName}</span>
+            <span>Page {i + 2} of {totalPages}</span>
+          </div>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -362,62 +530,57 @@ function BudgetVsActualReport({ year }: { year: number }) {
     loadBudgetVsActual(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+
   const totalBudget = rows.reduce((s, r) => s + r.budget_amount, 0);
   const totalActual = rows.reduce((s, r) => s + r.actual_amount, 0);
 
   return (
-    <div>
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Budget</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Actual</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Variance</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">vs Budget</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No budget or expense data for {year}.</td></tr>}
-              {rows.map((r) => {
-                const pct = r.budget_amount > 0 ? (r.actual_amount / r.budget_amount) * 100 : null;
-                return (
-                  <tr key={r.category_name}>
-                    <td className="px-4 py-2 text-gray-700">{r.category_name}</td>
-                    <td className="px-4 py-2 text-right font-mono text-xs text-gray-500">{fmt(r.budget_amount)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-xs text-red-600">{fmt(r.actual_amount)}</td>
-                    <td className={`px-4 py-2 text-right font-mono text-xs ${r.variance >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(r.variance)}</td>
-                    <td className="px-4 py-2 text-xs">
-                      {pct !== null ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 bg-gray-200 rounded-full h-1.5">
-                            <div className={`h-1.5 rounded-full ${pct > 100 ? "bg-red-500" : pct > 80 ? "bg-orange-400" : "bg-green-500"}`}
-                              style={{ width: `${Math.min(pct, 100)}%` }} />
-                          </div>
-                          <span className="text-gray-500">{pct.toFixed(0)}%</span>
-                        </div>
-                      ) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length > 0 && (
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="px-4 py-2 text-gray-600 text-xs">Total</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">{fmt(totalBudget)}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-red-700">{fmt(totalActual)}</td>
-                  <td className={`px-4 py-2 text-right font-mono text-xs ${totalBudget - totalActual >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(totalBudget - totalActual)}</td>
-                  <td className="px-4 py-2" />
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Budget</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Actual</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Variance</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">vs Budget</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No budget or expense data for {year}.</td></tr>}
+        {rows.map((r) => {
+          const pct = r.budget_amount > 0 ? (r.actual_amount / r.budget_amount) * 100 : null;
+          return (
+            <tr key={r.category_name}>
+              <td className="px-3 py-1.5 text-gray-700">{r.category_name}</td>
+              <td className="px-3 py-1.5 text-right font-mono text-gray-500">{fmt(r.budget_amount)}</td>
+              <td className="px-3 py-1.5 text-right font-mono text-red-600">{fmt(r.actual_amount)}</td>
+              <td className={`px-3 py-1.5 text-right font-mono ${r.variance >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(r.variance)}</td>
+              <td className="px-3 py-1.5">
+                {pct !== null ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                      <div className={`h-1.5 rounded-full ${pct > 100 ? "bg-red-500" : pct > 80 ? "bg-orange-400" : "bg-green-500"}`}
+                        style={{ width: `${Math.min(pct, 100)}%` }} />
+                    </div>
+                    <span className="text-gray-500">{pct.toFixed(0)}%</span>
+                  </div>
+                ) : "—"}
+              </td>
+            </tr>
+          );
+        })}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono text-gray-600">{fmt(totalBudget)}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-red-700">{fmt(totalActual)}</td>
+            <td className={`px-3 py-1.5 text-right font-mono ${totalBudget - totalActual >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(totalBudget - totalActual)}</td>
+            <td className="px-3 py-1.5" />
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -455,45 +618,38 @@ function ExpenseDetailReport({ year }: { year: number }) {
     loadExpenseDetail(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+
   return (
-    <div>
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Vendor</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Invoice</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Check #</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No expense payments for {year}.</td></tr>}
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-2 text-gray-600 text-xs">{r.payment_date}</td>
-                  <td className="px-4 py-2 text-gray-700 text-xs">{r.vendor_name}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.invoice_number}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.category_name ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-400 text-xs">{r.check_number ?? "—"}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-red-600">{fmt(r.amount)}</td>
-                </tr>
-              ))}
-              {rows.length > 0 && (
-                <tr className="bg-gray-50 font-semibold">
-                  <td colSpan={5} className="px-4 py-2 text-gray-600 text-xs">Total</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-red-700">{fmt(rows.reduce((s, r) => s + r.amount, 0))}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Vendor</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Invoice</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No expense payments for {year}.</td></tr>}
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className="px-3 py-1.5 text-gray-600">{r.payment_date}</td>
+            <td className="px-3 py-1.5 text-gray-700">{r.vendor_name}</td>
+            <td className="px-3 py-1.5 text-gray-500">{r.invoice_number}</td>
+            <td className="px-3 py-1.5 text-gray-500">{r.category_name ?? "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-red-600">{fmt(r.amount)}</td>
+          </tr>
+        ))}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td colSpan={4} className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono text-red-700">{fmt(rows.reduce((s, r) => s + r.amount, 0))}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -525,43 +681,38 @@ function VendorExpensesReport({ year }: { year: number }) {
     loadVendorExpenses(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+
   return (
-    <div>
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Vendor</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Paid</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Open</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total Invoiced</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">No vendor invoices for {year}.</td></tr>}
-              {rows.map((r) => (
-                <tr key={r.vendor_name}>
-                  <td className="px-4 py-2 text-gray-700">{r.vendor_name}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-green-700">{fmt(r.paid)}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-orange-600">{r.open > 0 ? fmt(r.open) : "—"}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs font-semibold text-gray-900">{fmt(r.total)}</td>
-                </tr>
-              ))}
-              {rows.length > 0 && (
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="px-4 py-2 text-gray-600 text-xs">Total</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-green-800">{fmt(rows.reduce((s, r) => s + r.paid, 0))}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-orange-700">{fmt(rows.reduce((s, r) => s + r.open, 0))}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-gray-900">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Vendor</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Paid</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Open</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total Invoiced</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No vendor invoices for {year}.</td></tr>}
+        {rows.map((r) => (
+          <tr key={r.vendor_name}>
+            <td className="px-3 py-1.5 text-gray-700">{r.vendor_name}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-green-700">{fmt(r.paid)}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-orange-600">{r.open > 0 ? fmt(r.open) : "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono font-semibold text-gray-900">{fmt(r.total)}</td>
+          </tr>
+        ))}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono text-green-800">{fmt(rows.reduce((s, r) => s + r.paid, 0))}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-orange-700">{fmt(rows.reduce((s, r) => s + r.open, 0))}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-gray-900">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -595,49 +746,34 @@ function DepositsReport({ year }: { year: number }) {
     loadDepositsReport(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+
   return (
-    <div>
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Checks</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No deposits for {year}.</td></tr>}
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-2 text-gray-600 text-xs">{r.deposit_date}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.account_name}</td>
-                  <td className="px-4 py-2 text-right text-gray-500 text-xs">{r.check_count}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-green-700">{fmt(r.total_amount)}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {rows.length > 0 && (
-                <tr className="bg-gray-50 font-semibold">
-                  <td colSpan={2} className="px-4 py-2 text-gray-600 text-xs">Total</td>
-                  <td className="px-4 py-2 text-right text-xs">{rows.reduce((s, r) => s + r.check_count, 0)}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-green-800">{fmt(rows.reduce((s, r) => s + r.total_amount, 0))}</td>
-                  <td className="px-4 py-2" />
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Account</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={3} className="px-3 py-6 text-center text-gray-400">No deposits for {year}.</td></tr>}
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className="px-3 py-1.5 text-gray-600">{r.deposit_date}</td>
+            <td className="px-3 py-1.5 text-gray-500">{r.account_name}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-green-700">{fmt(r.total_amount)}</td>
+          </tr>
+        ))}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td colSpan={2} className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono text-green-800">{fmt(rows.reduce((s, r) => s + r.total_amount, 0))}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -683,50 +819,47 @@ function DelinquencyReport() {
       .finally(() => setLoading(false));
   }, []);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  if (error)   return <p className="text-sm text-red-600">{error}</p>;
+  if (rows.length === 0) {
+    return (
+      <div className="p-6 text-center text-sm text-green-700 bg-green-50 rounded-lg border border-green-200">
+        No delinquent accounts — all assessments are current.
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {!loading && rows.length === 0 && (
-        <div className="p-6 text-center text-sm text-green-700 bg-green-50 rounded-lg border border-green-200">
-          No delinquent accounts — all assessments are current.
-        </div>
-      )}
-      {!loading && rows.length > 0 && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Contact</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Oldest Due</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Days Overdue</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Balance Due</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.map((r) => (
-                <tr key={r.lot_number} className={r.days_overdue > 90 ? "bg-red-50" : r.days_overdue > 30 ? "bg-orange-50" : ""}>
-                  <td className="px-4 py-2 font-medium text-gray-900">Lot {r.lot_number}</td>
-                  <td className="px-4 py-2 text-gray-700 text-xs">{r.owner_name ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.email ?? r.phone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{r.oldest_due_date ?? "—"}</td>
-                  <td className={`px-4 py-2 text-right font-mono text-xs font-semibold ${r.days_overdue > 90 ? "text-red-600" : r.days_overdue > 30 ? "text-orange-600" : "text-yellow-700"}`}>
-                    {r.days_overdue}d
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono font-semibold text-red-700">{fmt(r.open_amount)}</td>
-                </tr>
-              ))}
-              <tr className="bg-gray-50 font-semibold">
-                <td colSpan={5} className="px-4 py-2 text-gray-600 text-xs">Total ({rows.length} lots)</td>
-                <td className="px-4 py-2 text-right font-mono text-xs text-red-700">{fmt(rows.reduce((s, r) => s + r.open_amount, 0))}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Contact</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Oldest Due</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Days Overdue</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance Due</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.map((r) => (
+          <tr key={r.lot_number} className={r.days_overdue > 90 ? "bg-red-50" : r.days_overdue > 30 ? "bg-orange-50" : ""}>
+            <td className="px-3 py-1.5 font-medium text-gray-900">Lot {r.lot_number}</td>
+            <td className="px-3 py-1.5 text-gray-700">{r.owner_name ?? "—"}</td>
+            <td className="px-3 py-1.5 text-gray-500">{r.email ?? r.phone ?? "—"}</td>
+            <td className="px-3 py-1.5 text-gray-500">{r.oldest_due_date ?? "—"}</td>
+            <td className={`px-3 py-1.5 text-right font-mono font-semibold ${r.days_overdue > 90 ? "text-red-600" : r.days_overdue > 30 ? "text-orange-600" : "text-yellow-700"}`}>
+              {r.days_overdue}d
+            </td>
+            <td className="px-3 py-1.5 text-right font-mono font-semibold text-red-700">{fmt(r.open_amount)}</td>
+          </tr>
+        ))}
+        <tr className="bg-gray-50 font-semibold text-[11px]">
+          <td colSpan={5} className="px-3 py-1.5 text-gray-600">Total ({rows.length} lots)</td>
+          <td className="px-3 py-1.5 text-right font-mono text-red-700">{fmt(rows.reduce((s, r) => s + r.open_amount, 0))}</td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
 
@@ -744,44 +877,39 @@ function TransactionHistoryReport({ limit = 500 }: { limit?: number }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  if (error)   return <p className="text-sm text-red-600">{error}</p>;
+
   return (
-    <div className="space-y-3">
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {!loading && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions yet.</td></tr>}
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-2 text-gray-600 text-xs">{r.txn_date}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.source_type === "PAYMENT" ? "bg-green-100 text-green-700" : r.source_type === "BILL_PAYMENT" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-                      {SOURCE_LABELS[r.source_type] ?? r.source_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700 text-xs">{r.description}</td>
-                  <td className="px-4 py-2 text-gray-400 text-xs">{r.account_name ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-400 text-xs">{r.lot_number ? `Lot ${r.lot_number}` : "—"}</td>
-                  <td className={`px-4 py-2 text-right font-mono text-xs ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>{fmt(r.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Account</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">No transactions yet.</td></tr>}
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
+            <td className="px-3 py-1.5">
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.source_type === "PAYMENT" ? "bg-green-100 text-green-700" : r.source_type === "BILL_PAYMENT" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                {SOURCE_LABELS[r.source_type] ?? r.source_type}
+              </span>
+            </td>
+            <td className="px-3 py-1.5 text-gray-700">{r.description}</td>
+            <td className="px-3 py-1.5 text-gray-400">{r.account_name ?? "—"}</td>
+            <td className="px-3 py-1.5 text-gray-400">{r.lot_number ? `Lot ${r.lot_number}` : "—"}</td>
+            <td className={`px-3 py-1.5 text-right font-mono ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>{fmt(r.amount)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -833,37 +961,34 @@ function AccountDetailReport({ accountId = 0, limit = 500 }: { accountId?: numbe
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!loading && rows.length > 0 && (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Balance</th>
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="bg-slate-800 text-white">
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
+                <td className="px-3 py-1.5">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${r.source_type === "PAYMENT" ? "bg-green-100 text-green-700" : r.source_type === "BILL_PAYMENT" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                    {SOURCE_LABELS[r.source_type] ?? r.source_type}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 text-gray-700">{r.description}</td>
+                <td className="px-3 py-1.5 text-gray-400">{r.lot_number ? `Lot ${r.lot_number}` : "—"}</td>
+                <td className={`px-3 py-1.5 text-right font-mono ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>{fmt(r.amount)}</td>
+                <td className="px-3 py-1.5 text-right font-mono text-gray-700">{r.running_balance !== undefined ? fmt(r.running_balance) : ""}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions for this account.</td></tr>}
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-2 text-gray-600 text-xs">{r.txn_date}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.source_type === "PAYMENT" ? "bg-green-100 text-green-700" : r.source_type === "BILL_PAYMENT" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-                      {SOURCE_LABELS[r.source_type] ?? r.source_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700 text-xs">{r.description}</td>
-                  <td className="px-4 py-2 text-gray-400 text-xs">{r.lot_number ? `Lot ${r.lot_number}` : "—"}</td>
-                  <td className={`px-4 py-2 text-right font-mono text-xs ${r.amount < 0 ? "text-red-600" : "text-green-700"}`}>{fmt(r.amount)}</td>
-                  <td className="px-4 py-2 text-right font-mono text-xs text-gray-700">{r.running_balance !== undefined ? fmt(r.running_balance) : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -879,45 +1004,43 @@ function ARAgingReport() {
   useEffect(() => { loadARaging().then(setRows).finally(() => setLoading(false)); }, []);
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b">
-          <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Current (0–30d)</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">31–60d</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">61–90d</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">90d+</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total</th>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Current (0–30d)</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">31–60d</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">61–90d</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">90d+</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">No outstanding balances.</td></tr>}
+        {rows.map((r) => (
+          <tr key={r.lot_number}>
+            <td className="px-3 py-1.5 font-medium text-gray-900">Lot {r.lot_number}</td>
+            <td className="px-3 py-1.5 text-gray-600">{r.owner_name ?? "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{r.current > 0 ? fmt(r.current) : "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{r.d30 > 0 ? fmt(r.d30) : "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-orange-600">{r.d60 > 0 ? fmt(r.d60) : "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-red-600">{r.d90plus > 0 ? fmt(r.d90plus) : "—"}</td>
+            <td className="px-3 py-1.5 text-right font-mono font-semibold text-gray-900">{fmt(r.total)}</td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
-          {rows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No outstanding balances.</td></tr>}
-          {rows.map((r) => (
-            <tr key={r.lot_number}>
-              <td className="px-4 py-2 font-medium text-gray-900">Lot {r.lot_number}</td>
-              <td className="px-4 py-2 text-gray-600 text-xs">{r.owner_name ?? "—"}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs">{r.current > 0 ? fmt(r.current) : "—"}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs">{r.d30 > 0 ? fmt(r.d30) : "—"}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs text-orange-600">{r.d60 > 0 ? fmt(r.d60) : "—"}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs text-red-600">{r.d90plus > 0 ? fmt(r.d90plus) : "—"}</td>
-              <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">{fmt(r.total)}</td>
-            </tr>
-          ))}
-          {rows.length > 0 && (
-            <tr className="bg-gray-50 font-semibold">
-              <td colSpan={2} className="px-4 py-2 text-gray-600 text-xs">Total</td>
-              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.current, 0))}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.d30, 0))}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.d60, 0))}</td>
-              <td className="px-4 py-2 text-right font-mono text-xs">{fmt(rows.reduce((s, r) => s + r.d90plus, 0))}</td>
-              <td className="px-4 py-2 text-right font-mono text-gray-900">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+        ))}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td colSpan={2} className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono">{fmt(rows.reduce((s, r) => s + r.current, 0))}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{fmt(rows.reduce((s, r) => s + r.d30, 0))}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{fmt(rows.reduce((s, r) => s + r.d60, 0))}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{fmt(rows.reduce((s, r) => s + r.d90plus, 0))}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-gray-900">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -927,31 +1050,29 @@ function IncomeSummaryReport({ year }: { year: number }) {
   useEffect(() => { setLoading(true); loadIncomeSummary(year).then(setRows).finally(() => setLoading(false)); }, [year]);
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b">
-          <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total {year}</th>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total {year}</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-gray-400">No income for {year}.</td></tr>}
+        {rows.map((r) => (
+          <tr key={r.category_name}>
+            <td className="px-3 py-1.5 text-gray-700">{r.category_name}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-green-700">{fmt(r.total)}</td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
-          {rows.length === 0 && <tr><td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">No income for {year}.</td></tr>}
-          {rows.map((r) => (
-            <tr key={r.category_name}>
-              <td className="px-4 py-2 text-gray-700">{r.category_name}</td>
-              <td className="px-4 py-2 text-right font-mono text-green-700">{fmt(r.total)}</td>
-            </tr>
-          ))}
-          {rows.length > 0 && (
-            <tr className="bg-gray-50 font-semibold">
-              <td className="px-4 py-2 text-gray-600">Total</td>
-              <td className="px-4 py-2 text-right font-mono text-green-800">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+        ))}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono text-green-800">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -961,31 +1082,29 @@ function ExpenseSummaryReport({ year }: { year: number }) {
   useEffect(() => { setLoading(true); loadExpenseSummary(year).then(setRows).finally(() => setLoading(false)); }, [year]);
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b">
-          <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Total {year}</th>
+    <table className="w-full text-[11px]">
+      <thead>
+        <tr className="bg-slate-800 text-white">
+          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
+          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total {year}</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-gray-400">No expenses for {year}.</td></tr>}
+        {rows.map((r) => (
+          <tr key={r.category_name}>
+            <td className="px-3 py-1.5 text-gray-700">{r.category_name}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-red-600">{fmt(r.total)}</td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
-          {rows.length === 0 && <tr><td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">No expenses for {year}.</td></tr>}
-          {rows.map((r) => (
-            <tr key={r.category_name}>
-              <td className="px-4 py-2 text-gray-700">{r.category_name}</td>
-              <td className="px-4 py-2 text-right font-mono text-red-600">{fmt(r.total)}</td>
-            </tr>
-          ))}
-          {rows.length > 0 && (
-            <tr className="bg-gray-50 font-semibold">
-              <td className="px-4 py-2 text-gray-600">Total</td>
-              <td className="px-4 py-2 text-right font-mono text-red-700">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+        ))}
+        {rows.length > 0 && (
+          <tr className="bg-gray-50 font-semibold text-[11px]">
+            <td className="px-3 py-1.5 text-gray-600">Total</td>
+            <td className="px-3 py-1.5 text-right font-mono text-red-700">{fmt(rows.reduce((s, r) => s + r.total, 0))}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }
 
@@ -1066,9 +1185,104 @@ export function ReportsScreen() {
     }));
   }
 
+  /**
+   * Generate a real PDF via @react-pdf/renderer, save to disk, and open in the
+   * system PDF viewer (macOS Preview, Windows Edge, Linux evince, etc.).
+   * No browser print dialog, no WKWebView layout quirks, exact page geometry.
+   */
+  async function handleSavePDF() {
+    if (!selected || !hasRun) return;
+    try {
+      const { pdf } = await import("@react-pdf/renderer");
+      const { writeFile } = await import("@tauri-apps/plugin-fs");
+      const { homeDir } = await import("@tauri-apps/api/path");
+      const { openPath } = await import("@tauri-apps/plugin-opener");
+
+      const rDate = `Generated: ${runDate}`;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let docEl: React.ReactElement<any> | null = null;
+
+      if (selected === "contact_list") {
+        const { ContactListPDF } = await import("../reports/ContactListPDF");
+        const rows = await loadContactList();
+        docEl = <ContactListPDF rows={rows} hoaName={hoaName} runDate={rDate} />;
+
+      } else if (selected === "owner_ledger") {
+        const { OwnerLedgerPDF } = await import("../reports/OwnerLedgerPDF");
+        const [result, details] = await Promise.all([loadOwnerLedger(ownerId, year), loadOwnerDetails(ownerId)]);
+        docEl = <OwnerLedgerPDF result={result} ownerDetails={details} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "ar_aging") {
+        const { ARAgingPDF } = await import("../reports/ARAgingPDF");
+        const rows = await loadARaging();
+        docEl = <ARAgingPDF rows={rows} hoaName={hoaName} runDate={rDate} />;
+
+      } else if (selected === "delinquency") {
+        const { DelinquencyPDF } = await import("../reports/DelinquencyPDF");
+        const rows = await loadDelinquency();
+        docEl = <DelinquencyPDF rows={rows} hoaName={hoaName} runDate={rDate} />;
+
+      } else if (selected === "income_summary") {
+        const { IncomeSummaryPDF } = await import("../reports/IncomeSummaryPDF");
+        const rows = await loadIncomeSummary(year);
+        docEl = <IncomeSummaryPDF rows={rows} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "expense_summary") {
+        const { ExpenseSummaryPDF } = await import("../reports/ExpenseSummaryPDF");
+        const rows = await loadExpenseSummary(year);
+        docEl = <ExpenseSummaryPDF rows={rows} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "expense_detail") {
+        const { ExpenseDetailPDF } = await import("../reports/ExpenseDetailPDF");
+        const rows = await loadExpenseDetail(year);
+        docEl = <ExpenseDetailPDF rows={rows} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "vendor_expenses") {
+        const { VendorExpensesPDF } = await import("../reports/VendorExpensesPDF");
+        const rows = await loadVendorExpenses(year);
+        docEl = <VendorExpensesPDF rows={rows} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "budget_vs_actual") {
+        const { BudgetVsActualPDF } = await import("../reports/BudgetVsActualPDF");
+        const rows = await loadBudgetVsActual(year);
+        docEl = <BudgetVsActualPDF rows={rows} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "deposits") {
+        const { DepositsPDF } = await import("../reports/DepositsPDF");
+        const rows = await loadDepositsReport(year);
+        docEl = <DepositsPDF rows={rows} hoaName={hoaName} runDate={rDate} year={year} />;
+
+      } else if (selected === "txn_history") {
+        const { TransactionHistoryPDF } = await import("../reports/TransactionHistoryPDF");
+        const rows = await loadTransactionHistory(txnLimit);
+        docEl = <TransactionHistoryPDF rows={rows} hoaName={hoaName} runDate={rDate} />;
+
+      } else if (selected === "account_detail") {
+        const { AccountDetailPDF } = await import("../reports/AccountDetailPDF");
+        const rows = await loadLedger(accountId, txnLimit);
+        const acct = accounts.find((a) => a.id === accountId);
+        docEl = <AccountDetailPDF rows={rows} hoaName={hoaName} runDate={rDate} accountName={acct?.account_name} />;
+      }
+
+      if (!docEl) {
+        alert("PDF generation not yet available for this report.");
+        return;
+      }
+
+      const blob   = await pdf(docEl).toBlob();
+      const buffer = await blob.arrayBuffer();
+      const home   = await homeDir();
+      const path   = `${home}/hoa-system/tauri/hoa-report.pdf`;
+      await writeFile(path, new Uint8Array(buffer));
+      await openPath(path);
+    } catch (e) {
+      alert(`PDF generation failed: ${String(e)}`);
+    }
+  }
+
   return (
     <PageLayout title="Reports" subtitle="Financial summaries and operational reports." helpId="reports">
-      <div className="max-w-5xl">
+      <div className="max-w-5xl print:max-w-none print:w-full">
         {/* Selector + params — hidden when printing */}
         <div className="bg-white border rounded-lg p-4 mb-5 space-y-4 print:hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1195,59 +1409,152 @@ export function ReportsScreen() {
 
         {hasRun && (
           <>
-            {/* Print page-number CSS — injected only when a report is shown */}
+            {/* Print CSS — Retirement Planner nested-flex pattern.
+                .rpt-wrap is the page (flex col, min-height = page).
+                .rpt-inner (flex col, flex:1) holds content + footer.
+                .rpt-content (flex:1) expands; .rpt-footer (margin-top:auto) pins to bottom. */}
             <style>{`
+              @page { size: letter portrait; margin: 0; }
+              .rpt-wrap {
+                min-height: 11in;
+                padding: 0.6in 0.55in;
+                display: flex;
+                flex-direction: column;
+                box-sizing: border-box;
+                position: relative;
+              }
+              .rpt-inner {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+              }
+              .rpt-content { flex: 1; }
+              .rpt-footer {
+                margin-top: auto;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-top: 6pt;
+                border-top: 0.5px solid #d1d5db;
+                font-size: 8pt;
+                color: #6b7280;
+              }
               @media print {
-                @page { margin: 15mm 12mm 22mm 12mm; }
-                .report-page-num {
-                  position: fixed;
-                  bottom: 6mm;
-                  left: 0;
-                  right: 0;
-                  text-align: center;
-                  font-size: 9pt;
-                  color: #666;
+                /* Reset ancestors (html/body/root/main) and clamp .max-w-5xl
+                   so it doesn't overflow the 8.5in page width. */
+                html, body, #root, main, .max-w-5xl {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  height: auto !important;
+                  min-height: 0 !important;
+                  max-width: none !important;
+                  width: 100% !important;
+                  overflow: visible !important;
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
                 }
-                .report-page-num::after {
-                  content: "Page " counter(page);
+                /* CRITICAL: collapse the AppShell flex wrapper and PageLayout's
+                   padding div with display:contents so they are removed from the
+                   layout tree entirely. Otherwise they remain block-level boxes
+                   whose trailing height pushes content onto a phantom 2nd page. */
+                #root > div, .p-6 {
+                  display: contents !important;
+                }
+                thead { display: table-header-group; }
+                tbody tr { page-break-inside: avoid; }
+                .rpt-wrap {
+                  /* 10.5in leaves a comfortable 0.5in safety margin under
+                     the 11in letter page so rounding/footer-border math
+                     can never spill across the page break. */
+                  min-height: 10.5in;
+                  height: auto;
+                  padding: 0.5in 0.5in;
+                  margin: 0;
+                  width: 100%;
+                  max-width: 8.5in;
+                  box-sizing: border-box;
+                  overflow: hidden;
+                  page-break-after: avoid;
+                  break-after: avoid-page;
+                }
+                .rpt-wrap ~ .rpt-wrap {
+                  page-break-before: always;
+                  break-before: page;
+                  page-break-after: auto;
+                  break-after: auto;
+                }
+                .rpt-wrap:last-child {
+                  page-break-after: avoid !important;
+                  break-after: avoid-page !important;
+                }
+                /* Flush trailing block accumulation in WKWebView — a zero-height
+                   sibling after the last page wrap absorbs phantom margin. */
+                .rpt-wrap:last-child::after {
+                  content: "";
+                  display: block;
+                  height: 0;
+                  page-break-after: avoid;
+                  break-after: avoid-page;
+                }
+                .rpt-wrap, .rpt-wrap * {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
               }
             `}</style>
 
-            {/* Fixed page-number footer — visible only in print */}
-            <div className="report-page-num hidden print:block" />
-
-            {/* Print button — visible on screen, hidden when printing */}
+            {/* Print button — hidden when printing */}
             <div className="flex justify-end mb-4 print:hidden">
               <button
-                onClick={() => window.print()}
+                onClick={handleSavePDF}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
               >
                 <span>🖨</span>
-                Print Report
+                Print / PDF
               </button>
             </div>
 
-            {/* Print-only report header */}
-            <div className="hidden print:block mb-5 pb-3 border-b border-gray-300">
-              <p className="text-xs text-gray-500 mb-1">Created: {runDate}</p>
-              <p className="text-xl font-bold text-gray-900">{hoaName}</p>
-              <p className="text-base font-semibold text-gray-700">{def?.title ?? "Report"}</p>
-            </div>
+            {/* Reports that manage their own page containers (multi-page capable) */}
+            {selected === "owner_ledger" && (
+              <OwnerLedgerReport key={runKey} ownerId={ownerId} year={year} hoaName={hoaName} runDate={`Generated: ${runDate}`} />
+            )}
+            {selected === "contact_list" && (
+              <ContactListReport key={runKey} hoaName={hoaName} runDate={`Generated: ${runDate}`} />
+            )}
 
-            {/* Report components */}
-            {selected === "ar_aging"         && <ARAgingReport        key={runKey} />}
-            {selected === "delinquency"       && <DelinquencyReport    key={runKey} />}
-            {selected === "contact_list"      && <ContactListReport    key={runKey} />}
-            {selected === "income_summary"    && <IncomeSummaryReport  key={runKey} year={year} />}
-            {selected === "expense_summary"   && <ExpenseSummaryReport key={runKey} year={year} />}
-            {selected === "expense_detail"    && <ExpenseDetailReport  key={runKey} year={year} />}
-            {selected === "vendor_expenses"   && <VendorExpensesReport key={runKey} year={year} />}
-            {selected === "budget_vs_actual"  && <BudgetVsActualReport key={runKey} year={year} />}
-            {selected === "deposits"          && <DepositsReport       key={runKey} year={year} />}
-            {selected === "txn_history"       && <TransactionHistoryReport key={runKey} limit={txnLimit} />}
-            {selected === "account_detail"    && <AccountDetailReport  key={runKey} accountId={accountId} limit={txnLimit} />}
-            {selected === "owner_ledger"      && <OwnerLedgerReport    key={runKey} ownerId={ownerId} year={year} />}
+            {/* All other reports: single page container */}
+            {selected !== "owner_ledger" && selected !== "contact_list" && (
+              <div className="rpt-wrap">
+                <div className="rpt-inner">
+                  {/* Print-only header */}
+                  <div className="hidden print:block mb-6 pb-3 border-b-2 border-gray-400">
+                    <p className="text-[9px] text-gray-400 mb-1">Generated: {runDate}</p>
+                    {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
+                    <p className="text-sm font-semibold text-gray-700 text-center mt-0.5">{def?.title ?? "Report"}{needsYear ? ` — ${year}` : ""}</p>
+                  </div>
+
+                  {/* Report components */}
+                  <div id="report-output" className="rpt-content">
+                  {selected === "ar_aging"         && <ARAgingReport        key={runKey} />}
+                  {selected === "delinquency"       && <DelinquencyReport    key={runKey} />}
+                  {selected === "income_summary"    && <IncomeSummaryReport  key={runKey} year={year} />}
+                  {selected === "expense_summary"   && <ExpenseSummaryReport key={runKey} year={year} />}
+                  {selected === "expense_detail"    && <ExpenseDetailReport  key={runKey} year={year} />}
+                  {selected === "vendor_expenses"   && <VendorExpensesReport key={runKey} year={year} />}
+                  {selected === "budget_vs_actual"  && <BudgetVsActualReport key={runKey} year={year} />}
+                  {selected === "deposits"          && <DepositsReport       key={runKey} year={year} />}
+                  {selected === "txn_history"       && <TransactionHistoryReport key={runKey} limit={txnLimit} />}
+                  {selected === "account_detail"    && <AccountDetailReport  key={runKey} accountId={accountId} limit={txnLimit} />}
+                  </div>
+
+                  {/* Footer — pinned to page bottom via margin-top:auto */}
+                  <div className="rpt-footer">
+                    <span>{hoaName}</span>
+                    <span>Page 1 of 1</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

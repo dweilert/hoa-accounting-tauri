@@ -232,7 +232,7 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100">
             {transactions.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">
@@ -386,7 +386,7 @@ export function ReconciliationsScreen() {
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {recons.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">

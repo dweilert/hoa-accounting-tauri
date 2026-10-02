@@ -161,7 +161,7 @@ function RecentImports({ refreshKey }: { refreshKey: number }) {
               <th className="px-4 py-2" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100">
             {batches.map((b) => (
               <tr key={b.id}>
                 <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime(b.imported_at)}</td>
@@ -414,7 +414,7 @@ export function BankImportScreen() {
                   <th className="px-3 py-2 text-right text-gray-600">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {preview.map((r, i) => (
                   <tr key={i} className={r.isDuplicate ? "opacity-40 bg-gray-50" : (!r.date || isNaN(r.amount)) ? "opacity-30" : ""}>
                     <td className="px-3 py-1.5 text-gray-600">{r.date}</td>

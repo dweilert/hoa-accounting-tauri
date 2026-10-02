@@ -259,7 +259,7 @@ function BudgetGrid({ budget, onBack, onRefresh }: GridProps) {
               <th className="px-3 py-2 text-right font-medium text-gray-600 w-24">Total</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100">
             {categories.length === 0 && (
               <tr>
                 <td colSpan={14} className="px-3 py-4 text-center text-gray-400">

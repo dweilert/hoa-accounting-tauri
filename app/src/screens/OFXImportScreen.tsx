@@ -218,11 +218,24 @@ export function OFXImportScreen() {
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{parseError}</div>
           )}
 
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <div
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center"
+            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-blue-400", "bg-blue-50"); }}
+            onDragLeave={(e) => { e.currentTarget.classList.remove("border-blue-400", "bg-blue-50"); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+              const file = e.dataTransfer.files[0];
+              if (file) {
+                const syntheticEvent = { target: { files: e.dataTransfer.files } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                handleFile(syntheticEvent);
+              }
+            }}
+          >
             <input type="file" accept=".ofx,.qfx,.ofc" onChange={handleFile} className="hidden" id="ofx-upload" />
             <label htmlFor="ofx-upload" className="cursor-pointer">
               <div className="text-4xl mb-2">🏦</div>
-              <p className="text-sm font-medium text-blue-600">Click to select an OFX or QFX file</p>
+              <p className="text-sm font-medium text-blue-600">Click to select or drag an OFX / QFX file here</p>
               <p className="text-xs text-gray-400 mt-1">
                 Downloaded from your bank's "Export" or "Download Transactions" option.
                 Most US banks support OFX (Open Financial Exchange) or QFX (Quicken) format.
@@ -254,7 +267,7 @@ export function OFXImportScreen() {
                   <th className="px-3 py-2 text-right text-gray-600">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {transactions.map((t, i) => (
                   <tr key={i} className={t.isDuplicate ? "opacity-40 bg-gray-50" : ""}>
                     <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">{t.dtposted}</td>

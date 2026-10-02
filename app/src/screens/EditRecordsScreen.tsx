@@ -180,7 +180,7 @@ function PaymentsTab() {
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {visible.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No payments found.</td></tr>
               )}
@@ -397,7 +397,7 @@ function IncomeTab() {
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {visible.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No income records found.</td></tr>
               )}
@@ -612,7 +612,7 @@ function AssessmentsTab() {
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {visible.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No open assessments.</td></tr>
               )}

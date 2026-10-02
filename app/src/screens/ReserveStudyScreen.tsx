@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
+
 import {
   getAssumptions, saveAssumptions,
   listAssets, insertAsset, updateAsset, deleteAsset,
@@ -341,7 +342,7 @@ function AssetsPanel({ studyYear }: { studyYear: number }) {
               <th className="px-4 py-2" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100">
             {assets.length === 0 && (
               <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400 text-sm">No components yet. Click "+ Add Component" to start.</td></tr>
             )}
@@ -434,7 +435,7 @@ function FundingPlanPanel({ assumptions }: { assumptions: Assumptions | null }) 
               <th className="px-3 py-2 text-right font-medium text-gray-600">End Balance</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100">
             {rows.map((r) => (
               <tr key={r.year} className={r.deficit ? "bg-red-50" : r.year === CURRENT_YEAR ? "bg-blue-50" : ""}>
                 <td className="px-3 py-1.5 font-medium text-gray-800">
@@ -725,7 +726,7 @@ export function ReserveStudyScreen() {
       actions={
         <div className="flex gap-2">
           <button
-            onClick={() => window.print()}
+            onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => alert(String(e)))}
             className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
           >
             Print / PDF
@@ -752,7 +753,7 @@ export function ReserveStudyScreen() {
         </div>
       }
     >
-    <div className="max-w-6xl print:p-2">
+    <div id="reserve-study-content" className="max-w-6xl print:p-2">
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Tabs */}

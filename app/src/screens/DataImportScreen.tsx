@@ -362,7 +362,7 @@ export function DataImportScreen() {
                   <th className="px-2 py-2 text-left text-gray-600">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {preview.map((row) => (
                   <tr key={row._rowNum} className={row._error ? "bg-red-50" : ""}>
                     <td className="px-2 py-1.5 text-gray-400">{row._rowNum}</td>

@@ -220,7 +220,7 @@ export function UsersScreen() {
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {users.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No users yet.</td></tr>
               )}

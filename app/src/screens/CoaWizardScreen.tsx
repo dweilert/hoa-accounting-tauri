@@ -284,7 +284,7 @@ export function CoaWizardScreen() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Group</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100">
               {byType.map(({ type, rows }) => (
                 <>
                   <tr key={`hdr-${type}`} className="bg-gray-50">

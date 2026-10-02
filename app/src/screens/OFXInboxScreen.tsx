@@ -410,7 +410,7 @@ export function OFXInboxScreen() {
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-gray-100">
                 {files.map((f) => (
                   <tr key={f.name} className="hover:bg-gray-50">
                     <td className="px-4 py-2 font-mono text-xs text-gray-700">{f.name}</td>

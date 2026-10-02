@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDb } from "../lib/db";
+
 import { PageLayout } from "../components/PageLayout";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -214,21 +215,15 @@ export function WorkflowGuideScreen() {
       helpId="workflowGuide"
       actions={
         <button
-          onClick={() => window.print()}
+          onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => alert(String(e)))}
           className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
         >
           Print Cheatsheet
         </button>
       }
     >
-      {/* Print-only title */}
-      <div className="hidden print:block mb-4">
-        <h1 className="text-xl font-bold">HOA Workflow Cheatsheet</h1>
-        {activeTab && <p className="text-sm text-gray-600">{activeTab.label}</p>}
-      </div>
-
-      {/* Tab bar — hidden on print */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto print:hidden">
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -248,13 +243,13 @@ export function WorkflowGuideScreen() {
 
       {/* Tab description */}
       {activeTab?.description && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 leading-relaxed print:hidden">
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 leading-relaxed">
           {activeTab.description}
         </div>
       )}
 
       {/* Sections + cards */}
-      <div className="print:block">
+      <div id="workflow-content">
         {sections.length === 0 ? (
           <p className="text-gray-400 text-sm">No workflow steps defined for this tab.</p>
         ) : (
