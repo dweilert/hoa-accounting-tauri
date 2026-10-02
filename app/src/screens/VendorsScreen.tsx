@@ -135,6 +135,13 @@ export function VendorsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [showInactive, setShowInactive] = useState(false);
+  type SortCol = "vendor" | "contact" | "phone" | "email";
+  const [sortCol, setSortCol] = useState<SortCol>("vendor");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+  }
 
   const load = useCallback(async () => {
     try { setVendors(await listVendors(false)); }
@@ -165,6 +172,14 @@ export function VendorsScreen() {
   }
 
   const visible = showInactive ? vendors : vendors.filter((v) => v.active_flag);
+  const sortedVisible = [...visible].sort((a, b) => {
+    let cmp = 0;
+    if (sortCol === "vendor") cmp = a.vendor_name.localeCompare(b.vendor_name);
+    else if (sortCol === "contact") cmp = (a.contact_name ?? "").localeCompare(b.contact_name ?? "");
+    else if (sortCol === "phone") cmp = (a.phone ?? "").localeCompare(b.phone ?? "");
+    else if (sortCol === "email") cmp = (a.email ?? "").localeCompare(b.email ?? "");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
   const inactiveCount = vendors.filter((v) => !v.active_flag).length;
 
   return (
@@ -204,10 +219,10 @@ export function VendorsScreen() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Vendor</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Contact</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Phone</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Email</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("vendor")}>Vendor {sortCol === "vendor" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("contact")}>Contact {sortCol === "contact" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("phone")}>Phone {sortCol === "phone" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("email")}>Email {sortCol === "email" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">City / State</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
                 <th className="px-4 py-2" />
@@ -221,7 +236,7 @@ export function VendorsScreen() {
                   </td>
                 </tr>
               )}
-              {visible.map((v) => (
+              {sortedVisible.map((v) => (
                 <tr key={v.id} className={v.active_flag ? "" : "opacity-50"}>
                   <td className="px-4 py-3 font-medium text-gray-900">{v.vendor_name}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">{v.contact_name ?? "—"}</td>

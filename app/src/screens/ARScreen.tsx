@@ -1,39 +1,35 @@
 import { useEffect, useState, useCallback } from "react";
-import { listOpenAssessments, type AssessmentRow } from "../repositories/assessmentRepo";
-import { CHARGE_TYPE_LABELS, STATUS_COLORS, type AssessmentStatusValue } from "../types/assessment";
+import { getLotBalances, type LotBalance } from "../repositories/assessmentRepo";
 import { PageLayout } from "../components/PageLayout";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 
-type LotGroup = {
-  lot_number: string;
-  owner_name: string | null;
-  assessments: AssessmentRow[];
-  total: number;
-};
+function BalanceRow({ row }: { row: LotBalance }) {
+  const isCredit = row.balance_due < -0.005;
+  return (
+    <tr className="border-b border-gray-100 hover:bg-gray-50">
+      <td className="px-4 py-2.5 text-sm font-medium text-gray-900">Lot {row.lot_number}</td>
+      <td className="px-4 py-2.5 text-sm text-gray-500">{row.owner_name ?? "— No owner —"}</td>
+      <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-700">{fmt(row.billed)}</td>
+      <td className="px-4 py-2.5 text-right font-mono text-sm text-gray-700">{fmt(row.paid)}</td>
+      <td className={`px-4 py-2.5 text-right font-mono text-sm font-semibold ${isCredit ? "text-green-700" : "text-red-700"}`}>
+        {isCredit ? `(${fmt(Math.abs(row.balance_due))})` : fmt(row.balance_due)}
+      </td>
+    </tr>
+  );
+}
 
 export function ARScreen() {
-  const [groups, setGroups] = useState<LotGroup[]>([]);
+  const [rows, setRows] = useState<LotBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
-      const rows = await listOpenAssessments();
-      const byLot = new Map<string, LotGroup>();
-      for (const r of rows) {
-        let g = byLot.get(r.lot_number);
-        if (!g) {
-          g = { lot_number: r.lot_number, owner_name: r.owner_name, assessments: [], total: 0 };
-          byLot.set(r.lot_number, g);
-        }
-        g.assessments.push(r);
-        g.total += r.amount;
-      }
-      setGroups(Array.from(byLot.values()).sort((a, b) => a.lot_number.localeCompare(b.lot_number)));
+      const data = await getLotBalances();
+      setRows(data);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -43,99 +39,100 @@ export function ARScreen() {
 
   useEffect(() => { void load(); }, [load]);
 
-  function toggle(lotNumber: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(lotNumber)) next.delete(lotNumber);
-      else next.add(lotNumber);
-      return next;
-    });
-  }
+  const outstanding = rows.filter((r) => r.balance_due > 0.005);
+  const credits = rows.filter((r) => r.balance_due < -0.005);
+  const current = rows.filter((r) => Math.abs(r.balance_due) <= 0.005);
 
-  const grandTotal = groups.reduce((s, g) => s + g.total, 0);
+  const totalOutstanding = outstanding.reduce((s, r) => s + r.balance_due, 0);
+  const totalCredits = credits.reduce((s, r) => s + Math.abs(r.balance_due), 0);
+
+  function Table({ title, data, emptyMsg, headerClass }: {
+    title: string;
+    data: LotBalance[];
+    emptyMsg: string;
+    headerClass: string;
+  }) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+        <div className={`px-4 py-3 border-b ${headerClass}`}>
+          <span className="text-sm font-semibold">{title}</span>
+        </div>
+        {data.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-center text-gray-400">{emptyMsg}</p>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Lot</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Billed</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Paid</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((r) => <BalanceRow key={r.lot_id} row={r} />)}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
 
   return (
     <PageLayout
       title="Accounts Receivable"
-      subtitle="Outstanding balances by lot."
+      subtitle="Balances by lot — outstanding, credits, and current."
       helpId="ar"
     >
-    <div className="max-w-4xl">
+      <div className="max-w-4xl">
+        {loading && <p className="text-sm text-gray-400">Loading…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {loading && <p className="text-sm text-gray-400">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {!loading && !error && groups.length === 0 && (
-        <div className="border rounded-lg px-6 py-10 text-center text-gray-400 bg-white">
-          No outstanding balances. All assessments are paid.
-        </div>
-      )}
-
-      {!loading && !error && groups.length > 0 && (
-        <div className="space-y-2">
-          {groups.map((g) => (
-            <div key={g.lot_number} className="border rounded-lg bg-white overflow-hidden">
-              {/* Lot header row */}
-              <button
-                onClick={() => toggle(g.lot_number)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-900">Lot {g.lot_number}</span>
-                  {g.owner_name && (
-                    <span className="text-sm text-gray-500">{g.owner_name}</span>
-                  )}
-                  <span className="text-xs text-gray-400">{g.assessments.length} item{g.assessments.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-mono font-semibold text-gray-900">{fmt(g.total)}</span>
-                  <span className="text-gray-400 text-xs">{expanded.has(g.lot_number) ? "▲" : "▼"}</span>
-                </div>
-              </button>
-
-              {/* Detail rows */}
-              {expanded.has(g.lot_number) && (
-                <table className="w-full text-sm border-t">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500">Date</th>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500">Type</th>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500">Due</th>
-                      <th className="px-6 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-gray-500">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {g.assessments.map((a) => (
-                      <tr key={a.id}>
-                        <td className="px-6 py-2 text-gray-600">{a.assessment_date}</td>
-                        <td className="px-6 py-2 text-gray-600 text-xs">{CHARGE_TYPE_LABELS[a.charge_type]}</td>
-                        <td className="px-6 py-2 text-gray-500 text-xs">{a.description ?? "—"}</td>
-                        <td className="px-6 py-2 text-gray-500 text-xs">{a.due_date ?? "—"}</td>
-                        <td className="px-6 py-2 text-right font-mono text-gray-700">{fmt(a.amount)}</td>
-                        <td className="px-6 py-2">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[a.status as AssessmentStatusValue]}`}>
-                            {a.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+        {!loading && !error && (
+          <>
+            {/* Summary bar */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-red-600 font-medium mb-1">Outstanding</p>
+                <p className="font-mono text-lg font-bold text-red-800">{fmt(totalOutstanding)}</p>
+                <p className="text-xs text-red-500">{outstanding.length} lot{outstanding.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-green-600 font-medium mb-1">Credits / Prepaid</p>
+                <p className="font-mono text-lg font-bold text-green-800">{fmt(totalCredits)}</p>
+                <p className="text-xs text-green-500">{credits.length} lot{credits.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                <p className="text-xs text-gray-500 font-medium mb-1">Current / Paid</p>
+                <p className="font-mono text-lg font-bold text-gray-700">{fmt(0)}</p>
+                <p className="text-xs text-gray-400">{current.length} lot{current.length !== 1 ? "s" : ""}</p>
+              </div>
             </div>
-          ))}
 
-          {/* Grand total */}
-          <div className="flex justify-end px-4 py-3 border-t mt-2">
-            <div className="text-sm font-semibold text-gray-900">
-              Total Outstanding: <span className="font-mono ml-2">{fmt(grandTotal)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            <Table
+              title="Outstanding Balances"
+              data={outstanding}
+              emptyMsg="No outstanding balances."
+              headerClass="bg-red-50 text-red-700"
+            />
+
+            <Table
+              title="Credits / Prepaid"
+              data={credits}
+              emptyMsg="No credit balances."
+              headerClass="bg-green-50 text-green-700"
+            />
+
+            <Table
+              title="Current (No Balance)"
+              data={current}
+              emptyMsg="No lots with zero balance."
+              headerClass="bg-gray-50 text-gray-600"
+            />
+          </>
+        )}
+      </div>
     </PageLayout>
   );
 }

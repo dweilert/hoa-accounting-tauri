@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
 import { listCategories } from "../repositories/categoryRepo";
+import { insertAssessment } from "../repositories/assessmentRepo";
 import type { Category } from "../types/category";
 
 function fmt(n: number) {
@@ -11,8 +12,7 @@ function fmt(n: number) {
 type LotBillingRow = {
   lot_id: number;
   lot_number: string;
-  owner_id: number | null;
-  owner_name: string | null;
+  owner_names: string | null;
   include: boolean;
 };
 
@@ -20,11 +20,12 @@ async function loadActiveLots(): Promise<LotBillingRow[]> {
   const db = await getDb();
   const rows = await db.select<LotBillingRow[]>(`
     SELECT l.id AS lot_id, l.lot_number,
-           o.id AS owner_id, o.display_name AS owner_name
+           GROUP_CONCAT(o.display_name, ' / ') AS owner_names
     FROM lots l
     LEFT JOIN lot_ownership lo ON lo.lot_id = l.id AND lo.end_date IS NULL
     LEFT JOIN owners o ON o.id = lo.owner_id
     WHERE l.active_flag = 1
+    GROUP BY l.id, l.lot_number
     ORDER BY l.lot_number
   `);
   return rows.map((r) => ({ ...r, include: true }));
@@ -38,24 +39,18 @@ async function postDuesBilling(opts: {
   description: string;
   categoryId: number | null;
 }): Promise<number> {
-  const db = await getDb();
   let count = 0;
   for (const lot of opts.lots) {
     if (!lot.include) continue;
-    await db.execute(
-      `INSERT INTO assessments
-         (lot_id, owner_id, charge_type, amount, assessment_date, due_date, description, category_id)
-       VALUES (?, ?, 'DUES', ?, ?, ?, ?, ?)`,
-      [
-        lot.lot_id,
-        lot.owner_id ?? null,
-        opts.amount,
-        opts.assessmentDate,
-        opts.dueDate || null,
-        opts.description || null,
-        opts.categoryId ?? null,
-      ]
-    );
+    await insertAssessment({
+      lot_id: lot.lot_id,
+      charge_type: "DUES",
+      amount: opts.amount,
+      assessment_date: opts.assessmentDate,
+      due_date: opts.dueDate || undefined,
+      description: opts.description || undefined,
+      category_id: opts.categoryId ?? undefined,
+    });
     count++;
   }
   return count;
@@ -283,7 +278,7 @@ export function DuesBillingScreen() {
                     />
                   </td>
                   <td className="px-4 py-2 font-medium text-gray-900">Lot {l.lot_number}</td>
-                  <td className="px-4 py-2 text-gray-500 text-xs">{l.owner_name ?? "— No owner —"}</td>
+                  <td className="px-4 py-2 text-gray-500 text-xs">{l.owner_names ?? "— No owner —"}</td>
                   <td className="px-4 py-2 text-right font-mono text-xs text-gray-700">
                     {l.include && amount ? fmt(Number(amount)) : "—"}
                   </td>

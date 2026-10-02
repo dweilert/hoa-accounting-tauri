@@ -29,7 +29,7 @@ type FormValues = {
 };
 
 const ROLES = [
-  "PRESIDENT","VICE_PRESIDENT","SECRETARY","TREASURER","MEMBER","AT_LARGE",
+  "PRESIDENT","VICE_PRESIDENT","SECRETARY","TREASURER","SEC_TREAS","MEMBER","AT_LARGE",
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -37,6 +37,7 @@ const ROLE_LABELS: Record<string, string> = {
   VICE_PRESIDENT: "Vice President",
   SECRETARY: "Secretary",
   TREASURER: "Treasurer",
+  SEC_TREAS: "Sec/Tres",
   MEMBER: "Member",
   AT_LARGE: "Member At-Large",
 };

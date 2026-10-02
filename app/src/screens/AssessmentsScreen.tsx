@@ -229,6 +229,14 @@ export function AssessmentsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [statusFilter, setStatusFilter] = useState("open");
+  type SortCol = "date" | "lot" | "owner" | "due" | "status";
+  const [sortCol, setSortCol] = useState<SortCol>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -278,9 +286,19 @@ export function AssessmentsScreen() {
     catch (e) { alert(String(e)); }
   }
 
+  const sortedAssessments = [...assessments].sort((a, b) => {
+    let cmp = 0;
+    if (sortCol === "date") cmp = a.assessment_date.localeCompare(b.assessment_date);
+    else if (sortCol === "lot") cmp = String(a.lot_number).localeCompare(String(b.lot_number), undefined, { numeric: true });
+    else if (sortCol === "owner") cmp = (a.owner_name ?? "").localeCompare(b.owner_name ?? "");
+    else if (sortCol === "due") cmp = (a.due_date ?? "").localeCompare(b.due_date ?? "");
+    else if (sortCol === "status") cmp = a.status.localeCompare(b.status);
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
   const displayedList = statusFilter === "open"
-    ? assessments.filter((a) => a.status === "OPEN" || a.status === "PARTIAL")
-    : assessments;
+    ? sortedAssessments.filter((a) => a.status === "OPEN" || a.status === "PARTIAL")
+    : sortedAssessments;
 
   return (
     <PageLayout
@@ -317,13 +335,26 @@ export function AssessmentsScreen() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
+                {(["date","lot","owner"] as SortCol[]).map((col) => {
+                  const labels: Record<SortCol, string> = { date: "Date", lot: "Lot", owner: "Owner", due: "Due", status: "Status" };
+                  const arrow = sortCol === col ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+                  return (
+                    <th key={col} onClick={() => toggleSort(col)}
+                      className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-gray-900">
+                      {labels[col]}{arrow}
+                    </th>
+                  );
+                })}
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Due</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <th onClick={() => toggleSort("due")}
+                  className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-gray-900">
+                  Due{sortCol === "due" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                </th>
+                <th onClick={() => toggleSort("status")}
+                  className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-gray-900">
+                  Status{sortCol === "status" ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                </th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>

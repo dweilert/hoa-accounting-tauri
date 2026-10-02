@@ -6,6 +6,10 @@
   "permissions": [
     "core:default",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "$HOME/hoa-system/tauri/**" }]
+    },
     "dialog:default",
     "sql:default",
     "sql:allow-execute",
@@ -16,11 +20,25 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    "fs:allow-write-file",
     "fs:allow-mkdir",
     "fs:allow-remove",
+    "fs:allow-read-dir",
     {
       "identifier": "fs:scope",
-      "allow": ["$HOME/hoa-system/tauri/**", "$TEMP/**"]
+      "allow": [
+        "$HOME/hoa-system/tauri/**",
+        "$HOME/hoa-system/ofx-inbox",
+        "$HOME/hoa-system/ofx-inbox/**",
+        "$TEMP/**"
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        { "path": "$HOME/hoa-system/ofx-inbox" },
+        { "path": "$HOME/hoa-system/ofx-inbox/**" }
+      ]
     }
   ]
 }

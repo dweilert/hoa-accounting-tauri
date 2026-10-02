@@ -66,7 +66,47 @@ export async function insertAssessment(values: AssessmentFormValues): Promise<nu
       values.category_id ?? null,
     ]
   );
-  return result.lastInsertId ?? 0;
+  const assessmentId = result.lastInsertId ?? 0;
+  if (assessmentId > 0) await autoApplyCredit(db, values.lot_id, assessmentId, values.amount);
+  return assessmentId;
+}
+
+async function autoApplyCredit(
+  db: Awaited<ReturnType<typeof getDb>>,
+  lotId: number,
+  assessmentId: number,
+  assessmentAmount: number
+): Promise<void> {
+  // Find payments with unapplied balance for this lot, oldest first
+  const unapplied = await db.select<Array<{ id: number; unapplied: number }>>(
+    `SELECT p.id, ROUND(p.amount - COALESCE(SUM(pa.amount), 0), 2) AS unapplied
+     FROM payments p
+     LEFT JOIN payment_applications pa ON pa.payment_id = p.id
+     WHERE p.lot_id = ?
+     GROUP BY p.id
+     HAVING unapplied > 0.005
+     ORDER BY p.payment_date ASC`,
+    [lotId]
+  );
+  if (unapplied.length === 0) return;
+
+  let remaining = assessmentAmount;
+  for (const pmt of unapplied) {
+    if (remaining <= 0.005) break;
+    const apply = Math.min(remaining, pmt.unapplied);
+    await db.execute(
+      "INSERT OR IGNORE INTO payment_applications (payment_id, assessment_id, amount) VALUES (?, ?, ?)",
+      [pmt.id, assessmentId, Math.round(apply * 100) / 100]
+    );
+    remaining = Math.round((remaining - apply) * 100) / 100;
+  }
+  // Update assessment status based on how much was applied
+  const applied = assessmentAmount - remaining;
+  if (applied >= assessmentAmount - 0.005) {
+    await db.execute("UPDATE assessments SET status='PAID', updated_at=datetime('now') WHERE id=?", [assessmentId]);
+  } else if (applied > 0.005) {
+    await db.execute("UPDATE assessments SET status='PARTIAL', updated_at=datetime('now') WHERE id=?", [assessmentId]);
+  }
 }
 
 export async function updateAssessment(id: number, values: AssessmentFormValues): Promise<void> {
@@ -105,6 +145,44 @@ export async function writeOffAssessment(id: number): Promise<void> {
     "UPDATE assessments SET status = 'WRITTEN_OFF', updated_at = datetime('now') WHERE id = ? AND status IN ('OPEN','PARTIAL')",
     [id]
   );
+}
+
+export type LotBalance = {
+  lot_id: number;
+  lot_number: string;
+  owner_name: string | null;
+  opening_balance: number;
+  billed: number;
+  paid: number;
+  balance_due: number; // positive = owes, negative = credit
+};
+
+export async function getLotBalances(): Promise<LotBalance[]> {
+  const db = await getDb();
+  const rows = await db.select<LotBalance[]>(`
+    SELECT
+      l.id AS lot_id,
+      l.lot_number,
+      (SELECT o.display_name FROM lot_ownership lo JOIN owners o ON o.id = lo.owner_id
+       WHERE lo.lot_id = l.id AND lo.end_date IS NULL LIMIT 1) AS owner_name,
+      COALESCE(ob.amount, 0) AS opening_balance,
+      COALESCE((SELECT SUM(a.amount) FROM assessments a
+                WHERE a.lot_id = l.id AND a.status NOT IN ('VOID','WRITTEN_OFF')), 0) AS billed,
+      COALESCE((SELECT SUM(pa.amount) FROM payment_applications pa
+                JOIN assessments a ON a.id = pa.assessment_id
+                WHERE a.lot_id = l.id), 0) AS paid,
+      COALESCE(ob.amount, 0)
+        + COALESCE((SELECT SUM(a.amount) FROM assessments a
+                    WHERE a.lot_id = l.id AND a.status NOT IN ('VOID','WRITTEN_OFF')), 0)
+        - COALESCE((SELECT SUM(pa.amount) FROM payment_applications pa
+                    JOIN assessments a ON a.id = pa.assessment_id
+                    WHERE a.lot_id = l.id), 0) AS balance_due
+    FROM lots l
+    LEFT JOIN opening_balances ob ON ob.entity_type = 'LOT_DUES' AND ob.entity_id = l.id
+    WHERE l.active_flag = 1
+    ORDER BY l.lot_number
+  `);
+  return rows;
 }
 
 export async function getAssessmentSummary(): Promise<{

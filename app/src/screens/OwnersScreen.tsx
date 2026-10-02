@@ -168,6 +168,13 @@ export function OwnersScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
+  type SortCol = "name" | "phone" | "email" | "lots";
+  const [sortCol, setSortCol] = useState<SortCol>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortCol(col); setSortDir("asc"); }
+  }
 
   const load = useCallback(async () => {
     try { setOwners(await listOwners()); }
@@ -212,16 +219,25 @@ export function OwnersScreen() {
       {loading && <p className="text-gray-400 text-sm">Loading…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      {!loading && !error && (
+      {!loading && !error && (() => {
+        const sortedOwners = [...owners].sort((a, b) => {
+          let cmp = 0;
+          if (sortCol === "name") cmp = a.display_name.localeCompare(b.display_name);
+          else if (sortCol === "phone") cmp = (a.phone ?? "").localeCompare(b.phone ?? "");
+          else if (sortCol === "email") cmp = (a.email ?? "").localeCompare(b.email ?? "");
+          else if (sortCol === "lots") cmp = (a.lot_numbers ?? "").localeCompare(b.lot_numbers ?? "");
+          return sortDir === "asc" ? cmp : -cmp;
+        });
+        return (
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("name")}>Name {sortCol === "name" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Phone</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Email</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lots</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("phone")}>Phone {sortCol === "phone" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("email")}>Email {sortCol === "email" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600" onClick={() => toggleSort("lots")}>Lots {sortCol === "lots" ? (sortDir === "asc" ? "↑" : "↓") : ""}</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -234,7 +250,7 @@ export function OwnersScreen() {
                   </td>
                 </tr>
               )}
-              {owners.map((owner) => (
+              {sortedOwners.map((owner) => (
                 <tr key={owner.id} className={owner.active_flag ? "" : "opacity-50"}>
                   <td className="px-4 py-2 font-medium text-gray-900">{owner.display_name}</td>
                   <td className="px-4 py-2">
@@ -261,7 +277,8 @@ export function OwnersScreen() {
             </tbody>
           </table>
         </div>
-      )}
+        );
+      })()}
 
       {modal && (
         <Modal

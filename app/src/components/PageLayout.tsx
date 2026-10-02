@@ -31,7 +31,7 @@ function HelpDrawer({ content, onClose }: { content: HelpContent; onClose: () =>
       {/* Drawer */}
       <div
         ref={drawerRef}
-        className="fixed top-0 right-0 h-full w-80 bg-white shadow-xl z-40 flex flex-col
+        className="fixed top-0 right-0 h-full w-1/2 min-w-80 bg-white shadow-xl z-40 flex flex-col
                    animate-in slide-in-from-right duration-200"
         style={{ animation: "slideInRight 0.2s ease-out" }}
       >

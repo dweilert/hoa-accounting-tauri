@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
+import { getLotBalances } from "../repositories/assessmentRepo";
 import { PageLayout } from "../components/PageLayout";
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -8,7 +10,7 @@ type LotStatement = {
   lot_id: number;
   lot_number: string;
   street_address_1: string | null;
-  owner_name: string | null;
+  owner_names: string | null;
   owner_email: string | null;
   mailing_address: string | null;
   mailing_city: string | null;
@@ -30,7 +32,7 @@ type LedgerLine = {
 type LotSummary = {
   lot_id: number;
   lot_number: string;
-  owner_name: string | null;
+  owner_names: string | null;
   balance: number;
   selected: boolean;
 };
@@ -41,40 +43,31 @@ const fmt = (n: number) =>
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
 async function loadLotSummaries(): Promise<LotSummary[]> {
-  const db = await getDb();
-  const rows = await db.select<Omit<LotSummary, "selected">[]>(`
-    SELECT l.id AS lot_id, l.lot_number,
-           o.display_name AS owner_name,
-           COALESCE(
-             (SELECT SUM(a.amount) FROM assessments a WHERE a.lot_id=l.id AND a.status IN ('OPEN','PARTIAL')), 0
-           ) -
-           COALESCE(
-             (SELECT SUM(p.amount) FROM payments p
-              JOIN deposit_batches d ON p.deposit_batch_id=d.id
-              WHERE p.lot_id=l.id AND d.status='POSTED'), 0
-           ) AS balance
-    FROM lots l
-    LEFT JOIN lot_ownership lo ON lo.lot_id=l.id AND lo.end_date IS NULL AND lo.is_primary_contact=1
-    LEFT JOIN owners o ON lo.owner_id=o.id
-    WHERE l.active_flag=1
-    ORDER BY l.lot_number
-  `);
-  return rows.map((r) => ({ ...r, selected: true }));
+  const balances = await getLotBalances();
+  return balances.map((b) => ({
+    lot_id: b.lot_id,
+    lot_number: b.lot_number,
+    owner_names: b.owner_name,
+    balance: b.balance_due,
+    selected: true,
+  }));
 }
 
 async function loadLotStatement(lotId: number): Promise<LotStatement> {
   const db = await getDb();
 
   const [lotRows, chargeRows, paymentRows] = await Promise.all([
-    db.select<{ lot_number: string; street_address_1: string | null; owner_name: string | null; owner_email: string | null; mailing_address: string | null; mailing_city: string | null; mailing_state: string | null; mailing_postal: string | null }[]>(`
+    db.select<{ lot_number: string; street_address_1: string | null; owner_names: string | null; owner_email: string | null; mailing_address: string | null; mailing_city: string | null; mailing_state: string | null; mailing_postal: string | null }[]>(`
       SELECT l.lot_number, l.street_address_1,
-             o.display_name AS owner_name, o.email AS owner_email,
-             o.mailing_address_1 AS mailing_address, o.city AS mailing_city,
-             o.state AS mailing_state, o.postal_code AS mailing_postal
+             GROUP_CONCAT(o.display_name, ' / ') AS owner_names,
+             MAX(o.email) AS owner_email,
+             MAX(o.mailing_address_1) AS mailing_address, MAX(o.city) AS mailing_city,
+             MAX(o.state) AS mailing_state, MAX(o.postal_code) AS mailing_postal
       FROM lots l
-      LEFT JOIN lot_ownership lo ON lo.lot_id=l.id AND lo.end_date IS NULL AND lo.is_primary_contact=1
+      LEFT JOIN lot_ownership lo ON lo.lot_id=l.id AND lo.end_date IS NULL
       LEFT JOIN owners o ON lo.owner_id=o.id
-      WHERE l.id=? LIMIT 1
+      WHERE l.id=?
+      GROUP BY l.id
     `, [lotId]),
 
     db.select<{ entry_date: string; description: string; amount: number }[]>(`
@@ -101,7 +94,6 @@ async function loadLotStatement(lotId: number): Promise<LotStatement> {
   const lot = lotRows[0];
   if (!lot) throw new Error(`Lot ${lotId} not found`);
 
-  // Build combined ledger sorted by date
   type RawLine = { entry_date: string; description: string; charge?: number; payment?: number };
   const combined: RawLine[] = [
     ...chargeRows.map((r) => ({ entry_date: r.entry_date, description: r.description, charge: r.amount })),
@@ -124,7 +116,7 @@ async function loadLotStatement(lotId: number): Promise<LotStatement> {
     lot_id: lotId,
     lot_number: lot.lot_number,
     street_address_1: lot.street_address_1,
-    owner_name: lot.owner_name,
+    owner_names: lot.owner_names,
     owner_email: lot.owner_email,
     mailing_address: lot.mailing_address,
     mailing_city: lot.mailing_city,
@@ -133,7 +125,6 @@ async function loadLotStatement(lotId: number): Promise<LotStatement> {
     charges: lines.filter((l) => l.charge !== null),
     payments: lines.filter((l) => l.payment !== null),
     balance: running,
-    // Return all lines, not just charges
   };
 }
 
@@ -168,9 +159,9 @@ function StatementView({ stmt, asOfDate }: { stmt: LotStatement; asOfDate: strin
       </div>
 
       {/* Owner address block */}
-      {stmt.owner_name && (
+      {stmt.owner_names && (
         <div className="mb-4 text-sm">
-          <p className="font-medium text-gray-800">{stmt.owner_name}</p>
+          <p className="font-medium text-gray-800">{stmt.owner_names}</p>
           {stmt.mailing_address && <p className="text-gray-600">{stmt.mailing_address}</p>}
           {(stmt.mailing_city || stmt.mailing_state) && (
             <p className="text-gray-600">
@@ -288,7 +279,7 @@ export function OwnerStatementsScreen() {
       helpId="ownerStatements"
       actions={view === "preview" ? (
         <div className="flex gap-2">
-          <button onClick={() => window.print()}
+          <button onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => alert(String(e)))}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
             Print / Save PDF
           </button>
@@ -300,17 +291,7 @@ export function OwnerStatementsScreen() {
       ) : undefined}
     >
     <div className="max-w-5xl">
-      {/* Print-only: no header chrome */}
-      {view === "preview" && (
-        <div className="hidden print:block">
-          {statements.map((stmt) => (
-            <StatementView key={stmt.lot_id} stmt={stmt} asOfDate={asOfDate} />
-          ))}
-        </div>
-      )}
-
-      {/* Screen UI — hidden when printing */}
-      <div className="print:hidden">
+      <div>
         {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
 
         {view === "select" && (
@@ -352,7 +333,7 @@ export function OwnerStatementsScreen() {
                         <input type="checkbox" checked={s.selected} onChange={() => toggleLot(s.lot_id)} />
                       </td>
                       <td className="px-3 py-2 font-medium text-gray-900">Lot {s.lot_number}</td>
-                      <td className="px-3 py-2 text-gray-600">{s.owner_name ?? "—"}</td>
+                      <td className="px-3 py-2 text-gray-600">{s.owner_names ?? "—"}</td>
                       <td className={`px-3 py-2 text-right font-mono font-medium ${s.balance > 0 ? "text-red-600" : s.balance < 0 ? "text-green-700" : "text-gray-400"}`}>
                         {s.balance === 0 ? "—" : fmt(s.balance)}
                       </td>
@@ -373,12 +354,13 @@ export function OwnerStatementsScreen() {
           <div className="space-y-4">
             <p className="text-sm text-gray-500">
               {statements.length} statement{statements.length !== 1 ? "s" : ""} generated.
-              Click <strong>Print / Save PDF</strong> to open your browser's print dialog —
-              choose "Save as PDF" to create a file you can email or upload to S3.
+              Click <strong>Print / Save PDF</strong> to open in your browser — use Cmd+P to print or save as PDF.
             </p>
-            {statements.map((stmt) => (
-              <StatementView key={stmt.lot_id} stmt={stmt} asOfDate={asOfDate} />
-            ))}
+            <div id="statements-output" className="space-y-4">
+              {statements.map((stmt) => (
+                <StatementView key={stmt.lot_id} stmt={stmt} asOfDate={asOfDate} />
+              ))}
+            </div>
           </div>
         )}
       </div>
