@@ -2,7 +2,7 @@
 
 /* Zebra-stripe every tbody row sitewide */
 tbody tr:nth-child(odd)  { background-color: #ffffff; }
-tbody tr:nth-child(even) { background-color: #f9fafb; }
+tbody tr:nth-child(even) { background-color: #e5e7eb; }
 
 /* Hover overrides stripe without fighting specificity */
 tbody tr:hover { background-color: #eff6ff !important; }
