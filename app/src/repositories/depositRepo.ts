@@ -109,6 +109,172 @@ export async function insertPayment(batchId: number | null, values: PaymentFormV
   return id;
 }
 
+// ── OFX / Bank-transaction matching ──────────────────────────────────────────
+
+export type OFXCandidate = {
+  id: number;
+  transaction_date: string;
+  amount: number;
+  description: string;
+  memo: string | null;
+  days_diff: number;
+  amount_diff: number;
+};
+
+export async function listCandidateBankTxns(
+  bankAccountId: number,
+  totalAmount: number,
+  depositDate: string,
+  daysTolerance = 14,
+  amountTolerancePct = 0.05
+): Promise<OFXCandidate[]> {
+  const db = await getDb();
+  const amountMin = totalAmount * (1 - amountTolerancePct);
+  const amountMax = totalAmount * (1 + amountTolerancePct);
+  const rows = await db.select<OFXCandidate[]>(
+    `SELECT id, transaction_date, amount, COALESCE(description,'') AS description, memo,
+            ABS(julianday(transaction_date) - julianday(?)) AS days_diff,
+            ABS(amount - ?) AS amount_diff
+     FROM bank_transactions
+     WHERE bank_account_id = ?
+       AND amount BETWEEN ? AND ?
+       AND ABS(julianday(transaction_date) - julianday(?)) <= ?
+     ORDER BY days_diff ASC, amount_diff ASC
+     LIMIT 20`,
+    [depositDate, totalAmount, bankAccountId, amountMin, amountMax, depositDate, daysTolerance]
+  );
+  return rows;
+}
+
+export type CandidateDepositBatch = {
+  id: number;
+  deposit_date: string;
+  total_amount: number;
+  check_count: number;
+  status: string;
+  bank_transaction_id: number | null;
+  days_diff: number;
+  amount_diff: number;
+  same_amount_count: number; // how many deposit batches in account share this amount (±1%)
+};
+
+export async function listCandidateDepositBatches(
+  bankAccountId: number,
+  amount: number,
+  txnDate: string,
+  daysTolerance = 14,
+  amountTolerancePct = 0.05
+): Promise<CandidateDepositBatch[]> {
+  const db = await getDb();
+  const amountMin = amount * (1 - amountTolerancePct);
+  const amountMax = amount * (1 + amountTolerancePct);
+  // Tight tolerance for uniqueness check (±1%) — determines if amount is unambiguous
+  const uniqueMin = amount * 0.99;
+  const uniqueMax = amount * 1.01;
+  return db.select<CandidateDepositBatch[]>(
+    `SELECT id, deposit_date, total_amount, check_count, status, bank_transaction_id,
+            ABS(julianday(deposit_date) - julianday(?)) AS days_diff,
+            ABS(total_amount - ?) AS amount_diff,
+            (SELECT COUNT(*) FROM deposit_batches d2
+             WHERE d2.bank_account_id = ? AND d2.total_amount BETWEEN ? AND ?) AS same_amount_count
+     FROM deposit_batches
+     WHERE bank_account_id = ?
+       AND total_amount BETWEEN ? AND ?
+       AND ABS(julianday(deposit_date) - julianday(?)) <= ?
+     ORDER BY days_diff ASC, amount_diff ASC
+     LIMIT 20`,
+    [txnDate, amount, bankAccountId, uniqueMin, uniqueMax, bankAccountId, amountMin, amountMax, txnDate, daysTolerance]
+  );
+}
+
+export async function linkDepositToTxn(batchId: number, txnId: number): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE deposit_batches SET bank_transaction_id = ?, updated_at = datetime('now') WHERE id = ?",
+    [txnId, batchId]
+  );
+}
+
+export type AutoMatchResult = {
+  total: number;           // UNVALIDATED positive txns scanned
+  matched: number;         // auto-linked
+  skipped: number;         // ambiguous (multiple candidates qualified)
+  details: { txn_id: number; txn_date: string; amount: number; batch_id: number; batch_date: string; reason: string }[];
+};
+
+export async function autoMatchDeposits(
+  bankAccountId?: number,
+  dryRun = true
+): Promise<AutoMatchResult> {
+  const db = await getDb();
+  const acctFilter = bankAccountId ? "AND bank_account_id = ?" : "";
+  const params: (number | string)[] = bankAccountId ? [bankAccountId] : [];
+
+  // Positive UNVALIDATED transactions only — deposits come in as positive amounts
+  const txns = await db.select<{ id: number; bank_account_id: number; amount: number; transaction_date: string; description: string }[]>(
+    `SELECT id, bank_account_id, amount, transaction_date, COALESCE(description,'') AS description
+     FROM bank_transactions
+     WHERE validation_status = 'UNVALIDATED' AND amount > 0 ${acctFilter}
+     ORDER BY transaction_date DESC`,
+    params
+  );
+
+  const details: AutoMatchResult["details"] = [];
+  let matched = 0;
+  let skipped = 0;
+
+  for (const txn of txns) {
+    const candidates = await listCandidateDepositBatches(
+      txn.bank_account_id, txn.amount, txn.transaction_date
+    );
+
+    // Only consider POSTED, unlinked batches that qualify as a likely match
+    const qualified = candidates.filter(
+      (c) => c.status === "POSTED" &&
+             c.bank_transaction_id === null &&
+             (c.same_amount_count === 1 || c.days_diff <= 2)
+    );
+
+    if (qualified.length === 1 && qualified[0]) {
+      const batch = qualified[0];
+      const reason = batch.same_amount_count === 1 && batch.days_diff <= 2
+        ? "unique amount + ≤ 2 days"
+        : batch.same_amount_count === 1 ? "unique amount" : "≤ 2 days";
+      details.push({
+        txn_id: txn.id,
+        txn_date: txn.transaction_date,
+        amount: txn.amount,
+        batch_id: batch.id,
+        batch_date: batch.deposit_date,
+        reason,
+      });
+      if (!dryRun) {
+        await db.execute(
+          "UPDATE deposit_batches SET bank_transaction_id = ?, updated_at = datetime('now') WHERE id = ?",
+          [txn.id, batch.id]
+        );
+        await db.execute(
+          "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
+          [txn.id]
+        );
+      }
+      matched++;
+    } else if (qualified.length > 1) {
+      skipped++;
+    }
+  }
+
+  return { total: txns.length, matched, skipped, details };
+}
+
+export async function unlinkDepositTxn(batchId: number): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE deposit_batches SET bank_transaction_id = NULL, updated_at = datetime('now') WHERE id = ?",
+    [batchId]
+  );
+}
+
 export async function deletePayment(paymentId: number, batchId: number | null): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM payments WHERE id = ?", [paymentId]);
