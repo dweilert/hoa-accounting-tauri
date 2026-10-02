@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { getDb } from "../lib/db";
 import { listCategories } from "../repositories/categoryRepo";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
@@ -9,6 +9,33 @@ import type { BankAccount } from "../types/bankAccount";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+}
+
+// ── Shared sort header ────────────────────────────────────────────────────────
+
+function SortTh<C extends string>({ col, active, dir, onClick, children, right }: {
+  col: C; active: C; dir: "asc" | "desc";
+  onClick: (c: C) => void; children: React.ReactNode; right?: boolean;
+}) {
+  const isActive = active === col;
+  return (
+    <th
+      onClick={() => onClick(col)}
+      className={`px-4 py-2 text-xs font-medium text-gray-600 cursor-pointer select-none hover:text-blue-600 ${right ? "text-right" : "text-left"}`}
+    >
+      {children}{isActive ? (dir === "asc" ? " ↑" : " ↓") : ""}
+    </th>
+  );
+}
+
+function useSort<C extends string>(defaultCol: C) {
+  const [col, setCol] = useState<C>(defaultCol);
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
+  function toggle(c: C) {
+    if (col === c) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setCol(c); setDir("asc"); }
+  }
+  return { col, dir, toggle };
 }
 
 // ── Tab: Payments ─────────────────────────────────────────────────────────────
@@ -27,6 +54,8 @@ type PaymentEditRow = {
   owner_id: number | null;
 };
 
+type PaySortCol = "date" | "lot" | "owner" | "method" | "amount";
+
 function PaymentsTab() {
   const [payments, setPayments] = useState<PaymentEditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +63,8 @@ function PaymentsTab() {
   const [editing, setEditing] = useState<PaymentEditRow | null>(null);
   const [editValues, setEditValues] = useState<Partial<PaymentEditRow>>({});
   const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState("");
+  const { col, dir, toggle } = useSort<PaySortCol>("date");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,12 +73,18 @@ function PaymentsTab() {
       const rows = await db.select<PaymentEditRow[]>(`
         SELECT p.id, p.payment_date, p.amount, p.payment_method, p.check_number, p.memo,
                p.lot_id, p.owner_id, p.deposit_batch_id,
-               l.lot_number, o.display_name AS owner_name
+               l.lot_number,
+               COALESCE(
+                 (SELECT GROUP_CONCAT(o2.display_name, ' / ')
+                  FROM lot_ownership lo2 JOIN owners o2 ON o2.id = lo2.owner_id
+                  WHERE lo2.lot_id = l.id AND lo2.end_date IS NULL),
+                 o.display_name
+               ) AS owner_name
         FROM payments p
         JOIN lots l ON l.id = p.lot_id
         LEFT JOIN owners o ON o.id = p.owner_id
         ORDER BY p.payment_date DESC
-        LIMIT 200
+        LIMIT 500
       `);
       setPayments(rows);
     } catch (e) {
@@ -59,10 +96,30 @@ function PaymentsTab() {
 
   useEffect(() => { void load(); }, [load]);
 
-  function startEdit(p: PaymentEditRow) {
-    setEditing(p);
-    setEditValues({});
-  }
+  const visible = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const filtered = q
+      ? payments.filter((p) =>
+          p.lot_number.toLowerCase().includes(q) ||
+          (p.owner_name ?? "").toLowerCase().includes(q) ||
+          p.payment_method.toLowerCase().includes(q) ||
+          (p.check_number ?? "").toLowerCase().includes(q) ||
+          (p.memo ?? "").toLowerCase().includes(q) ||
+          p.payment_date.includes(q)
+        )
+      : payments;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (col === "date")   cmp = a.payment_date.localeCompare(b.payment_date);
+      else if (col === "lot")    cmp = a.lot_number.localeCompare(b.lot_number);
+      else if (col === "owner")  cmp = (a.owner_name ?? "").localeCompare(b.owner_name ?? "");
+      else if (col === "method") cmp = a.payment_method.localeCompare(b.payment_method);
+      else if (col === "amount") cmp = a.amount - b.amount;
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [payments, filter, col, dir]);
+
+  function startEdit(p: PaymentEditRow) { setEditing(p); setEditValues({}); }
 
   async function saveEdit() {
     if (!editing) return;
@@ -93,7 +150,20 @@ function PaymentsTab() {
   const METHODS = ["CHECK", "ACH", "ONLINE", "CASH", "OTHER"];
 
   return (
-    <div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          placeholder="Filter by lot, owner, method, check#, memo…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="flex-1 max-w-md border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {filter && (
+          <button onClick={() => setFilter("")} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+        )}
+        <span className="text-xs text-gray-400">{visible.length} record{visible.length !== 1 ? "s" : ""}</span>
+      </div>
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
       {!loading && (
@@ -101,21 +171,21 @@ function PaymentsTab() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Method</th>
+                <SortTh col="date"   active={col} dir={dir} onClick={toggle}>Date</SortTh>
+                <SortTh col="lot"    active={col} dir={dir} onClick={toggle}>Lot</SortTh>
+                <SortTh col="owner"  active={col} dir={dir} onClick={toggle}>Owner</SortTh>
+                <SortTh col="method" active={col} dir={dir} onClick={toggle}>Method</SortTh>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Check #</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <SortTh col="amount" active={col} dir={dir} onClick={toggle} right>Amount</SortTh>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {payments.length === 0 && (
+              {visible.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No payments found.</td></tr>
               )}
-              {payments.map((p) => (
-                <tr key={p.id}>
+              {visible.map((p) => (
+                <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600 text-xs">{p.payment_date}</td>
                   <td className="px-4 py-2 font-medium text-gray-900">Lot {p.lot_number}</td>
                   <td className="px-4 py-2 text-gray-500 text-xs">{p.owner_name ?? "—"}</td>
@@ -202,6 +272,8 @@ type IncomeEditRow = {
   reference: string | null;
 };
 
+type IncSortCol = "date" | "category" | "account" | "amount";
+
 function IncomeTab() {
   const [income, setIncome] = useState<IncomeEditRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -211,6 +283,8 @@ function IncomeTab() {
   const [editing, setEditing] = useState<IncomeEditRow | null>(null);
   const [editValues, setEditValues] = useState<Partial<IncomeEditRow>>({});
   const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState("");
+  const { col, dir, toggle } = useSort<IncSortCol>("date");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -227,7 +301,7 @@ function IncomeTab() {
           JOIN bank_accounts b ON b.id = ib.bank_account_id
           LEFT JOIN lots l ON l.id = ib.lot_id
           ORDER BY ib.income_date DESC
-          LIMIT 200
+          LIMIT 500
         `),
         listCategories(),
         listBankAccounts(),
@@ -243,6 +317,28 @@ function IncomeTab() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const visible = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const filtered = q
+      ? income.filter((r) =>
+          r.income_date.includes(q) ||
+          r.category_name.toLowerCase().includes(q) ||
+          r.account_name.toLowerCase().includes(q) ||
+          (r.description ?? "").toLowerCase().includes(q) ||
+          (r.reference ?? "").toLowerCase().includes(q) ||
+          (r.lot_number ?? "").toLowerCase().includes(q)
+        )
+      : income;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (col === "date")     cmp = a.income_date.localeCompare(b.income_date);
+      else if (col === "category") cmp = a.category_name.localeCompare(b.category_name);
+      else if (col === "account")  cmp = a.account_name.localeCompare(b.account_name);
+      else if (col === "amount")   cmp = a.amount - b.amount;
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [income, filter, col, dir]);
 
   async function saveEdit() {
     if (!editing) return;
@@ -272,7 +368,20 @@ function IncomeTab() {
   }
 
   return (
-    <div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          placeholder="Filter by date, category, account, description…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="flex-1 max-w-md border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {filter && (
+          <button onClick={() => setFilter("")} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+        )}
+        <span className="text-xs text-gray-400">{visible.length} record{visible.length !== 1 ? "s" : ""}</span>
+      </div>
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
       {!loading && (
@@ -280,20 +389,20 @@ function IncomeTab() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
+                <SortTh col="date"     active={col} dir={dir} onClick={toggle}>Date</SortTh>
+                <SortTh col="category" active={col} dir={dir} onClick={toggle}>Category</SortTh>
+                <SortTh col="account"  active={col} dir={dir} onClick={toggle}>Account</SortTh>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <SortTh col="amount"   active={col} dir={dir} onClick={toggle} right>Amount</SortTh>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {income.length === 0 && (
+              {visible.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No income records found.</td></tr>
               )}
-              {income.map((r) => (
-                <tr key={r.id}>
+              {visible.map((r) => (
+                <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600 text-xs">{r.income_date}</td>
                   <td className="px-4 py-2 text-gray-700 text-xs">{r.category_name}</td>
                   <td className="px-4 py-2 text-gray-500 text-xs">{r.account_name}</td>
@@ -385,6 +494,8 @@ type AssessmentEditRow = {
   category_id: number | null;
 };
 
+type AsmSortCol = "date" | "lot" | "owner" | "type" | "amount" | "status";
+
 function AssessmentsTab() {
   const [assessments, setAssessments] = useState<AssessmentEditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,6 +503,8 @@ function AssessmentsTab() {
   const [editing, setEditing] = useState<AssessmentEditRow | null>(null);
   const [editValues, setEditValues] = useState<Partial<AssessmentEditRow>>({});
   const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState("");
+  const { col, dir, toggle } = useSort<AsmSortCol>("date");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -406,7 +519,7 @@ function AssessmentsTab() {
         LEFT JOIN owners o ON o.id = a.owner_id
         WHERE a.status IN ('OPEN','PARTIAL')
         ORDER BY a.assessment_date DESC
-        LIMIT 300
+        LIMIT 500
       `);
       setAssessments(rows);
     } catch (e) {
@@ -417,6 +530,30 @@ function AssessmentsTab() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const visible = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const filtered = q
+      ? assessments.filter((a) =>
+          a.assessment_date.includes(q) ||
+          a.lot_number.toLowerCase().includes(q) ||
+          (a.owner_name ?? "").toLowerCase().includes(q) ||
+          a.charge_type.toLowerCase().includes(q) ||
+          a.status.toLowerCase().includes(q) ||
+          (a.description ?? "").toLowerCase().includes(q)
+        )
+      : assessments;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (col === "date")   cmp = a.assessment_date.localeCompare(b.assessment_date);
+      else if (col === "lot")    cmp = a.lot_number.localeCompare(b.lot_number);
+      else if (col === "owner")  cmp = (a.owner_name ?? "").localeCompare(b.owner_name ?? "");
+      else if (col === "type")   cmp = a.charge_type.localeCompare(b.charge_type);
+      else if (col === "amount") cmp = a.amount - b.amount;
+      else if (col === "status") cmp = a.status.localeCompare(b.status);
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [assessments, filter, col, dir]);
 
   async function saveEdit() {
     if (!editing) return;
@@ -445,7 +582,20 @@ function AssessmentsTab() {
   }
 
   return (
-    <div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          placeholder="Filter by lot, owner, type, status, description…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="flex-1 max-w-md border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {filter && (
+          <button onClick={() => setFilter("")} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+        )}
+        <span className="text-xs text-gray-400">{visible.length} record{visible.length !== 1 ? "s" : ""}</span>
+      </div>
       {loading && <p className="text-sm text-gray-400">Loading…</p>}
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
       {!loading && (
@@ -453,21 +603,21 @@ function AssessmentsTab() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortTh col="date"   active={col} dir={dir} onClick={toggle}>Date</SortTh>
+                <SortTh col="lot"    active={col} dir={dir} onClick={toggle}>Lot</SortTh>
+                <SortTh col="owner"  active={col} dir={dir} onClick={toggle}>Owner</SortTh>
+                <SortTh col="type"   active={col} dir={dir} onClick={toggle}>Type</SortTh>
+                <SortTh col="amount" active={col} dir={dir} onClick={toggle} right>Amount</SortTh>
+                <SortTh col="status" active={col} dir={dir} onClick={toggle}>Status</SortTh>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {assessments.length === 0 && (
+              {visible.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No open assessments.</td></tr>
               )}
-              {assessments.map((a) => (
-                <tr key={a.id}>
+              {visible.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600 text-xs">{a.assessment_date}</td>
                   <td className="px-4 py-2 font-medium text-gray-900">Lot {a.lot_number}</td>
                   <td className="px-4 py-2 text-gray-500 text-xs">{a.owner_name ?? "—"}</td>
