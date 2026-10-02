@@ -168,15 +168,13 @@ export async function getLotBalances(): Promise<LotBalance[]> {
       COALESCE(ob.amount, 0) AS opening_balance,
       COALESCE((SELECT SUM(a.amount) FROM assessments a
                 WHERE a.lot_id = l.id AND a.status NOT IN ('VOID','WRITTEN_OFF')), 0) AS billed,
-      COALESCE((SELECT SUM(pa.amount) FROM payment_applications pa
-                JOIN assessments a ON a.id = pa.assessment_id
-                WHERE a.lot_id = l.id), 0) AS paid,
+      COALESCE((SELECT SUM(p.amount) FROM payments p
+                WHERE p.lot_id = l.id), 0) AS paid,
       COALESCE(ob.amount, 0)
         + COALESCE((SELECT SUM(a.amount) FROM assessments a
                     WHERE a.lot_id = l.id AND a.status NOT IN ('VOID','WRITTEN_OFF')), 0)
-        - COALESCE((SELECT SUM(pa.amount) FROM payment_applications pa
-                    JOIN assessments a ON a.id = pa.assessment_id
-                    WHERE a.lot_id = l.id), 0) AS balance_due
+        - COALESCE((SELECT SUM(p.amount) FROM payments p
+                    WHERE p.lot_id = l.id), 0) AS balance_due
     FROM lots l
     LEFT JOIN opening_balances ob ON ob.entity_type = 'LOT_DUES' AND ob.entity_id = l.id
     WHERE l.active_flag = 1
