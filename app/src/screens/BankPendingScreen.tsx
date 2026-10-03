@@ -337,7 +337,7 @@ export function BankPendingScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"UNVALIDATED" | "VALIDATED" | "IGNORED" | "all">("UNVALIDATED");
+  const [filter, setFilter] = useState<"UNVALIDATED" | "VALIDATED" | "IGNORED" | "all" | "UNMATCHED_TRIAL">("UNVALIDATED");
   const [accountFilter, setAccountFilter] = useState<number | "all">("all");
   const [modal, setModal] = useState<ModalState>(null);
   const [bulkWorking, setBulkWorking] = useState(false);
@@ -503,7 +503,10 @@ export function BankPendingScreen() {
   }
 
   const visible = transactions
-    .filter((t) => filter === "all" || t.validation_status === filter)
+    .filter((t) => {
+      if (filter === "UNMATCHED_TRIAL") return trialMap !== null && !trialMap.has(t.id) && t.validation_status === "UNVALIDATED";
+      return filter === "all" || t.validation_status === filter;
+    })
     .filter((t) => accountFilter === "all" || t.bank_account_id === accountFilter);
 
   const unvalidatedCount = visible.filter((t) => t.validation_status === "UNVALIDATED").length;
@@ -534,7 +537,7 @@ export function BankPendingScreen() {
           )}
           {trialMap && (
             <button
-              onClick={() => { setTrialMap(null); setSelectedIds(new Set()); }}
+              onClick={() => { setTrialMap(null); setSelectedIds(new Set()); setFilter("UNVALIDATED"); }}
               className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
             >
               Clear Trial
@@ -587,6 +590,7 @@ export function BankPendingScreen() {
           <option value="VALIDATED">Validated</option>
           <option value="IGNORED">Ignored</option>
           <option value="all">All</option>
+          {trialMap && <option value="UNMATCHED_TRIAL">Unmatched (trial)</option>}
         </select>
         <select
           value={accountFilter}
@@ -656,27 +660,26 @@ export function BankPendingScreen() {
                         {fmt(t.amount)}
                       </td>
                       <td className="px-4 py-2">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          t.validation_status === "VALIDATED"
-                            ? "bg-green-100 text-green-700"
-                            : t.validation_status === "IGNORED"
-                            ? "bg-gray-200 text-gray-600"
-                            : "bg-yellow-100 text-yellow-700"
-                        }`}>
-                          {t.validation_status}
-                        </span>
-                        {trial && (
-                          <div className="mt-1">
-                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                              trial.auto && trial.action_type === "IGNORE" ? "bg-gray-200 text-gray-700"
-                              : trial.auto && trial.action_type === "CATEGORIZE" ? "bg-green-100 text-green-800"
-                              : trial.auto && trial.action_type === "LINK_EXPENSE" ? "bg-purple-100 text-purple-800"
-                              : trial.auto && trial.action_type === "DEPOSIT_MATCH" ? "bg-teal-100 text-teal-800"
-                              : "bg-amber-100 text-amber-800"
-                            }`}>
-                              {trial.rule_name} / {trial.auto ? trial.action_type.replace("_", " ") : "REVIEW FIRST"}
-                            </span>
-                          </div>
+                        {trial ? (
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                            trial.auto && trial.action_type === "IGNORE" ? "bg-gray-200 text-gray-700"
+                            : trial.auto && trial.action_type === "CATEGORIZE" ? "bg-green-100 text-green-800"
+                            : trial.auto && trial.action_type === "LINK_EXPENSE" ? "bg-purple-100 text-purple-800"
+                            : trial.auto && trial.action_type === "DEPOSIT_MATCH" ? "bg-teal-100 text-teal-800"
+                            : "bg-amber-100 text-amber-800"
+                          }`}>
+                            {trial.rule_name} / {trial.auto ? trial.action_type.replace(/_/g, " ") : "REVIEW FIRST"}
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            t.validation_status === "VALIDATED"
+                              ? "bg-green-100 text-green-700"
+                              : t.validation_status === "IGNORED"
+                              ? "bg-gray-200 text-gray-600"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}>
+                            {t.validation_status}
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap space-x-2">
