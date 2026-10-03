@@ -807,7 +807,7 @@ export function BankPendingScreen() {
                                   })()}
                                   <p className="text-xs font-semibold text-indigo-800 mb-2">
                                     Posted Deposit Batches — same account, ±5% amount, any date.
-                                    {" "}<span className="font-normal text-indigo-600">Likely Match = unique amount <em>and</em> within 2 days. All unlinked deposits with matching amount shown.</span>
+                                    {" "}<span className="font-normal text-indigo-600">Likely Match = unique amount <em>and</em> within 3 days. All unlinked deposits with matching amount shown.</span>
                                   </p>
                                   {analysis.deposits.length === 0 ? (
                                     <p className="text-xs text-orange-700">
@@ -828,7 +828,7 @@ export function BankPendingScreen() {
                                       </thead>
                                       <tbody>
                                         {analysis.deposits.map((d) => {
-                                          const likelyMatch = d.same_amount_count === 1 && d.days_diff <= 2;
+                                          const likelyMatch = d.same_amount_count === 1 && d.days_diff <= 3;
                                           return (
                                           <tr key={d.id} className={`border-t border-indigo-100 hover:bg-indigo-100 ${likelyMatch ? "bg-teal-50" : ""}`}>
                                             <td className="py-1 pr-3 text-gray-700">{d.deposit_date}</td>
@@ -845,7 +845,7 @@ export function BankPendingScreen() {
                                             <td className="py-1 pr-3">
                                               {likelyMatch ? (
                                                 <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800">
-                                                  Unique + ≤2 days
+                                                  Unique + ≤3 days
                                                 </span>
                                               ) : (
                                                 <span className="text-gray-400 text-xs">—</span>
