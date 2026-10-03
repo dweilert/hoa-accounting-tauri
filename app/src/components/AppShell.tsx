@@ -26,6 +26,7 @@ const NAV: NavSection[] = [
   {
     heading: "Transactions",
     items: [
+      { label: "All Transactions", to: "/transactions" },
       { label: "Opening Balances", to: "/opening-balances" },
     ],
   },
