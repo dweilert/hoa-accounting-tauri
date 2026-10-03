@@ -95,6 +95,7 @@ const NAV: NavSection[] = [
       { label: "Accounting Periods", to: "/accounting-periods" },
       { label: "Data Import", to: "/data-import" },
       { label: "Audit Log", to: "/audit-log" },
+      { label: "Sanity Check", to: "/sanity-check" },
       { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },
       { label: "Settings", to: "/settings" },

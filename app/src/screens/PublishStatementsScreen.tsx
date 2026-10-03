@@ -147,7 +147,7 @@ export function PublishStatementsScreen() {
         setStatus(lot.lot_number, { phase: "generating" });
         const [result, ownerDetails] = await Promise.all([
           loadOwnerLedger(lot.owner_id, year),
-          loadOwnerDetails(lot.owner_id),
+          loadOwnerDetails(lot.owner_id, year),
         ]);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

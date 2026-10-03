@@ -47,6 +47,7 @@ import { RentersScreen } from "./screens/RentersScreen";
 import { OFXImportScreen } from "./screens/OFXImportScreen";
 import { OFXInboxScreen } from "./screens/OFXInboxScreen";
 import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
+import { SanityCheckScreen } from "./screens/SanityCheckScreen";
 import { AppDialogHost } from "./components/AppDialogs";
 
 export default function App() {
@@ -103,6 +104,7 @@ export default function App() {
 
             {/* Audit Log */}
             <Route path="audit-log" element={<RequireAdmin><AuditLogScreen /></RequireAdmin>} />
+            <Route path="sanity-check" element={<RequireAdmin><SanityCheckScreen /></RequireAdmin>} />
 
             {/* Owner Statements */}
             <Route path="owner-statements" element={<OwnerStatementsScreen />} />

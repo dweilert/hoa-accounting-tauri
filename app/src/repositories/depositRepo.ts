@@ -57,6 +57,21 @@ export async function postDepositBatch(id: number): Promise<void> {
   );
 }
 
+export async function updateDepositBatch(
+  id: number,
+  deposit_date: string,
+  bank_account_id: number,
+  notes: string
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE deposit_batches
+     SET deposit_date = ?, bank_account_id = ?, notes = ?, updated_at = datetime('now')
+     WHERE id = ?`,
+    [deposit_date, bank_account_id, notes || null, id]
+  );
+}
+
 export async function listPaymentsForBatch(batchId: number): Promise<PaymentRow[]> {
   const db = await getDb();
   const rows = await db.select<unknown[]>(`${PAYMENT_BASE} WHERE p.deposit_batch_id = ?`, [batchId]);

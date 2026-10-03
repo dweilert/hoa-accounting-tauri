@@ -8,6 +8,7 @@ import {
   insertPayment,
   deletePayment,
   postDepositBatch,
+  updateDepositBatch,
   listCandidateBankTxns,
   linkDepositToTxn,
   unlinkDepositTxn,
@@ -207,6 +208,57 @@ function NewBatchForm({ accounts, onCreate, onCancel }: {
   );
 }
 
+// ── Edit Deposit Batch Form ───────────────────────────────────────────────────
+
+function EditBatchForm({ batch, accounts, onSave, onCancel }: {
+  batch: BatchRow;
+  accounts: BankAccount[];
+  onSave: (date: string, accountId: number, notes: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [date, setDate] = useState(batch.deposit_date);
+  const [accountId, setAccountId] = useState(batch.bank_account_id);
+  const [notes, setNotes] = useState(batch.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accountId) return;
+    setSaving(true);
+    try { await onSave(date, accountId, notes); } finally { setSaving(false); }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Deposit Date <span className="text-red-500">*</span></label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Bank Account <span className="text-red-500">*</span></label>
+          <select value={accountId} onChange={(e) => setAccountId(Number(e.target.value))}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+        <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
+          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div className="flex justify-end gap-3 pt-2 border-t">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
+        <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Sort header helper ────────────────────────────────────────────────────────
 
 function SortTh({ col, active, dir, onClick, children, right }: {
@@ -226,7 +278,7 @@ function SortTh({ col, active, dir, onClick, children, right }: {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-type ModalState = { mode: "newBatch" } | { mode: "addPayment"; batchId: number } | null;
+type ModalState = { mode: "newBatch" } | { mode: "addPayment"; batchId: number } | { mode: "editBatch"; batch: BatchRow } | null;
 type MatchingState = { batchId: number; candidates: OFXCandidate[]; loading: boolean } | null;
 
 export function DepositsScreen() {
@@ -282,6 +334,12 @@ export function DepositsScreen() {
 
   async function handleCreateBatch(date: string, accountId: number, notes: string) {
     await insertDepositBatch(date, accountId, notes);
+    setModal(null);
+    await loadBatches();
+  }
+
+  async function handleEditBatch(batchId: number, date: string, accountId: number, notes: string) {
+    await updateDepositBatch(batchId, date, accountId, notes);
     setModal(null);
     await loadBatches();
   }
@@ -460,6 +518,12 @@ export function DepositsScreen() {
                                           {matching?.batchId === batch.id ? "Hide OFX" : "Match OFX"}
                                         </button>
                                       )}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setModal({ mode: "editBatch", batch }); }}
+                                        className="px-2 py-0.5 text-xs border border-gray-400 text-gray-600 rounded hover:bg-gray-100"
+                                      >
+                                        Edit
+                                      </button>
                                       {batch.status === "OPEN" && (
                                         <>
                                           <button
@@ -614,6 +678,17 @@ export function DepositsScreen() {
               lots={lots}
               owners={owners}
               onSave={(v) => handleAddPayment(modal.batchId, v)}
+              onCancel={() => setModal(null)}
+            />
+          </Modal>
+        )}
+
+        {modal?.mode === "editBatch" && (
+          <Modal title="Edit Deposit Batch" onClose={() => setModal(null)}>
+            <EditBatchForm
+              batch={modal.batch}
+              accounts={accounts}
+              onSave={(date, accountId, notes) => handleEditBatch(modal.batch.id, date, accountId, notes)}
               onCancel={() => setModal(null)}
             />
           </Modal>

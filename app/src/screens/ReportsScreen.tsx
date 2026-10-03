@@ -40,14 +40,26 @@ type ExpenseRow = { category_name: string; total: number };
 async function loadExpenseSummary(year: number): Promise<ExpenseRow[]> {
   const db = await getDb();
   const rows = await db.select<ExpenseRow[]>(`
-    SELECT c.name AS category_name, SUM(bp.amount) AS total
-    FROM bill_payments bp
-    JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
-    JOIN categories c ON c.id = vb.category_id
-    WHERE strftime('%Y', bp.payment_date) = ?
-    GROUP BY c.name
+    SELECT category_name, SUM(total) AS total FROM (
+      -- Vendor bill payments
+      SELECT c.name AS category_name, SUM(bp.amount) AS total
+      FROM bill_payments bp
+      JOIN vendor_bills vb ON vb.id = bp.vendor_bill_id
+      JOIN categories c ON c.id = vb.category_id
+      WHERE strftime('%Y', bp.payment_date) = ?
+      GROUP BY c.name
+      UNION ALL
+      -- Direct expense entries via income_batches (negative = outflow, positive = reimbursement reducing expense)
+      SELECT c.name AS category_name, SUM(-ib.amount) AS total
+      FROM income_batches ib
+      JOIN categories c ON c.id = ib.category_id
+      WHERE c.category_type = 'EXPENSE'
+        AND strftime('%Y', ib.income_date) = ?
+      GROUP BY c.name
+    )
+    GROUP BY category_name
     ORDER BY total DESC
-  `, [String(year)]);
+  `, [String(year), String(year)]);
   return rows;
 }
 
@@ -66,7 +78,8 @@ async function loadIncomeSummary(year: number): Promise<IncomeRow[]> {
       SELECT c.name AS category_name, SUM(ib.amount) AS total
       FROM income_batches ib
       JOIN categories c ON c.id = ib.category_id
-      WHERE strftime('%Y', ib.income_date) = ?
+      WHERE c.category_type = 'INCOME'
+        AND strftime('%Y', ib.income_date) = ?
       GROUP BY c.name ORDER BY total DESC
     `, [String(year)]),
   ]);
@@ -303,8 +316,6 @@ function olFmtCharge(ct: string | null) {
 function OwnerLedgerReport({
   ownerId = 0,
   year = new Date().getFullYear(),
-  hoaName = "",
-  runDate = "",
 }: {
   ownerId?: number;
   year?: number;
@@ -314,187 +325,108 @@ function OwnerLedgerReport({
   const [result, setResult]           = useState<OwnerLedgerResult | null>(null);
   const [ownerDetails, setOwnerDetails] = useState<OLOwnerInfo[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [loadError, setLoadError]     = useState<string | null>(null);
 
   useEffect(() => {
     if (!ownerId) { setLoading(false); return; }
     setLoading(true);
-    Promise.all([loadOwnerLedger(ownerId, year), loadOwnerDetails(ownerId)])
+    setLoadError(null);
+    Promise.all([loadOwnerLedger(ownerId, year), loadOwnerDetails(ownerId, year)])
       .then(([res, details]) => { setResult(res); setOwnerDetails(details); })
+      .catch((e) => setLoadError(String(e)))
       .finally(() => setLoading(false));
   }, [ownerId, year]);
 
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
+  if (loadError) return <p className="text-sm text-red-600">Error: {loadError}</p>;
   if (!result)  return null;
 
-  const rows       = result.rows;
+  const rows       = result.rows; // descending (most recent first)
   const beginBal   = result.beginningBalance;
   const closingBal = rows[0]?.running_balance ?? beginBal;
-  const duesBal    = result.beginBalanceDetail.filter((i) => i.label === "DUES").reduce((s, i) => s + i.amount, 0);
-  const assessBal  = result.beginBalanceDetail.filter((i) => i.label !== "DUES" && i.label !== "Prior Payments").reduce((s, i) => s + i.amount, 0);
-
-  // Page splitting
-  const ROWS_PAGE_1 = 15;
-  const ROWS_PER_PAGE = 25;
-
-  const page1Rows = rows.slice(0, ROWS_PAGE_1);
-  const remainingRows = rows.slice(ROWS_PAGE_1);
-  const extraPageRows: typeof rows[] = [];
-  for (let i = 0; i < remainingRows.length; i += ROWS_PER_PAGE) {
-    extraPageRows.push(remainingRows.slice(i, i + ROWS_PER_PAGE));
-  }
-  const totalPages = 1 + extraPageRows.length;
-
-  function TxnRows({ pageRows, isLastPage }: { pageRows: typeof rows; isLastPage: boolean }) {
-    return (
-      <table className="w-full">
-        <thead>
-          <tr className="bg-slate-800 text-white">
-            <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
-            <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
-            <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold">Charge</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold">Payment</th>
-            <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {pageRows.length === 0 && <tr><td colSpan={6} className="px-3 py-4 text-center text-gray-400">No transactions for {year}.</td></tr>}
-          {pageRows.map((r, i) => (
-            <tr key={i}>
-              <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
-              <td className="px-3 py-1.5">
-                {r.type === "PAYMENT"
-                  ? <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 text-center min-w-[60px]">Payment</span>
-                  : <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 text-center min-w-[60px]">{olFmtCharge(r.charge_type)}</span>
-                }
-              </td>
-              <td className="px-3 py-1.5 text-gray-700">{r.description}</td>
-              <td className="px-3 py-1.5 text-right font-mono text-gray-800">{r.amount < 0 ? olFmtAbs(r.amount) : ""}</td>
-              <td className="px-3 py-1.5 text-right font-mono text-gray-800">{r.amount >= 0 ? olFmtAbs(r.amount) : ""}</td>
-              <td className={`px-3 py-1.5 text-right font-mono ${olBalColor(r.running_balance)}`}>{olFmtBal(r.running_balance)}</td>
-            </tr>
-          ))}
-        </tbody>
-        {isLastPage && (
-          <tfoot>
-            <tr className="border-t-2 border-gray-300">
-              <td colSpan={5} className="px-3 py-2 text-right font-bold text-gray-800">Closing Balance</td>
-              <td className={`px-3 py-2 text-right font-bold font-mono ${olBalColor(closingBal)}`}>{olFmtBal(closingBal)}</td>
-            </tr>
-          </tfoot>
-        )}
-      </table>
-    );
-  }
 
   return (
-    <>
-      {/* Page 1 */}
-      <div className="rpt-wrap">
-        <div className="rpt-inner">
-        <div className="rpt-content">
-          {/* Print-only header */}
-          <div className="hidden print:block mb-4 pb-3 border-b-2 border-gray-400">
-            <p className="text-[9px] text-gray-400 mb-1">{runDate}</p>
-            {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
-            <p className="text-sm font-semibold text-gray-700 text-center mt-0.5">Owner Ledger — {year}</p>
-          </div>
+    <div className="space-y-4 text-[11px]">
 
-          <div className="space-y-3 text-[11px]">
-            {/* Owners */}
-            {ownerDetails.length > 0 && (
-              <div className="border border-gray-300 rounded">
-                <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Owners</div>
-                <div className="p-4 grid grid-cols-2 gap-4">
-                  {ownerDetails.map((o, i) => (
-                    <div key={i}>
-                      <p className="font-bold text-gray-900">{o.display_name}</p>
-                      {o.email && <p className="text-gray-500 mt-0.5">Email: {o.email}</p>}
-                      {o.phone && <p className="text-gray-500">Phone: {o.phone}</p>}
-                      {o.mailing_address_1 && <p className="text-gray-500 mt-0.5">{o.mailing_address_1}</p>}
-                      {(o.city || o.state || o.postal_code) && (
-                        <p className="text-gray-500">{[o.city, o.state, o.postal_code].filter(Boolean).join(" ")}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+      {/* Owner info */}
+      {ownerDetails.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Owner</div>
+          <div className="p-4 grid grid-cols-2 gap-4">
+            {ownerDetails.map((o, i) => (
+              <div key={i}>
+                <p className="font-bold text-gray-900 text-sm">{o.display_name}</p>
+                {o.lot_numbers.length > 0 && <p className="text-gray-500">Lot{o.lot_numbers.length > 1 ? "s" : ""}: {o.lot_numbers.join(", ")}</p>}
+                {o.email && <p className="text-gray-500">{o.email}</p>}
+                {o.phone && <p className="text-gray-500">{o.phone}</p>}
+                {o.mailing_address_1 && <p className="text-gray-500 mt-0.5">{o.mailing_address_1}</p>}
+                {(o.city || o.state || o.postal_code) && (
+                  <p className="text-gray-500">{[o.city, o.state, o.postal_code].filter(Boolean).join(" ")}</p>
+                )}
               </div>
-            )}
-
-            {/* Summary strip */}
-            <div className="border border-gray-300 rounded">
-              <div className="grid grid-cols-4 divide-x divide-gray-200 bg-gray-50 text-[9px] font-medium text-gray-500 uppercase tracking-wide">
-                {["Year", "Opening Dues Balance", "Opening Assessments Balance", "Closing Balance"].map((h) => (
-                  <div key={h} className="px-4 py-1">{h}</div>
-                ))}
-              </div>
-              <div className="grid grid-cols-4 divide-x divide-gray-200">
-                <div className="px-4 py-1.5 font-semibold text-[11px] text-gray-900">{year}</div>
-                <div className={`px-4 py-1.5 font-semibold text-[11px] ${olBalColor(duesBal)}`}>{olFmtBal(duesBal)}</div>
-                <div className={`px-4 py-1.5 font-semibold text-[11px] ${olBalColor(assessBal)}`}>{olFmtBal(assessBal)}</div>
-                <div className={`px-4 py-1.5 font-semibold text-[11px] ${olBalColor(closingBal)}`}>{olFmtBal(closingBal)}</div>
-              </div>
-            </div>
-
-            {/* Beginning Balance Detail */}
-            {result.beginBalanceDetail.length > 0 && (
-              <div className="border border-gray-300 rounded">
-                <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Beginning Balance Detail</div>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="px-4 py-1.5 text-left text-[10px] font-medium text-gray-500">Charge Type</th>
-                      <th className="px-4 py-1.5 text-right text-[10px] font-medium text-gray-500">Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {result.beginBalanceDetail.map((item, i) => (
-                      <tr key={i}>
-                        <td className="px-4 py-1.5 text-gray-700">Prior Balance — {olFmtCharge(item.label)}</td>
-                        <td className={`px-4 py-1.5 text-right font-mono ${olBalColor(item.amount)}`}>{olFmtBal(item.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-gray-200">
-                      <td className="px-4 py-1.5 text-right font-semibold text-gray-700">Total Opening Balance</td>
-                      <td className={`px-4 py-1.5 text-right font-bold font-mono ${olBalColor(beginBal)}`}>{olFmtBal(beginBal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-
-            {/* Transaction table — page 1 rows */}
-            <TxnRows pageRows={page1Rows} isLastPage={totalPages === 1} />
+            ))}
           </div>
         </div>
-        <div className="rpt-footer">
-          <span>{hoaName}</span>
-          <span>Page 1 of {totalPages}</span>
-        </div>
-        </div>
+      )}
+
+      {/* Single transaction table — beginning balance at bottom, closing at top */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="bg-slate-800 text-white">
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold">Charge</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold">Payment</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {/* Closing balance row */}
+            <tr className="bg-gray-50 font-semibold">
+              <td className="px-3 py-2 text-gray-500">{year}</td>
+              <td colSpan={4} className="px-3 py-2 text-gray-700">Closing Balance</td>
+              <td className={`px-3 py-2 text-right font-mono ${olBalColor(closingBal)}`}>{olFmtBal(closingBal)}</td>
+            </tr>
+
+            {/* Transactions — most recent first */}
+            {rows.length === 0 && (
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">No transactions for {year}.</td></tr>
+            )}
+            {rows.map((r, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
+                <td className="px-3 py-1.5">
+                  {r.type === "PAYMENT"
+                    ? <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 min-w-[60px] text-center">Payment</span>
+                    : <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 min-w-[60px] text-center">{olFmtCharge(r.charge_type)}</span>
+                  }
+                </td>
+                <td className="px-3 py-1.5 text-gray-700">{r.description}</td>
+                <td className="px-3 py-1.5 text-right font-mono text-gray-800">{r.amount < 0 ? olFmtAbs(r.amount) : ""}</td>
+                <td className="px-3 py-1.5 text-right font-mono text-gray-800">{r.amount >= 0 ? olFmtAbs(r.amount) : ""}</td>
+                <td className={`px-3 py-1.5 text-right font-mono ${olBalColor(r.running_balance)}`}>{olFmtBal(r.running_balance)}</td>
+              </tr>
+            ))}
+
+            {/* Beginning balance — always shown */}
+            <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
+              <td className="px-3 py-2 text-gray-500">Jan 1</td>
+              <td colSpan={4} className="px-3 py-2 text-gray-700">
+                Beginning Balance
+                {result.beginBalanceDetail.length > 0 && (
+                  <span className="ml-2 font-normal text-gray-500 text-[10px]">
+                    ({result.beginBalanceDetail.map((d) => `${olFmtCharge(d.label)}: ${olFmtBal(d.amount)}`).join(" · ")})
+                  </span>
+                )}
+              </td>
+              <td className={`px-3 py-2 text-right font-mono ${olBalColor(beginBal)}`}>{olFmtBal(beginBal)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      {/* Additional pages */}
-      {extraPageRows.map((pageRows, i) => (
-        <div key={i} className="rpt-wrap">
-          <div className="rpt-inner">
-          <div className="rpt-content">
-            <div className="hidden print:block mb-4">
-              {hoaName && <p className="text-[11px] font-semibold text-gray-700 text-center">{hoaName}</p>}
-              <p className="text-[10px] text-gray-500 text-center">Owner Ledger — {year} (continued)</p>
-            </div>
-            <TxnRows pageRows={pageRows} isLastPage={i === extraPageRows.length - 1} />
-          </div>
-          <div className="rpt-footer">
-            <span>{hoaName}</span>
-            <span>Page {i + 2} of {totalPages}</span>
-          </div>
-          </div>
-        </div>
-      ))}
-    </>
+    </div>
   );
 }
 
@@ -1210,7 +1142,7 @@ export function ReportsScreen() {
 
       } else if (selected === "owner_ledger") {
         const { OwnerLedgerPDF } = await import("../reports/OwnerLedgerPDF");
-        const [result, details] = await Promise.all([loadOwnerLedger(ownerId, year), loadOwnerDetails(ownerId)]);
+        const [result, details] = await Promise.all([loadOwnerLedger(ownerId, year), loadOwnerDetails(ownerId, year)]);
         docEl = <OwnerLedgerPDF result={result} ownerDetails={details} hoaName={hoaName} runDate={rDate} year={year} />;
 
       } else if (selected === "ar_aging") {
