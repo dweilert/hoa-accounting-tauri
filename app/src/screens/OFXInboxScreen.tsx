@@ -6,6 +6,7 @@ import {
   getExistingDedupKeys,
   createImportBatch,
   finalizeImportBatch,
+  storeOfxBalance,
 } from "../repositories/reconciliationRepo";
 import type { BankAccount } from "../types/bankAccount";
 
@@ -63,6 +64,17 @@ function parseOFX(text: string): OFXTransaction[] {
 
 function buildDedupKey(fitid: string, date: string, amount: number): string {
   return fitid ? `ofx-${fitid}` : `ofx-${date}-${amount}`;
+}
+
+function parseOFXBalance(text: string): { balanceDate: string; balanceAmount: number } | null {
+  const block = /<LEDGERBAL>([\s\S]*?)(<\/LEDGERBAL>|<AVAILBAL>|<\/STMTRS>)/i.exec(text)?.[1];
+  if (!block) return null;
+  const amtStr = extractTag(block, "BALAMT");
+  const dtRaw = extractTag(block, "DTASOF");
+  if (!amtStr || !dtRaw) return null;
+  const balanceAmount = parseFloat(amtStr);
+  if (isNaN(balanceAmount)) return null;
+  return { balanceDate: parseOFXDate(dtRaw), balanceAmount };
 }
 
 // ── Inbox file reader (Tauri only) ────────────────────────────────────────────
@@ -219,6 +231,8 @@ async function importFile(
       if (id > 0) imported++; else skipped++;
     }
     await finalizeImportBatch(batchId, imported, skipped);
+    const bal = parseOFXBalance(text);
+    if (bal) await storeOfxBalance(account.id, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
     return { imported, skipped };
   } catch (e) {
     return { imported: 0, skipped: 0, error: String(e) };

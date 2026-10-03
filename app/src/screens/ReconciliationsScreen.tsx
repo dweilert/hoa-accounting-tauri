@@ -11,6 +11,7 @@ import {
   getClearedTransactionIds,
   toggleClear,
   getLastReconBalance,
+  getLatestOfxBalance,
 } from "../repositories/reconciliationRepo";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankReconciliation, BankTransaction } from "../types/reconciliation";
@@ -34,6 +35,17 @@ function NewReconForm({ accounts, onSave, onCancel }: {
   const [endingBalance, setEndingBalance] = useState("0");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [ofxHint, setOfxHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId) return;
+    getLatestOfxBalance(accountId).then((bal) => {
+      if (!bal) { setOfxHint(null); return; }
+      setDate(bal.balance_date);
+      setEndingBalance(bal.balance_amount.toFixed(2));
+      setOfxHint(`Pre-filled from OFX statement dated ${bal.balance_date}`);
+    }).catch(() => undefined);
+  }, [accountId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,6 +97,9 @@ function NewReconForm({ accounts, onSave, onCancel }: {
           />
         </div>
       </div>
+      {ofxHint && (
+        <p className="text-xs text-blue-600">{ofxHint}</p>
+      )}
       <div className="flex gap-3 pt-1">
         <button
           type="submit"

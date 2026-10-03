@@ -369,6 +369,15 @@ CREATE TABLE IF NOT EXISTS bank_import_batches (
   imported_at      TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS ofx_statement_balances (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  bank_account_id INTEGER NOT NULL REFERENCES bank_accounts(id),
+  balance_date    TEXT    NOT NULL,
+  balance_amount  NUMERIC NOT NULL,
+  imported_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(bank_account_id, balance_date)
+);
+
 CREATE TABLE IF NOT EXISTS reserve_study_assumptions (
   id                       INTEGER PRIMARY KEY AUTOINCREMENT,
   study_year               INTEGER NOT NULL,
@@ -631,6 +640,25 @@ export async function initSchema(db: DbHandle): Promise<void> {
     .filter((s) => s.length > 0);
   for (const stmt of statements) {
     await db.execute(stmt + ";");
+  }
+
+  // Migrations: ADD COLUMN is idempotent-safe via column existence check
+  const depositCols = await db.select<{ name: string }[]>(
+    "PRAGMA table_info(deposit_batches)"
+  );
+  if (!depositCols.some((c) => c.name === "bank_transaction_id")) {
+    await db.execute(
+      "ALTER TABLE deposit_batches ADD COLUMN bank_transaction_id INTEGER REFERENCES bank_transactions(id)"
+    );
+  }
+
+  const ruleCols = await db.select<{ name: string }[]>(
+    "PRAGMA table_info(bank_transaction_rules)"
+  );
+  if (!ruleCols.some((c) => c.name === "bank_account_id")) {
+    await db.execute(
+      "ALTER TABLE bank_transaction_rules ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"
+    );
   }
 
   // Seed only if categories table is empty

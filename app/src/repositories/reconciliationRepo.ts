@@ -123,27 +123,60 @@ export async function insertBankTransaction(
   date: string,
   amount: number,
   description: string,
-  memo?: string,
-  batchId?: number
+  dedupKey?: string,
+  batchId?: number,
+  memo?: string
 ): Promise<number> {
   const db = await getDb();
-  const dedupKey = `manual-${date}-${amount}-${description}`.slice(0, 100);
+  const resolvedDedupKey = dedupKey ?? `manual-${date}-${amount}-${description}`.slice(0, 100);
   const result = await db.execute(
     `INSERT OR IGNORE INTO bank_transactions
        (bank_account_id, transaction_date, amount, description, memo, dedup_key, import_batch_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [bankAccountId, date, amount, description, memo ?? null, dedupKey, batchId ?? null]
+    [bankAccountId, date, amount, description, memo ?? null, resolvedDedupKey, batchId ?? null]
   );
   return result.lastInsertId ?? 0;
 }
 
 export async function getExistingDedupKeys(bankAccountId: number): Promise<Set<string>> {
   const db = await getDb();
-  const rows = await db.select<{ dedup_key: string }[]>(
-    "SELECT dedup_key FROM bank_transactions WHERE bank_account_id = ? AND dedup_key IS NOT NULL",
+  // Check both dedup_key and memo — older OFX imports stored the fitid key in memo
+  const rows = await db.select<{ dedup_key: string | null; memo: string | null }[]>(
+    "SELECT dedup_key, memo FROM bank_transactions WHERE bank_account_id = ?",
     [bankAccountId]
   );
-  return new Set(rows.map((r) => r.dedup_key));
+  const keys = new Set<string>();
+  for (const r of rows) {
+    if (r.dedup_key) keys.add(r.dedup_key);
+    if (r.memo && r.memo.startsWith("ofx-")) keys.add(r.memo);
+  }
+  return keys;
+}
+
+export async function storeOfxBalance(
+  bankAccountId: number,
+  balanceDate: string,
+  balanceAmount: number
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO ofx_statement_balances (bank_account_id, balance_date, balance_amount)
+     VALUES (?, ?, ?)
+     ON CONFLICT(bank_account_id, balance_date) DO UPDATE SET balance_amount = excluded.balance_amount`,
+    [bankAccountId, balanceDate, balanceAmount]
+  );
+}
+
+export async function getLatestOfxBalance(
+  bankAccountId: number
+): Promise<{ balance_date: string; balance_amount: number } | null> {
+  const db = await getDb();
+  const rows = await db.select<{ balance_date: string; balance_amount: number }[]>(
+    `SELECT balance_date, balance_amount FROM ofx_statement_balances
+     WHERE bank_account_id = ? ORDER BY balance_date DESC LIMIT 1`,
+    [bankAccountId]
+  );
+  return rows[0] ?? null;
 }
 
 export type ImportBatch = {

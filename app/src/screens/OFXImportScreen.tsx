@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import {
   insertBankTransaction, getExistingDedupKeys,
   createImportBatch, finalizeImportBatch,
-  undoImportBatch,
+  undoImportBatch, storeOfxBalance,
 } from "../repositories/reconciliationRepo";
 import type { BankAccount } from "../types/bankAccount";
+import { isTauri } from "../lib/db";
 
 // ── OFX Parser ────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,17 @@ function buildDedupKey(fitid: string, date: string, amount: number): string {
   return fitid ? `ofx-${fitid}` : `ofx-${date}-${amount}`;
 }
 
+function parseOFXBalance(text: string): { balanceDate: string; balanceAmount: number } | null {
+  const block = /<LEDGERBAL>([\s\S]*?)(<\/LEDGERBAL>|<AVAILBAL>|<\/STMTRS>)/i.exec(text)?.[1];
+  if (!block) return null;
+  const amtStr = extractTag(block, "BALAMT");
+  const dtRaw = extractTag(block, "DTASOF");
+  if (!amtStr || !dtRaw) return null;
+  const balanceAmount = parseFloat(amtStr);
+  if (isNaN(balanceAmount)) return null;
+  return { balanceDate: parseOFXDate(dtRaw), balanceAmount };
+}
+
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
@@ -97,11 +109,68 @@ export function OFXImportScreen() {
   const [error, setError] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
+  // Keep refs so the Tauri drop listener always sees current values
+  const accountIdRef = useRef(accountId);
+  useEffect(() => { accountIdRef.current = accountId; }, [accountId]);
+  const rawTextRef = useRef<string>("");
+
   useEffect(() => {
     listBankAccounts(true)
       .then((a) => { setAccounts(a); if (a[0]) setAccountId(a[0].id); })
       .catch((e) => setError(String(e)));
   }, []);
+
+  // In Tauri, the OS intercepts file drops before the browser sees them.
+  // Listen via the Tauri webview API and read file content with the fs plugin.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      const { getCurrentWebview } = await import("@tauri-apps/api/webview");
+      const { readTextFile } = await import("@tauri-apps/plugin-fs");
+      unlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
+        if (event.payload.type !== "drop") return;
+        const paths = event.payload.paths;
+        const path = paths[0];
+        if (!path) return;
+        const ext = path.split(".").pop()?.toLowerCase();
+        if (!ext || !["ofx", "qfx", "ofc"].includes(ext)) {
+          setParseError("Drop an OFX, QFX, or OFC file.");
+          return;
+        }
+        setFilename(path.split(/[\\/]/).pop() ?? path);
+        setParseError(null);
+        try {
+          const text = await readTextFile(path);
+          await processText(text, accountIdRef.current);
+        } catch (err) {
+          setParseError(`Could not read file: ${String(err)}`);
+        }
+      });
+    })();
+    return () => { unlisten?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function processText(text: string, acctId: number) {
+    rawTextRef.current = text;
+    try {
+      const parsed = parseOFX(text);
+      if (parsed.length === 0) {
+        setParseError("No transactions found in this file. Make sure it is a valid OFX or QFX file.");
+        return;
+      }
+      const existing = await getExistingDedupKeys(acctId).catch(() => new Set<string>());
+      const marked = parsed.map((t) => ({
+        ...t,
+        isDuplicate: existing.has(buildDedupKey(t.fitid, t.dtposted, t.trnamt)),
+      }));
+      setTransactions(marked);
+      setStep("preview");
+    } catch (err) {
+      setParseError(`Parse error: ${String(err)}`);
+    }
+  }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -111,23 +180,7 @@ export function OFXImportScreen() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const text = ev.target?.result as string;
-      try {
-        const parsed = parseOFX(text);
-        if (parsed.length === 0) {
-          setParseError("No transactions found in this file. Make sure it is a valid OFX or QFX file.");
-          return;
-        }
-        // Check for duplicates
-        const existing = await getExistingDedupKeys(accountId).catch(() => new Set<string>());
-        const marked = parsed.map((t) => ({
-          ...t,
-          isDuplicate: existing.has(buildDedupKey(t.fitid, t.dtposted, t.trnamt)),
-        }));
-        setTransactions(marked);
-        setStep("preview");
-      } catch (err) {
-        setParseError(`Parse error: ${String(err)}`);
-      }
+      await processText(text, accountId);
     };
     reader.readAsText(file);
   }
@@ -147,6 +200,8 @@ export function OFXImportScreen() {
         else skipped++;
       }
       await finalizeImportBatch(batchId, imported, skipped);
+      const bal = parseOFXBalance(rawTextRef.current);
+      if (bal) await storeOfxBalance(accountId, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
       setLastBatchId(batchId);
       setImportedCount(imported);
       setSkippedCount(skipped);
