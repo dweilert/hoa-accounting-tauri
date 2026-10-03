@@ -210,6 +210,49 @@ export async function applyRulesToPending(
   let reviewed = 0;
 
   for (const txn of txns) {
+    // For positive amounts, deposit batch matching takes priority over CATEGORIZE rules.
+    // Check for a matching posted batch before running any rules — prevents double-counting
+    // when a person-specific amount rule would otherwise classify a teller deposit as income.
+    let depositMatched = false;
+    if (txn.amount > 0) {
+      try {
+        const candidates = await listCandidateDepositBatches(
+          txn.bank_account_id, txn.amount, txn.transaction_date
+        );
+        const qualified = candidates.filter(
+          (c) => c.status === "POSTED" &&
+                 c.bank_transaction_id === null &&
+                 c.days_diff <= 3
+        );
+        if (qualified[0]) {
+          const batch = qualified[0];
+          const reason = batch.days_diff === 0 ? "exact date" : `${Math.round(batch.days_diff)}d off`;
+          details.push({
+            txn_id: txn.id,
+            txn_desc: txn.description,
+            rule_name: `Deposit Match (${reason})`,
+            auto: true,
+            action_type: "DEPOSIT_MATCH",
+          });
+          matched++;
+          depositMatched = true;
+          if (!dryRun && (!approvedIds || approvedIds.has(txn.id))) {
+            await linkDepositToTxn(batch.id, txn.id);
+            await db.execute(
+              "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
+              [txn.id]
+            );
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`applyRulesToPending: deposit pre-check txn ${txn.id} failed:`, err);
+        errors.push({ txn_id: txn.id, rule_name: "Deposit Match", error: msg });
+      }
+    }
+
+    if (depositMatched) continue;
+
     for (const rule of rules) {
       // Skip rule if it's scoped to a different bank account
       if (rule.bank_account_id !== null && rule.bank_account_id !== txn.bank_account_id) continue;
@@ -267,44 +310,6 @@ export async function applyRulesToPending(
 
       if (auto) matched++; else reviewed++;
       break; // first matching rule wins per transaction
-    }
-
-    // No rule matched — fall through to deposit batch matching for positive amounts
-    const ruleMatched = details.some((d) => d.txn_id === txn.id);
-    if (!ruleMatched && txn.amount > 0) {
-      try {
-        const candidates = await listCandidateDepositBatches(
-          txn.bank_account_id, txn.amount, txn.transaction_date
-        );
-        const qualified = candidates.filter(
-          (c) => c.status === "POSTED" &&
-                 c.bank_transaction_id === null &&
-                 c.days_diff <= 3
-        );
-        if (qualified[0]) {
-          const batch = qualified[0];
-          const reason = batch.days_diff === 0 ? "exact date" : `${Math.round(batch.days_diff)}d off`;
-          details.push({
-            txn_id: txn.id,
-            txn_desc: txn.description,
-            rule_name: `Deposit Match (${reason})`,
-            auto: true,
-            action_type: "DEPOSIT_MATCH",
-          });
-          matched++;
-          if (!dryRun && (!approvedIds || approvedIds.has(txn.id))) {
-            await linkDepositToTxn(batch.id, txn.id);
-            await db.execute(
-              "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
-              [txn.id]
-            );
-          }
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`applyRulesToPending: deposit fallback txn ${txn.id} failed:`, err);
-        errors.push({ txn_id: txn.id, rule_name: "Deposit Match", error: msg });
-      }
     }
   }
 
