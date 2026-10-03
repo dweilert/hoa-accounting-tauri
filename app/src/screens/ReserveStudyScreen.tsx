@@ -329,9 +329,9 @@ function AssetsPanel({ studyYear }: { studyYear: number }) {
         </button>
       </div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Group</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Component</th>
@@ -424,9 +424,9 @@ function FundingPlanPanel({ assumptions }: { assumptions: Assumptions | null }) 
         )}
       </div>
 
-      <div className="border rounded-lg overflow-hidden overflow-x-auto">
+      <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] overflow-x-auto">
         <table className="w-full text-xs whitespace-nowrap">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
               <th className="px-3 py-2 text-left font-medium text-gray-600">Year</th>
               <th className="px-3 py-2 text-right font-medium text-gray-600">Beg. Balance</th>

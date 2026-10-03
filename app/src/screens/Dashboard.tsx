@@ -30,13 +30,13 @@ const ROUTE_MAP: Record<string, string> = {
   "/resale-fee": "/billing/resale-fee",
   "/ledger/transactions": "/transactions",
   "/ledger/by-account": "/ledger/by-account",
-  "/journal-entry-new": "/edit-records",
-  "/journal-entries": "/edit-records",
+  "/journal-entry-new": "/transactions",
+  "/journal-entries": "/transactions",
   // Flask admin paths → Tauri equivalents
   "/admin/audit-log": "/audit-log",
   "/admin/transaction-rules": "/admin/transaction-rules",
   "/admin/database": "#",
-  "/manage/edit-records": "/edit-records",
+  "/manage/edit-records": "/transactions",
   // Flask bank paths
   "/bank-transactions/pending": "/bank/pending",
   "/bank-import/upload": "/bank/import",
@@ -493,9 +493,9 @@ export function Dashboard() {
           <h2 className="text-sm font-semibold text-gray-800">Recent Activity</h2>
           <Link to="/reports" className="text-xs text-blue-600 hover:underline">View all →</Link>
         </div>
-        <div className="border rounded-lg overflow-hidden bg-white">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>

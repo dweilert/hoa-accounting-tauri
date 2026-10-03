@@ -592,21 +592,6 @@ CREATE TABLE IF NOT EXISTS accounting_periods (
   UNIQUE(period_year, period_month)
 );
 
-CREATE TABLE IF NOT EXISTS board_members (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  owner_id     INTEGER REFERENCES owners(id),
-  display_name TEXT NOT NULL,
-  role         TEXT NOT NULL DEFAULT 'MEMBER'
-                    CHECK(role IN ('PRESIDENT','VICE_PRESIDENT','SECRETARY','TREASURER','MEMBER','AT_LARGE')),
-  term_start   TEXT NOT NULL,
-  term_end     TEXT,
-  email        TEXT,
-  phone        TEXT,
-  notes        TEXT,
-  active_flag  INTEGER NOT NULL DEFAULT 1 CHECK(active_flag IN (0,1)),
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
-);
 `;
 
 const SEEDS: Array<[string, string, string, string, number, number]> = [

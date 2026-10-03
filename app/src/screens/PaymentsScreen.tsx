@@ -67,7 +67,7 @@ function PaymentForm({ lots, onSave, onCancel }: {
           <option value={0}>— Select lot —</option>
           {lots.map((l) => (
             <option key={l.id} value={l.id}>
-              Lot {l.lot_number}{l.street_address_1 ? ` — ${l.street_address_1}` : ""}
+              Lot {l.lot_number}{l.owner_names ? ` — ${l.owner_names}` : ""}
             </option>
           ))}
         </select>
@@ -307,9 +307,9 @@ export function PaymentsScreen() {
                 ? `${rows.length} payments`
                 : `${visible.length} of ${rows.length} payments`}
             </p>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr>
                     <SortTh col="payment_date"    label="Date" />
                     <SortTh col="lot_number"      label="Lot" />

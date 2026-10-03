@@ -15,6 +15,7 @@ import {
   listCandidateBankTxns,
   linkDepositToTxn,
   unlinkDepositTxn,
+  deleteDepositBatch,
   type PaymentRow,
   type OFXCandidate,
 } from "../repositories/depositRepo";
@@ -97,7 +98,7 @@ function PaymentForm({ lots, onSave, onCancel, initialValues }: {
         >
           <option value={0}>— Select lot —</option>
           {lots.map((l) => (
-            <option key={l.id} value={l.id}>Lot {l.lot_number}{l.street_address_1 ? ` — ${l.street_address_1}` : ""}</option>
+            <option key={l.id} value={l.id}>Lot {l.lot_number}{l.owner_names ? ` — ${l.owner_names}` : ""}</option>
           ))}
         </select>
         {errors["lot_id"] && <p className="mt-1 text-xs text-red-600">{errors["lot_id"]}</p>}
@@ -162,6 +163,139 @@ function PaymentForm({ lots, onSave, onCancel, initialValues }: {
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
         <button type="submit" disabled={saving} className="px-4 py-2 text-sm text-white rounded disabled:opacity-50" style={{ backgroundColor: "#2f6046" }}>
           {saving ? "Saving…" : "Save Payment"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── New deposit form (with unassigned payments checklist) ─────────────────────
+
+function NewDepositForm({ accounts, unassigned, onSave, onCancel }: {
+  accounts: BankAccount[];
+  unassigned: PaymentRow[];
+  onSave: (date: string, accountId: number, notes: string, paymentIds: number[]) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate]           = useState(today);
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? 0);
+  const [notes, setNotes]         = useState("");
+  const [selected, setSelected]   = useState<Set<number>>(new Set());
+  const [saving, setSaving]       = useState(false);
+
+  function toggle(id: number) {
+    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }
+  function toggleAll(check: boolean) {
+    setSelected(check ? new Set(unassigned.map((p) => p.id)) : new Set());
+  }
+
+  const selectedTotal = unassigned.filter((p) => selected.has(p.id)).reduce((s, p) => s + p.amount, 0);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accountId) return;
+    setSaving(true);
+    try { await onSave(date, accountId, notes, Array.from(selected)); } finally { setSaving(false); }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Deposit Date <span className="text-red-500">*</span></label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Bank Account <span className="text-red-500">*</span></label>
+          <select value={accountId} onChange={(e) => setAccountId(Number(e.target.value))}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+        <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
+          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-gray-700">
+            Unassigned Payments
+            {unassigned.length > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">{unassigned.length}</span>
+            )}
+          </label>
+          {unassigned.length > 0 && (
+            <div className="flex gap-3 text-xs">
+              <button type="button" onClick={() => toggleAll(true)} className="text-blue-600 hover:underline">Select all</button>
+              <button type="button" onClick={() => toggleAll(false)} className="text-gray-400 hover:underline">None</button>
+            </div>
+          )}
+        </div>
+
+        {unassigned.length === 0 ? (
+          <p className="text-xs text-gray-400 border border-dashed rounded px-3 py-4 text-center">No unassigned payments.</p>
+        ) : (
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 z-10 bg-gray-50 border-b">
+                <tr>
+                  <th className="w-8 px-2 py-1.5">
+                    <input type="checkbox"
+                      checked={selected.size === unassigned.length}
+                      onChange={(e) => toggleAll(e.target.checked)} />
+                  </th>
+                  <th className="px-2 py-1.5 text-left font-medium text-gray-600">Date</th>
+                  <th className="px-2 py-1.5 text-left font-medium text-gray-600">Lot / Owner</th>
+                  <th className="px-2 py-1.5 text-left font-medium text-gray-600">Method</th>
+                  <th className="px-2 py-1.5 text-right font-medium text-gray-600">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {unassigned.map((p) => (
+                  <tr key={p.id}
+                    className={`cursor-pointer ${selected.has(p.id) ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                    onClick={() => toggle(p.id)}>
+                    <td className="px-2 py-1.5 text-center">
+                      <input type="checkbox" checked={selected.has(p.id)}
+                        onChange={() => toggle(p.id)} onClick={(e) => e.stopPropagation()} />
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-gray-600">{p.payment_date}</td>
+                    <td className="px-2 py-1.5 text-gray-700">
+                      Lot {p.lot_number}
+                      {p.owner_name && <span className="text-gray-400 ml-1">· {p.owner_name}</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-gray-500">
+                      {p.payment_method}{p.check_number ? ` #${p.check_number}` : ""}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono text-gray-800">{fmt(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {selected.size > 0 && (
+                <tfoot className="bg-gray-50 border-t">
+                  <tr>
+                    <td colSpan={4} className="px-2 py-1.5 text-xs text-gray-500">
+                      {selected.size} of {unassigned.length} selected
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono font-semibold text-gray-800">{fmt(selectedTotal)}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-3 pt-2 border-t">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancel</button>
+        <button type="submit" disabled={saving} className="px-4 py-2 text-sm text-white rounded disabled:opacity-50" style={{ backgroundColor: "#2f6046" }}>
+          {saving ? "Creating…" : "Create Deposit"}
         </button>
       </div>
     </form>
@@ -267,7 +401,7 @@ function AssignPaymentsPicker({ unassigned, onAssign, onCancel }: {
         <p className="text-sm text-gray-500">No unassigned payments.</p>
       ) : (
         <table className="w-full text-xs">
-          <thead>
+          <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr className="bg-gray-50 border-b">
               <th className="px-3 py-2 w-8" />
               <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
@@ -375,8 +509,9 @@ export function DepositsScreen() {
     }
   }
 
-  async function handleCreateBatch(date: string, accountId: number, notes: string) {
-    await insertDepositBatch(date, accountId, notes);
+  async function handleCreateBatch(date: string, accountId: number, notes: string, paymentIds: number[] = []) {
+    const batchId = await insertDepositBatch(date, accountId, notes);
+    if (paymentIds.length > 0) await assignPaymentsToBatch(paymentIds, batchId);
     setModal(null);
     await loadAll();
   }
@@ -384,6 +519,12 @@ export function DepositsScreen() {
   async function handleEditBatch(batchId: number, date: string, accountId: number, notes: string) {
     await updateDepositBatch(batchId, date, accountId, notes);
     setModal(null);
+    await loadAll();
+  }
+
+  async function handleDeleteBatch(batchId: number) {
+    if (!await appConfirm("Delete this empty deposit batch? This cannot be undone.")) return;
+    await deleteDepositBatch(batchId);
     await loadAll();
   }
 
@@ -512,7 +653,7 @@ export function DepositsScreen() {
                     <p className="px-4 py-4 text-sm text-gray-400">No unassigned payments.</p>
                   ) : (
                     <table className="w-full text-xs">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                         <tr>
                           <th className="px-4 py-2 text-left font-medium text-gray-600">Date</th>
                           <th className="px-4 py-2 text-left font-medium text-gray-600">Lot</th>
@@ -564,14 +705,14 @@ export function DepositsScreen() {
             </div>
 
             {/* ── Deposit Batches ── */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-xl overflow-auto max-h-[calc(100vh-200px)] ">
               {batches.length === 0 ? (
                 <p className="px-6 py-10 text-center text-gray-400 text-sm">
                   No deposit batches yet. Click "+ New Deposit" to create one.
                 </p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="w-6 px-4 py-2.5" />
                       <SortTh col="date"     active={sortCol} dir={sortDir} onClick={toggleSort}>Date</SortTh>
@@ -643,6 +784,14 @@ export function DepositsScreen() {
                                       >
                                         Edit
                                       </button>
+                                      {(batch.total_amount ?? 0) === 0 && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); void handleDeleteBatch(batch.id); }}
+                                          className="px-2 py-0.5 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50"
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
                                       {batch.status === "OPEN" && (
                                         <>
                                           <button
@@ -682,7 +831,7 @@ export function DepositsScreen() {
                                         <p className="text-xs text-orange-700">No matching bank transactions found.</p>
                                       ) : (
                                         <table className="w-full text-xs">
-                                          <thead>
+                                          <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                             <tr className="text-teal-700">
                                               <th className="text-left py-1 pr-3 font-medium">Date</th>
                                               <th className="text-left py-1 pr-3 font-medium">Description</th>
@@ -720,7 +869,7 @@ export function DepositsScreen() {
                                     <p className="px-6 py-3 text-xs text-gray-400">Loading…</p>
                                   ) : (
                                     <table className="w-full text-xs">
-                                      <thead className="bg-blue-50">
+                                      <thead className="sticky top-0 z-10 bg-blue-50">
                                         <tr>
                                           <th className="pl-8 pr-4 py-1.5 text-left text-gray-500 font-medium">Date</th>
                                           <th className="px-4 py-1.5 text-left text-gray-500 font-medium">Lot</th>
@@ -801,7 +950,12 @@ export function DepositsScreen() {
         {/* ── Modals ── */}
         {modal?.mode === "newBatch" && (
           <Modal title="New Deposit Batch" onClose={() => setModal(null)}>
-            <BatchForm accounts={accounts} onSave={handleCreateBatch} onCancel={() => setModal(null)} submitLabel="Create Deposit" />
+            <NewDepositForm
+              accounts={accounts}
+              unassigned={unassigned}
+              onSave={handleCreateBatch}
+              onCancel={() => setModal(null)}
+            />
           </Modal>
         )}
 

@@ -203,9 +203,9 @@ export function LateFeesScreen() {
 
       {lots.length > 0 && (
         <>
-          <div className="bg-white border rounded-lg overflow-hidden mb-4 shadow-sm">
+          <div className="bg-white border rounded-lg overflow-auto max-h-[calc(100vh-200px)] mb-4 shadow-sm">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-3 py-2.5">
                     <input

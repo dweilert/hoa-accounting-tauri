@@ -608,9 +608,9 @@ export function BankPendingScreen() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {!loading && !error && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-2 py-2 w-8" />
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
@@ -815,7 +815,7 @@ export function BankPendingScreen() {
                                     </p>
                                   ) : (
                                     <table className="w-full text-xs">
-                                      <thead>
+                                      <thead className="bg-gray-50 border-b sticky top-0 z-10">
                                         <tr className="text-indigo-700">
                                           <th className="text-left py-1 pr-3 font-medium">Deposit Date</th>
                                           <th className="text-right py-1 pr-3 font-medium">Amount</th>

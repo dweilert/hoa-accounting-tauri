@@ -161,9 +161,9 @@ export function LotsScreen() {
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
       {!loading && !error && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot #</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Address</th>

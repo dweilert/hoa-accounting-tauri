@@ -31,7 +31,6 @@ import { ProfileScreen } from "./screens/ProfileScreen";
 import { CoaWizardScreen } from "./screens/CoaWizardScreen";
 import { AnnouncementsScreen } from "./screens/AnnouncementsScreen";
 import { DuesBillingScreen } from "./screens/DuesBillingScreen";
-import { EditRecordsScreen } from "./screens/EditRecordsScreen";
 import { TransactionRulesScreen } from "./screens/TransactionRulesScreen";
 import { WorkflowGuideScreen } from "./screens/WorkflowGuideScreen";
 import { AuditLogScreen } from "./screens/AuditLogScreen";
@@ -40,7 +39,6 @@ import { BankTransfersScreen } from "./screens/BankTransfersScreen";
 import { LotTransferScreen } from "./screens/LotTransferScreen";
 import { LateFeesScreen } from "./screens/LateFeesScreen";
 import { AccountingPeriodsScreen } from "./screens/AccountingPeriodsScreen";
-import { BoardMembersScreen } from "./screens/BoardMembersScreen";
 import { DataImportScreen } from "./screens/DataImportScreen";
 import { ResaleFeeScreen } from "./screens/ResaleFeeScreen";
 import { RentersScreen } from "./screens/RentersScreen";
@@ -48,6 +46,7 @@ import { OFXImportScreen } from "./screens/OFXImportScreen";
 import { OFXInboxScreen } from "./screens/OFXInboxScreen";
 import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
 import { PaymentsScreen } from "./screens/PaymentsScreen";
+import { PettyCashScreen } from "./screens/PettyCashScreen";
 import { SanityCheckScreen } from "./screens/SanityCheckScreen";
 import { AppDialogHost } from "./components/AppDialogs";
 
@@ -95,6 +94,7 @@ export default function App() {
             <Route path="assessments" element={<AssessmentsScreen />} />
             <Route path="ar" element={<ARScreen />} />
             <Route path="payments" element={<PaymentsScreen />} />
+            <Route path="petty-cash" element={<PettyCashScreen />} />
             <Route path="deposits" element={<DepositsScreen />} />
 
             {/* Reserve Study */}
@@ -122,10 +122,8 @@ export default function App() {
             <Route path="billing/dues" element={<RequireAdmin><DuesBillingScreen /></RequireAdmin>} />
             <Route path="billing/late-fees" element={<RequireAdmin><LateFeesScreen /></RequireAdmin>} />
             <Route path="billing/resale-fee" element={<RequireAdmin><ResaleFeeScreen /></RequireAdmin>} />
-            <Route path="edit-records" element={<EditRecordsScreen />} />
 
             {/* Board Members & Renters */}
-            <Route path="board-members" element={<BoardMembersScreen />} />
             <Route path="renters" element={<RentersScreen />} />
 
             {/* Admin — requires admin role */}

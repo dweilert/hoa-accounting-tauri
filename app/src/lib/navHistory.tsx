@@ -35,8 +35,6 @@ const ROUTE_LABELS: [RegExp, string][] = [
   [/^\/billing\/dues$/, "Dues Billing"],
   [/^\/billing\/late-fees$/, "Late Fees"],
   [/^\/billing\/resale-fee$/, "Resale Fee"],
-  [/^\/edit-records$/, "Edit Records"],
-  [/^\/board-members$/, "Board Members"],
   [/^\/renters$/, "Renters"],
   [/^\/accounting-periods$/, "Accounting Periods"],
   [/^\/data-import$/, "Data Import"],

@@ -194,7 +194,7 @@ export function SanityCheckScreen() {
                 status={billingStatus}
               />
               <table className="w-full text-xs">
-                <thead>
+                <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-3 py-2 text-left font-medium text-gray-600">Month</th>
                     <th className="px-3 py-2 text-center font-medium text-gray-600">Lots Billed</th>
@@ -234,7 +234,7 @@ export function SanityCheckScreen() {
                 status={utilityStatus}
               />
               <table className="w-full text-xs">
-                <thead>
+                <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-3 py-2 text-left font-medium text-gray-600">Month</th>
                     <th className="px-3 py-2 text-center font-medium text-gray-600">Vendor Bill</th>
@@ -278,7 +278,7 @@ export function SanityCheckScreen() {
                 <p className="text-xs text-gray-500">No interest income records found.</p>
               ) : (
                 <table className="w-full text-xs">
-                  <thead>
+                  <thead className="bg-gray-50 border-b sticky top-0 z-10">
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="px-3 py-2 text-left font-medium text-gray-600">Month</th>
                       <th className="px-3 py-2 text-left font-medium text-gray-600">Category</th>

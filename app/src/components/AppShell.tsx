@@ -19,15 +19,7 @@ const NAV: NavSection[] = [
     items: [
       { label: "Lots", to: "/lots" },
       { label: "Owners", to: "/owners" },
-      { label: "Board Members", to: "/board-members" },
       { label: "Renters", to: "/renters" },
-    ],
-  },
-  {
-    heading: "Transactions",
-    items: [
-      { label: "All Transactions", to: "/transactions" },
-      { label: "Opening Balances", to: "/opening-balances" },
     ],
   },
   {
@@ -40,6 +32,8 @@ const NAV: NavSection[] = [
       { label: "Pending", to: "/bank/pending" },
       { label: "Reconciliations", to: "/bank/reconciliations" },
       { label: "Transfers", to: "/bank/transfers" },
+      { label: "Deposits", to: "/deposits" },
+      { label: "Petty Cash", to: "/petty-cash" },
     ],
   },
   {
@@ -50,26 +44,18 @@ const NAV: NavSection[] = [
     heading: "Vendors & Bills",
     items: [
       { label: "Vendors", to: "/vendors" },
-      { label: "Bills", to: "/bills" },
+      { label: "Expenses", to: "/bills" },
     ],
   },
   {
-    heading: "Assessments",
+    heading: "Owner Billing",
     items: [
-      { label: "Assessments", to: "/assessments" },
-      { label: "Dues Billing", to: "/billing/dues" },
+      { label: "Bill Lots", to: "/billing/dues" },
       { label: "Late Fees", to: "/billing/late-fees" },
       { label: "Resale Fee", to: "/billing/resale-fee" },
       { label: "Accounts Receivable", to: "/ar" },
       { label: "Payments", to: "/payments" },
-      { label: "Deposits", to: "/deposits" },
       { label: "Owner Statements", to: "/owner-statements" },
-    ],
-  },
-  {
-    heading: "Corrections",
-    items: [
-      { label: "Edit Records", to: "/edit-records" },
     ],
   },
   {
@@ -96,7 +82,9 @@ const NAV: NavSection[] = [
       { label: "Lot Transfer Wizard", to: "/lots/transfer" },
       { label: "Accounting Periods", to: "/accounting-periods" },
       { label: "Data Import", to: "/data-import" },
-      { label: "Audit Log", to: "/audit-log" },
+      { label: "All Transactions", to: "/transactions" },
+      { label: "Opening Balances", to: "/opening-balances" },
+      { label: "DB Audit Log", to: "/audit-log" },
       { label: "Sanity Check", to: "/sanity-check" },
       { label: "Announcements", to: "/announcements" },
       { label: "Users", to: "/users" },

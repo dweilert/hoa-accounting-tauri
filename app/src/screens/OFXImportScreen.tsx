@@ -312,7 +312,7 @@ export function OFXImportScreen() {
             {filename && <span className="text-gray-400 ml-auto">{filename}</span>}
           </div>
 
-          <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] max-h-96 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>

@@ -43,15 +43,6 @@ export const HELP: Record<string, HelpContent> = {
       "Owners without an active lot assignment still appear here — they may be historical.",
     ],
   },
-  boardMembers: {
-    heading: "Board Members",
-    description: "Track current and past board members, their roles, and term dates.",
-    tips: [
-      "Roles: President, VP, Secretary, Treasurer, Member, At-Large.",
-      "Leave Term End blank for current board members.",
-      "Past members are shown in a separate section below current board.",
-    ],
-  },
   renters: {
     heading: "Renters",
     description: "Track tenants renting HOA lots. Useful for contact lists and property management.",

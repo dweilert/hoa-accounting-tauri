@@ -361,14 +361,14 @@ export function CategoriesScreen() {
 
       {!loading && !error && grouped.map(({ type, rows }) => (
         rows.length === 0 ? null : (
-          <div key={type} className={`mb-6 border rounded-lg overflow-hidden ${TYPE_COLOR[type]}`}>
+          <div key={type} className={`mb-6 border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ${TYPE_COLOR[type]}`}>
             <div className="px-4 py-2 border-b">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
                 {TYPE_LABEL[type]}
               </span>
             </div>
             <table className="w-full text-sm bg-white">
-              <thead className="border-b bg-gray-50">
+              <thead className="sticky top-0 z-10 border-b bg-gray-50">
                 <tr>
                   <SortTh col="code" active={sortCol} dir={sortDir} onClick={toggleSort}>Code</SortTh>
                   <SortTh col="name" active={sortCol} dir={sortDir} onClick={toggleSort}>Name</SortTh>

@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
-import { listCategories } from "../repositories/categoryRepo";
 import { insertAssessment } from "../repositories/assessmentRepo";
-import type { Category } from "../types/category";
 import { appConfirm } from "../components/AppDialogs";
+import { CHARGE_TYPE_LABELS } from "../types/assessment";
+import type { ChargeTypeValue } from "../types/assessment";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -32,25 +32,24 @@ async function loadActiveLots(): Promise<LotBillingRow[]> {
   return rows.map((r) => ({ ...r, include: true }));
 }
 
-async function postDuesBilling(opts: {
+async function postBilling(opts: {
   lots: LotBillingRow[];
+  chargeType: ChargeTypeValue;
   amount: number;
   assessmentDate: string;
   dueDate: string;
   description: string;
-  categoryId: number | null;
 }): Promise<number> {
   let count = 0;
   for (const lot of opts.lots) {
     if (!lot.include) continue;
     await insertAssessment({
       lot_id: lot.lot_id,
-      charge_type: "DUES",
+      charge_type: opts.chargeType,
       amount: opts.amount,
       assessment_date: opts.assessmentDate,
       due_date: opts.dueDate || undefined,
       description: opts.description || undefined,
-      category_id: opts.categoryId ?? undefined,
     });
     count++;
   }
@@ -60,12 +59,11 @@ async function postDuesBilling(opts: {
 export function DuesBillingScreen() {
   const today = new Date().toISOString().slice(0, 10);
   const [lots, setLots] = useState<LotBillingRow[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [chargeType, setChargeType] = useState<ChargeTypeValue>("DUES");
   const [amount, setAmount] = useState("");
   const [assessmentDate, setAssessmentDate] = useState(today);
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,11 +72,8 @@ export function DuesBillingScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [l, c] = await Promise.all([loadActiveLots(), listCategories()]);
+      const l = await loadActiveLots();
       setLots(l);
-      const duesCat = c.find((cat) => cat.code === "DUES");
-      setCategoryId(duesCat?.id ?? null);
-      setCategories(c.filter((cat) => cat.category_type === "INCOME"));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -102,21 +97,22 @@ export function DuesBillingScreen() {
     if (!amt || amt <= 0) { setError("Enter a valid amount per lot."); return; }
     if (!assessmentDate) { setError("Assessment date is required."); return; }
     if (includedCount === 0) { setError("Select at least one lot."); return; }
-    if (!await appConfirm(`Post dues of ${fmt(amt)} to ${includedCount} lots (total ${fmt(totalAmount)})?`)) return;
+    const label = CHARGE_TYPE_LABELS[chargeType];
+    if (!await appConfirm(`Post ${label} of ${fmt(amt)} to ${includedCount} lot${includedCount !== 1 ? "s" : ""} (total ${fmt(totalAmount)})?`)) return;
 
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      const count = await postDuesBilling({
+      const count = await postBilling({
         lots,
+        chargeType,
         amount: amt,
         assessmentDate,
         dueDate,
         description,
-        categoryId,
       });
-      setSuccess(`Successfully posted dues to ${count} lots.`);
+      setSuccess(`Posted ${label} to ${count} lot${count !== 1 ? "s" : ""}.`);
       // Reset for next run
       setAmount("");
       setDueDate("");
@@ -131,8 +127,8 @@ export function DuesBillingScreen() {
 
   return (
     <PageLayout
-      title="Dues Billing"
-      subtitle="Bulk-post dues assessments to all active lots."
+      title="Bill Lots"
+      subtitle="Post charges to one or more lots."
       helpId="duesBilling"
     >
     <div>
@@ -162,15 +158,14 @@ export function DuesBillingScreen() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Charge Type <span className="text-red-500">*</span></label>
             <select
-              value={categoryId ?? ""}
-              onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
+              value={chargeType}
+              onChange={(e) => setChargeType(e.target.value as ChargeTypeValue)}
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">— None —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              {(Object.entries(CHARGE_TYPE_LABELS) as [ChargeTypeValue, string][]).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
               ))}
             </select>
           </div>
@@ -216,7 +211,7 @@ export function DuesBillingScreen() {
             disabled={saving || loading}
             className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? "Posting…" : "Post Dues Charges"}
+            {saving ? "Posting…" : "Post Charges"}
           </button>
         </div>
       </div>
@@ -245,7 +240,7 @@ export function DuesBillingScreen() {
         {loading && <p className="px-4 py-6 text-sm text-gray-400">Loading lots…</p>}
         {!loading && (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left w-10">
                   <input

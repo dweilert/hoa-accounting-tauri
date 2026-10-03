@@ -273,9 +273,9 @@ export function CoaWizardScreen() {
           </label>
         </div>
 
-        <div className="border rounded-lg overflow-hidden mb-6">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] mb-6">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="w-8 px-3 py-2" />
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Code</th>

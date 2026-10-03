@@ -186,7 +186,7 @@ function ContactListReport({
 
   function TableHead() {
     return (
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Email</th>
@@ -370,9 +370,9 @@ function OwnerLedgerReport({
       )}
 
       {/* Single transaction table — beginning balance at bottom, closing at top */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-auto max-h-[calc(100vh-200px)] ">
         <table className="w-full text-[11px]">
-          <thead>
+          <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr className="bg-slate-800 text-white">
               <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
               <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
@@ -469,7 +469,7 @@ function BudgetVsActualReport({ year }: { year: number }) {
 
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
           <th className="px-3 py-2 text-right text-[10px] font-semibold">Budget</th>
@@ -554,7 +554,7 @@ function ExpenseDetailReport({ year }: { year: number }) {
 
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Vendor</th>
@@ -617,7 +617,7 @@ function VendorExpensesReport({ year }: { year: number }) {
 
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Vendor</th>
           <th className="px-3 py-2 text-right text-[10px] font-semibold">Paid</th>
@@ -682,7 +682,7 @@ function DepositsReport({ year }: { year: number }) {
 
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Account</th>
@@ -763,7 +763,7 @@ function DelinquencyReport() {
 
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
@@ -814,7 +814,7 @@ function TransactionHistoryReport({ limit = 500 }: { limit?: number }) {
 
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
@@ -894,7 +894,7 @@ function AccountDetailReport({ accountId = 0, limit = 500 }: { accountId?: numbe
       {error && <p className="text-sm text-red-600">{error}</p>}
       {!loading && rows.length > 0 && (
         <table className="w-full text-[11px]">
-          <thead>
+          <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr className="bg-slate-800 text-white">
               <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
               <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
@@ -937,7 +937,7 @@ function ARAgingReport() {
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
@@ -983,7 +983,7 @@ function IncomeSummaryReport({ year }: { year: number }) {
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
           <th className="px-3 py-2 text-right text-[10px] font-semibold">Total {year}</th>
@@ -1015,7 +1015,7 @@ function ExpenseSummaryReport({ year }: { year: number }) {
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
     <table className="w-full text-[11px]">
-      <thead>
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
           <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
           <th className="px-3 py-2 text-right text-[10px] font-semibold">Total {year}</th>

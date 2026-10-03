@@ -209,9 +209,9 @@ export function UsersScreen() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {!loading && (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Name</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Email</th>

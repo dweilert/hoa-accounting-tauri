@@ -273,9 +273,9 @@ export function PublishStatementsScreen() {
         </div>
 
         {/* Lots table */}
-        <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="bg-white border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
           <table className="w-full text-[11px]">
-            <thead>
+            <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr className="bg-slate-800 text-white">
                 <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>

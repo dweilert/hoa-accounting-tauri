@@ -244,9 +244,9 @@ export function RentersScreen() {
         ) : renters.length === 0 ? (
           <p className="text-gray-400 text-sm">No renters{activeOnly ? " currently active" : ""} on record.</p>
         ) : (
-          <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+          <div className="bg-white border rounded-lg overflow-auto max-h-[calc(100vh-200px)] shadow-sm">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-2.5 font-medium text-gray-600">Lot</th>
                   <th className="text-left px-4 py-2.5 font-medium text-gray-600">Renter</th>

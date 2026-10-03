@@ -150,9 +150,9 @@ function RecentImports({ refreshKey }: { refreshKey: number }) {
   return (
     <div className="mt-8">
       <h2 className="text-sm font-semibold text-gray-800 mb-2">Recent Imports</h2>
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
@@ -405,7 +405,7 @@ export function BankImportScreen() {
               <span className="text-amber-600">{dupRows.length} already imported (will be skipped)</span>
             )}
           </div>
-          <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] max-h-96 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>

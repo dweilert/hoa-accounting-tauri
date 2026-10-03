@@ -330,7 +330,7 @@ export function BankTransfersScreen() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
+                <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr className="text-xs font-medium text-gray-500 uppercase tracking-wide bg-gray-50">
                     <th className="px-5 py-2 text-left">Date</th>
                     <th className="px-0 py-2 text-left">From</th>

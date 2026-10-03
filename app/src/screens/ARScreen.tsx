@@ -53,7 +53,7 @@ export function ARScreen() {
     headerClass: string;
   }) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-auto max-h-[calc(100vh-200px)] mb-6">
         <div className={`px-4 py-3 border-b ${headerClass}`}>
           <span className="text-sm font-semibold">{title}</span>
         </div>
@@ -61,7 +61,7 @@ export function ARScreen() {
           <p className="px-4 py-6 text-sm text-center text-gray-400">{emptyMsg}</p>
         ) : (
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Lot</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>

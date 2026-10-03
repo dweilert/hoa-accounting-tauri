@@ -252,7 +252,7 @@ function StatementView({ stmt, range }: { stmt: LotStatement; range: DateRange }
         <p className="text-sm text-gray-400">No activity on record.</p>
       ) : (
         <table className="min-w-full text-xs">
-          <thead className="border-b border-gray-200">
+          <thead className="sticky top-0 z-10 border-b border-gray-200">
             <tr>
               <th className="text-left py-1.5 text-gray-600 font-medium">Date</th>
               <th className="text-left py-1.5 text-gray-600 font-medium">Description</th>
@@ -412,9 +412,9 @@ export function OwnerStatementsScreen() {
               </p>
             )}
 
-            <div className="bg-white border rounded-lg overflow-hidden shadow-sm mb-4">
+            <div className="bg-white border rounded-lg overflow-auto max-h-[calc(100vh-200px)] shadow-sm mb-4">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 border-b">
+                <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                   <tr>
                     <th className="px-3 py-2.5">
                       <input type="checkbox" checked={summaries.length > 0 && summaries.every((s) => s.selected)} onChange={(e) => toggleAll(e.target.checked)} />

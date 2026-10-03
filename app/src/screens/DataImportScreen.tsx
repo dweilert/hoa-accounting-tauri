@@ -351,7 +351,7 @@ export function DataImportScreen() {
             {badRows.length > 0 && <span className="text-red-600">{badRows.length} rows with errors (will be skipped)</span>}
           </div>
 
-          <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] max-h-96 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>

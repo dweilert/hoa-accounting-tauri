@@ -12,16 +12,19 @@ const BATCH_TOTALS_SQL = `
 const PAYMENT_BASE = `
   SELECT p.*,
          l.lot_number,
-         COALESCE(
-           (SELECT GROUP_CONCAT(o2.display_name, ' / ')
-            FROM lot_ownership lo2
-            JOIN owners o2 ON o2.id = lo2.owner_id
-            WHERE lo2.lot_id = l.id AND lo2.end_date IS NULL),
-           o.display_name
-         ) AS owner_name
+         CASE
+           WHEN p.owner_id IS NOT NULL THEN
+             (SELECT o2.display_name FROM owners o2 WHERE o2.id = p.owner_id)
+           ELSE
+             (SELECT GROUP_CONCAT(o2.display_name, ' / ')
+              FROM lot_ownership lo2
+              JOIN owners o2 ON o2.id = lo2.owner_id
+              WHERE lo2.lot_id = p.lot_id
+                AND lo2.start_date <= p.payment_date
+                AND (lo2.end_date IS NULL OR lo2.end_date >= p.payment_date))
+         END AS owner_name
   FROM payments p
   JOIN lots l ON l.id = p.lot_id
-  LEFT JOIN owners o ON o.id = p.owner_id
 `;
 
 export type PaymentRow = Payment & { lot_number: string; owner_name: string | null };
@@ -120,14 +123,25 @@ export async function listPaymentsForLot(lotId: number, limit = 100): Promise<Pa
   return rows.map((r) => PaymentRowSchema.parse(r));
 }
 
+async function resolveOwnerAtDate(lotId: number, paymentDate: string): Promise<number | null> {
+  const db = await getDb();
+  const rows = await db.select<{ owner_id: number }[]>(
+    `SELECT owner_id FROM lot_ownership
+     WHERE lot_id = ? AND start_date <= ? AND (end_date IS NULL OR end_date >= ?)`,
+    [lotId, paymentDate, paymentDate]
+  );
+  return rows.length === 1 ? (rows[0]?.owner_id ?? null) : null;
+}
+
 export async function insertPayment(batchId: number | null, values: PaymentFormValues): Promise<number> {
   const db = await getDb();
+  const ownerId = values.owner_id ?? await resolveOwnerAtDate(values.lot_id, values.payment_date);
   const result = await db.execute(
     `INSERT INTO payments (lot_id, owner_id, deposit_batch_id, payment_date, amount, payment_method, payment_type, check_number, memo)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       values.lot_id,
-      values.owner_id ?? null,
+      ownerId,
       batchId,
       values.payment_date,
       values.amount,
@@ -305,6 +319,11 @@ export async function unlinkDepositTxn(batchId: number): Promise<void> {
     "UPDATE deposit_batches SET bank_transaction_id = NULL, updated_at = datetime('now') WHERE id = ?",
     [batchId]
   );
+}
+
+export async function deleteDepositBatch(batchId: number): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM deposit_batches WHERE id = ? AND COALESCE(total_amount, 0) = 0", [batchId]);
 }
 
 export async function deletePayment(paymentId: number, batchId: number | null): Promise<void> {
