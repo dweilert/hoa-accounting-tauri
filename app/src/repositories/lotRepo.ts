@@ -124,3 +124,16 @@ export async function endOwnership(lotOwnershipId: number, endDate: string): Pro
     [endDate, lotOwnershipId]
   );
 }
+
+export async function updateOwnershipRow(
+  id: number,
+  start_date: string,
+  end_date: string | null,
+  ownership_percent: number
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE lot_ownership SET start_date = ?, end_date = ?, ownership_percent = ? WHERE id = ?",
+    [start_date, end_date ?? null, ownership_percent, id]
+  );
+}

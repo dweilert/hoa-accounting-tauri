@@ -64,6 +64,14 @@ export async function deleteBankAccount(id: number): Promise<void> {
   await db.execute("DELETE FROM bank_accounts WHERE id = ?", [id]);
 }
 
+export async function setPettyCashFlag(id: number, flag: boolean): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE bank_accounts SET is_petty_cash = ?, updated_at = datetime('now') WHERE id = ?",
+    [flag ? 1 : 0, id]
+  );
+}
+
 // Returns true if any transactions reference this account — used to block hard-delete.
 export async function hasTransactions(id: number): Promise<boolean> {
   const db = await getDb();

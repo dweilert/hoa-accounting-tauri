@@ -197,6 +197,8 @@ CREATE TABLE IF NOT EXISTS payments (
   amount               NUMERIC NOT NULL CHECK(amount > 0),
   payment_method       TEXT    NOT NULL DEFAULT 'CHECK'
                                CHECK(payment_method IN ('CHECK','ACH','ONLINE','CASH','OTHER')),
+  payment_type         TEXT    NOT NULL DEFAULT 'DUES'
+                               CHECK(payment_type IN ('DUES','SPECIAL_ASSESSMENT','RESALE_FEE','NSF_FEE','REIMBURSEMENT','OTHER')),
   check_number         TEXT,
   memo                 TEXT,
   created_at           TEXT    NOT NULL DEFAULT (datetime('now'))

@@ -3,6 +3,7 @@ import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
 import { Modal } from "../components/Modal";
 import { listCategories } from "../repositories/categoryRepo";
+import { rowLabel } from "../lib/txnUtils";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { Category } from "../types/category";
 import type { BankAccount } from "../types/bankAccount";
@@ -94,21 +95,6 @@ async function loadTransactions(limit: number): Promise<TxnRow[]> {
   return db.select<TxnRow[]>(sql, [limit]);
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  PAYMENT:      "Payment",
-  BILL_PAYMENT: "Expense Payment",
-  INCOME:       "Income",
-  ASSESSMENT:   "Owner Bill",
-};
-
-function rowLabel(r: TxnRow): string {
-  if (r.source_type === "ASSESSMENT") {
-    if (r.category === "DUES")                          return "Bill Dues";
-    if (r.category === "LATE_FEE" || r.category === "LEGAL_FEE") return "Bill Special";
-    return "Bill Other";
-  }
-  return SOURCE_LABELS[r.source_type] ?? r.source_type;
-}
 
 const SOURCE_COLORS: Record<string, string> = {
   PAYMENT:      "bg-green-100 text-green-700",

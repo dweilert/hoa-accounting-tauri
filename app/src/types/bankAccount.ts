@@ -14,6 +14,7 @@ export const BankAccountSchema = z.object({
   account_type: AccountType,
   fund_code: FundCode,
   active_flag: z.number(),
+  is_petty_cash: z.number().default(0),
   opening_balance: z.number(),
   opening_balance_date: z.string().nullable(),
   created_at: z.string(),

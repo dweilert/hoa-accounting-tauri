@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
-import { getLot, getOwnershipHistory, updateLot, type OwnershipRow } from "../repositories/lotRepo";
-import { listAssessments, type AssessmentRow } from "../repositories/assessmentRepo";
+import { getLot, getOwnershipHistory, updateLot, updateOwnershipRow, type OwnershipRow } from "../repositories/lotRepo";
+import { listAssessments, voidAssessment, writeOffAssessment, type AssessmentRow } from "../repositories/assessmentRepo";
 import { listPaymentsForLot, type PaymentRow } from "../repositories/depositRepo";
 import { LotForm } from "./LotsScreen";
 import type { Lot, LotFormValues } from "../types/lot";
 import { CHARGE_TYPE_LABELS, STATUS_COLORS } from "../types/assessment";
+import { appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -59,6 +60,9 @@ export function LotDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [editOwnership, setEditOwnership] = useState<OwnershipRow | null>(null);
+  const [ownershipSaving, setOwnershipSaving] = useState(false);
+  const [ownershipError, setOwnershipError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,6 +92,39 @@ export function LotDetailScreen() {
     await updateLot(lotId, values);
     setEditOpen(false);
     await load();
+  }
+
+  async function handleVoidAssessment(a: AssessmentRow) {
+    if (!await appConfirm(`Void ${CHARGE_TYPE_LABELS[a.charge_type]} of ${fmt(a.amount)} for Lot ${lot?.lot_number}?`)) return;
+    await voidAssessment(a.id);
+    await load();
+  }
+
+  async function handleWriteOffAssessment(a: AssessmentRow) {
+    if (!await appConfirm(`Write off ${CHARGE_TYPE_LABELS[a.charge_type]} of ${fmt(a.amount)} for Lot ${lot?.lot_number}? This marks it uncollectible.`)) return;
+    await writeOffAssessment(a.id);
+    await load();
+  }
+
+  async function handleOwnershipSave(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editOwnership) return;
+    const fd = new FormData(e.currentTarget);
+    const start_date = fd.get("start_date") as string;
+    const end_date = (fd.get("end_date") as string) || null;
+    const ownership_percent = Number(fd.get("ownership_percent"));
+    if (!start_date) { setOwnershipError("Start date required."); return; }
+    setOwnershipSaving(true);
+    setOwnershipError(null);
+    try {
+      await updateOwnershipRow(editOwnership.id, start_date, end_date, ownership_percent);
+      setEditOwnership(null);
+      await load();
+    } catch (err) {
+      setOwnershipError(String(err));
+    } finally {
+      setOwnershipSaving(false);
+    }
   }
 
   if (loading) return <div className="p-8"><p className="text-sm text-gray-400">Loading…</p></div>;
@@ -129,21 +166,28 @@ export function LotDetailScreen() {
         {currentOwners.length === 0 ? (
           <p className="text-sm text-gray-400 italic">No current owner on record.</p>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Since</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Ownership %</th>
+                  <th className="px-4 py-2 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {currentOwners.map((o) => (
-                  <tr key={o.id}>
+                  <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 font-medium text-gray-800">{o.display_name}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{fmtDate(o.start_date)}</td>
                     <td className="px-4 py-2 text-right text-gray-500 text-xs">{o.ownership_percent}%</td>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        onClick={() => { setOwnershipError(null); setEditOwnership(o); }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >Edit</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -155,23 +199,26 @@ export function LotDetailScreen() {
       {/* Assessments */}
       <section>
         <h2 className="text-sm font-semibold text-gray-800 mb-2">Assessments ({assessments.length})</h2>
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <th className="px-4 py-2 w-24" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {assessments.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No assessments.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No assessments.</td></tr>
               )}
-              {assessments.map((a) => (
-                <tr key={a.id}>
+              {assessments.map((a) => {
+                const canAct = a.status === "OPEN" || a.status === "PARTIAL";
+                return (
+                <tr key={a.id} className={!canAct ? "opacity-50" : ""}>
                   <td className="px-4 py-2 text-gray-500 text-xs whitespace-nowrap">{fmtDate(a.assessment_date)}</td>
                   <td className="px-4 py-2 text-gray-700 text-xs">{CHARGE_TYPE_LABELS[a.charge_type]}</td>
                   <td className="px-4 py-2 text-gray-500 text-xs">{a.description ?? "—"}</td>
@@ -181,8 +228,13 @@ export function LotDetailScreen() {
                       {a.status}
                     </span>
                   </td>
+                  <td className="px-4 py-2 text-right whitespace-nowrap space-x-2">
+                    {canAct && <button onClick={() => handleVoidAssessment(a)} className="text-xs text-gray-400 hover:text-red-600">Void</button>}
+                    {canAct && <button onClick={() => handleWriteOffAssessment(a)} className="text-xs text-gray-400 hover:text-orange-600">Write Off</button>}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -191,9 +243,9 @@ export function LotDetailScreen() {
       {/* Payments */}
       <section>
         <h2 className="text-sm font-semibold text-gray-800 mb-2">Payment History ({payments.length})</h2>
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Method</th>
@@ -232,23 +284,30 @@ export function LotDetailScreen() {
       {ownership.some((o) => o.end_date) && (
         <section>
           <h2 className="text-sm font-semibold text-gray-800 mb-2">Prior Owners</h2>
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-200px)] ">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">From</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">To</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">%</th>
+                  <th className="px-4 py-2 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {ownership.filter((o) => o.end_date).map((o) => (
-                  <tr key={o.id} className="opacity-60">
+                  <tr key={o.id} className="opacity-70 hover:opacity-100 hover:bg-gray-50">
                     <td className="px-4 py-2 text-gray-700">{o.display_name}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{fmtDate(o.start_date)}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{o.end_date ? fmtDate(o.end_date) : "—"}</td>
                     <td className="px-4 py-2 text-right text-gray-500 text-xs">{o.ownership_percent}%</td>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        onClick={() => { setOwnershipError(null); setEditOwnership(o); }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >Edit</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -264,6 +323,67 @@ export function LotDetailScreen() {
             onSave={handleEditSave}
             onCancel={() => setEditOpen(false)}
           />
+        </Modal>
+      )}
+
+      {editOwnership && (
+        <Modal
+          title={`Edit Ownership — ${editOwnership.display_name}`}
+          onClose={() => setEditOwnership(null)}
+        >
+          <form onSubmit={handleOwnershipSave} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  name="start_date"
+                  defaultValue={editOwnership.start_date}
+                  required
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">End Date <span className="text-gray-400">(blank = current owner)</span></label>
+                <input
+                  type="date"
+                  name="end_date"
+                  defaultValue={editOwnership.end_date ?? ""}
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Ownership %</label>
+              <input
+                type="number"
+                name="ownership_percent"
+                defaultValue={editOwnership.ownership_percent}
+                min={1}
+                max={100}
+                required
+                className="w-32 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            {ownershipError && <p className="text-xs text-red-600">{ownershipError}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditOwnership(null)}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={ownershipSaving}
+                className="px-3 py-1.5 text-xs rounded text-white disabled:opacity-50"
+                style={{ backgroundColor: "#2f6046" }}
+              >
+                {ownershipSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>
