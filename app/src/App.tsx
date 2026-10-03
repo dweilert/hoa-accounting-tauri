@@ -47,6 +47,7 @@ import { RentersScreen } from "./screens/RentersScreen";
 import { OFXImportScreen } from "./screens/OFXImportScreen";
 import { OFXInboxScreen } from "./screens/OFXInboxScreen";
 import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
+import { PaymentsScreen } from "./screens/PaymentsScreen";
 import { SanityCheckScreen } from "./screens/SanityCheckScreen";
 import { AppDialogHost } from "./components/AppDialogs";
 
@@ -93,6 +94,7 @@ export default function App() {
             {/* Assessments & AR */}
             <Route path="assessments" element={<AssessmentsScreen />} />
             <Route path="ar" element={<ARScreen />} />
+            <Route path="payments" element={<PaymentsScreen />} />
             <Route path="deposits" element={<DepositsScreen />} />
 
             {/* Reserve Study */}

@@ -61,6 +61,7 @@ const NAV: NavSection[] = [
       { label: "Late Fees", to: "/billing/late-fees" },
       { label: "Resale Fee", to: "/billing/resale-fee" },
       { label: "Accounts Receivable", to: "/ar" },
+      { label: "Payments", to: "/payments" },
       { label: "Deposits", to: "/deposits" },
       { label: "Owner Statements", to: "/owner-statements" },
     ],
