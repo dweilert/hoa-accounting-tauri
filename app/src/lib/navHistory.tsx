@@ -13,6 +13,7 @@ const ROUTE_LABELS: [RegExp, string][] = [
   [/^\/ledger\/by-account$/, "Ledger"],
   [/^\/opening-balances$/, "Opening Balances"],
   [/^\/bank\/accounts$/, "Bank Accounts"],
+  [/^\/bank\/other-income$/, "Other Income"],
   [/^\/bank\/import$/, "Bank Import"],
   [/^\/bank\/ofx-import$/, "OFX Import"],
   [/^\/bank\/ofx-inbox$/, "OFX Inbox"],

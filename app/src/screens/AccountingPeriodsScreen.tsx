@@ -131,6 +131,13 @@ export function AccountingPeriodsScreen() {
     }
   }
 
+  async function closeFullYear() {
+    if (!await (await import("../components/AppDialogs")).appConfirm(
+      `Lock all 12 months of ${year}? This marks the full year closed. Individual months can still be unlocked afterward.`
+    )) return;
+    await lockAllThrough(12);
+  }
+
   const locked = periods.filter((p) => p.status === "LOCKED").length;
   const lastLocked = periods.filter((p) => p.status === "LOCKED").pop();
 
@@ -165,6 +172,15 @@ export function AccountingPeriodsScreen() {
               className="px-3 py-1.5 text-xs bg-gray-700 text-white rounded hover:bg-gray-800 disabled:opacity-40"
             >
               Lock through last month
+            </button>
+          )}
+          {locked < 12 && (
+            <button
+              onClick={() => void closeFullYear()}
+              disabled={busy !== null}
+              className="px-3 py-1.5 text-xs bg-red-700 text-white rounded hover:bg-red-800 disabled:opacity-40"
+            >
+              Close Year {year}
             </button>
           )}
         </div>

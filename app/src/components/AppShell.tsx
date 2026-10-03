@@ -34,6 +34,7 @@ const NAV: NavSection[] = [
       { label: "Transfers", to: "/bank/transfers" },
       { label: "Deposits", to: "/deposits" },
       { label: "Petty Cash", to: "/petty-cash" },
+      { label: "Other Income", to: "/bank/other-income" },
     ],
   },
   {

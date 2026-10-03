@@ -55,10 +55,20 @@ async function loadLedger(bankAccountId: number, limit: number): Promise<LedgerR
     LEFT JOIN lots l ON l.id = ib.lot_id
     WHERE  ib.bank_account_id = ?
 
+    UNION ALL
+
+    SELECT ob.as_of_date,
+           'OPENING_BALANCE',
+           'Opening Balance',
+           ob.amount,
+           NULL
+    FROM   opening_balances ob
+    WHERE  ob.bank_account_id = ?
+
     ORDER BY txn_date ASC
     LIMIT ?
   `;
-  const rows = await db.select<LedgerRow[]>(sql, [bankAccountId, bankAccountId, bankAccountId, limit]);
+  const rows = await db.select<LedgerRow[]>(sql, [bankAccountId, bankAccountId, bankAccountId, bankAccountId, limit]);
 
   // Compute running balance
   let balance = 0;
@@ -104,6 +114,7 @@ export function LedgerByAccountScreen() {
     PAYMENT: "Payment",
     BILL_PAYMENT: "Bill Payment",
     INCOME: "Income",
+    OPENING_BALANCE: "Opening Bal.",
   };
 
   return (

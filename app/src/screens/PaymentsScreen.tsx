@@ -210,6 +210,17 @@ export function PaymentsScreen() {
     await load();
   }
 
+  async function handleNSF(p: PaymentRow) {
+    const warning = p.deposit_batch_id
+      ? `This payment is in deposit batch #${p.deposit_batch_id}. Marking NSF will remove it from that batch and reverse all applied amounts. Continue?`
+      : "Mark this payment as NSF / returned? All applied amounts will be reversed and the payment deleted.";
+    if (!await appConfirm(warning)) return;
+    const db = await (await import("../lib/db")).getDb();
+    await db.execute("DELETE FROM payment_applications WHERE payment_id = ?", [p.id]);
+    await deletePayment(p.id, p.deposit_batch_id ?? null);
+    await load();
+  }
+
   const visible = useMemo(() => {
     let out = rows;
     if (fDate)   { const q = fDate.trim();   out = out.filter((r) => r.payment_date.includes(q)); }
@@ -359,13 +370,22 @@ export function PaymentsScreen() {
                       </td>
                       <td className="px-3 py-1.5 text-right font-mono text-xs text-green-700 font-semibold">{fmt(p.amount)}</td>
                       <td className="px-3 py-1.5 text-center">
-                        <button
-                          onClick={() => void handleDelete(p)}
-                          className="text-red-400 hover:text-red-600 text-xs"
-                          title="Delete payment"
-                        >
-                          ✕
-                        </button>
+                        <div className="flex items-center gap-2 justify-center">
+                          <button
+                            onClick={() => void handleNSF(p)}
+                            className="px-1.5 py-0.5 text-xs border border-orange-300 text-orange-700 rounded hover:bg-orange-50"
+                            title="Mark as NSF / returned check"
+                          >
+                            NSF
+                          </button>
+                          <button
+                            onClick={() => void handleDelete(p)}
+                            className="text-red-400 hover:text-red-600 text-xs"
+                            title="Delete payment"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

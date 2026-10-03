@@ -602,6 +602,8 @@ const SEEDS: Array<[string, string, string, string, number, number]> = [
   ["BANK_INTEREST",    "Bank Interest",           "INCOME",   "OPERATING", 40, 0],
   ["RESERVE_INTEREST", "Reserve Interest",        "INCOME",   "RESERVE",   50, 0],
   ["OTHER_INCOME",     "Other Income",            "INCOME",   "OPERATING", 60, 0],
+  ["BANK_FEE",         "Bank Fee / Service Chg",  "EXPENSE",  "OPERATING",  5, 0],
+  ["NSF_CHARGE",       "NSF Charge",              "EXPENSE",  "OPERATING",  6, 0],
   ["LANDSCAPING",      "Landscaping",             "EXPENSE",  "OPERATING", 10, 0],
   ["UTILITIES",        "Utilities",               "EXPENSE",  "OPERATING", 20, 0],
   ["INSURANCE",        "Insurance",               "EXPENSE",  "OPERATING", 30, 0],

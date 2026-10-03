@@ -47,6 +47,7 @@ import { OFXInboxScreen } from "./screens/OFXInboxScreen";
 import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
 import { PaymentsScreen } from "./screens/PaymentsScreen";
 import { PettyCashScreen } from "./screens/PettyCashScreen";
+import { OtherIncomeScreen } from "./screens/OtherIncomeScreen";
 import { SanityCheckScreen } from "./screens/SanityCheckScreen";
 import { AppDialogHost } from "./components/AppDialogs";
 
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="ar" element={<ARScreen />} />
             <Route path="payments" element={<PaymentsScreen />} />
             <Route path="petty-cash" element={<PettyCashScreen />} />
+            <Route path="bank/other-income" element={<OtherIncomeScreen />} />
             <Route path="deposits" element={<DepositsScreen />} />
 
             {/* Reserve Study */}
