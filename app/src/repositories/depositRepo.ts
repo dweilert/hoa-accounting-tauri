@@ -2,6 +2,13 @@ import { z } from "zod";
 import { getDb } from "../lib/db";
 import { DepositBatchSchema, PaymentSchema, type DepositBatch, type Payment, type PaymentFormValues } from "../types/deposit";
 
+const BATCH_TOTALS_SQL = `
+  UPDATE deposit_batches
+  SET total_amount = (SELECT COALESCE(SUM(amount),0) FROM payments WHERE deposit_batch_id = ?),
+      check_count  = (SELECT COUNT(*) FROM payments WHERE deposit_batch_id = ?),
+      updated_at   = datetime('now')
+  WHERE id = ?`;
+
 const PAYMENT_BASE = `
   SELECT p.*,
          l.lot_number,
@@ -74,8 +81,28 @@ export async function updateDepositBatch(
 
 export async function listPaymentsForBatch(batchId: number): Promise<PaymentRow[]> {
   const db = await getDb();
-  const rows = await db.select<unknown[]>(`${PAYMENT_BASE} WHERE p.deposit_batch_id = ?`, [batchId]);
+  const rows = await db.select<unknown[]>(`${PAYMENT_BASE} WHERE p.deposit_batch_id = ? ORDER BY p.payment_date ASC`, [batchId]);
   return rows.map((r) => PaymentRowSchema.parse(r));
+}
+
+export async function listUnassignedPayments(): Promise<PaymentRow[]> {
+  const db = await getDb();
+  const rows = await db.select<unknown[]>(`${PAYMENT_BASE} WHERE p.deposit_batch_id IS NULL ORDER BY p.payment_date DESC`);
+  return rows.map((r) => PaymentRowSchema.parse(r));
+}
+
+export async function assignPaymentsToBatch(paymentIds: number[], batchId: number): Promise<void> {
+  if (paymentIds.length === 0) return;
+  const db = await getDb();
+  const inClause = paymentIds.join(",");
+  await db.execute(`UPDATE payments SET deposit_batch_id = ? WHERE id IN (${inClause})`, [batchId]);
+  await db.execute(BATCH_TOTALS_SQL, [batchId, batchId, batchId]);
+}
+
+export async function unassignPaymentFromBatch(paymentId: number, batchId: number): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE payments SET deposit_batch_id = NULL WHERE id = ?", [paymentId]);
+  await db.execute(BATCH_TOTALS_SQL, [batchId, batchId, batchId]);
 }
 
 export async function listPayments(limit = 100): Promise<PaymentRow[]> {
@@ -96,8 +123,8 @@ export async function listPaymentsForLot(lotId: number, limit = 100): Promise<Pa
 export async function insertPayment(batchId: number | null, values: PaymentFormValues): Promise<number> {
   const db = await getDb();
   const result = await db.execute(
-    `INSERT INTO payments (lot_id, owner_id, deposit_batch_id, payment_date, amount, payment_method, check_number, memo)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO payments (lot_id, owner_id, deposit_batch_id, payment_date, amount, payment_method, payment_type, check_number, memo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       values.lot_id,
       values.owner_id ?? null,
@@ -105,22 +132,13 @@ export async function insertPayment(batchId: number | null, values: PaymentFormV
       values.payment_date,
       values.amount,
       values.payment_method,
+      values.payment_type ?? "DUES",
       values.check_number ?? null,
       values.memo ?? null,
     ]
   );
   const id = result.lastInsertId ?? 0;
-
-  if (batchId) {
-    await db.execute(
-      `UPDATE deposit_batches
-       SET total_amount = (SELECT COALESCE(SUM(amount),0) FROM payments WHERE deposit_batch_id = ?),
-           check_count  = (SELECT COUNT(*) FROM payments WHERE deposit_batch_id = ?),
-           updated_at   = datetime('now')
-       WHERE id = ?`,
-      [batchId, batchId, batchId]
-    );
-  }
+  if (batchId) await db.execute(BATCH_TOTALS_SQL, [batchId, batchId, batchId]);
   return id;
 }
 
@@ -292,14 +310,5 @@ export async function unlinkDepositTxn(batchId: number): Promise<void> {
 export async function deletePayment(paymentId: number, batchId: number | null): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM payments WHERE id = ?", [paymentId]);
-  if (batchId) {
-    await db.execute(
-      `UPDATE deposit_batches
-       SET total_amount = (SELECT COALESCE(SUM(amount),0) FROM payments WHERE deposit_batch_id = ?),
-           check_count  = (SELECT COUNT(*) FROM payments WHERE deposit_batch_id = ?),
-           updated_at   = datetime('now')
-       WHERE id = ?`,
-      [batchId, batchId, batchId]
-    );
-  }
+  if (batchId) await db.execute(BATCH_TOTALS_SQL, [batchId, batchId, batchId]);
 }

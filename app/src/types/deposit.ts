@@ -20,6 +20,25 @@ export type DepositBatch = z.infer<typeof DepositBatchSchema>;
 export const PaymentMethodType = z.enum(["CHECK", "ACH", "ONLINE", "CASH", "OTHER"]);
 export type PaymentMethodValue = z.infer<typeof PaymentMethodType>;
 
+export const PaymentType = z.enum([
+  "DUES",
+  "SPECIAL_ASSESSMENT",
+  "RESALE_FEE",
+  "NSF_FEE",
+  "REIMBURSEMENT",
+  "OTHER",
+]);
+export type PaymentTypeValue = z.infer<typeof PaymentType>;
+
+export const PAYMENT_TYPE_LABELS: Record<PaymentTypeValue, string> = {
+  DUES:               "Monthly Dues",
+  SPECIAL_ASSESSMENT: "Special Assessment",
+  RESALE_FEE:         "Resale / Transfer Fee",
+  NSF_FEE:            "NSF / Returned Check Fee",
+  REIMBURSEMENT:      "Expense Reimbursement",
+  OTHER:              "Other",
+};
+
 export const PaymentSchema = z.object({
   id: z.number(),
   lot_id: z.number(),
@@ -28,6 +47,7 @@ export const PaymentSchema = z.object({
   payment_date: z.string(),
   amount: z.number(),
   payment_method: PaymentMethodType,
+  payment_type: PaymentType.default("DUES"),
   check_number: z.string().nullable(),
   memo: z.string().nullable(),
   created_at: z.string(),
@@ -40,6 +60,7 @@ export const PaymentFormSchema = z.object({
   payment_date: z.string().min(1, "Required"),
   amount: z.coerce.number().positive("Must be > 0"),
   payment_method: PaymentMethodType,
+  payment_type: PaymentType.default("DUES"),
   check_number: z.string().optional(),
   memo: z.string().optional(),
 });
