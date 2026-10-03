@@ -102,6 +102,8 @@ export async function loadOwnerLedger(ownerId: number, year: number): Promise<Ow
 
   // Fetch transactions within each ownership period, filtered by year.
   // JOIN with lot_ownership on owner_id so each owner only sees charges during their tenure.
+  // Includes: assessments (dues/fees), payments, and lot-linked income_batches (resale fees,
+  // late fees, fines, special assessments, NSF — any INCOME category tied to a specific lot).
   const rows = await db.select<Omit<OwnerLedgerRow, "running_balance">[]>(`
     SELECT txn_date, type, charge_type, description, amount FROM (
       SELECT a.assessment_date AS txn_date, 'CHARGE' AS type, a.charge_type,
@@ -118,8 +120,20 @@ export async function loadOwnerLedger(ownerId: number, year: number): Promise<Ow
         AND p.payment_date >= lo.start_date
         AND (lo.end_date IS NULL OR p.payment_date <= lo.end_date)
       WHERE p.payment_date BETWEEN ? AND ?
+      UNION ALL
+      SELECT ib.income_date, 'FEE', c.name,
+             COALESCE(ib.description, c.name) AS description, -ib.amount AS amount
+      FROM income_batches ib
+      JOIN categories c ON c.id = ib.category_id
+      JOIN lot_ownership lo ON lo.lot_id = ib.lot_id AND lo.owner_id = ?
+        AND ib.income_date >= lo.start_date
+        AND (lo.end_date IS NULL OR ib.income_date <= lo.end_date)
+      WHERE ib.lot_id IS NOT NULL
+        AND c.category_type = 'INCOME'
+        AND c.name != 'HOA Dues'
+        AND ib.income_date BETWEEN ? AND ?
     ) ORDER BY txn_date ASC
-  `, [ownerId, yearStart, yearEnd, ownerId, yearStart, yearEnd]);
+  `, [ownerId, yearStart, yearEnd, ownerId, yearStart, yearEnd, ownerId, yearStart, yearEnd]);
 
   let balance = beginningBalance;
   const ledgerRows = rows.map((r) => { balance += r.amount; return { ...r, running_balance: balance }; });
