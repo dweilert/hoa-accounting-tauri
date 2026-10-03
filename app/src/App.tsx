@@ -36,6 +36,7 @@ import { TransactionRulesScreen } from "./screens/TransactionRulesScreen";
 import { WorkflowGuideScreen } from "./screens/WorkflowGuideScreen";
 import { AuditLogScreen } from "./screens/AuditLogScreen";
 import { ReserveTransfersScreen } from "./screens/ReserveTransfersScreen";
+import { BankTransfersScreen } from "./screens/BankTransfersScreen";
 import { LotTransferScreen } from "./screens/LotTransferScreen";
 import { LateFeesScreen } from "./screens/LateFeesScreen";
 import { AccountingPeriodsScreen } from "./screens/AccountingPeriodsScreen";
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="bank/pending" element={<BankPendingScreen />} />
             <Route path="bank/reconciliations" element={<ReconciliationsScreen />} />
             <Route path="bank/reconciliations/new" element={<ReconciliationsScreen />} />
+            <Route path="bank/transfers" element={<BankTransfersScreen />} />
 
             {/* Budgets */}
             <Route path="budgets" element={<BudgetsScreen />} />

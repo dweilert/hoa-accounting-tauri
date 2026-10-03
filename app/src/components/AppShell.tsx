@@ -38,6 +38,7 @@ const NAV: NavSection[] = [
       { label: "OFX Inbox", to: "/bank/ofx-inbox" },
       { label: "Pending", to: "/bank/pending" },
       { label: "Reconciliations", to: "/bank/reconciliations" },
+      { label: "Transfers", to: "/bank/transfers" },
     ],
   },
   {
