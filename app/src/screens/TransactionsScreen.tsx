@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
 
@@ -17,9 +17,11 @@ type TxnRow = {
   category: string | null;
 };
 
+type SortKey = keyof TxnRow;
+type SortDir = "asc" | "desc";
+
 async function loadTransactions(limit: number): Promise<TxnRow[]> {
   const db = await getDb();
-
   const sql = `
     SELECT p.payment_date AS txn_date,
            'PAYMENT'      AS source_type,
@@ -86,10 +88,10 @@ async function loadTransactions(limit: number): Promise<TxnRow[]> {
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  PAYMENT: "Payment",
+  PAYMENT:      "Payment",
   BILL_PAYMENT: "Bill Payment",
-  INCOME: "Income",
-  ASSESSMENT: "Assessment",
+  INCOME:       "Income",
+  ASSESSMENT:   "Assessment",
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -99,14 +101,32 @@ const SOURCE_COLORS: Record<string, string> = {
   ASSESSMENT:   "bg-orange-100 text-orange-700",
 };
 
+function colVal(r: TxnRow, key: SortKey): string | number {
+  if (key === "source_type") return SOURCE_LABELS[r.source_type] ?? r.source_type;
+  return r[key] ?? "";
+}
+
 export function TransactionsScreen() {
-  const [rows, setRows] = useState<TxnRow[]>([]);
+  const [rows, setRows]       = useState<TxnRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [limit, setLimit] = useState(250);
-  const [search, setSearch] = useState("");
+  const [error, setError]     = useState<string | null>(null);
+  const [limit, setLimit]     = useState(250);
+
+  // Sort
+  const [sortKey, setSortKey] = useState<SortKey>("txn_date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // Per-column filters
+  const [fDate, setFDate]     = useState("");
+  const [fType, setFType]     = useState("");
+  const [fDesc, setFDesc]     = useState("");
+  const [fCat, setFCat]       = useState("");
+  const [fAcct, setFAcct]     = useState("");
+  const [fLot, setFLot]       = useState("");
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       setRows(await loadTransactions(limit));
     } catch (e) {
@@ -118,16 +138,68 @@ export function TransactionsScreen() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const q = search.trim().toLowerCase();
-  const visible = q
-    ? rows.filter((r) =>
-        r.description.toLowerCase().includes(q) ||
-        (r.lot_number ?? "").toLowerCase().includes(q) ||
-        (r.category ?? "").toLowerCase().includes(q) ||
-        r.txn_date.includes(q) ||
-        SOURCE_LABELS[r.source_type]?.toLowerCase().includes(q)
-      )
-    : rows;
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "amount" ? "desc" : "asc");
+    }
+  }
+
+  const visible = useMemo(() => {
+    let out = rows;
+
+    if (fDate) out = out.filter((r) => r.txn_date.includes(fDate.trim()));
+    if (fType) {
+      const q = fType.trim().toLowerCase();
+      out = out.filter((r) => (SOURCE_LABELS[r.source_type] ?? r.source_type).toLowerCase().includes(q));
+    }
+    if (fDesc) { const q = fDesc.trim().toLowerCase(); out = out.filter((r) => r.description.toLowerCase().includes(q)); }
+    if (fCat)  { const q = fCat.trim().toLowerCase();  out = out.filter((r) => (r.category ?? "").toLowerCase().includes(q)); }
+    if (fAcct) { const q = fAcct.trim().toLowerCase(); out = out.filter((r) => (r.account_name ?? "").toLowerCase().includes(q)); }
+    if (fLot)  { const q = fLot.trim().toLowerCase();  out = out.filter((r) => (r.lot_number ?? "").toLowerCase().includes(q)); }
+
+    out = [...out].sort((a, b) => {
+      const av = colVal(a, sortKey);
+      const bv = colVal(b, sortKey);
+      const cmp = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return out;
+  }, [rows, fDate, fType, fDesc, fCat, fAcct, fLot, sortKey, sortDir]);
+
+  const hasFilters = fDate || fType || fDesc || fCat || fAcct || fLot;
+
+  function SortTh({ col, label, right }: { col: SortKey; label: string; right?: boolean }) {
+    const active = sortKey === col;
+    return (
+      <th
+        className={`px-3 py-2 text-xs font-medium text-gray-600 cursor-pointer select-none whitespace-nowrap ${right ? "text-right" : "text-left"}`}
+        onClick={() => handleSort(col)}
+      >
+        {label}
+        <span className="ml-1 text-gray-400">
+          {active ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
+        </span>
+      </th>
+    );
+  }
+
+  function FilterInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder ?? "Filter…"}
+        className="w-full border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+      />
+    );
+  }
 
   return (
     <PageLayout
@@ -136,13 +208,14 @@ export function TransactionsScreen() {
       helpId="transactions"
       actions={
         <div className="flex items-center gap-2">
-          <input
-            type="search"
-            placeholder="Search…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          {hasFilters && (
+            <button
+              onClick={() => { setFDate(""); setFType(""); setFDesc(""); setFCat(""); setFAcct(""); setFLot(""); }}
+              className="text-xs px-2 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+            >
+              Clear filters
+            </button>
+          )}
           <select
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value))}
@@ -163,29 +236,38 @@ export function TransactionsScreen() {
 
         {!loading && !error && (
           <>
-            {q && (
-              <p className="text-xs text-gray-500 mb-2">
-                {visible.length} of {rows.length} rows match "{search}"
-              </p>
-            )}
+            <p className="text-xs text-gray-500 mb-2">
+              {visible.length === rows.length
+                ? `${rows.length} transactions`
+                : `${visible.length} of ${rows.length} transactions`}
+            </p>
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                    <SortTh col="txn_date"     label="Date" />
+                    <SortTh col="source_type"  label="Type" />
+                    <SortTh col="description"  label="Description" />
+                    <SortTh col="category"     label="Category" />
+                    <SortTh col="account_name" label="Account" />
+                    <SortTh col="lot_number"   label="Lot" />
+                    <SortTh col="amount"       label="Amount" right />
+                  </tr>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <td className="px-2 py-1"><FilterInput value={fDate} onChange={setFDate} placeholder="2026-01…" /></td>
+                    <td className="px-2 py-1"><FilterInput value={fType} onChange={setFType} placeholder="Payment…" /></td>
+                    <td className="px-2 py-1"><FilterInput value={fDesc} onChange={setFDesc} /></td>
+                    <td className="px-2 py-1"><FilterInput value={fCat}  onChange={setFCat}  /></td>
+                    <td className="px-2 py-1"><FilterInput value={fAcct} onChange={setFAcct} /></td>
+                    <td className="px-2 py-1"><FilterInput value={fLot}  onChange={setFLot}  placeholder="4207…" /></td>
+                    <td className="px-2 py-1" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {visible.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">
-                        {q ? "No matches." : "No transactions yet."}
+                        {hasFilters ? "No matches." : "No transactions yet."}
                       </td>
                     </tr>
                   )}
