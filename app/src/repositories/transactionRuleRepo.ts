@@ -279,13 +279,12 @@ export async function applyRulesToPending(
         const qualified = candidates.filter(
           (c) => c.status === "POSTED" &&
                  c.bank_transaction_id === null &&
-                 (c.same_amount_count === 1 || c.days_diff <= 2)
+                 c.same_amount_count === 1 &&
+                 c.days_diff <= 2
         );
         if (qualified.length === 1 && qualified[0]) {
           const batch = qualified[0];
-          const reason = batch.same_amount_count === 1 && batch.days_diff <= 2
-            ? "unique amount + ≤2 days"
-            : batch.same_amount_count === 1 ? "unique amount" : "≤2 days";
+          const reason = "unique amount + ≤2 days";
           details.push({
             txn_id: txn.id,
             txn_desc: txn.description,

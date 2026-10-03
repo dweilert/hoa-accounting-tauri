@@ -228,18 +228,18 @@ export async function autoMatchDeposits(
       txn.bank_account_id, txn.amount, txn.transaction_date
     );
 
-    // Only consider POSTED, unlinked batches that qualify as a likely match
+    // Only consider POSTED, unlinked batches that qualify as a likely match:
+    // amount must be unique in the account AND date must be within 2 days.
     const qualified = candidates.filter(
       (c) => c.status === "POSTED" &&
              c.bank_transaction_id === null &&
-             (c.same_amount_count === 1 || c.days_diff <= 2)
+             c.same_amount_count === 1 &&
+             c.days_diff <= 2
     );
 
     if (qualified.length === 1 && qualified[0]) {
       const batch = qualified[0];
-      const reason = batch.same_amount_count === 1 && batch.days_diff <= 2
-        ? "unique amount + ≤ 2 days"
-        : batch.same_amount_count === 1 ? "unique amount" : "≤ 2 days";
+      const reason = "unique amount + ≤ 2 days";
       details.push({
         txn_id: txn.id,
         txn_date: txn.transaction_date,
