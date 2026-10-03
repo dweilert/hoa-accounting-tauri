@@ -30,7 +30,8 @@
         "$HOME/hoa-system/tauri/**",
         "$HOME/hoa-system/ofx-inbox",
         "$HOME/hoa-system/ofx-inbox/**",
-        "$TEMP/**"
+        "$TEMP/**",
+        "$HOME/**"
       ]
     },
     {

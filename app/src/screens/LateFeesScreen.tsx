@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { appConfirm } from "../components/AppDialogs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ export function LateFeesScreen() {
     if (selected.length === 0) { setError("No lots selected."); return; }
     const amt = parseFloat(feeAmount);
     if (isNaN(amt) || amt <= 0) { setError("Enter a valid fee amount."); return; }
-    if (!confirm(`Post a $${amt.toFixed(2)} late fee to ${selected.length} lot${selected.length > 1 ? "s" : ""}?`)) return;
+    if (!await appConfirm(`Post a $${amt.toFixed(2)} late fee to ${selected.length} lot${selected.length > 1 ? "s" : ""}?`)) return;
 
     setPosting(true);
     setError(null);

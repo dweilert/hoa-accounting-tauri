@@ -4,6 +4,7 @@ import { PageLayout } from "../components/PageLayout";
 import { Modal } from "../components/Modal";
 import { listLots, insertLot, updateLot, deleteLot, hasCurrentOwners } from "../repositories/lotRepo";
 import { LotFormSchema, type LotWithOwner, type LotFormValues } from "../types/lot";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 // ── Form ─────────────────────────────────────────────────────────────────────
 
@@ -132,12 +133,12 @@ export function LotsScreen() {
 
   async function handleDelete(lot: LotWithOwner) {
     if (await hasCurrentOwners(lot.id)) {
-      alert("Cannot delete a lot with current owners. Transfer or end ownership first.");
+      await appAlert("Cannot delete a lot with current owners. Transfer or end ownership first.");
       return;
     }
-    if (!confirm(`Delete lot ${lot.lot_number}? This cannot be undone.`)) return;
+    if (!await appConfirm(`Delete lot ${lot.lot_number}? This cannot be undone.`)) return;
     try { await deleteLot(lot.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   return (

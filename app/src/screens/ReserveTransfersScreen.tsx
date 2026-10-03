@@ -5,6 +5,7 @@ import { listBankAccounts } from "../repositories/bankAccountRepo";
 import { listCategories } from "../repositories/categoryRepo";
 import type { BankAccount } from "../types/bankAccount";
 import type { Category } from "../types/category";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -231,13 +232,13 @@ export function ReserveTransfersScreen() {
   }, []);
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this transfer? This cannot be undone.")) return;
+    if (!await appConfirm("Delete this transfer? This cannot be undone.")) return;
     setDeleting(id);
     try {
       await deleteTransfer(id);
       setTransfers((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     } finally {
       setDeleting(null);
     }

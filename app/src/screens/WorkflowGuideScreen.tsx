@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getDb } from "../lib/db";
 
 import { PageLayout } from "../components/PageLayout";
+import { appAlert } from "../components/AppDialogs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -215,7 +216,7 @@ export function WorkflowGuideScreen() {
       helpId="workflowGuide"
       actions={
         <button
-          onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => alert(String(e)))}
+          onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => void appAlert(String(e)))}
           className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
         >
           Print Cheatsheet

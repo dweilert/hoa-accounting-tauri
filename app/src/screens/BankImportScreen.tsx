@@ -9,6 +9,7 @@ import {
 } from "../repositories/reconciliationRepo";
 import { getDb } from "../lib/db";
 import type { BankAccount } from "../types/bankAccount";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 type ParsedRow = {
   date: string;
@@ -131,14 +132,14 @@ function RecentImports({ refreshKey }: { refreshKey: number }) {
   }, [refreshKey]);
 
   async function handleUndo(batch: ImportBatch) {
-    if (!confirm(`Undo import "${batch.filename ?? "unnamed"}" (${batch.imported_count} transactions)?\n\nAny transactions already used in a reconciliation will not be deleted.`)) return;
+    if (!await appConfirm(`Undo import "${batch.filename ?? "unnamed"}" (${batch.imported_count} transactions)?\n\nAny transactions already used in a reconciliation will not be deleted.`)) return;
     setUndoing(batch.id);
     try {
       const removed = await undoImportBatch(batch.id);
-      alert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}. ${batch.imported_count - removed > 0 ? `${batch.imported_count - removed} were already reconciled and kept.` : ""}`);
+      await appAlert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}. ${batch.imported_count - removed > 0 ? `${batch.imported_count - removed} were already reconciled and kept.` : ""}`);
       setBatches((prev) => prev.filter((b) => b.id !== batch.id));
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     } finally {
       setUndoing(null);
     }
@@ -279,15 +280,15 @@ export function BankImportScreen() {
 
   async function handleUndoLast() {
     if (!lastBatchId) return;
-    if (!confirm(`Undo this import (${importedCount} transactions)?`)) return;
+    if (!await appConfirm(`Undo this import (${importedCount} transactions)?`)) return;
     try {
       const removed = await undoImportBatch(lastBatchId);
-      alert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}.`);
+      await appAlert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}.`);
       setLastBatchId(null);
       setRefreshKey((k) => k + 1);
       reset();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     }
   }
 

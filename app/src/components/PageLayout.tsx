@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HELP, type HelpContent } from "../lib/helpContent";
+import { useNavHistory } from "../lib/navHistory";
 
 // ── Help Drawer ───────────────────────────────────────────────────────────────
 
@@ -110,21 +111,42 @@ export function PageLayout({
   const helpContent = help ?? (helpId ? HELP[helpId] : undefined);
   const location = useLocation();
   const navigate = useNavigate();
+  const crumbs = useNavHistory();
 
-  // Location state set by screens that link to this one (takes priority over hardcoded backTo)
+  // All crumbs except the current page (last entry)
+  const trail = crumbs.slice(0, -1);
+
+  // Fallback: location state or backTo prop (for screens that hard-code a back dest)
   const stateFrom = (location.state as { from?: string; fromLabel?: string } | null)?.from;
   const stateLabel = (location.state as { from?: string; fromLabel?: string } | null)?.fromLabel;
-
-  // Resolved back link: state wins over prop
   const resolvedBackTo = stateFrom ?? backTo;
   const resolvedBackLabel = stateLabel ?? backLabel;
 
   return (
     <>
-      {/* Sticky header */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 print:hidden">
+      {/* Sticky page header — top-0 because the scroll container (main) already starts below the fixed top bar */}
+      <div className="sticky top-0 z-20 border-b border-gray-200 print:hidden" style={{ backgroundColor: "#f2f5f1" }}>
         <div className="px-6 py-3">
-          {resolvedBackTo && (
+          {/* Breadcrumb trail (auto-tracked history) */}
+          {trail.length > 0 && (
+            <nav className="flex items-center gap-1 text-xs text-gray-400 mb-1 flex-wrap">
+              {trail.map((crumb, i) => (
+                <span key={crumb.path} className="flex items-center gap-1">
+                  {i > 0 && <span>/</span>}
+                  <button
+                    onClick={() => navigate(crumb.path)}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {crumb.label}
+                  </button>
+                </span>
+              ))}
+              <span>/</span>
+              <span className="text-gray-500">{title}</span>
+            </nav>
+          )}
+          {/* Fallback single back button (prop or location state) — shown only when no trail */}
+          {trail.length === 0 && resolvedBackTo && (
             <button
               onClick={() => navigate(resolvedBackTo)}
               className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mb-1"

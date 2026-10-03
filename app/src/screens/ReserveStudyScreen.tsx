@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 import {
   getAssumptions, saveAssumptions,
@@ -297,7 +298,7 @@ function AssetsPanel({ studyYear }: { studyYear: number }) {
   }
 
   async function handleDelete(asset: ReserveAsset) {
-    if (!confirm(`Remove "${asset.asset_group} — ${asset.component}"?`)) return;
+    if (!await appConfirm(`Remove "${asset.asset_group} — ${asset.component}"?`)) return;
     await deleteAsset(asset.id);
     await load();
   }
@@ -575,7 +576,7 @@ function ScenariosPanel({ assumptions }: { assumptions: Assumptions | null }) {
   }
 
   async function handleDelete(s: Scenario) {
-    if (!confirm(`Remove scenario "${s.scenario_name}"?`)) return;
+    if (!await appConfirm(`Remove scenario "${s.scenario_name}"?`)) return;
     await deleteScenario(s.id);
     await load();
   }
@@ -726,7 +727,7 @@ export function ReserveStudyScreen() {
       actions={
         <div className="flex gap-2">
           <button
-            onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => alert(String(e)))}
+            onClick={() => import("@tauri-apps/api/core").then(m => m.invoke("print_page")).catch(e => void appAlert(String(e)))}
             className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700"
           >
             Print / PDF

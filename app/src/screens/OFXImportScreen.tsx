@@ -8,6 +8,7 @@ import {
 } from "../repositories/reconciliationRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { isTauri } from "../lib/db";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 // ── OFX Parser ────────────────────────────────────────────────────────────────
 
@@ -215,14 +216,14 @@ export function OFXImportScreen() {
 
   async function handleUndoLast() {
     if (!lastBatchId) return;
-    if (!confirm(`Undo this import (${importedCount} transactions)?`)) return;
+    if (!await appConfirm(`Undo this import (${importedCount} transactions)?`)) return;
     try {
       const removed = await undoImportBatch(lastBatchId);
-      alert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}.`);
+      await appAlert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}.`);
       setLastBatchId(null);
       reset();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     }
   }
 

@@ -1142,6 +1142,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 import { PageLayout } from "../components/PageLayout";
+import { appAlert } from "../components/AppDialogs";
 
 export function ReportsScreen() {
   const [selected, setSelected] = useState<ReportType | "">("");
@@ -1265,7 +1266,7 @@ export function ReportsScreen() {
       }
 
       if (!docEl) {
-        alert("PDF generation not yet available for this report.");
+        await appAlert("PDF generation not yet available for this report.");
         return;
       }
 
@@ -1276,7 +1277,7 @@ export function ReportsScreen() {
       await writeFile(path, new Uint8Array(buffer));
       await openPath(path);
     } catch (e) {
-      alert(`PDF generation failed: ${String(e)}`);
+      await appAlert(`PDF generation failed: ${String(e)}`);
     }
   }
 

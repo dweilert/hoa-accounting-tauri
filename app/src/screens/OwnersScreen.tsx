@@ -3,6 +3,7 @@ import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
 import { listOwners, insertOwner, updateOwner, deactivateOwner } from "../repositories/ownerRepo";
 import { OwnerFormSchema, type OwnerWithLots, type OwnerFormValues, type OwnerTypeValue } from "../types/owner";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 // ── Form ─────────────────────────────────────────────────────────────────────
 
@@ -195,9 +196,9 @@ export function OwnersScreen() {
   }
 
   async function handleDeactivate(owner: OwnerWithLots) {
-    if (!confirm(`Deactivate "${owner.display_name}"? This will end all current lot ownership.`)) return;
+    if (!await appConfirm(`Deactivate "${owner.display_name}"? This will end all current lot ownership.`)) return;
     try { await deactivateOwner(owner.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   return (

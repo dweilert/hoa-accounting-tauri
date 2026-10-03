@@ -9,6 +9,7 @@ import {
   storeOfxBalance,
 } from "../repositories/reconciliationRepo";
 import type { BankAccount } from "../types/bankAccount";
+import { appConfirm } from "../components/AppDialogs";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -317,7 +318,7 @@ export function OFXInboxScreen() {
   }
 
   async function handleDelete(filename: string) {
-    if (!confirm(`Delete ${filename} without importing?`)) return;
+    if (!await appConfirm(`Delete ${filename} without importing?`)) return;
     try {
       await deleteInboxFile(filename);
       await refresh();

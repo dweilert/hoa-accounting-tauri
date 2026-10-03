@@ -12,6 +12,7 @@ import {
 import { listCategories } from "../repositories/categoryRepo";
 import { MONTHS, STATUS_COLORS, type Budget, type BudgetStatusValue } from "../types/budget";
 import type { Category } from "../types/category";
+import { appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return n === 0
@@ -175,7 +176,7 @@ function BudgetGrid({ budget, onBack, onRefresh }: GridProps) {
   }
 
   async function handleStatusChange(newStatus: string) {
-    if (!confirm(`Set budget to ${newStatus}?`)) return;
+    if (!await appConfirm(`Set budget to ${newStatus}?`)) return;
     setStatusChanging(true);
     try {
       await updateBudgetStatus(budget.id, newStatus);

@@ -16,6 +16,7 @@ import {
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankReconciliation, BankTransaction } from "../types/reconciliation";
 import type { BankAccount } from "../types/bankAccount";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -153,7 +154,7 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
   }
 
   async function handleFinalize() {
-    if (!confirm("Finalize this reconciliation? It will be locked.")) return;
+    if (!await appConfirm("Finalize this reconciliation? It will be locked.")) return;
     setFinalizing(true);
     try {
       await finalizeReconciliation(recon.id, clearedBalance);
@@ -163,7 +164,7 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
   }
 
   async function handleReopen() {
-    if (!confirm("Reopen this reconciliation for editing?")) return;
+    if (!await appConfirm("Reopen this reconciliation for editing?")) return;
     await reopenReconciliation(recon.id);
     onFinalized();
   }
@@ -348,8 +349,8 @@ export function ReconciliationsScreen() {
   }
 
   async function handleDelete(r: ReconRow) {
-    if (r.status !== "OPEN") { alert("Only OPEN reconciliations can be deleted."); return; }
-    if (!confirm("Delete this reconciliation?")) return;
+    if (r.status !== "OPEN") { await appAlert("Only OPEN reconciliations can be deleted."); return; }
+    if (!await appConfirm("Delete this reconciliation?")) return;
     await deleteReconciliation(r.id);
     await load();
   }

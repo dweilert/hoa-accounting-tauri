@@ -22,6 +22,7 @@ import { BudgetsScreen } from "./screens/BudgetsScreen";
 import { TransactionsScreen } from "./screens/TransactionsScreen";
 import { LedgerByAccountScreen } from "./screens/LedgerByAccountScreen";
 import { ReportsScreen } from "./screens/ReportsScreen";
+import { PublishStatementsScreen } from "./screens/PublishStatementsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { LotDetailScreen } from "./screens/LotDetailScreen";
 import { ReserveStudyScreen } from "./screens/ReserveStudyScreen";
@@ -43,13 +44,16 @@ import { DataImportScreen } from "./screens/DataImportScreen";
 import { ResaleFeeScreen } from "./screens/ResaleFeeScreen";
 import { RentersScreen } from "./screens/RentersScreen";
 import { OFXImportScreen } from "./screens/OFXImportScreen";
+import { OFXInboxScreen } from "./screens/OFXInboxScreen";
 import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
+import { AppDialogHost } from "./components/AppDialogs";
 
 export default function App() {
   return (
     <AuthProvider>
     <DbProvider>
       <BrowserRouter>
+        <AppDialogHost />
         <AuthGate>
         <Routes>
           <Route path="/" element={<AppShell />}>
@@ -71,6 +75,7 @@ export default function App() {
             <Route path="bank/accounts" element={<BankAccountsScreen />} />
             <Route path="bank/import" element={<BankImportScreen />} />
             <Route path="bank/ofx-import" element={<OFXImportScreen />} />
+            <Route path="bank/ofx-inbox" element={<OFXInboxScreen />} />
             <Route path="bank/pending" element={<BankPendingScreen />} />
             <Route path="bank/reconciliations" element={<ReconciliationsScreen />} />
             <Route path="bank/reconciliations/new" element={<ReconciliationsScreen />} />
@@ -102,6 +107,7 @@ export default function App() {
 
             {/* Reports */}
             <Route path="reports" element={<ReportsScreen />} />
+            <Route path="reports/publish" element={<PublishStatementsScreen />} />
 
             {/* Profile */}
             <Route path="profile" element={<ProfileScreen />} />

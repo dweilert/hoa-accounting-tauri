@@ -3,6 +3,7 @@ import { PageLayout } from "../components/PageLayout";
 import { getDb } from "../lib/db";
 import { readConfig, writeConfig } from "../lib/config";
 import { pushDbBackup } from "../lib/s3";
+import { appAlert } from "../components/AppDialogs";
 
 const IS_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -162,7 +163,7 @@ function DatabaseAdminSection() {
     try {
       const db = await getDb();
       const rows = await db.select<Record<string, unknown>[]>(`SELECT * FROM ${exportTable}`);
-      if (rows.length === 0) { alert(`No rows in ${exportTable}.`); return; }
+      if (rows.length === 0) { await appAlert(`No rows in ${exportTable}.`); return; }
       const headers = Object.keys(rows[0] ?? {});
       const escape = (v: unknown) => {
         const s = v === null || v === undefined ? "" : String(v);
@@ -177,7 +178,7 @@ function DatabaseAdminSection() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     } finally {
       setRunning(null);
     }

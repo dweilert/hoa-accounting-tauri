@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { appConfirm } from "../components/AppDialogs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ export function BoardMembersScreen() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Remove this board member?")) return;
+    if (!await appConfirm("Remove this board member?")) return;
     setDeleting(id);
     try {
       await deleteMember(id);

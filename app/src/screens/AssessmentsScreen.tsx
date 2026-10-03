@@ -22,6 +22,7 @@ import {
 import type { Lot } from "../types/lot";
 import type { Owner } from "../types/owner";
 import type { Category } from "../types/category";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -275,15 +276,15 @@ export function AssessmentsScreen() {
   }
 
   async function handleVoid(a: AssessmentRow) {
-    if (!confirm(`Void assessment for Lot ${a.lot_number} — ${fmt(a.amount)}?`)) return;
+    if (!await appConfirm(`Void assessment for Lot ${a.lot_number} — ${fmt(a.amount)}?`)) return;
     try { await voidAssessment(a.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   async function handleWriteOff(a: AssessmentRow) {
-    if (!confirm(`Write off assessment for Lot ${a.lot_number} — ${fmt(a.amount)}? This marks it uncollectible.`)) return;
+    if (!await appConfirm(`Write off assessment for Lot ${a.lot_number} — ${fmt(a.amount)}? This marks it uncollectible.`)) return;
     try { await writeOffAssessment(a.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   const sortedAssessments = [...assessments].sort((a, b) => {

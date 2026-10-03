@@ -11,6 +11,7 @@ export const DepositBatchSchema = z.object({
   check_count: z.number(),
   notes: z.string().nullable(),
   status: DepositStatus,
+  bank_transaction_id: z.number().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

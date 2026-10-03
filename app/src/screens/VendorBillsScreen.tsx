@@ -16,6 +16,7 @@ import {
 import type { Vendor } from "../types/vendor";
 import type { Category } from "../types/category";
 import type { BankAccount } from "../types/bankAccount";
+import { appConfirm } from "../components/AppDialogs";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -379,7 +380,7 @@ export function VendorBillsScreen() {
 
   async function handleDeletePayment(paymentId: number) {
     if (modal?.mode !== "payment") return;
-    if (!confirm("Remove this payment? The bill will return to Open/Partial status.")) return;
+    if (!await appConfirm("Remove this payment? The bill will return to Open/Partial status.")) return;
     await deleteBillPayment(paymentId, modal.bill.id);
     const [updatedBill, payments] = await Promise.all([
       listVendorBills().then((bills) => bills.find((b) => b.id === modal.bill.id)),
@@ -395,7 +396,7 @@ export function VendorBillsScreen() {
   }
 
   async function handleVoid(bill: VendorBill) {
-    if (!confirm(`Void bill "${bill.invoice_number}" from ${bill.vendor_name}?`)) return;
+    if (!await appConfirm(`Void bill "${bill.invoice_number}" from ${bill.vendor_name}?`)) return;
     await voidBill(bill.id);
     await loadBills();
   }

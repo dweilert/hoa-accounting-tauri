@@ -21,6 +21,7 @@ import { PaymentFormSchema, type PaymentFormValues } from "../types/deposit";
 import type { BankAccount } from "../types/bankAccount";
 import type { LotWithOwner } from "../types/lot";
 import type { OwnerWithLots } from "../types/owner";
+import { appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -294,7 +295,7 @@ export function DepositsScreen() {
   }
 
   async function handleDeletePayment(paymentId: number, batchId: number) {
-    if (!confirm("Remove this payment?")) return;
+    if (!await appConfirm("Remove this payment?")) return;
     await deletePayment(paymentId, batchId);
     await loadBatches();
     const rows = await listPaymentsForBatch(batchId);
@@ -327,7 +328,7 @@ export function DepositsScreen() {
   }
 
   async function handlePost(batchId: number) {
-    if (!confirm("Post this deposit batch? It will be locked.")) return;
+    if (!await appConfirm("Post this deposit batch? It will be locked.")) return;
     await postDepositBatch(batchId);
     await loadBatches();
   }

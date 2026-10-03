@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
 import { useCurrentUser } from "../contexts/AuthContext";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 import {
   listAnnouncements,
   createAnnouncement,
@@ -154,12 +155,12 @@ export function AnnouncementsScreen() {
   }
 
   async function handleDelete(item: Announcement) {
-    if (!confirm("Delete this announcement? This cannot be undone.")) return;
+    if (!await appConfirm("Delete this announcement? This cannot be undone.")) return;
     try {
       await deleteAnnouncement(item.id);
       await load();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     }
   }
 

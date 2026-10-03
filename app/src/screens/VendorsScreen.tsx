@@ -3,6 +3,7 @@ import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
 import { listVendors, insertVendor, updateVendor, deleteVendor, hasBills } from "../repositories/vendorRepo";
 import { VendorFormSchema, type Vendor, type VendorFormValues } from "../types/vendor";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 // ── Form ─────────────────────────────────────────────────────────────────────
 
@@ -163,12 +164,12 @@ export function VendorsScreen() {
 
   async function handleDelete(vendor: Vendor) {
     if (await hasBills(vendor.id)) {
-      alert("This vendor has bills on record. Mark them inactive instead of deleting.");
+      await appAlert("This vendor has bills on record. Mark them inactive instead of deleting.");
       return;
     }
-    if (!confirm(`Delete "${vendor.vendor_name}"? This cannot be undone.`)) return;
+    if (!await appConfirm(`Delete "${vendor.vendor_name}"? This cannot be undone.`)) return;
     try { await deleteVendor(vendor.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   const visible = showInactive ? vendors : vendors.filter((v) => v.active_flag);

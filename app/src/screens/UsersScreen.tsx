@@ -3,6 +3,7 @@ import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
 import { listUsers, createUser, updateUser, setPassword, deleteUser, type LocalUser } from "../repositories/userRepo";
 import { useCurrentUser } from "../contexts/AuthContext";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 function fmt(s: string | null): string {
   if (!s) return "—";
@@ -157,7 +158,7 @@ export function UsersScreen() {
 
   async function handleToggleActive(user: LocalUser) {
     if (user.id === currentUser?.id) {
-      alert("You cannot deactivate your own account.");
+      await appAlert("You cannot deactivate your own account.");
       return;
     }
     await updateUser(user.id, user.display_name, user.role, !user.is_active);
@@ -166,15 +167,15 @@ export function UsersScreen() {
 
   async function handleDelete(user: LocalUser) {
     if (user.id === currentUser?.id) {
-      alert("You cannot delete your own account.");
+      await appAlert("You cannot delete your own account.");
       return;
     }
-    if (!confirm(`Delete user ${user.email}? This cannot be undone.`)) return;
+    if (!await appConfirm(`Delete user ${user.email}? This cannot be undone.`)) return;
     try {
       await deleteUser(user.id);
       await load();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     }
   }
 

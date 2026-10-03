@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { appConfirm } from "../components/AppDialogs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ export function RentersScreen() {
   async function handleSaveEdit(v: FormVals) { if (editing) { await updateRenter(editing.id, v); setEditing(null); void refresh(); } }
 
   async function handleDelete(id: number) {
-    if (!confirm("Remove this renter record?")) return;
+    if (!await appConfirm("Remove this renter record?")) return;
     setDeleting(id);
     try { await deleteRenter(id); setRenters((p) => p.filter((r) => r.id !== id)); }
     catch (e) { setError(String(e)); }

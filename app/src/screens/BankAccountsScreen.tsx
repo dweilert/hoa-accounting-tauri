@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 import {
   listBankAccounts,
   insertBankAccount,
@@ -205,12 +206,12 @@ export function BankAccountsScreen() {
 
   async function handleDelete(acct: BankAccount) {
     if (await hasTransactions(acct.id)) {
-      alert("This account has transactions. Deactivate it instead of deleting.");
+      await appAlert("This account has transactions. Deactivate it instead of deleting.");
       return;
     }
-    if (!confirm(`Delete "${acct.account_name}"? This cannot be undone.`)) return;
+    if (!await appConfirm(`Delete "${acct.account_name}"? This cannot be undone.`)) return;
     try { await deleteBankAccount(acct.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   const visible = showInactive ? accounts : accounts.filter((a) => a.active_flag);

@@ -17,6 +17,7 @@ import { Modal } from "../components/Modal";
 import type { BankTransaction } from "../types/reconciliation";
 import type { BankAccount } from "../types/bankAccount";
 import type { Category } from "../types/category";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -376,7 +377,7 @@ export function BankPendingScreen() {
   async function acceptAll() {
     const unvalidated = visible.filter((t) => t.validation_status === "UNVALIDATED");
     if (unvalidated.length === 0) return;
-    if (!confirm(`Mark ${unvalidated.length} transactions as Validated?`)) return;
+    if (!await appConfirm(`Mark ${unvalidated.length} transactions as Validated?`)) return;
     setBulkWorking(true);
     try {
       const db = await getDb();
@@ -418,14 +419,14 @@ export function BankPendingScreen() {
       setSelectedIds(new Set());
       await load();
       if (result.errors.length > 0) {
-        alert(`Applied ${result.matched} transactions.\n\nERRORS (${result.errors.length}):\n` +
+        await appAlert(`Applied ${result.matched} transactions.\n\nERRORS (${result.errors.length}):\n` +
           result.errors.slice(0, 5).map(e => `txn ${e.txn_id} / ${e.rule_name}: ${e.error}`).join("\n"));
       } else {
-        alert(`Applied: ${result.matched} classified, ${result.reviewed} flagged for review.`);
+        await appAlert(`Applied: ${result.matched} classified, ${result.reviewed} flagged for review.`);
       }
     } catch (err) {
       console.error("Apply rules failed:", err);
-      alert(`Apply rules failed: ${err instanceof Error ? err.message : String(err)}`);
+      await appAlert(`Apply rules failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setApplying(false);
     }
@@ -437,8 +438,8 @@ export function BankPendingScreen() {
       (t) => (t.validation_status === "VALIDATED" || t.validation_status === "IGNORED") &&
              (accountFilter === "all" || t.bank_account_id === accountFilter)
     ).length;
-    if (processed === 0) { alert("No VALIDATED or IGNORED transactions to revert."); return; }
-    if (!confirm(`Revert ${processed} VALIDATED/IGNORED transaction(s) back to UNVALIDATED?`)) return;
+    if (processed === 0) { await appAlert("No VALIDATED or IGNORED transactions to revert."); return; }
+    if (!await appConfirm(`Revert ${processed} VALIDATED/IGNORED transaction(s) back to UNVALIDATED?`)) return;
     setBulkWorking(true);
     try {
       await revertValidated(acct);
@@ -454,18 +455,18 @@ export function BankPendingScreen() {
       const acct = accountFilter === "all" ? undefined : accountFilter;
       const preview = await autoMatchDeposits(acct, true);
       if (preview.matched === 0) {
-        alert(`No unambiguous deposit matches found.\n${preview.total} positive UNVALIDATED transactions scanned.\n${preview.skipped} had multiple qualifying candidates (ambiguous).`);
+        await appAlert(`No unambiguous deposit matches found.\n${preview.total} positive UNVALIDATED transactions scanned.\n${preview.skipped} had multiple qualifying candidates (ambiguous).`);
         return;
       }
       const lines = preview.details.map(
         (d) => `  • $${d.amount.toFixed(2)} on ${d.txn_date} → batch ${d.batch_date} (${d.reason})`
       ).join("\n");
-      if (!confirm(`Auto-match ${preview.matched} deposit(s)?\n\n${lines}\n\nClick OK to link and mark VALIDATED.`)) return;
+      if (!await appConfirm(`Auto-match ${preview.matched} deposit(s)?\n\n${lines}\n\nClick OK to link and mark VALIDATED.`)) return;
       const result = await autoMatchDeposits(acct, false);
       await load();
-      alert(`Linked ${result.matched} deposit batch(es) to OFX transactions and marked VALIDATED.`);
+      await appAlert(`Linked ${result.matched} deposit batch(es) to OFX transactions and marked VALIDATED.`);
     } catch (err) {
-      alert(`Auto-match failed: ${err instanceof Error ? err.message : String(err)}`);
+      await appAlert(`Auto-match failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBulkWorking(false);
     }

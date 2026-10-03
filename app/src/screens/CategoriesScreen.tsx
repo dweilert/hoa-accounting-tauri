@@ -255,6 +255,7 @@ type ModalState =
 
 // Workaround: ReactNode type needs to be imported here since we use it in field()
 import type { ReactNode } from "react";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 export function CategoriesScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -292,12 +293,12 @@ export function CategoriesScreen() {
   }
 
   async function handleDelete(cat: Category) {
-    if (!confirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
+    if (!await appConfirm(`Delete "${cat.name}"? This cannot be undone.`)) return;
     try {
       await deleteCategory(cat.id);
       await load();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
     }
   }
 

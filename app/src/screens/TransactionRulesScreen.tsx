@@ -19,6 +19,7 @@ import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { Category } from "../types/category";
 import type { Vendor } from "../types/vendor";
 import type { BankAccount } from "../types/bankAccount";
+import { appAlert, appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -432,9 +433,9 @@ export function TransactionRulesScreen() {
   }
 
   async function handleDelete(rule: TransactionRule) {
-    if (!confirm(`Delete rule "${rule.rule_name}"?`)) return;
+    if (!await appConfirm(`Delete rule "${rule.rule_name}"?`)) return;
     try { await deleteTransactionRule(rule.id); await load(); }
-    catch (e) { alert(String(e)); }
+    catch (e) { await appAlert(String(e)); }
   }
 
   return (

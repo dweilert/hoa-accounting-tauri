@@ -1,8 +1,62 @@
 @import "tailwindcss";
 
-/* Zebra-stripe every tbody row sitewide */
-tbody tr:nth-child(odd)  { background-color: #ffffff; }
-tbody tr:nth-child(even) { background-color: #e5e7eb; }
+/* ── HOA warm-green palette ───────────────────────────────────────────────────
+   Override Tailwind's CSS variables at :root so they cascade over the @layer
+   theme values Tailwind generates. Every bg-blue-*, text-gray-*, etc. class
+   picks these up automatically — no component edits needed.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Blue → Forest Green */
+  --color-blue-50:  #eaf2ec;
+  --color-blue-100: #d5e4d8;
+  --color-blue-200: #aecfb6;
+  --color-blue-300: #7aad8f;
+  --color-blue-400: #4d8a6b;
+  --color-blue-500: #3a7a5a;
+  --color-blue-600: #2f6046;
+  --color-blue-700: #26503a;
+  --color-blue-800: #1e3d2c;
+  --color-blue-900: #162b20;
+  --color-blue-950: #0e1d16;
 
-/* Hover overrides stripe without fighting specificity */
-tbody tr:hover { background-color: #eff6ff !important; }
+  /* Gray → Cool gray-green (matches Flask app palette) */
+  --color-gray-50:  #f2f5f1;
+  --color-gray-100: #e8ede6;
+  --color-gray-200: #d8e0d5;
+  --color-gray-300: #b8c4b4;
+  --color-gray-400: #8a9886;
+  --color-gray-500: #5e6e5a;
+  --color-gray-600: #4a5846;
+  --color-gray-700: #3a4638;
+  --color-gray-800: #28322a;
+  --color-gray-900: #1a2219;
+  --color-gray-950: #101610;
+}
+
+/* ── Page background ──────────────────────────────────────────────────────── */
+body {
+  background-color: #f2f5f1;
+}
+
+/* ── Table: Flask-matched styling sitewide ────────────────────────────────── */
+thead th {
+  background-color: #d8e0d5;
+  color: #4d5e49;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.44px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #cdd6c9;
+}
+
+tbody td {
+  font-size: 13px;
+  padding: 5px 10px;
+  border-bottom: 1px solid #cdd6c9;
+  color: #1a2118;
+}
+
+tbody tr:nth-child(odd)  { background-color: #ffffff; }
+tbody tr:nth-child(even) { background-color: #e8ede6; }
+tbody tr:hover { background-color: #d5e4d8 !important; }

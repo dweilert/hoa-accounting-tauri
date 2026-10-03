@@ -6,6 +6,7 @@ import type { BankAccount } from "../types/bankAccount";
 import type { Lot } from "../types/lot";
 import type { OpeningBalance } from "../types/openingBalance";
 import { PageLayout } from "../components/PageLayout";
+import { appAlert } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -96,7 +97,7 @@ function BankBalancesTab() {
       });
       await load();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
       setRows((prev) =>
         prev.map((r) => (r.account.id === id ? { ...r, saving: false } : r))
       );
@@ -275,7 +276,7 @@ function LotBalancesTab() {
       });
       await load();
     } catch (e) {
-      alert(String(e));
+      await appAlert(String(e));
       setRows((prev) => prev.map((r) => (r.lot.id === lotId ? { ...r, savingDues: false } : r)));
     }
   }

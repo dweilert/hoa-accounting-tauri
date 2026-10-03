@@ -4,6 +4,7 @@ import { PageLayout } from "../components/PageLayout";
 import { listCategories } from "../repositories/categoryRepo";
 import { insertAssessment } from "../repositories/assessmentRepo";
 import type { Category } from "../types/category";
+import { appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -101,7 +102,7 @@ export function DuesBillingScreen() {
     if (!amt || amt <= 0) { setError("Enter a valid amount per lot."); return; }
     if (!assessmentDate) { setError("Assessment date is required."); return; }
     if (includedCount === 0) { setError("Select at least one lot."); return; }
-    if (!confirm(`Post dues of ${fmt(amt)} to ${includedCount} lots (total ${fmt(totalAmount)})?`)) return;
+    if (!await appConfirm(`Post dues of ${fmt(amt)} to ${includedCount} lots (total ${fmt(totalAmount)})?`)) return;
 
     setSaving(true);
     setError(null);
