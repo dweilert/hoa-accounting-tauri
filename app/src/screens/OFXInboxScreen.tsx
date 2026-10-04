@@ -8,7 +8,7 @@ import {
   finalizeImportBatch,
   storeOfxBalance,
 } from "../repositories/reconciliationRepo";
-import { applyRulesToPending } from "../repositories/transactionRuleRepo";
+import { applyRulesToPending, matchReserveTransfers } from "../repositories/transactionRuleRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { appConfirm } from "../components/AppDialogs";
 
@@ -240,6 +240,10 @@ async function importFile(
       try {
         const matchResult = await applyRulesToPending(account.id, false);
         autoMatched = matchResult.matched;
+      } catch { /* non-fatal */ }
+      try {
+        const transferResult = await matchReserveTransfers(false);
+        autoMatched += transferResult.matched;
       } catch { /* non-fatal */ }
     }
     return { imported, skipped, autoMatched };

@@ -6,7 +6,7 @@ import {
   createImportBatch, finalizeImportBatch,
   undoImportBatch, storeOfxBalance,
 } from "../repositories/reconciliationRepo";
-import { applyRulesToPending } from "../repositories/transactionRuleRepo";
+import { applyRulesToPending, matchReserveTransfers } from "../repositories/transactionRuleRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { isTauri } from "../lib/db";
 import { appAlert, appConfirm } from "../components/AppDialogs";
@@ -205,12 +205,16 @@ export function OFXImportScreen() {
       await finalizeImportBatch(batchId, imported, skipped);
       const bal = parseOFXBalance(rawTextRef.current);
       if (bal) await storeOfxBalance(accountId, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
-      // Auto-match: apply AUTO_POST rules immediately after import
+      // Auto-match: apply AUTO_POST rules then pair reserve transfers
       let autoMatched = 0;
       if (imported > 0) {
         try {
           const matchResult = await applyRulesToPending(accountId, false);
           autoMatched = matchResult.matched;
+        } catch { /* non-fatal */ }
+        try {
+          const transferResult = await matchReserveTransfers(false);
+          autoMatched += transferResult.matched;
         } catch { /* non-fatal */ }
       }
       setLastBatchId(batchId);

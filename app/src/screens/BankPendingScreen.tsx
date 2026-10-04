@@ -8,6 +8,7 @@ import {
   revertValidated,
   listTransactionRules,
   testRuleAgainstDescription,
+  matchReserveTransfers,
   type TransactionRule,
 } from "../repositories/transactionRuleRepo";
 import { listCandidateDepositBatches, linkDepositToTxn, autoMatchDeposits } from "../repositories/depositRepo";
@@ -472,6 +473,37 @@ export function BankPendingScreen() {
     }
   }
 
+  async function handleMatchReserveTransfers() {
+    setBulkWorking(true);
+    try {
+      const preview = await matchReserveTransfers(true);
+      if (preview.matched === 0) {
+        await appAlert(
+          "No reserve transfer pairs found.\n\n" +
+          "This matches UNVALIDATED debits in OPERATING accounts with credits in RESERVE accounts " +
+          "of the same amount within 5 days."
+        );
+        return;
+      }
+      const lines = preview.details.map(
+        (d) => `  • $${d.amount.toFixed(2)} on ${d.date} (txn #${d.from_txn_id} ↔ #${d.to_txn_id})`
+      ).join("\n");
+      if (!await appConfirm(`Create ${preview.matched} reserve transfer(s)?\n\n${lines}\n\nClick OK to create and mark VALIDATED.`)) return;
+      const result = await matchReserveTransfers(false);
+      await load();
+      if (result.errors.length > 0) {
+        await appAlert(`Created ${result.matched} reserve transfer(s).\n\nERRORS:\n` +
+          result.errors.map(e => `txn ${e.txn_id}: ${e.error}`).join("\n"));
+      } else {
+        await appAlert(`Created ${result.matched} reserve transfer(s) and marked both sides VALIDATED.`);
+      }
+    } catch (err) {
+      await appAlert(`Match reserve transfers failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
   async function handleTestRow(txn: TxnRow) {
     if (expandedTxnId === txn.id) { setExpandedTxnId(null); return; }
     setExpandedTxnId(txn.id);
@@ -551,6 +583,14 @@ export function BankPendingScreen() {
             style={{ backgroundColor: "#0f766e" }}
           >
             {bulkWorking ? "Matching…" : "Auto-Match Deposits"}
+          </button>
+          <button
+            onClick={() => void handleMatchReserveTransfers()}
+            disabled={applying || bulkWorking}
+            className="px-3 py-1.5 text-white text-sm rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: "#7c3aed" }}
+          >
+            {bulkWorking ? "Matching…" : "Match Transfers"}
           </button>
           {unvalidatedCount > 0 && (
             <button

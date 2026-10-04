@@ -316,6 +316,145 @@ export async function applyRulesToPending(
   return { total: txns.length, matched, reviewed, errors, details };
 }
 
+// ── Match reserve transfers across accounts ───────────────────────────────────
+
+export type MatchReserveTransfersResult = {
+  matched: number;   // reserve_transfers records created
+  errors: { txn_id: number; error: string }[];
+  details: { from_txn_id: number; to_txn_id: number; amount: number; date: string }[];
+};
+
+/**
+ * Auto-pairs UNVALIDATED bank transactions across OPERATING and RESERVE accounts.
+ * A debit in an OPERATING account + matching credit in a RESERVE account (same absolute
+ * amount, within dateTolerance days) becomes a reserve_transfers record with both sides
+ * linked and marked VALIDATED.
+ *
+ * Pass dryRun=true to preview without writing.
+ */
+export async function matchReserveTransfers(
+  dryRun = true,
+  dateTolerance = 5
+): Promise<MatchReserveTransfersResult> {
+  const db = await getDb();
+
+  // Load all active bank accounts so we can cross-pair OPERATING with RESERVE
+  const accounts = await db.select<{ id: number; account_name: string; fund_code: string }[]>(
+    "SELECT id, account_name, fund_code FROM bank_accounts WHERE active_flag = 1"
+  );
+
+  const operatingIds = accounts.filter((a) => a.fund_code === "OPERATING").map((a) => a.id);
+  const reserveIds   = accounts.filter((a) => a.fund_code === "RESERVE").map((a) => a.id);
+
+  if (operatingIds.length === 0 || reserveIds.length === 0) {
+    return { matched: 0, errors: [], details: [] };
+  }
+
+  // Load UNVALIDATED debits from OPERATING accounts (amount < 0)
+  const debits = await db.select<{ id: number; bank_account_id: number; amount: number; transaction_date: string; description: string }[]>(
+    `SELECT id, bank_account_id, amount, transaction_date, COALESCE(description, '') AS description
+     FROM bank_transactions
+     WHERE validation_status = 'UNVALIDATED'
+       AND amount < 0
+       AND bank_account_id IN (${operatingIds.join(",")})
+     ORDER BY transaction_date DESC`
+  );
+
+  // Load UNVALIDATED credits in RESERVE accounts (amount > 0)
+  const credits = await db.select<{ id: number; bank_account_id: number; amount: number; transaction_date: string; description: string }[]>(
+    `SELECT id, bank_account_id, amount, transaction_date, COALESCE(description, '') AS description
+     FROM bank_transactions
+     WHERE validation_status = 'UNVALIDATED'
+       AND amount > 0
+       AND bank_account_id IN (${reserveIds.join(",")})
+     ORDER BY transaction_date DESC`
+  );
+
+  if (debits.length === 0 || credits.length === 0) {
+    return { matched: 0, errors: [], details: [] };
+  }
+
+  const details: MatchReserveTransfersResult["details"] = [];
+  const errors: MatchReserveTransfersResult["errors"] = [];
+  let matched = 0;
+
+  // Track which IDs have already been paired so we don't double-match
+  const usedDebitIds  = new Set<number>();
+  const usedCreditIds = new Set<number>();
+
+  for (const debit of debits) {
+    if (usedDebitIds.has(debit.id)) continue;
+    const absAmount = Math.abs(debit.amount);
+    const debitDate = new Date(debit.transaction_date).getTime();
+
+    // Find the best matching credit: same absolute amount, within date tolerance
+    let bestCredit: typeof credits[0] | null = null;
+    let bestDaysDiff = Infinity;
+    for (const credit of credits) {
+      if (usedCreditIds.has(credit.id)) continue;
+      if (Math.abs(credit.amount - absAmount) > 0.01) continue; // amount must match within 1 cent
+      const creditDate = new Date(credit.transaction_date).getTime();
+      const daysDiff = Math.abs((debitDate - creditDate) / 86400000);
+      if (daysDiff > dateTolerance) continue;
+      if (daysDiff < bestDaysDiff) {
+        bestDaysDiff = daysDiff;
+        bestCredit = credit;
+      }
+    }
+
+    if (!bestCredit) continue;
+
+    usedDebitIds.add(debit.id);
+    usedCreditIds.add(bestCredit.id);
+    matched++;
+
+    const detail = {
+      from_txn_id: debit.id,
+      to_txn_id: bestCredit.id,
+      amount: absAmount,
+      date: debit.transaction_date,
+    };
+    details.push(detail);
+
+    if (!dryRun) {
+      try {
+        const description = debit.description || bestCredit.description || "Reserve transfer";
+        const insertResult = await db.execute(
+          `INSERT INTO reserve_transfers
+             (transfer_date, from_bank_account_id, to_bank_account_id, amount, description)
+           VALUES (?, ?, ?, ?, ?)`,
+          [debit.transaction_date, debit.bank_account_id, bestCredit.bank_account_id, absAmount, description]
+        );
+        const transferId = insertResult.lastInsertId;
+        if (transferId) {
+          await db.execute(
+            `INSERT OR IGNORE INTO bank_transaction_links
+               (bank_transaction_id, source_type, source_id)
+             VALUES (?, 'RESERVE_TRANSFER', ?)`,
+            [debit.id, transferId]
+          );
+          await db.execute(
+            `INSERT OR IGNORE INTO bank_transaction_links
+               (bank_transaction_id, source_type, source_id)
+             VALUES (?, 'RESERVE_TRANSFER', ?)`,
+            [bestCredit.id, transferId]
+          );
+          await db.execute(
+            "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id IN (?, ?)",
+            [debit.id, bestCredit.id]
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push({ txn_id: debit.id, error: msg });
+        matched--; // undo the count since we failed
+      }
+    }
+  }
+
+  return { matched, errors, details };
+}
+
 export async function revertValidated(bankAccountId?: number): Promise<number> {
   const db = await getDb();
   const accountFilter = bankAccountId ? "AND bank_account_id = ?" : "";
