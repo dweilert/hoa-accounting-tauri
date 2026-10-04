@@ -166,7 +166,8 @@ export function OFXImportScreen() {
       const existing = await getExistingDedupKeys(acctId).catch(() => new Set<string>());
       const marked = parsed.map((t) => ({
         ...t,
-        isDuplicate: existing.has(buildDedupKey(t.fitid, t.dtposted, t.trnamt)),
+        isDuplicate: existing.has(buildDedupKey(t.fitid, t.dtposted, t.trnamt)) ||
+                     existing.has(`date-amt-${t.dtposted}-${t.trnamt}`),
       }));
       setTransactions(marked);
       setStep("preview");

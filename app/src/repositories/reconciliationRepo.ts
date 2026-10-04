@@ -140,15 +140,17 @@ export async function insertBankTransaction(
 
 export async function getExistingDedupKeys(bankAccountId: number): Promise<Set<string>> {
   const db = await getDb();
-  // Check both dedup_key and memo — older OFX imports stored the fitid key in memo
-  const rows = await db.select<{ dedup_key: string | null; memo: string | null }[]>(
-    "SELECT dedup_key, memo FROM bank_transactions WHERE bank_account_id = ?",
+  // Check dedup_key, memo (legacy), and amount+date combos to catch manually-entered duplicates
+  const rows = await db.select<{ dedup_key: string | null; memo: string | null; transaction_date: string; amount: number }[]>(
+    "SELECT dedup_key, memo, transaction_date, amount FROM bank_transactions WHERE bank_account_id = ?",
     [bankAccountId]
   );
   const keys = new Set<string>();
   for (const r of rows) {
     if (r.dedup_key) keys.add(r.dedup_key);
     if (r.memo && r.memo.startsWith("ofx-")) keys.add(r.memo);
+    // Secondary: block re-import of any transaction with same date+amount already in DB
+    keys.add(`date-amt-${r.transaction_date}-${r.amount}`);
   }
   return keys;
 }

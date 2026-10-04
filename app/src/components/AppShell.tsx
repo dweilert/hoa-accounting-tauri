@@ -29,6 +29,7 @@ const NAV: NavSection[] = [
       { label: "Import CSV", to: "/bank/import" },
       { label: "Import OFX/QFX", to: "/bank/ofx-import" },
       { label: "OFX Inbox", to: "/bank/ofx-inbox" },
+      { label: "OFX Reconciliation", to: "/bank/ofx-reconciliation" },
       { label: "Pending", to: "/bank/pending" },
       { label: "Reconciliations", to: "/bank/reconciliations" },
       { label: "Transfers", to: "/bank/transfers" },

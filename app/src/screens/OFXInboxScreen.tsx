@@ -227,7 +227,7 @@ async function importFile(
     let imported = 0, skipped = 0;
     for (const t of transactions) {
       const key = buildDedupKey(t.fitid, t.dtposted, t.trnamt);
-      if (existing.has(key)) { skipped++; continue; }
+      if (existing.has(key) || existing.has(`date-amt-${t.dtposted}-${t.trnamt}`)) { skipped++; continue; }
       const desc = [t.name, t.memo].filter(Boolean).join(" — ") || t.trntype;
       const id = await insertBankTransaction(account.id, t.dtposted, t.trnamt, desc, key, batchId);
       if (id > 0) imported++; else skipped++;

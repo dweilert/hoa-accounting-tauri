@@ -44,6 +44,7 @@ import { ResaleFeeScreen } from "./screens/ResaleFeeScreen";
 import { RentersScreen } from "./screens/RentersScreen";
 import { OFXImportScreen } from "./screens/OFXImportScreen";
 import { OFXInboxScreen } from "./screens/OFXInboxScreen";
+import { OFXReconciliationScreen } from "./screens/OFXReconciliationScreen";
 import { OwnerStatementsScreen } from "./screens/OwnerStatementsScreen";
 import { PaymentsScreen } from "./screens/PaymentsScreen";
 import { PettyCashScreen } from "./screens/PettyCashScreen";
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="bank/import" element={<BankImportScreen />} />
             <Route path="bank/ofx-import" element={<OFXImportScreen />} />
             <Route path="bank/ofx-inbox" element={<OFXInboxScreen />} />
+            <Route path="bank/ofx-reconciliation" element={<OFXReconciliationScreen />} />
             <Route path="bank/pending" element={<BankPendingScreen />} />
             <Route path="bank/reconciliations" element={<ReconciliationsScreen />} />
             <Route path="bank/reconciliations/new" element={<ReconciliationsScreen />} />
