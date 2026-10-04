@@ -85,7 +85,7 @@ async function loadData(bankAccountId: number, yearMonth: string): Promise<Scree
       btl.source_id,
       CASE btl.source_type
         WHEN 'INCOME_BATCH' THEN ib.income_date
-        WHEN 'BILL_PAYMENT' THEN b.bill_date
+        WHEN 'BILL_PAYMENT' THEN b.invoice_date
         WHEN 'RESERVE_TRANSFER' THEN rt.transfer_date
         ELSE ''
       END AS app_date,
@@ -111,7 +111,7 @@ async function loadData(bankAccountId: number, yearMonth: string): Promise<Scree
     JOIN bank_transactions bt ON bt.id = btl.bank_transaction_id
     LEFT JOIN income_batches ib    ON btl.source_type='INCOME_BATCH'    AND ib.id = btl.source_id
     LEFT JOIN categories c         ON btl.source_type='INCOME_BATCH'    AND c.id = ib.category_id
-    LEFT JOIN bills b              ON btl.source_type='BILL_PAYMENT'    AND b.id = btl.source_id
+    LEFT JOIN vendor_bills b       ON btl.source_type='BILL_PAYMENT'    AND b.id = btl.source_id
     LEFT JOIN vendors v            ON btl.source_type='BILL_PAYMENT'    AND v.id = b.vendor_id
     LEFT JOIN reserve_transfers rt ON btl.source_type='RESERVE_TRANSFER' AND rt.id = btl.source_id
     LEFT JOIN bank_accounts rta    ON btl.source_type='RESERVE_TRANSFER' AND rta.id = rt.from_bank_account_id
