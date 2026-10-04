@@ -8,6 +8,7 @@ import {
   finalizeImportBatch,
   storeOfxBalance,
 } from "../repositories/reconciliationRepo";
+import { applyRulesToPending } from "../repositories/transactionRuleRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { appConfirm } from "../components/AppDialogs";
 
@@ -208,18 +209,18 @@ const bannerColors: Record<BannerLevel, string> = {
 async function importFile(
   filename: string,
   accounts: BankAccount[],
-): Promise<{ imported: number; skipped: number; error?: string }> {
+): Promise<{ imported: number; skipped: number; autoMatched: number; error?: string }> {
   try {
     const text = await readOFXText(filename);
     const transactions = parseOFX(text);
-    if (transactions.length === 0) return { imported: 0, skipped: 0, error: "No transactions found" };
+    if (transactions.length === 0) return { imported: 0, skipped: 0, autoMatched: 0, error: "No transactions found" };
 
     // Match ACCTID from OFX to bank account by last4
     const acctidMatch = /<ACCTID>([^<\r\n]+)/i.exec(text);
     const acctid = acctidMatch?.[1]?.trim() ?? "";
     const last4 = acctid.slice(-4);
     const account = accounts.find((a) => a.account_last4 === last4) ?? accounts[0];
-    if (!account) return { imported: 0, skipped: 0, error: "No matching bank account found" };
+    if (!account) return { imported: 0, skipped: 0, autoMatched: 0, error: "No matching bank account found" };
 
     const existing = await getExistingDedupKeys(account.id).catch(() => new Set<string>());
     const batchId = await createImportBatch(account.id, filename);
@@ -234,9 +235,16 @@ async function importFile(
     await finalizeImportBatch(batchId, imported, skipped);
     const bal = parseOFXBalance(text);
     if (bal) await storeOfxBalance(account.id, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
-    return { imported, skipped };
+    let autoMatched = 0;
+    if (imported > 0) {
+      try {
+        const matchResult = await applyRulesToPending(account.id, false);
+        autoMatched = matchResult.matched;
+      } catch { /* non-fatal */ }
+    }
+    return { imported, skipped, autoMatched };
   } catch (e) {
-    return { imported: 0, skipped: 0, error: String(e) };
+    return { imported: 0, skipped: 0, autoMatched: 0, error: String(e) };
   }
 }
 
@@ -289,7 +297,8 @@ export function OFXInboxScreen() {
       setLastResult(`${filename}: ${result.error}`);
     } else {
       await archiveFile(filename).catch(() => undefined);
-      setLastResult(`${filename}: imported ${result.imported}, skipped ${result.skipped} duplicates`);
+      const matchNote = result.autoMatched > 0 ? `, ${result.autoMatched} auto-matched` : "";
+      setLastResult(`${filename}: imported ${result.imported}, skipped ${result.skipped} duplicates${matchNote}`);
       await refresh();
     }
     setImportingFile(null);
@@ -299,7 +308,7 @@ export function OFXInboxScreen() {
     if (files.length === 0) return;
     setImportingAll(true);
     setLastResult(null);
-    let totalImported = 0, totalSkipped = 0;
+    let totalImported = 0, totalSkipped = 0, totalAutoMatched = 0;
     const errors: string[] = [];
     for (const f of files) {
       const result = await importFile(f.name, accounts);
@@ -308,10 +317,12 @@ export function OFXInboxScreen() {
       } else {
         totalImported += result.imported;
         totalSkipped += result.skipped;
+        totalAutoMatched += result.autoMatched;
         await archiveFile(f.name).catch(() => undefined);
       }
     }
-    const summary = `Imported ${totalImported} transactions (${totalSkipped} skipped).`;
+    const matchNote = totalAutoMatched > 0 ? `, ${totalAutoMatched} auto-matched` : "";
+    const summary = `Imported ${totalImported} transactions (${totalSkipped} skipped${matchNote}).`;
     setLastResult(errors.length ? `${summary} Errors: ${errors.join("; ")}` : summary);
     await refresh();
     setImportingAll(false);

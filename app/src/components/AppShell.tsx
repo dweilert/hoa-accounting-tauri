@@ -108,6 +108,8 @@ function HamburgerIcon() {
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
+const APP_VERSION = "v0.1.0";
+
 export function AppShell() {
   const { logout } = useAuth();
   const currentUser = useCurrentUser();
@@ -118,6 +120,7 @@ export function AppShell() {
   const [reportingBug, setReportingBug] = useState(false);
   const [bugNote, setBugNote] = useState("");
   const [bugLogged, setBugLogged] = useState(false);
+  const [dbPath, setDbPath] = useState<string>("");
 
   function toggleSection(heading: string) {
     setCollapsedSections((prev) => {
@@ -129,7 +132,11 @@ export function AppShell() {
 
   useEffect(() => {
     getHoaSettings().then((s) => { if (s.hoa_name) setHoaName(s.hoa_name); }).catch(() => {});
+    import("../lib/config").then(({ readConfig }) =>
+      readConfig().then((cfg) => { if (cfg?.db_path) setDbPath(cfg.db_path); }).catch(() => {})
+    );
   }, []);
+
 
   return (
     <div className="flex flex-col h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
@@ -199,14 +206,14 @@ export function AppShell() {
 
         {/* ── Sidebar ── */}
         <aside
-          className="shrink-0 flex flex-col overflow-y-auto overflow-x-hidden transition-all duration-200 print:hidden"
+          className="shrink-0 flex flex-col overflow-hidden transition-all duration-200 print:hidden"
           style={{
             width: sidebarOpen ? "224px" : "0px",
             backgroundColor: "#e8ede6",
             borderRight: "1px solid #cdd6c9",
           }}
         >
-          <nav className="flex-1 px-2 py-3 space-y-4" style={{ minWidth: "224px" }}>
+          <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-4" style={{ minWidth: "224px" }}>
             {NAV.filter((s) => !s.adminOnly || isAdmin).map((section) => {
               const collapsed = collapsedSections.has(section.heading);
               return (
@@ -255,19 +262,41 @@ export function AppShell() {
             })}
           </nav>
 
-          {/* Sidebar footer */}
-          <div className="px-3 py-2 text-xs" style={{ borderTop: "1px solid #cdd6c9", minWidth: "224px" }}>
-            <p style={{ color: "#4d5e49" }}>{currentUser?.email}</p>
+          {/* Sidebar footer — always visible, never scrolls */}
+          <div
+            className="shrink-0 px-3 py-2 text-xs font-semibold"
+            style={{ borderTop: "1px solid #cdd6c9", minWidth: "224px", color: "#2a6b5e" }}
+          >
+            {APP_VERSION}
           </div>
         </aside>
 
         {/* ── Main content ── */}
-        <main className="flex-1 overflow-y-auto print:overflow-visible print:w-full">
-          <NavHistoryProvider>
-            <ErrorBoundary>
-              <Outlet />
-            </ErrorBoundary>
-          </NavHistoryProvider>
+        <main className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:w-full">
+          <div className="flex-1 overflow-y-auto">
+            <NavHistoryProvider>
+              <ErrorBoundary>
+                <Outlet />
+              </ErrorBoundary>
+            </NavHistoryProvider>
+          </div>
+          {/* ── Main area footer ── */}
+          <div
+            className="shrink-0 flex items-center gap-4 px-4 print:hidden"
+            style={{
+              height: "28px",
+              backgroundColor: "#f2f5f1",
+              borderTop: "1px solid #c5d0c0",
+              fontSize: "11px",
+              color: "#6b7f66",
+            }}
+          >
+            {dbPath ? (
+              <span title={dbPath} className="truncate">{dbPath}</span>
+            ) : (
+              <span>DB: browser (in-memory)</span>
+            )}
+          </div>
         </main>
       </div>
       {/* Bug report modal */}

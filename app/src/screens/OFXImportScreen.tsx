@@ -6,6 +6,7 @@ import {
   createImportBatch, finalizeImportBatch,
   undoImportBatch, storeOfxBalance,
 } from "../repositories/reconciliationRepo";
+import { applyRulesToPending } from "../repositories/transactionRuleRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { isTauri } from "../lib/db";
 import { appAlert, appConfirm } from "../components/AppDialogs";
@@ -107,6 +108,7 @@ export function OFXImportScreen() {
   const [lastBatchId, setLastBatchId] = useState<number | null>(null);
   const [importedCount, setImportedCount] = useState(0);
   const [skippedCount, setSkippedCount] = useState(0);
+  const [autoMatchedCount, setAutoMatchedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -203,9 +205,18 @@ export function OFXImportScreen() {
       await finalizeImportBatch(batchId, imported, skipped);
       const bal = parseOFXBalance(rawTextRef.current);
       if (bal) await storeOfxBalance(accountId, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
+      // Auto-match: apply AUTO_POST rules immediately after import
+      let autoMatched = 0;
+      if (imported > 0) {
+        try {
+          const matchResult = await applyRulesToPending(accountId, false);
+          autoMatched = matchResult.matched;
+        } catch { /* non-fatal */ }
+      }
       setLastBatchId(batchId);
       setImportedCount(imported);
       setSkippedCount(skipped);
+      setAutoMatchedCount(autoMatched);
       setStep("done");
     } catch (e) {
       setError(String(e));
@@ -365,7 +376,19 @@ export function OFXImportScreen() {
           {skippedCount > 0 && (
             <p className="text-sm text-gray-400">{skippedCount} skipped (duplicates)</p>
           )}
-          <p className="text-sm text-gray-500">Go to Bank → Pending to classify them.</p>
+          {autoMatchedCount > 0 && (
+            <p className="text-sm font-medium text-green-600">
+              {autoMatchedCount} auto-matched (deposits + rules)
+            </p>
+          )}
+          {importedCount - autoMatchedCount > 0 && (
+            <p className="text-sm text-gray-500">
+              {importedCount - autoMatchedCount} need review — go to Bank → Pending.
+            </p>
+          )}
+          {importedCount > 0 && autoMatchedCount >= importedCount && (
+            <p className="text-sm text-gray-500">All transactions matched automatically.</p>
+          )}
           <div className="flex justify-center gap-3">
             <button onClick={reset} className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
               Import Another File

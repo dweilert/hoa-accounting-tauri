@@ -663,4 +663,42 @@ export async function initSchema(db: DbHandle): Promise<void> {
       );
     }
   }
+
+  // Seed default transaction rules (idempotent — skip if rule_name already exists)
+  const DEFAULT_RULES: Array<{
+    rule_name: string;
+    description_contains: string;
+    amount_min: number | null;
+    amount_max: number | null;
+    action_type: string;
+    category_code: string;
+    confidence_mode: string;
+  }> = [
+    { rule_name: "Bank Interest",        description_contains: "INTEREST",         amount_min: 0.01,  amount_max: null,  action_type: "CATEGORIZE", category_code: "BANK_INTEREST",  confidence_mode: "AUTO_POST" },
+    { rule_name: "Reserve Interest",     description_contains: "INTEREST",         amount_min: 0.01,  amount_max: null,  action_type: "CATEGORIZE", category_code: "RESERVE_INTEREST", confidence_mode: "REVIEW_FIRST" },
+    { rule_name: "Bank Service Charge",  description_contains: "SERVICE CHARGE",   amount_min: null,  amount_max: -0.01, action_type: "CATEGORIZE", category_code: "BANK_FEE",       confidence_mode: "AUTO_POST" },
+    { rule_name: "Bank Maintenance Fee", description_contains: "MAINTENANCE FEE",  amount_min: null,  amount_max: -0.01, action_type: "CATEGORIZE", category_code: "BANK_FEE",       confidence_mode: "AUTO_POST" },
+    { rule_name: "Bank Wire Fee",        description_contains: "WIRE FEE",         amount_min: null,  amount_max: -0.01, action_type: "CATEGORIZE", category_code: "BANK_FEE",       confidence_mode: "AUTO_POST" },
+    { rule_name: "NSF Fee",              description_contains: "NSF",              amount_min: null,  amount_max: -0.01, action_type: "CATEGORIZE", category_code: "NSF_CHARGE",     confidence_mode: "AUTO_POST" },
+    { rule_name: "Returned Item Fee",    description_contains: "RETURNED ITEM",    amount_min: null,  amount_max: -0.01, action_type: "CATEGORIZE", category_code: "NSF_CHARGE",     confidence_mode: "AUTO_POST" },
+  ];
+
+  for (const r of DEFAULT_RULES) {
+    const exists = await db.select<[{ n: number }]>(
+      "SELECT COUNT(*) as n FROM bank_transaction_rules WHERE rule_name = ?",
+      [r.rule_name]
+    );
+    if ((exists[0]?.n ?? 0) > 0) continue;
+    const cat = await db.select<[{ id: number }]>(
+      "SELECT id FROM categories WHERE code = ?",
+      [r.category_code]
+    );
+    if (!cat[0]) continue;
+    await db.execute(
+      `INSERT INTO bank_transaction_rules
+         (rule_name, description_contains, amount_min, amount_max, action_type, category_id, confidence_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [r.rule_name, r.description_contains, r.amount_min, r.amount_max, r.action_type, cat[0].id, r.confidence_mode]
+    );
+  }
 }
