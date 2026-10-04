@@ -58,13 +58,22 @@ function pairStatus(p: Pair): "ok" | "warn" | "error" {
 async function loadData(bankAccountId: number, yearMonth: string): Promise<ScreenData> {
   const db = await getDb();
 
-  // All OFX transactions for this account + month
+  // yearMonth is either "YYYY-MM" or "YYYY" (full year)
+  const isYear = yearMonth.length === 4;
+  const dateFilter = isYear
+    ? `strftime('%Y', transaction_date) = '${yearMonth}'`
+    : `strftime('%Y-%m', transaction_date) = '${yearMonth}'`;
+  const appDateFilter = (col: string) => isYear
+    ? `strftime('%Y', ${col}) = '${yearMonth}'`
+    : `strftime('%Y-%m', ${col}) = '${yearMonth}'`;
+
+  // All OFX transactions for this account + period
   const ofxRows = await db.select<OFXRow[]>(
     `SELECT id, transaction_date, amount, COALESCE(description, '') AS description, validation_status
      FROM bank_transactions
-     WHERE bank_account_id = ? AND strftime('%Y-%m', transaction_date) = ?
+     WHERE bank_account_id = ? AND ${dateFilter}
      ORDER BY transaction_date, id`,
-    [bankAccountId, yearMonth]
+    [bankAccountId]
   );
 
   // Linked via bank_transaction_links
@@ -116,8 +125,8 @@ async function loadData(bankAccountId: number, yearMonth: string): Promise<Scree
     LEFT JOIN reserve_transfers rt ON btl.source_type='RESERVE_TRANSFER' AND rt.id = btl.source_id
     LEFT JOIN bank_accounts rta    ON btl.source_type='RESERVE_TRANSFER' AND rta.id = rt.from_bank_account_id
     LEFT JOIN bank_accounts rtb    ON btl.source_type='RESERVE_TRANSFER' AND rtb.id = rt.to_bank_account_id
-    WHERE bt.bank_account_id = ? AND strftime('%Y-%m', bt.transaction_date) = ?
-  `, [bankAccountId, yearMonth]);
+    WHERE bt.bank_account_id = ? AND ${dateFilter}
+  `, [bankAccountId]);
 
   // Linked via deposit_batches.bank_transaction_id
   type DepositLinkRow = {
@@ -138,8 +147,8 @@ async function loadData(bankAccountId: number, yearMonth: string): Promise<Scree
            db.notes
     FROM deposit_batches db
     JOIN bank_transactions bt ON bt.id = db.bank_transaction_id
-    WHERE bt.bank_account_id = ? AND strftime('%Y-%m', bt.transaction_date) = ?
-  `, [bankAccountId, yearMonth]);
+    WHERE bt.bank_account_id = ? AND ${dateFilter}
+  `, [bankAccountId]);
 
   // Build matched OFX id set and pairs
   const matchedOFXIds = new Set<number>();
@@ -203,10 +212,10 @@ async function loadData(bankAccountId: number, yearMonth: string): Promise<Scree
     FROM income_batches ib
     LEFT JOIN categories c ON c.id = ib.category_id
     WHERE ib.bank_account_id = ?
-      AND strftime('%Y-%m', ib.income_date) = ?
+      AND ${appDateFilter("ib.income_date")}
       AND ib.id NOT IN (SELECT source_id FROM bank_transaction_links WHERE source_type = 'INCOME_BATCH')
     ORDER BY ib.income_date
-  `, [bankAccountId, yearMonth]);
+  `, [bankAccountId]);
 
   // deposit_batches with no bank_transaction_id
   type UnmatchedDB = { id: number; deposit_date: string; total_amount: number; check_count: number; notes: string | null };
@@ -214,11 +223,11 @@ async function loadData(bankAccountId: number, yearMonth: string): Promise<Scree
     SELECT id, deposit_date, total_amount, check_count, notes
     FROM deposit_batches
     WHERE bank_account_id = ?
-      AND strftime('%Y-%m', deposit_date) = ?
+      AND ${appDateFilter("deposit_date")}
       AND bank_transaction_id IS NULL
       AND status = 'POSTED'
     ORDER BY deposit_date
-  `, [bankAccountId, yearMonth]);
+  `, [bankAccountId]);
 
   const unmatchedApp: AppRow[] = [
     ...unmatchedIB.map((r) => ({
@@ -392,11 +401,13 @@ export function OFXReconciliationScreen() {
   const totalApp = (data?.pairs.length ?? 0) + (data?.unmatchedApp.length ?? 0);
   const matchedCount = data?.pairs.length ?? 0;
 
-  // Generate month options: 18 months back from now
-  const monthOptions: string[] = [];
+  // Generate period options: current year + prior 2 years, then 24 months back
   const today = new Date();
-  for (let i = 0; i < 18; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+  const currentYear = today.getFullYear();
+  const yearOptions: string[] = [currentYear, currentYear - 1, currentYear - 2].map(String);
+  const monthOptions: string[] = [];
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(currentYear, today.getMonth() - i, 1);
     monthOptions.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
 
@@ -421,7 +432,12 @@ export function OFXReconciliationScreen() {
             onChange={(e) => { setYearMonth(e.target.value); setArmedOFX(null); }}
             className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {monthOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+            <optgroup label="Full Year">
+              {yearOptions.map((y) => <option key={y} value={y}>{y} (all months)</option>)}
+            </optgroup>
+            <optgroup label="Single Month">
+              {monthOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+            </optgroup>
           </select>
           {data && (
             <span className="text-xs text-gray-500">
