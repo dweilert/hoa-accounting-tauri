@@ -41,7 +41,7 @@ type Pair = {
 type ViewMode = "pairs" | "sidebyside" | "timeline";
 type SortField = "date" | "amount";
 type SortDir = "asc" | "desc";
-type LineData = { x1: number; y1: number; x2: number; y2: number; key: string; status: "ok" | "warn" | "error"; pair: Pair };
+type LineData = { x1: number; y1: number; x2: number; y2: number; key: string; status: "ok" | "warn" | "error"; pair: Pair; faded: boolean };
 type ClipBox = { top: number; bottom: number; width: number };
 type SvgDot  = { rowKey: string; x: number; y: number; isLinked: boolean; matched: boolean; inView: boolean };
 type DotDrag = { fromKind: "ofx" | "app"; fromKey: string; fromX: number; fromY: number; mouseX: number; mouseY: number };
@@ -621,6 +621,7 @@ export function OFXReconciliationScreen() {
         key: `${pair.ofx.id}-${pair.app.source_type}-${pair.app.source_id}`,
         status: pairStatus(pair),
         pair,
+        faded: !od.inView || !ad.inView,
       });
     }
 
@@ -1133,12 +1134,15 @@ export function OFXReconciliationScreen() {
                 return (
                   <g key={l.key}>
                     {/* Wide invisible hit area so clicking is easy */}
-                    <path pointerEvents="all" d={d} fill="none" stroke="transparent" strokeWidth="14"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => void handleLineClick(l.pair)}
-                    />
+                    {!l.faded && (
+                      <path pointerEvents="all" d={d} fill="none" stroke="transparent" strokeWidth="14"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => void handleLineClick(l.pair)}
+                      />
+                    )}
                     {/* Visible curve */}
-                    <path pointerEvents="none" d={d} fill="none" stroke={color} strokeWidth="2.5" opacity="0.9" />
+                    <path pointerEvents="none" d={d} fill="none" stroke={color}
+                      strokeWidth={l.faded ? 1.5 : 2.5} opacity={l.faded ? 0.18 : 0.9} />
                   </g>
                 );
               })}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getDb } from "../lib/db";
-import { readConfig } from "../lib/config";
 import { listActiveAnnouncements, type Announcement } from "../repositories/announcementRepo";
 import { PageLayout } from "../components/PageLayout";
 import { useTableSort } from "../lib/useTableSort";
@@ -348,28 +347,12 @@ export function Dashboard() {
   const [onboarding, setOnboarding] = useState<{ obEntered: boolean; dismissed: boolean } | null>(null);
   const [banners, setBanners] = useState<Announcement[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [dbDiag, setDbDiag] = useState<string>("checking…");
   const { sorted, sortKey, sortDir, toggleSort } = useTableSort(recentTxns, {
     date: (r) => r.txn_date,
     description: (r) => r.description,
     account: (r) => r.account_name,
     amount: (r) => r.amount,
   });
-
-  useEffect(() => {
-    Promise.all([getDb(), readConfig()])
-      .then(async ([db, cfg]) => {
-        const [lotRows, ownerRows, userRows] = await Promise.all([
-          db.select<[{n:number}]>("SELECT COUNT(*) as n FROM lots"),
-          db.select<[{n:number}]>("SELECT COUNT(*) as n FROM owners"),
-          db.select<[{n:number}]>("SELECT COUNT(*) as n FROM local_users"),
-        ]);
-        setDbDiag(
-          `✓ connected | path: ${cfg?.db_path ?? "browser"} | lots: ${lotRows[0]?.n ?? 0} | owners: ${ownerRows[0]?.n ?? 0} | users: ${userRows[0]?.n ?? 0}`
-        );
-      })
-      .catch((e: unknown) => setDbDiag(`✗ ERROR: ${String(e)}`));
-  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -414,11 +397,6 @@ export function Dashboard() {
   return (
     <PageLayout title="Dashboard" subtitle="HOA Accounting overview." helpId="dashboard">
       <div className="space-y-6">
-      {/* DB diagnostic */}
-      <div className="font-mono text-xs p-2 bg-black text-green-400 rounded break-all">
-        {dbDiag}
-      </div>
-
       {/* Prominent financial tiles */}
       <FinTileRow />
 
