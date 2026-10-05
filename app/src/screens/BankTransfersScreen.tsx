@@ -4,6 +4,8 @@ import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { appAlert, appConfirm } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -308,6 +310,15 @@ export function BankTransfersScreen() {
   useEffect(() => { void refresh(); }, []);
 
   const total = transfers.reduce((s, t) => s + t.amount, 0);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(transfers, {
+    date: (t) => t.transfer_date,
+    from: (t) => t.from_account,
+    to: (t) => t.to_account,
+    amount: (t) => t.amount,
+    description: (t) => t.description,
+    withdrawal: (t) => t.from_txn_id,
+    deposit: (t) => t.to_txn_id,
+  }, "date", "desc");
 
   if (loading) return <div className="p-8 text-gray-500 text-sm">Loading…</div>;
   if (error) return <div className="p-8 text-red-600 text-sm">Error: {error}</div>;
@@ -332,19 +343,19 @@ export function BankTransfersScreen() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr className="text-xs font-medium text-gray-500 uppercase tracking-wide bg-gray-50">
-                    <th className="px-5 py-2 text-left">Date</th>
-                    <th className="px-0 py-2 text-left">From</th>
+                    <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-5 !py-2" />
+                    <SortableTh label="From" col="from" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-2" />
                     <th className="px-0 py-2"></th>
-                    <th className="px-0 py-2 text-left">To</th>
-                    <th className="px-0 py-2 text-right">Amount</th>
-                    <th className="px-0 py-2 text-left">Description</th>
-                    <th className="px-0 py-2 text-center">Withdrawal OFX</th>
-                    <th className="px-0 py-2 text-center">Deposit OFX</th>
+                    <SortableTh label="To" col="to" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-2" />
+                    <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!px-0 !py-2" />
+                    <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-2" />
+                    <SortableTh label="Withdrawal OFX" col="withdrawal" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-2 !text-center" />
+                    <SortableTh label="Deposit OFX" col="deposit" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-2 !text-center" />
                     <th className="px-0 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {transfers.map((t) => (
+                  {sorted.map((t) => (
                     <TransferRow key={t.id} transfer={t} onDelete={() => void refresh()} />
                   ))}
                 </tbody>

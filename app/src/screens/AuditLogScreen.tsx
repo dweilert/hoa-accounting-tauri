@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,7 +39,6 @@ function fmtTime(s: string) {
 
 function JsonDiff({ before, after }: { before: string | null; after: string | null }) {
   const [open, setOpen] = useState(false);
-  if (!before && !after) return null;
 
   function parse(s: string | null): Record<string, unknown> {
     if (!s) return {};
@@ -47,6 +48,12 @@ function JsonDiff({ before, after }: { before: string | null; after: string | nu
   const bObj = parse(before);
   const aObj = parse(after);
   const keys = Array.from(new Set([...Object.keys(bObj), ...Object.keys(aObj)]));
+  const diffSort = useTableSort(keys, {
+    field: (k) => k,
+    before: (k) => (bObj[k] === undefined ? "—" : JSON.stringify(bObj[k])),
+    after: (k) => (aObj[k] === undefined ? "—" : JSON.stringify(aObj[k])),
+  });
+  if (!before && !after) return null;
   const changed = keys.filter((k) => JSON.stringify(bObj[k]) !== JSON.stringify(aObj[k]));
 
   return (
@@ -62,13 +69,13 @@ function JsonDiff({ before, after }: { before: string | null; after: string | nu
           <table className="min-w-full">
             <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr className="bg-gray-100 text-gray-600">
-                <th className="text-left px-2 py-1">Field</th>
-                <th className="text-left px-2 py-1">Before</th>
-                <th className="text-left px-2 py-1">After</th>
+                <SortableTh label="Field" col="field" sortKey={diffSort.sortKey} sortDir={diffSort.sortDir} onSort={diffSort.toggleSort} className="!px-2 !py-1" />
+                <SortableTh label="Before" col="before" sortKey={diffSort.sortKey} sortDir={diffSort.sortDir} onSort={diffSort.toggleSort} className="!px-2 !py-1" />
+                <SortableTh label="After" col="after" sortKey={diffSort.sortKey} sortDir={diffSort.sortDir} onSort={diffSort.toggleSort} className="!px-2 !py-1" />
               </tr>
             </thead>
             <tbody>
-              {keys.map((k) => {
+              {diffSort.sorted.map((k) => {
                 const bv = bObj[k] === undefined ? "—" : JSON.stringify(bObj[k]);
                 const av = aObj[k] === undefined ? "—" : JSON.stringify(aObj[k]);
                 const diff = bv !== av;
@@ -102,6 +109,13 @@ export function AuditLogScreen() {
   const [entityTypes, setEntityTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    time: (r) => r.event_time,
+    table: (r) => r.entity_type,
+    id: (r) => r.entity_id,
+    action: (r) => r.action,
+    by: (r) => r.changed_by,
+  });
 
   // Load distinct entity types once for the filter dropdown
   useEffect(() => {
@@ -214,11 +228,11 @@ export function AuditLogScreen() {
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-40">Time</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-32">Table</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-16">ID</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-28">Action</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-40">Changed By</th>
+              <SortableTh label="Time" col="time" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-40" />
+              <SortableTh label="Table" col="table" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-32" />
+              <SortableTh label="ID" col="id" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-16" />
+              <SortableTh label="Action" col="action" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-28" />
+              <SortableTh label="Changed By" col="by" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-40" />
               <th className="text-left px-4 py-2.5 font-medium text-gray-600">Details</th>
             </tr>
           </thead>
@@ -232,7 +246,7 @@ export function AuditLogScreen() {
                 <td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No entries match the current filters.</td>
               </tr>
             ) : (
-              rows.map((r) => (
+              sorted.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600 whitespace-nowrap text-xs">{fmtTime(r.event_time)}</td>
                   <td className="px-4 py-2 text-gray-800 font-mono text-xs whitespace-nowrap">{r.entity_type}</td>

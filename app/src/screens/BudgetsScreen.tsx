@@ -13,6 +13,8 @@ import { listCategories } from "../repositories/categoryRepo";
 import { MONTHS, STATUS_COLORS, type Budget, type BudgetStatusValue } from "../types/budget";
 import type { Category } from "../types/category";
 import { appConfirm } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 function fmt(n: number) {
   return n === 0
@@ -196,6 +198,15 @@ function BudgetGrid({ budget, onBack, onRefresh }: GridProps) {
 
   const grandTotal = categories.reduce((s, c) => s + rowTotal(c.id), 0);
 
+  const catAccessors: Record<string, (c: Category) => string | number> = {
+    category: (c) => c.name,
+    total: (c) => rowTotal(c.id),
+  };
+  for (let i = 0; i < 12; i++) {
+    catAccessors[`m${i}`] = (c) => parseFloat((grid.get(c.id) ?? [])[i] ?? "") || 0;
+  }
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(categories, catAccessors);
+
   if (loading) return <p className="text-sm text-gray-400 py-4">Loading…</p>;
 
   return (
@@ -253,11 +264,11 @@ function BudgetGrid({ budget, onBack, onRefresh }: GridProps) {
         <table className="text-xs min-w-max">
           <thead className="bg-gray-50 border-b sticky top-0">
             <tr>
-              <th className="px-3 py-2 text-left font-medium text-gray-600 w-44">Category</th>
+              <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-44" />
               {MONTHS.map((m, i) => (
-                <th key={i} className="px-1 py-2 text-center font-medium text-gray-600 w-20">{m}</th>
+                <SortableTh key={i} label={m} col={`m${i}`} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="w-20" />
               ))}
-              <th className="px-3 py-2 text-right font-medium text-gray-600 w-24">Total</th>
+              <SortableTh label="Total" col="total" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="w-24" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -268,7 +279,7 @@ function BudgetGrid({ budget, onBack, onRefresh }: GridProps) {
                 </td>
               </tr>
             )}
-            {categories.map((cat) => (
+            {sorted.map((cat) => (
               <tr key={cat.id} className="hover:bg-gray-50">
                 <td className="px-3 py-1 text-gray-700 font-medium whitespace-nowrap">{cat.name}</td>
                 {Array.from({ length: 12 }, (_, i) => {

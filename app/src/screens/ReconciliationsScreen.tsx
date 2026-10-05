@@ -1,5 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import {
   listReconciliations,
   getReconciliation,
@@ -142,6 +144,17 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
 
   useEffect(() => { void load(); }, [load]);
 
+  const visibleTxns = useMemo(
+    () => transactions.filter((t) => !unclearedOnly || !clearedIds.has(t.id)),
+    [transactions, unclearedOnly, clearedIds],
+  );
+  const { sorted: sortedTxns, sortKey, sortDir, toggleSort } = useTableSort(visibleTxns, {
+    date: (t) => t.transaction_date,
+    description: (t) => t.description,
+    amount: (t) => t.amount,
+    status: (t) => t.validation_status,
+  });
+
   async function handleToggle(txnId: number) {
     if (recon.status === "FINALIZED") return;
     const nowCleared = !clearedIds.has(txnId);
@@ -259,10 +272,10 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
           <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
               <th className="px-4 py-2 w-10" />
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+              <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+              <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -273,7 +286,7 @@ function ReconWorkspace({ recon, onBack, onFinalized }: {
                 </td>
               </tr>
             )}
-            {transactions.filter((t) => !unclearedOnly || !clearedIds.has(t.id)).map((t) => {
+            {sortedTxns.map((t) => {
               const cleared = clearedIds.has(t.id);
               return (
                 <tr
@@ -340,6 +353,15 @@ export function ReconciliationsScreen() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const { sorted: sortedRecons, sortKey, sortDir, toggleSort } = useTableSort(recons, {
+    account: (r) => r.account_name,
+    date: (r) => r.statement_ending_date,
+    beginning: (r) => r.beginning_balance,
+    ending: (r) => r.statement_ending_balance,
+    book: (r) => r.book_balance,
+    status: (r) => r.status,
+  });
 
   async function handleCreate(accountId: number, date: string, endingBalance: number, notes: string) {
     const beginning = await getLastReconBalance(accountId);
@@ -410,12 +432,12 @@ export function ReconciliationsScreen() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Statement Date</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Beginning</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Statement Ending</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Book Balance</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Statement Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Beginning" col="beginning" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                <SortableTh label="Statement Ending" col="ending" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                <SortableTh label="Book Balance" col="book" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -427,7 +449,7 @@ export function ReconciliationsScreen() {
                   </td>
                 </tr>
               )}
-              {recons.map((r) => (
+              {sortedRecons.map((r) => (
                 <tr key={r.id}>
                   <td className="px-4 py-3 font-medium text-gray-900">{r.account_name}</td>
                   <td className="px-4 py-3 text-gray-600">{r.statement_ending_date}</td>

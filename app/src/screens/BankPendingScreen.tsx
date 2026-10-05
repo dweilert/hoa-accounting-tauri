@@ -3,6 +3,9 @@ import { PageLayout } from "../components/PageLayout";
 import { listAllBankTransactions, updateTransactionStatus } from "../repositories/reconciliationRepo";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import { listCategories } from "../repositories/categoryRepo";
+import { listVendors } from "../repositories/vendorRepo";
+import { recordDebitAsBill } from "../repositories/bankExpenseRepo";
+import type { Vendor } from "../types/vendor";
 import {
   applyRulesToPending,
   revertValidated,
@@ -15,6 +18,8 @@ import { listCandidateDepositBatches, linkDepositToTxn, autoMatchDeposits } from
 import type { CandidateDepositBatch } from "../repositories/depositRepo";
 import { getDb } from "../lib/db";
 import { Modal } from "../components/Modal";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import type { BankTransaction } from "../types/reconciliation";
 import type { BankAccount } from "../types/bankAccount";
 import type { Category } from "../types/category";
@@ -47,6 +52,12 @@ function ClassifyModal({
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [vendorId, setVendorId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isIncome) listVendors(true).then(setVendors).catch((e) => setError(String(e)));
+  }, [isIncome]);
 
   const totalLines = lines.reduce((s, l) => s + (Number(l.amount) || 0), 0);
   const remaining = Math.abs(txn.amount) - totalLines;
@@ -64,6 +75,7 @@ function ClassifyModal({
   }
 
   async function handleSave() {
+    if (!isIncome && !vendorId) { setError("Select the vendor this payment was made to."); return; }
     for (const l of lines) {
       if (!l.category_id) { setError("Select a category for every line."); return; }
       if (!Number(l.amount) || Number(l.amount) <= 0) { setError("Each line needs a positive amount."); return; }
@@ -77,23 +89,34 @@ function ClassifyModal({
       // Find the bank_account_id from the transaction
       const bankAccountId = txn.bank_account_id;
 
-      for (const l of lines) {
-        const amount = isIncome ? Number(l.amount) : -Number(l.amount);
-        await db.execute(
-          `INSERT INTO income_batches (income_date, bank_account_id, category_id, amount, description)
-           VALUES (?, ?, ?, ?, ?)`,
-          [txn.transaction_date, bankAccountId, l.category_id, amount, l.description || txn.description || null]
-        );
-        const result = await db.select<{ id: number }[]>(
-          "SELECT id FROM income_batches ORDER BY id DESC LIMIT 1"
-        );
-        if (result[0]) {
+      if (isIncome) {
+        for (const l of lines) {
           await db.execute(
-            `INSERT OR IGNORE INTO bank_transaction_links
-               (bank_transaction_id, source_type, source_id)
-             VALUES (?, 'INCOME_BATCH', ?)`,
-            [txn.id, result[0].id]
+            `INSERT INTO income_batches (income_date, bank_account_id, category_id, amount, description)
+             VALUES (?, ?, ?, ?, ?)`,
+            [txn.transaction_date, bankAccountId, l.category_id, Number(l.amount), l.description || txn.description || null]
           );
+          const result = await db.select<{ id: number }[]>(
+            "SELECT id FROM income_batches ORDER BY id DESC LIMIT 1"
+          );
+          if (result[0]) {
+            await db.execute(
+              `INSERT OR IGNORE INTO bank_transaction_links
+                 (bank_transaction_id, source_type, source_id)
+               VALUES (?, 'INCOME_BATCH', ?)`,
+              [txn.id, result[0].id]
+            );
+          }
+        }
+      } else {
+        for (const [i, l] of lines.entries()) {
+          await recordDebitAsBill(db, txn, {
+            vendorId: vendorId as number,
+            categoryId: l.category_id as number,
+            amount: Number(l.amount),
+            description: l.description || txn.description || null,
+            invoiceSuffix: lines.length > 1 ? `-${i + 1}` : "",
+          });
         }
       }
       await updateTransactionStatus(txn.id, "VALIDATED");
@@ -120,6 +143,21 @@ function ClassifyModal({
       </div>
 
       {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
+
+      {!isIncome && (
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
+          <select
+            value={vendorId ?? ""}
+            onChange={(e) => setVendorId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">— Select vendor —</option>
+            {vendors.map((v) => <option key={v.id} value={v.id}>{v.vendor_name}</option>)}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">Recorded as a paid vendor bill, not as income.</p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {lines.map((l, i) => (
@@ -333,6 +371,80 @@ type ModalState =
   | { mode: "manual" }
   | null;
 
+function DepositsTable({ deposits, txnId, onLink }: {
+  deposits: CandidateDepositBatch[];
+  txnId: number;
+  onLink: (depositId: number) => Promise<void>;
+}) {
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(deposits, {
+    date: (d) => d.deposit_date,
+    amount: (d) => d.total_amount,
+    payments: (d) => d.check_count,
+    status: (d) => d.status,
+    days: (d) => d.days_diff,
+    match: (d) => d.days_diff <= 3 ? 0 : 1,
+    link: (d) => d.bank_transaction_id === txnId ? "linked" : d.bank_transaction_id ? `txn ${d.bank_transaction_id}` : "zzz",
+  });
+  return (
+    <table className="w-full text-xs">
+      <thead className="bg-gray-50 border-b sticky top-0 z-10">
+        <tr className="text-indigo-700">
+          <SortableTh label="Deposit Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-1 pr-3" />
+          <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!px-0 !py-1 pr-3" />
+          <SortableTh label="Payments" col="payments" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!px-0 !py-1 pr-3" />
+          <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-1 pr-3" />
+          <SortableTh label="Days off" col="days" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!px-0 !py-1 pr-3" />
+          <SortableTh label="Match" col="match" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-1 pr-3" />
+          <SortableTh label="OFX Link" col="link" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-0 !py-1" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((d) => {
+          const likelyMatch = d.days_diff <= 3;
+          return (
+            <tr key={d.id} className={`border-t border-indigo-100 hover:bg-indigo-100 ${likelyMatch ? "bg-teal-50" : ""}`}>
+              <td className="py-1 pr-3 text-gray-700">{d.deposit_date}</td>
+              <td className={`py-1 pr-3 text-right font-mono font-medium ${Math.abs(d.amount_diff) < 0.01 ? "text-green-700" : "text-gray-800"}`}>
+                {fmt(d.total_amount)}
+              </td>
+              <td className="py-1 pr-3 text-right text-gray-500">{d.check_count}</td>
+              <td className="py-1 pr-3">
+                <span className={`px-1.5 py-0.5 rounded font-medium ${d.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                  {d.status}
+                </span>
+              </td>
+              <td className="py-1 pr-3 text-right text-gray-500">{Math.round(d.days_diff)}</td>
+              <td className="py-1 pr-3">
+                {likelyMatch ? (
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800">
+                    ≤3 days
+                  </span>
+                ) : (
+                  <span className="text-gray-400 text-xs">—</span>
+                )}
+              </td>
+              <td className="py-1">
+                {d.bank_transaction_id === txnId
+                  ? <span className="text-teal-700 font-medium text-xs">linked ✓</span>
+                  : d.bank_transaction_id
+                    ? <span className="text-orange-600 text-xs">txn #{d.bank_transaction_id}</span>
+                    : (
+                      <button
+                        className="px-2 py-0.5 text-xs rounded font-medium bg-teal-600 text-white hover:bg-teal-700"
+                        onClick={() => void onLink(d.id)}
+                      >
+                        Link →
+                      </button>
+                    )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 export function BankPendingScreen() {
   const [transactions, setTransactions] = useState<TxnRow[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -542,6 +654,14 @@ export function BankPendingScreen() {
     })
     .filter((t) => accountFilter === "all" || t.bank_account_id === accountFilter);
 
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(visible, {
+    date: (t) => t.transaction_date,
+    account: (t) => t.account_name,
+    description: (t) => t.description,
+    amount: (t) => t.amount,
+    status: (t) => t.validation_status,
+  });
+
   const unvalidatedCount = visible.filter((t) => t.validation_status === "UNVALIDATED").length;
 
   return (
@@ -653,11 +773,11 @@ export function BankPendingScreen() {
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="px-2 py-2 w-8" />
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -671,7 +791,7 @@ export function BankPendingScreen() {
                   </td>
                 </tr>
               )}
-              {visible.map((t) => {
+              {sorted.map((t) => {
                 const isExpanded = expandedTxnId === t.id;
                 const analysis = txnAnalysis.get(t.id);
                 const trial = trialMap?.get(t.id);
@@ -854,73 +974,21 @@ export function BankPendingScreen() {
                                       No matching deposit batches found. The deposit may not have been recorded yet, or the date/amount differs beyond tolerance.
                                     </p>
                                   ) : (
-                                    <table className="w-full text-xs">
-                                      <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                                        <tr className="text-indigo-700">
-                                          <th className="text-left py-1 pr-3 font-medium">Deposit Date</th>
-                                          <th className="text-right py-1 pr-3 font-medium">Amount</th>
-                                          <th className="text-right py-1 pr-3 font-medium">Payments</th>
-                                          <th className="text-left py-1 pr-3 font-medium">Status</th>
-                                          <th className="text-right py-1 pr-3 font-medium">Days off</th>
-                                          <th className="text-left py-1 pr-3 font-medium">Match</th>
-                                          <th className="text-left py-1 font-medium">OFX Link</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {analysis.deposits.map((d) => {
-                                          const likelyMatch = d.days_diff <= 3;
-                                          return (
-                                          <tr key={d.id} className={`border-t border-indigo-100 hover:bg-indigo-100 ${likelyMatch ? "bg-teal-50" : ""}`}>
-                                            <td className="py-1 pr-3 text-gray-700">{d.deposit_date}</td>
-                                            <td className={`py-1 pr-3 text-right font-mono font-medium ${Math.abs(d.amount_diff) < 0.01 ? "text-green-700" : "text-gray-800"}`}>
-                                              {fmt(d.total_amount)}
-                                            </td>
-                                            <td className="py-1 pr-3 text-right text-gray-500">{d.check_count}</td>
-                                            <td className="py-1 pr-3">
-                                              <span className={`px-1.5 py-0.5 rounded font-medium ${d.status === "POSTED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                                                {d.status}
-                                              </span>
-                                            </td>
-                                            <td className="py-1 pr-3 text-right text-gray-500">{Math.round(d.days_diff)}</td>
-                                            <td className="py-1 pr-3">
-                                              {likelyMatch ? (
-                                                <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800">
-                                                  ≤3 days
-                                                </span>
-                                              ) : (
-                                                <span className="text-gray-400 text-xs">—</span>
-                                              )}
-                                            </td>
-                                            <td className="py-1">
-                                              {d.bank_transaction_id === t.id
-                                                ? <span className="text-teal-700 font-medium text-xs">linked ✓</span>
-                                                : d.bank_transaction_id
-                                                  ? <span className="text-orange-600 text-xs">txn #{d.bank_transaction_id}</span>
-                                                  : (
-                                                    <button
-                                                      className="px-2 py-0.5 text-xs rounded font-medium bg-teal-600 text-white hover:bg-teal-700"
-                                                      onClick={async () => {
-                                                        await linkDepositToTxn(d.id, t.id);
-                                                        await updateTransactionStatus(t.id, "VALIDATED");
-                                                        await load();
-                                                        // Refresh analysis to show new link state
-                                                        setTxnAnalysis((prev) => {
-                                                          const next = new Map(prev);
-                                                          next.delete(t.id);
-                                                          return next;
-                                                        });
-                                                        setExpandedTxnId(null);
-                                                      }}
-                                                    >
-                                                      Link →
-                                                    </button>
-                                                  )}
-                                            </td>
-                                          </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
+                                    <DepositsTable
+                                      deposits={analysis.deposits}
+                                      txnId={t.id}
+                                      onLink={async (depositId) => {
+                                        await linkDepositToTxn(depositId, t.id);
+                                        await updateTransactionStatus(t.id, "VALIDATED");
+                                        await load();
+                                        setTxnAnalysis((prev) => {
+                                          const next = new Map(prev);
+                                          next.delete(t.id);
+                                          return next;
+                                        });
+                                        setExpandedTxnId(null);
+                                      }}
+                                    />
                                   )}
                                 </div>
                               )}

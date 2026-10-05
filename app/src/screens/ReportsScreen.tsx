@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
 
@@ -166,6 +168,13 @@ function ContactListReport({
       .finally(() => setLoading(false));
   }, []);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    owner: (r) => r.owner_name,
+    email: (r) => r.email,
+    phone: (r) => r.phone ?? r.home_phone,
+    address: (r) => r.mailing_address_1,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   if (error)   return <p className="text-sm text-red-600">{error}</p>;
 
@@ -176,8 +185,8 @@ function ContactListReport({
   const ROWS_PAGE_1 = 16;
   const ROWS_PER_PAGE = 18;
 
-  const page1Rows = rows.slice(0, ROWS_PAGE_1);
-  const remaining = rows.slice(ROWS_PAGE_1);
+  const page1Rows = sortedRows.slice(0, ROWS_PAGE_1);
+  const remaining = sortedRows.slice(ROWS_PAGE_1);
   const extraPages: ContactRow[][] = [];
   for (let i = 0; i < remaining.length; i += ROWS_PER_PAGE) {
     extraPages.push(remaining.slice(i, i + ROWS_PER_PAGE));
@@ -188,10 +197,10 @@ function ContactListReport({
     return (
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Email</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold whitespace-nowrap">Phone</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Mailing Address</th>
+          <SortableTh label="Owner" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Email" col="email" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Phone" col="phone" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Mailing Address" col="address" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
     );
@@ -337,6 +346,15 @@ function OwnerLedgerReport({
       .finally(() => setLoading(false));
   }, [ownerId, year]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(result?.rows ?? [], {
+    date: (r) => r.txn_date,
+    type: (r) => r.type === "PAYMENT" ? "Payment" : olFmtCharge(r.charge_type),
+    description: (r) => r.description,
+    charge: (r) => r.amount < 0 ? Math.abs(r.amount) : null,
+    payment: (r) => r.amount >= 0 ? r.amount : null,
+    balance: (r) => r.running_balance,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   if (loadError) return <p className="text-sm text-red-600">Error: {loadError}</p>;
   if (!result)  return null;
@@ -374,12 +392,12 @@ function OwnerLedgerReport({
         <table className="w-full text-[11px]">
           <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr className="bg-slate-800 text-white">
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold">Charge</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold">Payment</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance</th>
+              <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Charge" col="charge" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Payment" col="payment" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Balance" col="balance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -394,7 +412,7 @@ function OwnerLedgerReport({
             {rows.length === 0 && (
               <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">No transactions for {year}.</td></tr>
             )}
-            {rows.map((r, i) => (
+            {sortedRows.map((r, i) => (
               <tr key={i} className="hover:bg-gray-50">
                 <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
                 <td className="px-3 py-1.5">
@@ -462,6 +480,14 @@ function BudgetVsActualReport({ year }: { year: number }) {
     loadBudgetVsActual(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    category: (r) => r.category_name,
+    budget: (r) => r.budget_amount,
+    actual: (r) => r.actual_amount,
+    variance: (r) => r.variance,
+    pct: (r) => r.budget_amount > 0 ? r.actual_amount / r.budget_amount : null,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
 
   const totalBudget = rows.reduce((s, r) => s + r.budget_amount, 0);
@@ -471,16 +497,16 @@ function BudgetVsActualReport({ year }: { year: number }) {
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Budget</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Actual</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Variance</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">vs Budget</th>
+          <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Budget" col="budget" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Actual" col="actual" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Variance" col="variance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="vs Budget" col="pct" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No budget or expense data for {year}.</td></tr>}
-        {rows.map((r) => {
+        {sortedRows.map((r) => {
           const pct = r.budget_amount > 0 ? (r.actual_amount / r.budget_amount) * 100 : null;
           return (
             <tr key={r.category_name}>
@@ -550,22 +576,30 @@ function ExpenseDetailReport({ year }: { year: number }) {
     loadExpenseDetail(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    date: (r) => r.payment_date,
+    vendor: (r) => r.vendor_name,
+    invoice: (r) => r.invoice_number,
+    category: (r) => r.category_name,
+    amount: (r) => r.amount,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
 
   return (
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Vendor</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Invoice</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+          <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Vendor" col="vendor" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Invoice" col="invoice" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No expense payments for {year}.</td></tr>}
-        {rows.map((r, i) => (
+        {sortedRows.map((r, i) => (
           <tr key={i}>
             <td className="px-3 py-1.5 text-gray-600">{r.payment_date}</td>
             <td className="px-3 py-1.5 text-gray-700">{r.vendor_name}</td>
@@ -613,21 +647,28 @@ function VendorExpensesReport({ year }: { year: number }) {
     loadVendorExpenses(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    vendor: (r) => r.vendor_name,
+    paid: (r) => r.paid,
+    open: (r) => r.open,
+    total: (r) => r.total,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
 
   return (
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Vendor</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Paid</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Open</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total Invoiced</th>
+          <SortableTh label="Vendor" col="vendor" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Paid" col="paid" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Open" col="open" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Total Invoiced" col="total" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No vendor invoices for {year}.</td></tr>}
-        {rows.map((r) => (
+        {sortedRows.map((r) => (
           <tr key={r.vendor_name}>
             <td className="px-3 py-1.5 text-gray-700">{r.vendor_name}</td>
             <td className="px-3 py-1.5 text-right font-mono text-green-700">{fmt(r.paid)}</td>
@@ -678,20 +719,26 @@ function DepositsReport({ year }: { year: number }) {
     loadDepositsReport(year).then(setRows).finally(() => setLoading(false));
   }, [year]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    date: (r) => r.deposit_date,
+    account: (r) => r.account_name,
+    amount: (r) => r.total_amount,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
 
   return (
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Account</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+          <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={3} className="px-3 py-6 text-center text-gray-400">No deposits for {year}.</td></tr>}
-        {rows.map((r, i) => (
+        {sortedRows.map((r, i) => (
           <tr key={i}>
             <td className="px-3 py-1.5 text-gray-600">{r.deposit_date}</td>
             <td className="px-3 py-1.5 text-gray-500">{r.account_name}</td>
@@ -751,6 +798,15 @@ function DelinquencyReport() {
       .finally(() => setLoading(false));
   }, []);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    lot: (r) => r.lot_number,
+    owner: (r) => r.owner_name,
+    contact: (r) => r.email ?? r.phone,
+    oldest: (r) => r.oldest_due_date,
+    days: (r) => r.days_overdue,
+    balance: (r) => r.open_amount,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   if (error)   return <p className="text-sm text-red-600">{error}</p>;
   if (rows.length === 0) {
@@ -765,16 +821,16 @@ function DelinquencyReport() {
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Contact</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Oldest Due</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Days Overdue</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance Due</th>
+          <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Owner" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Contact" col="contact" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Oldest Due" col="oldest" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Days Overdue" col="days" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Balance Due" col="balance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
-        {rows.map((r) => (
+        {sortedRows.map((r) => (
           <tr key={r.lot_number} className={r.days_overdue > 90 ? "bg-red-50" : r.days_overdue > 30 ? "bg-orange-50" : ""}>
             <td className="px-3 py-1.5 font-medium text-gray-900">Lot {r.lot_number}</td>
             <td className="px-3 py-1.5 text-gray-700">{r.owner_name ?? "—"}</td>
@@ -809,6 +865,15 @@ function TransactionHistoryReport({ limit = 500 }: { limit?: number }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    date: (r) => r.txn_date,
+    type: (r) => SOURCE_LABELS[r.source_type] ?? r.source_type,
+    description: (r) => r.description,
+    account: (r) => r.account_name,
+    lot: (r) => r.lot_number,
+    amount: (r) => r.amount,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   if (error)   return <p className="text-sm text-red-600">{error}</p>;
 
@@ -816,17 +881,17 @@ function TransactionHistoryReport({ limit = 500 }: { limit?: number }) {
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Account</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
+          <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">No transactions yet.</td></tr>}
-        {rows.map((r, i) => (
+        {sortedRows.map((r, i) => (
           <tr key={i}>
             <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
             <td className="px-3 py-1.5">
@@ -887,6 +952,15 @@ function AccountDetailReport({ accountId = 0, limit = 500 }: { accountId?: numbe
 
   useEffect(() => { if (accountId) void load(); }, [load, accountId]);
 
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    date: (r) => r.txn_date,
+    type: (r) => SOURCE_LABELS[r.source_type] ?? r.source_type,
+    description: (r) => r.description,
+    lot: (r) => r.lot_number,
+    amount: (r) => r.amount,
+    balance: (r) => r.running_balance,
+  });
+
   return (
     <div className="space-y-3">
       {!accountId && !loading && <p className="text-sm text-gray-500">No bank account selected. Select one above and click Run Report.</p>}
@@ -896,16 +970,16 @@ function AccountDetailReport({ accountId = 0, limit = 500 }: { accountId?: numbe
         <table className="w-full text-[11px]">
           <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr className="bg-slate-800 text-white">
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Date</th>
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Type</th>
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Description</th>
-              <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold">Amount</th>
-              <th className="px-3 py-2 text-right text-[10px] font-semibold">Balance</th>
+              <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+              <SortableTh label="Balance" col="balance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {rows.map((r, i) => (
+            {sortedRows.map((r, i) => (
               <tr key={i}>
                 <td className="px-3 py-1.5 text-gray-600">{r.txn_date}</td>
                 <td className="px-3 py-1.5">
@@ -934,23 +1008,33 @@ function ARAgingReport() {
   const [rows, setRows] = useState<AgingBucket[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { loadARaging().then(setRows).finally(() => setLoading(false)); }, []);
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    lot: (r) => r.lot_number,
+    owner: (r) => r.owner_name,
+    current: (r) => r.current,
+    d30: (r) => r.d30,
+    d60: (r) => r.d60,
+    d90: (r) => r.d90plus,
+    total: (r) => r.total,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Current (0–30d)</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">31–60d</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">61–90d</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">90d+</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total</th>
+          <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Owner" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Current (0–30d)" col="current" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="31–60d" col="d30" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="61–90d" col="d60" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="90d+" col="d90" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
+          <SortableTh label="Total" col="total" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">No outstanding balances.</td></tr>}
-        {rows.map((r) => (
+        {sortedRows.map((r) => (
           <tr key={r.lot_number}>
             <td className="px-3 py-1.5 font-medium text-gray-900">Lot {r.lot_number}</td>
             <td className="px-3 py-1.5 text-gray-600">{r.owner_name ?? "—"}</td>
@@ -980,18 +1064,23 @@ function IncomeSummaryReport({ year }: { year: number }) {
   const [rows, setRows] = useState<IncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { setLoading(true); loadIncomeSummary(year).then(setRows).finally(() => setLoading(false)); }, [year]);
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    category: (r) => r.category_name,
+    total: (r) => r.total,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total {year}</th>
+          <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label={`Total ${year}`} col="total" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-gray-400">No income for {year}.</td></tr>}
-        {rows.map((r) => (
+        {sortedRows.map((r) => (
           <tr key={r.category_name}>
             <td className="px-3 py-1.5 text-gray-700">{r.category_name}</td>
             <td className="px-3 py-1.5 text-right font-mono text-green-700">{fmt(r.total)}</td>
@@ -1012,18 +1101,23 @@ function ExpenseSummaryReport({ year }: { year: number }) {
   const [rows, setRows] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { setLoading(true); loadExpenseSummary(year).then(setRows).finally(() => setLoading(false)); }, [year]);
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useTableSort(rows, {
+    category: (r) => r.category_name,
+    total: (r) => r.total,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
   return (
     <table className="w-full text-[11px]">
       <thead className="bg-gray-50 border-b sticky top-0 z-10">
         <tr className="bg-slate-800 text-white">
-          <th className="px-3 py-2 text-left text-[10px] font-semibold">Category</th>
-          <th className="px-3 py-2 text-right text-[10px] font-semibold">Total {year}</th>
+          <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+          <SortableTh label={`Total ${year}`} col="total" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!text-white hover:!bg-slate-700" />
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
         {rows.length === 0 && <tr><td colSpan={2} className="px-3 py-6 text-center text-gray-400">No expenses for {year}.</td></tr>}
-        {rows.map((r) => (
+        {sortedRows.map((r) => (
           <tr key={r.category_name}>
             <td className="px-3 py-1.5 text-gray-700">{r.category_name}</td>
             <td className="px-3 py-1.5 text-right font-mono text-red-600">{fmt(r.total)}</td>

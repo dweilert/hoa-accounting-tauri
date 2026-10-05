@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { Modal } from "../components/Modal";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import {
   listPettyCashAccounts,
   getPettyCashBalance,
@@ -203,6 +205,15 @@ export function PettyCashScreen() {
     return db2 < da ? -1 : db2 > da ? 1 : 0;
   });
 
+  const { sorted: sortedTimeline, sortKey, sortDir, toggleSort } = useTableSort(timeline, {
+    date: (r) => r.kind === "spend" ? r.data.txn_date : r.data.transfer_date,
+    type: (r) => r.kind === "spend" ? "Expenditure" : "Replenishment",
+    description: (r) => r.kind === "spend" ? r.data.description : (r.data.description ?? `From ${r.data.from_account_name}`),
+    category: (r) => r.kind === "spend" ? r.data.category_name : null,
+    receipt: (r) => r.kind === "spend" ? r.data.receipt_ref : null,
+    amount: (r) => r.kind === "spend" ? -r.data.amount : r.data.amount,
+  }, "date", "desc");
+
   return (
     <PageLayout
       title="Petty Cash"
@@ -281,17 +292,17 @@ export function PettyCashScreen() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Receipt</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                    <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Receipt" col="receipt" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
                     <th className="px-3 py-2 w-8" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {timeline.map((row) => {
+                  {sortedTimeline.map((row) => {
                     if (row.kind === "replenish") {
                       const r = row.data;
                       return (

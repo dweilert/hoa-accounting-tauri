@@ -331,3 +331,23 @@ export async function deletePayment(paymentId: number, batchId: number | null): 
   await db.execute("DELETE FROM payments WHERE id = ?", [paymentId]);
   if (batchId) await db.execute(BATCH_TOTALS_SQL, [batchId, batchId, batchId]);
 }
+
+export async function updatePayment(paymentId: number, values: PaymentFormValues, oldBatchId: number | null): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE payments
+     SET payment_date=?, amount=?, payment_method=?, payment_type=?,
+         check_number=?, memo=?, updated_at=datetime('now')
+     WHERE id=?`,
+    [
+      values.payment_date,
+      values.amount,
+      values.payment_method,
+      values.payment_type ?? "DUES",
+      values.check_number ?? null,
+      values.memo ?? null,
+      paymentId,
+    ]
+  );
+  if (oldBatchId) await db.execute(BATCH_TOTALS_SQL, [oldBatchId, oldBatchId, oldBatchId]);
+}

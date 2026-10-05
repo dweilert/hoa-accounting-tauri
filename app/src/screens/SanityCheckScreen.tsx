@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { getDb } from "../lib/db";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -162,6 +164,27 @@ export function SanityCheckScreen() {
   const utilityStatus: CheckStatus = !result ? "PASS" : utilityMissing.length > 0 ? "WARN" : "PASS";
   const interestStatus: CheckStatus = !result ? "PASS" : interestMissing.length > 0 ? "WARN" : "PASS";
 
+  const billingSort = useTableSort(result?.billing ?? [], {
+    month: (r) => r.month,
+    lotsBilled: (r) => r.lots_billed,
+    expected: (r) => r.expected_lots,
+    min: (r) => r.min_amount,
+    max: (r) => r.max_amount,
+    status: (r) => (r.lots_billed !== r.expected_lots ? "FAIL" : !r.amount_ok ? "WARN" : "PASS"),
+  });
+  const utilitySort = useTableSort(result?.utility ?? [], {
+    month: (u) => u.month,
+    vendorBill: (u) => (u.has_vendor_bill ? 1 : 0),
+    directEntry: (u) => (u.has_direct_entry ? 1 : 0),
+    total: (u) => u.total,
+    status: (u) => (u.has_vendor_bill || u.has_direct_entry ? "PASS" : "WARN"),
+  });
+  const interestSort = useTableSort(result?.interest ?? [], {
+    month: (r) => r.month,
+    category: (r) => r.category,
+    total: (r) => r.total,
+  });
+
   return (
     <PageLayout
       title="Sanity Check"
@@ -196,16 +219,16 @@ export function SanityCheckScreen() {
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Month</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600">Lots Billed</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600">Expected</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">Min Amount</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">Max Amount</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                    <SortableTh label="Month" col="month" sortKey={billingSort.sortKey} sortDir={billingSort.sortDir} onSort={billingSort.toggleSort} />
+                    <SortableTh label="Lots Billed" col="lotsBilled" sortKey={billingSort.sortKey} sortDir={billingSort.sortDir} onSort={billingSort.toggleSort} className="text-center" />
+                    <SortableTh label="Expected" col="expected" sortKey={billingSort.sortKey} sortDir={billingSort.sortDir} onSort={billingSort.toggleSort} className="text-center" />
+                    <SortableTh label="Min Amount" col="min" sortKey={billingSort.sortKey} sortDir={billingSort.sortDir} onSort={billingSort.toggleSort} right />
+                    <SortableTh label="Max Amount" col="max" sortKey={billingSort.sortKey} sortDir={billingSort.sortDir} onSort={billingSort.toggleSort} right />
+                    <SortableTh label="Status" col="status" sortKey={billingSort.sortKey} sortDir={billingSort.sortDir} onSort={billingSort.toggleSort} className="text-center" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {result.billing.map((r) => {
+                  {billingSort.sorted.map((r) => {
                     const lotsOk = r.lots_billed === r.expected_lots;
                     const s: CheckStatus = !lotsOk ? "FAIL" : !r.amount_ok ? "WARN" : "PASS";
                     return (
@@ -236,15 +259,15 @@ export function SanityCheckScreen() {
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 border-b sticky top-0 z-10">
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Month</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600">Vendor Bill</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600">Direct Entry</th>
-                    <th className="px-3 py-2 text-right font-medium text-gray-600">Total</th>
-                    <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                    <SortableTh label="Month" col="month" sortKey={utilitySort.sortKey} sortDir={utilitySort.sortDir} onSort={utilitySort.toggleSort} />
+                    <SortableTh label="Vendor Bill" col="vendorBill" sortKey={utilitySort.sortKey} sortDir={utilitySort.sortDir} onSort={utilitySort.toggleSort} className="text-center" />
+                    <SortableTh label="Direct Entry" col="directEntry" sortKey={utilitySort.sortKey} sortDir={utilitySort.sortDir} onSort={utilitySort.toggleSort} className="text-center" />
+                    <SortableTh label="Total" col="total" sortKey={utilitySort.sortKey} sortDir={utilitySort.sortDir} onSort={utilitySort.toggleSort} right />
+                    <SortableTh label="Status" col="status" sortKey={utilitySort.sortKey} sortDir={utilitySort.sortDir} onSort={utilitySort.toggleSort} className="text-center" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {result.utility.map((u) => {
+                  {utilitySort.sorted.map((u) => {
                     const found = u.has_vendor_bill || u.has_direct_entry;
                     const s: CheckStatus = found ? "PASS" : "WARN";
                     return (
@@ -280,13 +303,13 @@ export function SanityCheckScreen() {
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 border-b sticky top-0 z-10">
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Month</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Category</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">Amount</th>
+                      <SortableTh label="Month" col="month" sortKey={interestSort.sortKey} sortDir={interestSort.sortDir} onSort={interestSort.toggleSort} />
+                      <SortableTh label="Category" col="category" sortKey={interestSort.sortKey} sortDir={interestSort.sortDir} onSort={interestSort.toggleSort} />
+                      <SortableTh label="Amount" col="total" sortKey={interestSort.sortKey} sortDir={interestSort.sortDir} onSort={interestSort.toggleSort} right />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {result.interest.map((r, i) => (
+                    {interestSort.sorted.map((r, i) => (
                       <tr key={i}>
                         <td className="px-3 py-1.5 font-mono text-gray-700">{r.month}</td>
                         <td className="px-3 py-1.5 text-gray-600">{r.category}</td>

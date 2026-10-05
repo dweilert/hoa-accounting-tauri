@@ -3,6 +3,8 @@ import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
 import { insertAssessment } from "../repositories/assessmentRepo";
 import { appConfirm } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import { CHARGE_TYPE_LABELS } from "../types/assessment";
 import type { ChargeTypeValue } from "../types/assessment";
 
@@ -68,6 +70,11 @@ export function DuesBillingScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(lots, {
+    lot: (l) => l.lot_number,
+    owner: (l) => l.owner_names,
+    amount: (l) => (l.include && amount ? Number(amount) : null),
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -250,9 +257,9 @@ export function DuesBillingScreen() {
                     className="rounded"
                   />
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-4" />
+                <SortableTh label="Owner" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!px-4" />
+                <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="!px-4" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -263,7 +270,7 @@ export function DuesBillingScreen() {
                   </td>
                 </tr>
               )}
-              {lots.map((l) => (
+              {sorted.map((l) => (
                 <tr key={l.lot_id} className={l.include ? "" : "opacity-40"}>
                   <td className="px-4 py-2">
                     <input

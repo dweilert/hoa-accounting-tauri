@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { SortableTh } from "../components/SortableTh";
+import { useTableSort } from "../lib/useTableSort";
 import { appConfirm } from "../components/AppDialogs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -102,6 +104,14 @@ export function LateFeesScreen() {
   const [posted, setPosted] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<DelinquentLot>(lots, {
+    lot: (l) => l.lot_number,
+    owner: (l) => l.owner_name,
+    oldestDue: (l) => l.oldest_due_date,
+    days: (l) => l.days_overdue,
+    balance: (l) => l.open_balance,
+  });
 
   useEffect(() => {
     loadLateFeeCategoryId().then(setCategoryId).catch(() => {});
@@ -214,15 +224,15 @@ export function LateFeesScreen() {
                       onChange={(e) => toggleAll(e.target.checked)}
                     />
                   </th>
-                  <th className="text-left px-3 py-2.5 font-medium text-gray-600">Lot</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-gray-600">Owner</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-gray-600">Oldest Due</th>
-                  <th className="text-right px-3 py-2.5 font-medium text-gray-600">Days Overdue</th>
-                  <th className="text-right px-3 py-2.5 font-medium text-gray-600">Open Balance</th>
+                  <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Owner" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Oldest Due" col="oldestDue" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Days Overdue" col="days" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                  <SortableTh label="Open Balance" col="balance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {lots.map((lot) => (
+                {sorted.map((lot) => (
                   <tr key={lot.lot_id} className={lot.selected ? "" : "opacity-50"}>
                     <td className="px-3 py-2 text-center">
                       <input type="checkbox" checked={lot.selected ?? false} onChange={() => toggleLot(lot.lot_id)} />

@@ -1,5 +1,6 @@
 import { getDb } from "../lib/db";
 import { listCandidateDepositBatches, linkDepositToTxn } from "./depositRepo";
+import { findBillPaymentForDebit, linkBillPayment, recordDebitAsBill } from "./bankExpenseRepo";
 
 export type TransactionRule = {
   id: number;
@@ -11,6 +12,7 @@ export type TransactionRule = {
   action_type: string;
   category_id: number | null;
   category_name: string | null;
+  category_type?: string | null;
   vendor_id: number | null;
   vendor_name: string | null;
   bank_account_id: number | null;
@@ -38,7 +40,7 @@ export async function listTransactionRules(): Promise<TransactionRule[]> {
   const db = await getDb();
   const rows = await db.select<TransactionRule[]>(`
     SELECT r.*,
-           c.name AS category_name,
+           c.name AS category_name, c.category_type,
            v.vendor_name,
            ba.account_name AS bank_account_name
     FROM bank_transaction_rules r
@@ -195,7 +197,7 @@ export async function applyRulesToPending(
   );
 
   const rules = await db.select<TransactionRule[]>(`
-    SELECT r.*, c.name AS category_name, v.vendor_name, ba.account_name AS bank_account_name
+    SELECT r.*, c.name AS category_name, c.category_type, v.vendor_name, ba.account_name AS bank_account_name
     FROM bank_transaction_rules r
     LEFT JOIN categories c ON c.id = r.category_id
     LEFT JOIN vendors v ON v.id = r.vendor_id
@@ -253,6 +255,29 @@ export async function applyRulesToPending(
 
     if (depositMatched) continue;
 
+    if (txn.amount < 0) {
+      try {
+        const bp = await findBillPaymentForDebit(db, txn);
+        if (bp) {
+          details.push({
+            txn_id: txn.id,
+            txn_desc: txn.description,
+            rule_name: `Bill Payment Match (${bp.days_diff === 0 ? "exact date" : `${Math.round(bp.days_diff)}d off`})`,
+            auto: true,
+            action_type: "BILL_MATCH",
+          });
+          matched++;
+          if (!dryRun && (!approvedIds || approvedIds.has(txn.id))) {
+            await linkBillPayment(db, txn.id, bp.id);
+          }
+          continue;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push({ txn_id: txn.id, rule_name: "Bill Payment Match", error: msg });
+      }
+    }
+
     for (const rule of rules) {
       // Skip rule if it's scoped to a different bank account
       if (rule.bank_account_id !== null && rule.bank_account_id !== txn.bank_account_id) continue;
@@ -273,18 +298,31 @@ export async function applyRulesToPending(
             const desc = rule.action_type === "LINK_EXPENSE" && rule.vendor_name
               ? `${rule.vendor_name} — ${txn.description}`
               : txn.description || null;
-            const insertResult = await db.execute(
-              `INSERT INTO income_batches (income_date, bank_account_id, category_id, amount, description)
-               VALUES (?, ?, ?, ?, ?)`,
-              [txn.transaction_date, txn.bank_account_id, rule.category_id, txn.amount, desc]
-            );
-            const batchId = insertResult.lastInsertId;
-            if (batchId) {
-              await db.execute(
-                `INSERT OR IGNORE INTO bank_transaction_links (bank_transaction_id, source_type, source_id)
-                 VALUES (?, 'INCOME_BATCH', ?)`,
-                [txn.id, batchId]
+            if (txn.amount < 0) {
+              if (rule.vendor_id === null) {
+                errors.push({ txn_id: txn.id, rule_name: rule.rule_name, error: "Expense rule needs a vendor so it can be recorded as a bill payment" });
+                break;
+              }
+              await recordDebitAsBill(db, txn, {
+                vendorId: rule.vendor_id,
+                categoryId: rule.category_id,
+                amount: Math.abs(txn.amount),
+                description: desc,
+              });
+            } else {
+              const insertResult = await db.execute(
+                `INSERT INTO income_batches (income_date, bank_account_id, category_id, amount, description)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [txn.transaction_date, txn.bank_account_id, rule.category_id, txn.amount, desc]
               );
+              const batchId = insertResult.lastInsertId;
+              if (batchId) {
+                await db.execute(
+                  `INSERT OR IGNORE INTO bank_transaction_links (bank_transaction_id, source_type, source_id)
+                   VALUES (?, 'INCOME_BATCH', ?)`,
+                  [txn.id, batchId]
+                );
+              }
             }
             await db.execute(
               "UPDATE bank_transactions SET validation_status = 'VALIDATED' WHERE id = ?",
@@ -472,6 +510,16 @@ export function testRuleAgainstDescription(
   description: string,
   amount: number
 ): RuleTestResult {
+  const type = (rule.transaction_type ?? "").toUpperCase();
+  const wantsCredit = type === "CREDIT" || type === "DEPOSIT" || rule.category_type === "INCOME";
+  const wantsDebit = type === "DEBIT" || type === "WITHDRAWAL";
+  if (wantsCredit && amount < 0) {
+    return { ruleId: rule.id, ruleName: rule.rule_name, matches: false, reason: "rule applies to deposits only, this is a debit" };
+  }
+  if (wantsDebit && amount > 0) {
+    return { ruleId: rule.id, ruleName: rule.rule_name, matches: false, reason: "rule applies to debits only, this is a deposit" };
+  }
+
   // Description is a SUFFICIENT condition: if set and matches, rule fires immediately.
   // Amount filters only apply when there is no description condition.
   if (rule.description_contains) {

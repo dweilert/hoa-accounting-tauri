@@ -4,6 +4,7 @@ import { PageLayout } from "../components/PageLayout";
 import {
   listPayments,
   insertPayment,
+  updatePayment,
   deletePayment,
   type PaymentRow,
 } from "../repositories/depositRepo";
@@ -15,7 +16,7 @@ import {
   type PaymentTypeValue,
 } from "../types/deposit";
 import type { LotWithOwner } from "../types/lot";
-import { appConfirm } from "../components/AppDialogs";
+import { appConfirm, appAlert } from "../components/AppDialogs";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -23,19 +24,35 @@ function fmt(n: number) {
 
 // ── Payment Form ──────────────────────────────────────────────────────────────
 
-function PaymentForm({ lots, onSave, onCancel }: {
+function PaymentForm({
+  lots, initial, onSave, onNSF, onCancel,
+}: {
   lots: LotWithOwner[];
+  initial?: PaymentRow;
   onSave: (v: PaymentFormValues) => Promise<void>;
+  onNSF?: () => Promise<void>;
   onCancel: () => void;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [values, setValues] = useState<PaymentFormValues>({
-    lot_id: 0,
-    payment_date: today,
-    amount: 0,
-    payment_method: "CHECK",
-    payment_type: "DUES",
-  });
+  const [values, setValues] = useState<PaymentFormValues>(() =>
+    initial
+      ? {
+          lot_id: initial.lot_id,
+          payment_date: initial.payment_date,
+          amount: initial.amount,
+          payment_method: initial.payment_method as PaymentFormValues["payment_method"],
+          payment_type: (initial.payment_type ?? "DUES") as PaymentFormValues["payment_type"],
+          check_number: initial.check_number ?? undefined,
+          memo: initial.memo ?? undefined,
+        }
+      : {
+          lot_id: 0,
+          payment_date: today,
+          amount: 0,
+          payment_method: "CHECK",
+          payment_type: "DUES",
+        }
+  );
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
 
@@ -55,14 +72,17 @@ function PaymentForm({ lots, onSave, onCancel }: {
     try { await onSave(result.data); } finally { setSaving(false); }
   }
 
+  const isEdit = !!initial;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">Lot <span className="text-red-500">*</span></label>
         <select
           value={values.lot_id}
+          disabled={isEdit}
           onChange={(e) => set("lot_id", Number(e.target.value))}
-          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
         >
           <option value={0}>— Select lot —</option>
           {lots.map((l) => (
@@ -78,7 +98,7 @@ function PaymentForm({ lots, onSave, onCancel }: {
         <label className="block text-xs font-medium text-gray-700 mb-1">Payment Type <span className="text-red-500">*</span></label>
         <select
           value={values.payment_type}
-          onChange={(e) => set("payment_type", e.target.value as PaymentTypeValue)}
+          onChange={(e) => set("payment_type", e.target.value as PaymentFormValues["payment_type"])}
           className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {(Object.entries(PAYMENT_TYPE_LABELS) as [PaymentTypeValue, string][]).map(([k, label]) => (
@@ -139,17 +159,29 @@ function PaymentForm({ lots, onSave, onCancel }: {
         />
       </div>
 
-      <div className="flex justify-end gap-3 pt-2 border-t">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-          Cancel
-        </button>
-        <button
-          type="submit" disabled={saving}
-          className="px-4 py-2 text-sm text-white rounded disabled:opacity-50"
-          style={{ backgroundColor: "#2f6046" }}
-        >
-          {saving ? "Saving…" : "Save Payment"}
-        </button>
+      <div className="flex justify-between items-center pt-2 border-t gap-3">
+        {/* NSF button — only in edit mode */}
+        {isEdit && onNSF && (
+          <button
+            type="button"
+            onClick={() => void onNSF()}
+            className="px-3 py-1.5 text-sm border border-orange-300 text-orange-700 rounded hover:bg-orange-50"
+          >
+            Mark NSF
+          </button>
+        )}
+        <div className="flex items-center gap-3 ml-auto">
+          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+            Cancel
+          </button>
+          <button
+            type="submit" disabled={saving}
+            className="px-4 py-2 text-sm text-white rounded disabled:opacity-50"
+            style={{ backgroundColor: "#2f6046" }}
+          >
+            {saving ? "Saving…" : isEdit ? "Save Changes" : "Save Payment"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -165,6 +197,7 @@ export function PaymentsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editPayment, setEditPayment] = useState<PaymentRow | null>(null);
   const [limit, setLimit]     = useState(200);
 
   const [sortKey, setSortKey] = useState<SortKey>("payment_date");
@@ -203,6 +236,13 @@ export function PaymentsScreen() {
     await load();
   }
 
+  async function handleUpdate(values: PaymentFormValues) {
+    if (!editPayment) return;
+    await updatePayment(editPayment.id, values, editPayment.deposit_batch_id ?? null);
+    setEditPayment(null);
+    await load();
+  }
+
   async function handleDelete(p: PaymentRow) {
     const batchLabel = p.deposit_batch_id ? ` (will be removed from deposit batch #${p.deposit_batch_id})` : "";
     if (!await appConfirm(`Delete this payment?${batchLabel}`)) return;
@@ -215,10 +255,15 @@ export function PaymentsScreen() {
       ? `This payment is in deposit batch #${p.deposit_batch_id}. Marking NSF will remove it from that batch and reverse all applied amounts. Continue?`
       : "Mark this payment as NSF / returned? All applied amounts will be reversed and the payment deleted.";
     if (!await appConfirm(warning)) return;
-    const db = await (await import("../lib/db")).getDb();
-    await db.execute("DELETE FROM payment_applications WHERE payment_id = ?", [p.id]);
-    await deletePayment(p.id, p.deposit_batch_id ?? null);
-    await load();
+    try {
+      const db = await (await import("../lib/db")).getDb();
+      await db.execute("DELETE FROM payment_applications WHERE payment_id = ?", [p.id]);
+      await deletePayment(p.id, p.deposit_batch_id ?? null);
+      setEditPayment(null);
+      await load();
+    } catch (e) {
+      await appAlert(String(e));
+    }
   }
 
   const visible = useMemo(() => {
@@ -330,7 +375,7 @@ export function PaymentsScreen() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Check #</th>
                     <SortTh col="deposit_batch_id" label="Deposit" />
                     <SortTh col="amount" label="Amount" right />
-                    <th className="px-3 py-2 w-8" />
+                    <th className="px-3 py-2 w-16" />
                   </tr>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <td className="px-2 py-1"><Fi value={fDate}   onChange={setFDate}   placeholder="2026-01…" /></td>
@@ -370,13 +415,13 @@ export function PaymentsScreen() {
                       </td>
                       <td className="px-3 py-1.5 text-right font-mono text-xs text-green-700 font-semibold">{fmt(p.amount)}</td>
                       <td className="px-3 py-1.5 text-center">
-                        <div className="flex items-center gap-2 justify-center">
+                        <div className="flex items-center gap-1.5 justify-center">
                           <button
-                            onClick={() => void handleNSF(p)}
-                            className="px-1.5 py-0.5 text-xs border border-orange-300 text-orange-700 rounded hover:bg-orange-50"
-                            title="Mark as NSF / returned check"
+                            onClick={() => setEditPayment(p)}
+                            className="px-1.5 py-0.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
+                            title="Edit payment"
                           >
-                            NSF
+                            Edit
                           </button>
                           <button
                             onClick={() => void handleDelete(p)}
@@ -410,6 +455,21 @@ export function PaymentsScreen() {
       {showForm && (
         <Modal title="New Payment" onClose={() => setShowForm(false)}>
           <PaymentForm lots={lots} onSave={handleSave} onCancel={() => setShowForm(false)} />
+        </Modal>
+      )}
+
+      {editPayment && (
+        <Modal
+          title={`Edit Payment — Lot ${editPayment.lot_number} · ${editPayment.payment_date}`}
+          onClose={() => setEditPayment(null)}
+        >
+          <PaymentForm
+            lots={lots}
+            initial={editPayment}
+            onSave={handleUpdate}
+            onNSF={() => handleNSF(editPayment)}
+            onCancel={() => setEditPayment(null)}
+          />
         </Modal>
       )}
     </PageLayout>

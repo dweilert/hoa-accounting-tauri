@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import { appAlert, appConfirm } from "../components/AppDialogs";
 import {
   listBankAccounts,
@@ -215,6 +217,14 @@ export function BankAccountsScreen() {
   }
 
   const visible = showInactive ? accounts : accounts.filter((a) => a.active_flag);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(visible, {
+    name: (a) => a.account_name,
+    institution: (a) => a.institution_name,
+    type: (a) => ACCOUNT_TYPE_LABELS[a.account_type],
+    fund: (a) => a.fund_code,
+    opening: (a) => a.opening_balance,
+    status: (a) => (a.active_flag ? "Active" : "Inactive"),
+  });
   const inactiveCount = accounts.filter((a) => !a.active_flag).length;
 
   return (
@@ -254,12 +264,12 @@ export function BankAccountsScreen() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Institution</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Fund</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Opening Balance</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortableTh label="Account Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Institution" col="institution" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Fund" col="fund" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Opening Balance" col="opening" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -271,7 +281,7 @@ export function BankAccountsScreen() {
                   </td>
                 </tr>
               )}
-              {visible.map((acct) => (
+              {sorted.map((acct) => (
                 <tr key={acct.id} className={acct.active_flag ? "" : "opacity-50"}>
                   <td className="px-4 py-3">
                     <span className="font-medium text-gray-900">{acct.account_name}</span>

@@ -3,6 +3,8 @@ import { getDb } from "../lib/db";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { PageLayout } from "../components/PageLayout";
+import { SortableTh } from "../components/SortableTh";
+import { useTableSort } from "../lib/useTableSort";
 import { appConfirm } from "../components/AppDialogs";
 
 function fmt(n: number) {
@@ -227,6 +229,14 @@ export function OtherIncomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(50);
 
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<IncomeRow>(rows, {
+    date: (r) => r.income_date,
+    account: (r) => r.account_name,
+    category: (r) => r.category_name,
+    description: (r) => r.description,
+    amount: (r) => r.amount,
+  });
+
   async function load() {
     try {
       const [accts, cats, r] = await Promise.all([
@@ -270,11 +280,11 @@ export function OtherIncomeScreen() {
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-28">Date</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600">Account</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600">Category</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-600">Description</th>
-              <th className="text-right px-4 py-2.5 font-medium text-gray-600 w-28">Amount</th>
+              <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-28" />
+              <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh label="Category" col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right className="w-28" />
               <th className="px-4 py-2.5 w-8" />
             </tr>
           </thead>
@@ -282,7 +292,7 @@ export function OtherIncomeScreen() {
             {rows.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">No entries yet.</td></tr>
             )}
-            {rows.map((r) => (
+            {sorted.map((r) => (
               <tr key={r.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2 text-xs font-mono text-gray-600">{r.income_date}</td>
                 <td className="px-4 py-2 text-xs text-gray-700">{r.account_name}</td>

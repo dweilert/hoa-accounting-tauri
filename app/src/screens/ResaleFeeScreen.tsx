@@ -3,6 +3,8 @@ import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -132,6 +134,14 @@ export function ResaleFeeScreen() {
     }
   }
 
+  const sort = useTableSort(recentFees, {
+    date: (f) => f.income_date,
+    lot: (f) => f.lot_number,
+    account: (f) => f.account_name,
+    description: (f) => f.description,
+    amount: (f) => f.amount,
+  });
+
   if (loading) return <div className="p-8 text-gray-400 text-sm">Loading…</div>;
 
   return (
@@ -202,15 +212,15 @@ export function ResaleFeeScreen() {
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">Date</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">Lot</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">Account</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">Description</th>
-                  <th className="text-right px-4 py-2 text-xs font-medium text-gray-600">Amount</th>
+                  <SortableTh label="Date" col="date" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="Lot" col="lot" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="Account" col="account" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="Description" col="description" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="Amount" col="amount" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {recentFees.map((f) => (
+                {sort.sorted.map((f) => (
                   <tr key={f.id}>
                     <td className="px-4 py-2 text-xs text-gray-500">{f.income_date}</td>
                     <td className="px-4 py-2 text-xs text-gray-700">Lot {f.lot_number}</td>

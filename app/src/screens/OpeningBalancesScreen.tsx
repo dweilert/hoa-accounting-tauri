@@ -7,6 +7,8 @@ import type { Lot } from "../types/lot";
 import type { OpeningBalance } from "../types/openingBalance";
 import { PageLayout } from "../components/PageLayout";
 import { appAlert } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -27,6 +29,13 @@ type BankRow = {
 function BankBalancesTab() {
   const [rows, setRows] = useState<BankRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<BankRow>(rows, {
+    account: (r) => r.account.account_name,
+    fund: (r) => r.account.fund_code,
+    asOf: (r) => r.balance?.as_of_date,
+    amount: (r) => r.balance?.amount,
+    notes: (r) => r.balance?.notes,
+  });
 
   const load = useCallback(async () => {
     const [accounts, balances] = await Promise.all([
@@ -117,16 +126,16 @@ function BankBalancesTab() {
       <table className="w-full text-sm">
         <thead className="sticky top-0 z-10 bg-gray-50 border-b">
           <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Fund</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">As-of Date</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Opening Balance</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Notes</th>
+            <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="Fund" col="fund" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="As-of Date" col="asOf" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="Opening Balance" col="amount" right sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="Notes" col="notes" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
             <th className="px-4 py-2" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {rows.map((row) => (
+          {sorted.map((row) => (
             <tr key={row.account.id}>
               <td className="px-4 py-3 font-medium text-gray-900">{row.account.account_name}</td>
               <td className="px-4 py-3 text-gray-500 text-xs">{row.account.fund_code}</td>
@@ -213,6 +222,12 @@ type LotRow = {
 function LotBalancesTab() {
   const [rows, setRows] = useState<LotRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<LotRow>(rows, {
+    lot: (r) => r.lot.lot_number,
+    address: (r) => r.lot.street_address_1,
+    asOf: (r) => r.duesBalance?.as_of_date,
+    amount: (r) => r.duesBalance?.amount,
+  });
 
   const load = useCallback(async () => {
     const [lots, duesBalances] = await Promise.all([
@@ -290,15 +305,15 @@ function LotBalancesTab() {
       <table className="w-full text-sm">
         <thead className="sticky top-0 z-10 bg-gray-50 border-b">
           <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot #</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Address</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 w-36">As-of Date</th>
-            <th className="px-4 py-2 text-right text-xs font-medium text-gray-600 w-32">Dues Balance Owed</th>
+            <SortableTh label="Lot #" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="Address" col="address" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="As-of Date" col="asOf" className="w-36" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortableTh label="Dues Balance Owed" col="amount" right className="w-32" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
             <th className="px-4 py-2" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {rows.map((row) => (
+          {sorted.map((row) => (
             <tr key={row.lot.id}>
               <td className="px-4 py-3 font-medium text-gray-900">{row.lot.lot_number}</td>
               <td className="px-4 py-3 text-gray-600 text-xs">

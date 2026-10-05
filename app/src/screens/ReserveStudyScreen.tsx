@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
 import { appAlert, appConfirm } from "../components/AppDialogs";
@@ -313,6 +315,16 @@ function AssetsPanel({ studyYear }: { studyYear: number }) {
 
   const totalCost = assets.reduce((s, a) => s + a.replacement_cost, 0);
 
+  const sort = useTableSort(assets, {
+    group: (a) => a.asset_group,
+    component: (a) => a.component,
+    condition: (a) => a.condition,
+    installed: (a) => a.install_year,
+    replaceYear: (a) => replaceYear(a),
+    yearsLeft: (a) => yearsLeft(a),
+    cost: (a) => a.replacement_cost,
+  });
+
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
 
   return (
@@ -333,13 +345,13 @@ function AssetsPanel({ studyYear }: { studyYear: number }) {
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Group</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Component</th>
-              <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Condition</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Installed</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Replace Year</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Yrs Left</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Replacement Cost</th>
+              <SortableTh label="Group" col="group" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+              <SortableTh label="Component" col="component" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+              <SortableTh label="Condition" col="condition" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+              <SortableTh label="Installed" col="installed" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="Replace Year" col="replaceYear" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="Yrs Left" col="yearsLeft" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="Replacement Cost" col="cost" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
               <th className="px-4 py-2" />
             </tr>
           </thead>
@@ -347,7 +359,7 @@ function AssetsPanel({ studyYear }: { studyYear: number }) {
             {assets.length === 0 && (
               <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-400 text-sm">No components yet. Click "+ Add Component" to start.</td></tr>
             )}
-            {assets.map((a) => (
+            {sort.sorted.map((a) => (
               <tr key={a.id}>
                 <td className="px-4 py-2 text-gray-700 text-xs">{a.asset_group}</td>
                 <td className="px-4 py-2 font-medium text-gray-800 text-xs">{a.component}</td>
@@ -398,14 +410,26 @@ function FundingPlanPanel({ assumptions }: { assumptions: Assumptions | null }) 
     listAssets().then(setAssets).finally(() => setLoading(false));
   }, []);
 
+  const openingBalance = assumptions?.reserve_balance_override ?? 0;
+  const rows = useMemo(
+    () => (assumptions ? computeFundingPlan(assumptions, assets, openingBalance) : []),
+    [assumptions, assets, openingBalance],
+  );
+  const sort = useTableSort(rows, {
+    year: (r) => r.year,
+    beginning: (r) => r.beginningBalance,
+    contribution: (r) => r.contribution,
+    investment: (r) => r.investmentIncome,
+    expenditures: (r) => r.totalSpent,
+    ending: (r) => r.endingBalance,
+  });
+
   if (!assumptions) {
     return <p className="text-sm text-gray-400">Set assumptions first to generate a funding plan.</p>;
   }
 
   if (loading) return <p className="text-sm text-gray-400">Loading…</p>;
 
-  const openingBalance = assumptions.reserve_balance_override ?? 0;
-  const rows = computeFundingPlan(assumptions, assets, openingBalance);
   const deficitYears = rows.filter((r) => r.deficit).length;
 
   return (
@@ -428,16 +452,16 @@ function FundingPlanPanel({ assumptions }: { assumptions: Assumptions | null }) 
         <table className="w-full text-xs whitespace-nowrap">
           <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Year</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600">Beg. Balance</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600">Contribution</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600">Investment</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600">Expenditures</th>
-              <th className="px-3 py-2 text-right font-medium text-gray-600">End Balance</th>
+              <SortableTh label="Year" col="year" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+              <SortableTh label="Beg. Balance" col="beginning" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="Contribution" col="contribution" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="Investment" col="investment" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="Expenditures" col="expenditures" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+              <SortableTh label="End Balance" col="ending" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {rows.map((r) => (
+            {sort.sorted.map((r) => (
               <tr key={r.year} className={r.deficit ? "bg-red-50" : r.year === CURRENT_YEAR ? "bg-blue-50" : ""}>
                 <td className="px-3 py-1.5 font-medium text-gray-800">
                   {r.year}

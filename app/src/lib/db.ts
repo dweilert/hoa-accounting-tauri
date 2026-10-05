@@ -1,6 +1,7 @@
 import type { DbHandle } from "./dbTypes";
 import { initSchema } from "./schema";
 import { readConfig } from "./config";
+import { notifyDbChanged } from "./popout";
 
 let _db: DbHandle | null = null;
 
@@ -30,5 +31,15 @@ export async function getDb(): Promise<DbHandle> {
   }
 
   await initSchema(_db);
+
+  if (isTauri()) {
+    const handle = _db;
+    const rawExecute = handle.execute.bind(handle);
+    handle.execute = async (sql, params) => {
+      const result = await rawExecute(sql, params);
+      notifyDbChanged();
+      return result;
+    };
+  }
   return _db;
 }

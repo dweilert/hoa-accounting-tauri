@@ -4,6 +4,8 @@ import { getDb } from "../lib/db";
 import { readConfig } from "../lib/config";
 import { listActiveAnnouncements, type Announcement } from "../repositories/announcementRepo";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -347,6 +349,12 @@ export function Dashboard() {
   const [banners, setBanners] = useState<Announcement[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dbDiag, setDbDiag] = useState<string>("checking…");
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(recentTxns, {
+    date: (r) => r.txn_date,
+    description: (r) => r.description,
+    account: (r) => r.account_name,
+    amount: (r) => r.amount,
+  });
 
   useEffect(() => {
     Promise.all([getDb(), readConfig()])
@@ -497,10 +505,10 @@ export function Dashboard() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Account" col="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -509,7 +517,7 @@ export function Dashboard() {
                   <td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">No transactions yet.</td>
                 </tr>
               )}
-              {recentTxns.map((r, i) => (
+              {sorted.map((r, i) => (
                 <tr key={i}>
                   <td className="px-4 py-2 text-gray-500 text-xs whitespace-nowrap">{r.txn_date}</td>
                   <td className="px-4 py-2 text-gray-700 text-xs">{r.description}</td>

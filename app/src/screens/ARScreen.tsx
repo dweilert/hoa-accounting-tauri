@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { getLotBalances, type LotBalance } from "../repositories/assessmentRepo";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -43,12 +45,24 @@ export function ARScreen() {
   const credits = rows.filter((r) => r.balance_due < -0.005);
   const current = rows.filter((r) => Math.abs(r.balance_due) <= 0.005);
 
+  const lotAccessors = {
+    lot: (r: LotBalance) => r.lot_number,
+    owner: (r: LotBalance) => r.owner_name,
+    billed: (r: LotBalance) => r.billed,
+    paid: (r: LotBalance) => r.paid,
+    balance: (r: LotBalance) => r.balance_due,
+  };
+  const outstandingSort = useTableSort(outstanding, lotAccessors);
+  const creditsSort = useTableSort(credits, lotAccessors);
+  const currentSort = useTableSort(current, lotAccessors);
+
   const totalOutstanding = outstanding.reduce((s, r) => s + r.balance_due, 0);
   const totalCredits = credits.reduce((s, r) => s + Math.abs(r.balance_due), 0);
 
-  function Table({ title, data, emptyMsg, headerClass }: {
+  function Table({ title, data, sort, emptyMsg, headerClass }: {
     title: string;
     data: LotBalance[];
+    sort: ReturnType<typeof useTableSort<LotBalance>>;
     emptyMsg: string;
     headerClass: string;
   }) {
@@ -63,15 +77,15 @@ export function ARScreen() {
           <table className="w-full">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Lot</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Billed</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Paid</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Balance</th>
+                <SortableTh label="Lot" col="lot" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Owner" col="owner" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Billed" col="billed" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+                <SortableTh label="Paid" col="paid" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+                <SortableTh label="Balance" col="balance" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
               </tr>
             </thead>
             <tbody>
-              {data.map((r) => <BalanceRow key={r.lot_id} row={r} />)}
+              {sort.sorted.map((r) => <BalanceRow key={r.lot_id} row={r} />)}
             </tbody>
           </table>
         )}
@@ -113,6 +127,7 @@ export function ARScreen() {
             <Table
               title="Outstanding Balances"
               data={outstanding}
+              sort={outstandingSort}
               emptyMsg="No outstanding balances."
               headerClass="bg-red-50 text-red-700"
             />
@@ -120,6 +135,7 @@ export function ARScreen() {
             <Table
               title="Credits / Prepaid"
               data={credits}
+              sort={creditsSort}
               emptyMsg="No credit balances."
               headerClass="bg-green-50 text-green-700"
             />
@@ -127,6 +143,7 @@ export function ARScreen() {
             <Table
               title="Current (No Balance)"
               data={current}
+              sort={currentSort}
               emptyMsg="No lots with zero balance."
               headerClass="bg-gray-50 text-gray-600"
             />

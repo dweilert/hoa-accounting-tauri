@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { PageLayout } from "../components/PageLayout";
 import { getDb } from "../lib/db";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -199,6 +201,21 @@ export function DataImportScreen() {
   const fields = FIELD_DEFS[target];
   const validRows = preview.filter((r) => !r._error);
   const badRows = preview.filter((r) => r._error);
+  const previewAccessors: Record<string, (r: PreviewRow) => string | number | null | undefined> = {
+    rowNum: (r) => r._rowNum,
+    status: (r) => (r._error ? `1 ${r._error}` : "0"),
+  };
+  for (const f of fields) {
+    previewAccessors[f.key] = (r) => {
+      const v = r[f.key];
+      if (typeof v === "string") {
+        const t = v.replace(/[$,\s]/g, "");
+        if (t !== "" && /^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+      }
+      return v;
+    };
+  }
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(preview, previewAccessors);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -355,15 +372,15 @@ export function DataImportScreen() {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>
-                  <th className="px-2 py-2 text-left text-gray-600">#</th>
+                  <SortableTh label="#" col="rowNum" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   {fields.map((f) => (
-                    <th key={f.key} className="px-2 py-2 text-left text-gray-600">{f.label}</th>
+                    <SortableTh key={f.key} label={f.label} col={f.key} sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   ))}
-                  <th className="px-2 py-2 text-left text-gray-600">Status</th>
+                  <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {preview.map((row) => (
+                {sorted.map((row) => (
                   <tr key={row._rowNum} className={row._error ? "bg-red-50" : ""}>
                     <td className="px-2 py-1.5 text-gray-400">{row._rowNum}</td>
                     {fields.map((f) => (

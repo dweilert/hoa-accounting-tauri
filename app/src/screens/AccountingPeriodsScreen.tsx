@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,12 @@ export function AccountingPeriodsScreen() {
   const [busy, setBusy] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState<{ id: number; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(periods, {
+    period: (p) => p.period_year * 100 + p.period_month,
+    status: (p) => p.status,
+    locked: (p) => p.locked_at,
+    notes: (p) => p.notes,
+  }, "period", "asc");
 
   async function refresh() {
     setLoading(true);
@@ -198,15 +206,15 @@ export function AccountingPeriodsScreen() {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-32">Period</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600 w-24">Status</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Locked</th>
-                <th className="text-left px-4 py-2.5 font-medium text-gray-600">Notes</th>
+                <SortableTh label="Period" col="period" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-32" />
+                <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-24" />
+                <SortableTh label="Locked" col="locked" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Notes" col="notes" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {periods.map((p) => (
+              {sorted.map((p) => (
                 <tr key={p.id} className={p.status === "LOCKED" ? "bg-gray-50" : ""}>
                   <td className="px-4 py-2.5 font-medium text-gray-900">
                     {MONTHS[(p.period_month - 1)]} {p.period_year}

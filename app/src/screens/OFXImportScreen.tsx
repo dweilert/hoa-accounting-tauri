@@ -10,6 +10,9 @@ import { applyRulesToPending, matchReserveTransfers } from "../repositories/tran
 import type { BankAccount } from "../types/bankAccount";
 import { isTauri } from "../lib/db";
 import { appAlert, appConfirm } from "../components/AppDialogs";
+import { SortableTh } from "../components/SortableTh";
+import { useTableSort } from "../lib/useTableSort";
+import { splitStatements, last4, type OFXStatement } from "../lib/ofxStatements";
 
 // ── OFX Parser ────────────────────────────────────────────────────────────────
 
@@ -103,9 +106,9 @@ export function OFXImportScreen() {
   const [accountId, setAccountId] = useState<number>(0);
   const [step, setStep] = useState<Step>("upload");
   const [filename, setFilename] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<(OFXTransaction & { isDuplicate?: boolean })[]>([]);
+  const [transactions, setTransactions] = useState<(OFXTransaction & { isDuplicate?: boolean; acctId?: number })[]>([]);
   const [importing, setImporting] = useState(false);
-  const [lastBatchId, setLastBatchId] = useState<number | null>(null);
+  const [lastBatchIds, setLastBatchIds] = useState<number[]>([]);
   const [importedCount, setImportedCount] = useState(0);
   const [skippedCount, setSkippedCount] = useState(0);
   const [autoMatchedCount, setAutoMatchedCount] = useState(0);
@@ -116,6 +119,9 @@ export function OFXImportScreen() {
   const accountIdRef = useRef(accountId);
   useEffect(() => { accountIdRef.current = accountId; }, [accountId]);
   const rawTextRef = useRef<string>("");
+  const statementsRef = useRef<OFXStatement[]>([]);
+  const accountsRef = useRef<BankAccount[]>([]);
+  useEffect(() => { accountsRef.current = accounts; }, [accounts]);
 
   useEffect(() => {
     listBankAccounts(true)
@@ -155,20 +161,36 @@ export function OFXImportScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function processText(text: string, acctId: number) {
+  async function processText(text: string, fallbackAcctId: number) {
     rawTextRef.current = text;
     try {
-      const parsed = parseOFX(text);
-      if (parsed.length === 0) {
+      const statements = splitStatements(text);
+      const accts = accountsRef.current;
+      const marked: (OFXTransaction & { isDuplicate?: boolean; acctId?: number })[] = [];
+      for (const st of statements) {
+        const acct = st.acctid
+          ? accts.find((a) => a.account_last4 === last4(st.acctid))
+          : accts.find((a) => a.id === fallbackAcctId);
+        if (!acct) {
+          setParseError(`No bank account has last 4 digits "${last4(st.acctid)}" (account ${st.acctid} in this file). Add or fix that bank account first.`);
+          return;
+        }
+        const parsed = parseOFX(st.text);
+        const existing = await getExistingDedupKeys(acct.id).catch(() => new Set<string>());
+        for (const t of parsed) {
+          marked.push({
+            ...t,
+            acctId: acct.id,
+            isDuplicate: existing.has(buildDedupKey(t.fitid, t.dtposted, t.trnamt)) ||
+                         existing.has(`date-amt-${t.dtposted}-${t.trnamt}`),
+          });
+        }
+      }
+      if (marked.length === 0) {
         setParseError("No transactions found in this file. Make sure it is a valid OFX or QFX file.");
         return;
       }
-      const existing = await getExistingDedupKeys(acctId).catch(() => new Set<string>());
-      const marked = parsed.map((t) => ({
-        ...t,
-        isDuplicate: existing.has(buildDedupKey(t.fitid, t.dtposted, t.trnamt)) ||
-                     existing.has(`date-amt-${t.dtposted}-${t.trnamt}`),
-      }));
+      statementsRef.current = statements;
       setTransactions(marked);
       setStep("preview");
     } catch (err) {
@@ -190,35 +212,45 @@ export function OFXImportScreen() {
   }
 
   async function handleImport() {
-    if (!accountId) return;
     setImporting(true);
     try {
-      const batchId = await createImportBatch(accountId, filename);
-      let imported = 0, skipped = 0;
-      for (const t of transactions) {
-        if (t.isDuplicate) { skipped++; continue; }
-        const desc = [t.name, t.memo].filter(Boolean).join(" — ") || t.trntype;
-        const dedupKey = buildDedupKey(t.fitid, t.dtposted, t.trnamt);
-        const id = await insertBankTransaction(accountId, t.dtposted, t.trnamt, desc, dedupKey, batchId);
-        if (id > 0) imported++;
-        else skipped++;
+      const accts = accountsRef.current;
+      const acctIds = Array.from(new Set(transactions.map((t) => t.acctId).filter((x): x is number => !!x)));
+      const batchIds: number[] = [];
+      let imported = 0, skipped = 0, autoMatched = 0;
+      for (const acctId of acctIds) {
+        const batchId = await createImportBatch(acctId, filename);
+        batchIds.push(batchId);
+        let imp = 0, skp = 0;
+        for (const t of transactions) {
+          if (t.acctId !== acctId) continue;
+          if (t.isDuplicate) { skp++; continue; }
+          const desc = [t.name, t.memo].filter(Boolean).join(" — ") || t.trntype;
+          const dedupKey = buildDedupKey(t.fitid, t.dtposted, t.trnamt);
+          const id = await insertBankTransaction(acctId, t.dtposted, t.trnamt, desc, dedupKey, batchId);
+          if (id > 0) imp++; else skp++;
+        }
+        await finalizeImportBatch(batchId, imp, skp);
+        imported += imp; skipped += skp;
+        const acct = accts.find((a) => a.id === acctId);
+        const st = statementsRef.current.find((x) => x.acctid && acct && last4(x.acctid) === acct.account_last4)
+          ?? statementsRef.current[0];
+        const bal = st ? parseOFXBalance(st.text) : null;
+        if (bal) await storeOfxBalance(acctId, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
+        if (imp > 0) {
+          try {
+            const matchResult = await applyRulesToPending(acctId, false);
+            autoMatched += matchResult.matched;
+          } catch { /* non-fatal */ }
+        }
       }
-      await finalizeImportBatch(batchId, imported, skipped);
-      const bal = parseOFXBalance(rawTextRef.current);
-      if (bal) await storeOfxBalance(accountId, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
-      // Auto-match: apply AUTO_POST rules then pair reserve transfers
-      let autoMatched = 0;
       if (imported > 0) {
-        try {
-          const matchResult = await applyRulesToPending(accountId, false);
-          autoMatched = matchResult.matched;
-        } catch { /* non-fatal */ }
         try {
           const transferResult = await matchReserveTransfers(false);
           autoMatched += transferResult.matched;
         } catch { /* non-fatal */ }
       }
-      setLastBatchId(batchId);
+      setLastBatchIds(batchIds);
       setImportedCount(imported);
       setSkippedCount(skipped);
       setAutoMatchedCount(autoMatched);
@@ -231,12 +263,13 @@ export function OFXImportScreen() {
   }
 
   async function handleUndoLast() {
-    if (!lastBatchId) return;
+    if (lastBatchIds.length === 0) return;
     if (!await appConfirm(`Undo this import (${importedCount} transactions)?`)) return;
     try {
-      const removed = await undoImportBatch(lastBatchId);
+      let removed = 0;
+      for (const id of lastBatchIds) removed += await undoImportBatch(id);
       await appAlert(`Removed ${removed} transaction${removed !== 1 ? "s" : ""}.`);
-      setLastBatchId(null);
+      setLastBatchIds([]);
       reset();
     } catch (e) {
       await appAlert(String(e));
@@ -252,6 +285,14 @@ export function OFXImportScreen() {
     setParseError(null);
     setError(null);
   }
+
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<OFXTransaction & { isDuplicate?: boolean; acctId?: number }>(transactions, {
+    date: (t) => t.dtposted,
+    type: (t) => t.trntype,
+    description: (t) => [t.name, t.memo].filter(Boolean).join(" — "),
+    amount: (t) => t.trnamt,
+    status: (t) => (t.isDuplicate ? "duplicate" : "new"),
+  });
 
   const newTxns = transactions.filter((t) => !t.isDuplicate);
   const dupTxns = transactions.filter((t) => t.isDuplicate);
@@ -332,15 +373,15 @@ export function OFXImportScreen() {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left text-gray-600">Date</th>
-                  <th className="px-3 py-2 text-left text-gray-600">Type</th>
-                  <th className="px-3 py-2 text-left text-gray-600">Description</th>
-                  <th className="px-3 py-2 text-right text-gray-600">Amount</th>
-                  <th className="px-3 py-2 text-right text-gray-600">Status</th>
+                  <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                  <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {transactions.map((t, i) => (
+                {sorted.map((t, i) => (
                   <tr key={i} className={t.isDuplicate ? "opacity-40 bg-gray-50" : ""}>
                     <td className="px-3 py-1.5 whitespace-nowrap text-gray-600">{t.dtposted}</td>
                     <td className="px-3 py-1.5 text-gray-400">{t.trntype}</td>
@@ -398,7 +439,7 @@ export function OFXImportScreen() {
             <button onClick={reset} className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
               Import Another File
             </button>
-            {lastBatchId && importedCount > 0 && (
+            {lastBatchIds.length > 0 && importedCount > 0 && (
               <button onClick={() => void handleUndoLast()}
                 className="px-4 py-2 border border-red-300 text-red-600 text-sm rounded hover:bg-red-50">
                 Undo This Import

@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import { useParams } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { PageLayout } from "../components/PageLayout";
@@ -127,12 +129,40 @@ export function LotDetailScreen() {
     }
   }
 
+  const currentOwners = useMemo(() => ownership.filter((o) => !o.end_date), [ownership]);
+  const priorOwners = useMemo(() => ownership.filter((o) => o.end_date), [ownership]);
+
+  const currentSort = useTableSort<OwnershipRow>(currentOwners, {
+    owner: (o) => o.display_name,
+    since: (o) => o.start_date,
+    pct: (o) => o.ownership_percent,
+  });
+  const assessSort = useTableSort<AssessmentRow>(assessments, {
+    date: (a) => a.assessment_date,
+    type: (a) => CHARGE_TYPE_LABELS[a.charge_type],
+    description: (a) => a.description,
+    amount: (a) => a.amount,
+    status: (a) => a.status,
+  });
+  const paymentSort = useTableSort<PaymentRow>(payments, {
+    date: (p) => p.payment_date,
+    method: (p) => p.payment_method,
+    check: (p) => p.check_number,
+    memo: (p) => p.memo,
+    amount: (p) => p.amount,
+  });
+  const priorSort = useTableSort<OwnershipRow>(priorOwners, {
+    owner: (o) => o.display_name,
+    from: (o) => o.start_date,
+    to: (o) => o.end_date,
+    pct: (o) => o.ownership_percent,
+  });
+
   if (loading) return <div className="p-8"><p className="text-sm text-gray-400">Loading…</p></div>;
   if (error || !lot) return <div className="p-8"><p className="text-sm text-red-600">{error ?? "Not found."}</p></div>;
 
   const address = [lot.street_address_1, lot.street_address_2].filter(Boolean).join(", ");
   const cityLine = [lot.city, lot.state, lot.postal_code].filter(Boolean).join(", ");
-  const currentOwners = ownership.filter((o) => !o.end_date);
 
   return (
     <PageLayout
@@ -170,14 +200,14 @@ export function LotDetailScreen() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Since</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Ownership %</th>
+                  <SortableTh label="Owner" col="owner" sortKey={currentSort.sortKey} sortDir={currentSort.sortDir} onSort={currentSort.toggleSort} />
+                  <SortableTh label="Since" col="since" sortKey={currentSort.sortKey} sortDir={currentSort.sortDir} onSort={currentSort.toggleSort} />
+                  <SortableTh label="Ownership %" col="pct" right sortKey={currentSort.sortKey} sortDir={currentSort.sortDir} onSort={currentSort.toggleSort} />
                   <th className="px-4 py-2 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {currentOwners.map((o) => (
+                {currentSort.sorted.map((o) => (
                   <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 font-medium text-gray-800">{o.display_name}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{fmtDate(o.start_date)}</td>
@@ -203,11 +233,11 @@ export function LotDetailScreen() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortableTh label="Date" col="date" sortKey={assessSort.sortKey} sortDir={assessSort.sortDir} onSort={assessSort.toggleSort} />
+                <SortableTh label="Type" col="type" sortKey={assessSort.sortKey} sortDir={assessSort.sortDir} onSort={assessSort.toggleSort} />
+                <SortableTh label="Description" col="description" sortKey={assessSort.sortKey} sortDir={assessSort.sortDir} onSort={assessSort.toggleSort} />
+                <SortableTh label="Amount" col="amount" right sortKey={assessSort.sortKey} sortDir={assessSort.sortDir} onSort={assessSort.toggleSort} />
+                <SortableTh label="Status" col="status" sortKey={assessSort.sortKey} sortDir={assessSort.sortDir} onSort={assessSort.toggleSort} />
                 <th className="px-4 py-2 w-24" />
               </tr>
             </thead>
@@ -215,7 +245,7 @@ export function LotDetailScreen() {
               {assessments.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No assessments.</td></tr>
               )}
-              {assessments.map((a) => {
+              {assessSort.sorted.map((a) => {
                 const canAct = a.status === "OPEN" || a.status === "PARTIAL";
                 return (
                 <tr key={a.id} className={!canAct ? "opacity-50" : ""}>
@@ -247,18 +277,18 @@ export function LotDetailScreen() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Method</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Check #</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Memo</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
+                <SortableTh label="Date" col="date" sortKey={paymentSort.sortKey} sortDir={paymentSort.sortDir} onSort={paymentSort.toggleSort} />
+                <SortableTh label="Method" col="method" sortKey={paymentSort.sortKey} sortDir={paymentSort.sortDir} onSort={paymentSort.toggleSort} />
+                <SortableTh label="Check #" col="check" sortKey={paymentSort.sortKey} sortDir={paymentSort.sortDir} onSort={paymentSort.toggleSort} />
+                <SortableTh label="Memo" col="memo" sortKey={paymentSort.sortKey} sortDir={paymentSort.sortDir} onSort={paymentSort.toggleSort} />
+                <SortableTh label="Amount" col="amount" right sortKey={paymentSort.sortKey} sortDir={paymentSort.sortDir} onSort={paymentSort.toggleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {payments.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No payments on record.</td></tr>
               )}
-              {payments.map((p) => (
+              {paymentSort.sorted.map((p) => (
                 <tr key={p.id}>
                   <td className="px-4 py-2 text-gray-500 text-xs whitespace-nowrap">{fmtDate(p.payment_date)}</td>
                   <td className="px-4 py-2 text-gray-600 text-xs">{p.payment_method}</td>
@@ -288,15 +318,15 @@ export function LotDetailScreen() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Owner</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">From</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">To</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">%</th>
+                  <SortableTh label="Owner" col="owner" sortKey={priorSort.sortKey} sortDir={priorSort.sortDir} onSort={priorSort.toggleSort} />
+                  <SortableTh label="From" col="from" sortKey={priorSort.sortKey} sortDir={priorSort.sortDir} onSort={priorSort.toggleSort} />
+                  <SortableTh label="To" col="to" sortKey={priorSort.sortKey} sortDir={priorSort.sortDir} onSort={priorSort.toggleSort} />
+                  <SortableTh label="%" col="pct" right sortKey={priorSort.sortKey} sortDir={priorSort.sortDir} onSort={priorSort.toggleSort} />
                   <th className="px-4 py-2 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {ownership.filter((o) => o.end_date).map((o) => (
+                {priorSort.sorted.map((o) => (
                   <tr key={o.id} className="opacity-70 hover:opacity-100 hover:bg-gray-50">
                     <td className="px-4 py-2 text-gray-700">{o.display_name}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{fmtDate(o.start_date)}</td>

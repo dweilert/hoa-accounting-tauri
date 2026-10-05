@@ -6,6 +6,8 @@ import { listCategories } from "../repositories/categoryRepo";
 import type { BankAccount } from "../types/bankAccount";
 import type { Category } from "../types/category";
 import { appAlert, appConfirm } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -244,6 +246,15 @@ export function ReserveTransfersScreen() {
     }
   }
 
+  const sort = useTableSort(transfers, {
+    date: (t) => t.transfer_date,
+    from: (t) => t.from_account,
+    to: (t) => t.to_account,
+    amount: (t) => t.amount,
+    category: (t) => t.category_name,
+    description: (t) => t.description,
+  });
+
   const totalTransferred = transfers.reduce((sum, t) => sum + t.amount, 0);
 
   return (
@@ -285,17 +296,17 @@ export function ReserveTransfersScreen() {
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Date</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">From</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">To</th>
-                  <th className="text-right px-4 py-2.5 font-medium text-gray-600">Amount</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Category</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Description</th>
+                  <SortableTh label="Date" col="date" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="From" col="from" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="To" col="to" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="Amount" col="amount" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+                  <SortableTh label="Category" col="category" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                  <SortableTh label="Description" col="description" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {transfers.map((t) => (
+                {sort.sorted.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-gray-600 whitespace-nowrap">{t.transfer_date}</td>
                     <td className="px-4 py-2 text-gray-700">{t.from_account}</td>

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
 import { countCategories, bulkInsertCategories } from "../repositories/categoryRepo";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import type { CategoryFormValues, CategoryTypeValue, FundCodeValue } from "../types/category";
 
 // ── Category template builder ─────────────────────────────────────────────────
@@ -104,6 +106,11 @@ export function CoaWizardScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort(template, {
+    code: (r) => r.code,
+    name: (r) => r.name,
+    group: (r) => r.group_name,
+  });
 
   useEffect(() => {
     countCategories().then((n) => { setExistingCount(n); setLoading(false); });
@@ -247,7 +254,7 @@ export function CoaWizardScreen() {
     const allChecked = selected.size === template.length;
     const byType = (["INCOME", "EXPENSE", "TRANSFER"] as CategoryTypeValue[]).map((t) => ({
       type: t,
-      rows: template.filter((r) => r.category_type === t),
+      rows: sorted.filter((r) => r.category_type === t),
     })).filter((g) => g.rows.length > 0);
 
     return (
@@ -278,10 +285,10 @@ export function CoaWizardScreen() {
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
                 <th className="w-8 px-3 py-2" />
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Code</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Name</th>
+                <SortableTh label="Code" col="code" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-600">Group</th>
+                <SortableTh label="Group" col="group" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

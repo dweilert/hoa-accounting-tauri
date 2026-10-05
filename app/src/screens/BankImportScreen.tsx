@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import {
   insertBankTransaction, getExistingDedupKeys,
@@ -126,6 +128,13 @@ function fmtDateTime(s: string) {
 function RecentImports({ refreshKey }: { refreshKey: number }) {
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [undoing, setUndoing] = useState<number | null>(null);
+  const batchSort = useTableSort(batches, {
+    date: (b) => b.imported_at,
+    account: (b) => b.account_name,
+    file: (b) => b.filename,
+    imported: (b) => b.imported_count,
+    skipped: (b) => b.skipped_count,
+  });
 
   useEffect(() => {
     listImportBatches(8).then(setBatches).catch(() => {});
@@ -154,16 +163,16 @@ function RecentImports({ refreshKey }: { refreshKey: number }) {
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Account</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">File</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Imported</th>
-              <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Skipped</th>
+              <SortableTh label="Date" col="date" sortKey={batchSort.sortKey} sortDir={batchSort.sortDir} onSort={batchSort.toggleSort} />
+              <SortableTh label="Account" col="account" sortKey={batchSort.sortKey} sortDir={batchSort.sortDir} onSort={batchSort.toggleSort} />
+              <SortableTh label="File" col="file" sortKey={batchSort.sortKey} sortDir={batchSort.sortDir} onSort={batchSort.toggleSort} />
+              <SortableTh label="Imported" col="imported" sortKey={batchSort.sortKey} sortDir={batchSort.sortDir} onSort={batchSort.toggleSort} right />
+              <SortableTh label="Skipped" col="skipped" sortKey={batchSort.sortKey} sortDir={batchSort.sortDir} onSort={batchSort.toggleSort} right />
               <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {batches.map((b) => (
+            {batchSort.sorted.map((b) => (
               <tr key={b.id}>
                 <td className="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime(b.imported_at)}</td>
                 <td className="px-4 py-2 text-xs text-gray-700">{b.account_name ?? "—"}</td>
@@ -207,6 +216,12 @@ export function BankImportScreen() {
   const [skippedCount, setSkippedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const previewSort = useTableSort(preview, {
+    date: (r) => r.date,
+    description: (r) => r.description,
+    amount: (r) => r.amount,
+    status: (r) => (r.isDuplicate ? "duplicate" : (!r.date || isNaN(r.amount)) ? "skip" : "new"),
+  });
 
   useEffect(() => {
     listBankAccounts(true)
@@ -409,14 +424,14 @@ export function BankImportScreen() {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left text-gray-600">Date</th>
-                  <th className="px-3 py-2 text-left text-gray-600">Description</th>
-                  <th className="px-3 py-2 text-right text-gray-600">Amount</th>
-                  <th className="px-3 py-2 text-right text-gray-600">Status</th>
+                  <SortableTh label="Date" col="date" sortKey={previewSort.sortKey} sortDir={previewSort.sortDir} onSort={previewSort.toggleSort} />
+                  <SortableTh label="Description" col="description" sortKey={previewSort.sortKey} sortDir={previewSort.sortDir} onSort={previewSort.toggleSort} />
+                  <SortableTh label="Amount" col="amount" sortKey={previewSort.sortKey} sortDir={previewSort.sortDir} onSort={previewSort.toggleSort} right />
+                  <SortableTh label="Status" col="status" sortKey={previewSort.sortKey} sortDir={previewSort.sortDir} onSort={previewSort.toggleSort} right />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {preview.map((r, i) => (
+                {previewSort.sorted.map((r, i) => (
                   <tr key={i} className={r.isDuplicate ? "opacity-40 bg-gray-50" : (!r.date || isNaN(r.amount)) ? "opacity-30" : ""}>
                     <td className="px-3 py-1.5 text-gray-600">{r.date}</td>
                     <td className="px-3 py-1.5 text-gray-700">{r.description}</td>

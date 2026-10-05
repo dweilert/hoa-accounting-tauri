@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -201,6 +203,14 @@ function StatementView({ stmt, range }: { stmt: LotStatement; range: DateRange }
     return { ...r, running_balance: running };
   });
 
+  const { sorted: sortedLines, sortKey: lSortKey, sortDir: lSortDir, toggleSort: lToggleSort } = useTableSort(lines, {
+    date: (l) => l.entry_date,
+    description: (l) => l.description,
+    charge: (l) => l.charge,
+    payment: (l) => l.payment,
+    balance: (l) => l.running_balance,
+  });
+
   const hasFrom = range.fromDate !== "";
   const periodLabel = hasFrom
     ? `${range.fromDate} — ${range.toDate}`
@@ -254,11 +264,11 @@ function StatementView({ stmt, range }: { stmt: LotStatement; range: DateRange }
         <table className="min-w-full text-xs">
           <thead className="sticky top-0 z-10 border-b border-gray-200">
             <tr>
-              <th className="text-left py-1.5 text-gray-600 font-medium">Date</th>
-              <th className="text-left py-1.5 text-gray-600 font-medium">Description</th>
-              <th className="text-right py-1.5 text-gray-600 font-medium">Charge</th>
-              <th className="text-right py-1.5 text-gray-600 font-medium">Payment</th>
-              <th className="text-right py-1.5 text-gray-600 font-medium">Balance</th>
+              <SortableTh label="Date" col="date" sortKey={lSortKey} sortDir={lSortDir} onSort={lToggleSort} />
+              <SortableTh label="Description" col="description" sortKey={lSortKey} sortDir={lSortDir} onSort={lToggleSort} />
+              <SortableTh label="Charge" col="charge" sortKey={lSortKey} sortDir={lSortDir} onSort={lToggleSort} right />
+              <SortableTh label="Payment" col="payment" sortKey={lSortKey} sortDir={lSortDir} onSort={lToggleSort} right />
+              <SortableTh label="Balance" col="balance" sortKey={lSortKey} sortDir={lSortDir} onSort={lToggleSort} right />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -273,7 +283,7 @@ function StatementView({ stmt, range }: { stmt: LotStatement; range: DateRange }
                 </td>
               </tr>
             )}
-            {lines.map((l, i) => (
+            {sortedLines.map((l, i) => (
               <tr key={i}>
                 <td className="py-1 text-gray-500 pr-3 whitespace-nowrap">{l.entry_date}</td>
                 <td className="py-1 text-gray-700 pr-3">{l.description}</td>
@@ -349,6 +359,12 @@ export function OwnerStatementsScreen() {
     }
   }
 
+  const { sorted: sortedSummaries, sortKey, sortDir, toggleSort } = useTableSort(summaries, {
+    lot: (s) => s.lot_number,
+    owner: (s) => s.owner_names,
+    balance: (s) => s.balance,
+  });
+
   const selected = summaries.filter((s) => s.selected);
   const withBalance = summaries.filter((s) => Math.abs(s.balance) > 0.005).length;
 
@@ -419,17 +435,13 @@ export function OwnerStatementsScreen() {
                     <th className="px-3 py-2.5">
                       <input type="checkbox" checked={summaries.length > 0 && summaries.every((s) => s.selected)} onChange={(e) => toggleAll(e.target.checked)} />
                     </th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">Lot</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-gray-600">
-                      {fromDate ? `Owner (${fromDate} – ${toDate})` : "Current Owner"}
-                    </th>
-                    <th className="text-right px-3 py-2.5 font-medium text-gray-600">
-                      {fromDate ? "Period Ending Balance" : "Balance"}
-                    </th>
+                    <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={fromDate ? `Owner (${fromDate} – ${toDate})` : "Current Owner"} col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={fromDate ? "Period Ending Balance" : "Balance"} col="balance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {summaries.map((s) => (
+                  {sortedSummaries.map((s) => (
                     <tr key={s.lot_id} className={s.selected ? "" : "opacity-50"}>
                       <td className="px-3 py-2 text-center">
                         <input type="checkbox" checked={s.selected} onChange={() => toggleLot(s.lot_id)} />

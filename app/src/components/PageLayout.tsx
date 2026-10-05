@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { HELP, type HelpContent } from "../lib/helpContent";
 import { useNavHistory } from "../lib/navHistory";
+import { canPopout, isPopoutWindow, openPopout, returnFromPopout } from "../lib/popout";
 
 // ── Help Drawer ───────────────────────────────────────────────────────────────
 
@@ -164,6 +165,31 @@ export function PageLayout({
             </div>
             <div className="flex items-center gap-2 ml-4 shrink-0">
               {actions}
+              {canPopout() && (
+                isPopoutWindow() ? (
+                  <button
+                    onClick={() => void returnFromPopout(location.pathname + location.search)}
+                    title="Return to main window"
+                    className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:bg-green-50 hover:border-green-500 hover:text-green-700 flex items-center justify-center transition-colors"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 3H3v10h10v-3" />
+                      <path d="M9 7l4-4M9 3h4v4" transform="rotate(180 11 5)" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => openPopout(location.pathname + location.search, title)}
+                    title="Pop out into a separate window"
+                    className="w-7 h-7 rounded border border-gray-300 text-gray-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 flex items-center justify-center transition-colors"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 3H3v10h10V9" />
+                      <path d="M9 3h4v4M13 3L7.5 8.5" />
+                    </svg>
+                  </button>
+                )
+              )}
               {helpContent && (
                 <button
                   onClick={() => setHelpOpen(true)}

@@ -17,6 +17,8 @@ import type { Vendor } from "../types/vendor";
 import type { Category } from "../types/category";
 import type { BankAccount } from "../types/bankAccount";
 import { appConfirm } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -401,6 +403,17 @@ export function VendorBillsScreen() {
     await loadBills();
   }
 
+  const sort = useTableSort(bills, {
+    vendor: (b) => b.vendor_name,
+    invoice: (b) => b.invoice_number,
+    date: (b) => b.invoice_date,
+    due: (b) => b.due_date,
+    category: (b) => b.category_code,
+    amount: (b) => b.amount,
+    paid: (b) => b.amount_paid ?? 0,
+    status: (b) => b.status,
+  });
+
   return (
     <PageLayout
       title="Vendor Bills"
@@ -441,14 +454,14 @@ export function VendorBillsScreen() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Vendor</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Invoice #</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Due</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Category</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Paid</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortableTh label="Vendor" col="vendor" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Invoice #" col="invoice" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Date" col="date" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Due" col="due" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Category" col="category" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
+                <SortableTh label="Amount" col="amount" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+                <SortableTh label="Paid" col="paid" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} right />
+                <SortableTh label="Status" col="status" sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.toggleSort} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -460,7 +473,7 @@ export function VendorBillsScreen() {
                   </td>
                 </tr>
               )}
-              {bills.map((bill) => (
+              {sort.sorted.map((bill) => (
                 <tr key={bill.id} className={bill.status === "VOID" ? "opacity-40" : ""}>
                   <td className="px-4 py-2 font-medium text-gray-900">{bill.vendor_name}</td>
                   <td className="px-4 py-2 text-gray-600 font-mono text-xs">{bill.invoice_number}</td>

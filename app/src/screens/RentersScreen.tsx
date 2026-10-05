@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { getDb } from "../lib/db";
 import { PageLayout } from "../components/PageLayout";
 import { appConfirm } from "../components/AppDialogs";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -215,6 +217,14 @@ export function RentersScreen() {
     finally { setDeleting(null); }
   }
 
+  const { sorted: sortedRenters, sortKey, sortDir, toggleSort } = useTableSort(renters, {
+    lot: (r) => r.lot_number,
+    renter: (r) => r.display_name,
+    contact: (r) => r.email ?? r.phone,
+    dates: (r) => r.start_date,
+    status: (r) => (r.end_date ? "Past" : "Current"),
+  });
+
   return (
     <PageLayout
       title="Renters"
@@ -248,16 +258,16 @@ export function RentersScreen() {
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Lot</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Renter</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Contact</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Dates</th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">Status</th>
+                  <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Renter" col="renter" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Contact" col="contact" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Dates" col="dates" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {renters.map((r) => (
+                {sortedRenters.map((r) => (
                   <tr key={r.id} className={r.end_date ? "opacity-60" : "hover:bg-gray-50"}>
                     <td className="px-4 py-2.5">
                       <p className="font-medium text-gray-900">Lot {r.lot_number}</p>

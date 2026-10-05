@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { SortableTh } from "../components/SortableTh";
+import { useTableSort } from "../lib/useTableSort";
 import { PageLayout } from "../components/PageLayout";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import {
@@ -9,6 +11,7 @@ import {
   storeOfxBalance,
 } from "../repositories/reconciliationRepo";
 import { applyRulesToPending, matchReserveTransfers } from "../repositories/transactionRuleRepo";
+import { splitStatements, last4 } from "../lib/ofxStatements";
 import type { BankAccount } from "../types/bankAccount";
 import { appConfirm } from "../components/AppDialogs";
 
@@ -81,7 +84,7 @@ function parseOFXBalance(text: string): { balanceDate: string; balanceAmount: nu
 
 // ── Inbox file reader (Tauri only) ────────────────────────────────────────────
 
-type InboxFile = { name: string; size: number; mtime: string };
+type InboxFile = { name: string; size: number; mtime: string; mtimeMs: number };
 
 async function listInboxFiles(): Promise<InboxFile[]> {
   const { readDir, stat, BaseDirectory } = await import("@tauri-apps/plugin-fs");
@@ -97,9 +100,10 @@ async function listInboxFiles(): Promise<InboxFile[]> {
         name: entry.name,
         size: info.size ?? 0,
         mtime: info.mtime ? new Date(info.mtime).toLocaleString() : "—",
+        mtimeMs: info.mtime ? new Date(info.mtime).getTime() : 0,
       });
     } catch {
-      files.push({ name: entry.name, size: 0, mtime: "—" });
+      files.push({ name: entry.name, size: 0, mtime: "—", mtimeMs: 0 });
     }
   }
   return files.sort((a, b) => a.name.localeCompare(b.name));
@@ -212,35 +216,40 @@ async function importFile(
 ): Promise<{ imported: number; skipped: number; autoMatched: number; error?: string }> {
   try {
     const text = await readOFXText(filename);
-    const transactions = parseOFX(text);
-    if (transactions.length === 0) return { imported: 0, skipped: 0, autoMatched: 0, error: "No transactions found" };
-
-    // Match ACCTID from OFX to bank account by last4
-    const acctidMatch = /<ACCTID>([^<\r\n]+)/i.exec(text);
-    const acctid = acctidMatch?.[1]?.trim() ?? "";
-    const last4 = acctid.slice(-4);
-    const account = accounts.find((a) => a.account_last4 === last4) ?? accounts[0];
-    if (!account) return { imported: 0, skipped: 0, autoMatched: 0, error: "No matching bank account found" };
-
-    const existing = await getExistingDedupKeys(account.id).catch(() => new Set<string>());
-    const batchId = await createImportBatch(account.id, filename);
-    let imported = 0, skipped = 0;
-    for (const t of transactions) {
-      const key = buildDedupKey(t.fitid, t.dtposted, t.trnamt);
-      if (existing.has(key) || existing.has(`date-amt-${t.dtposted}-${t.trnamt}`)) { skipped++; continue; }
-      const desc = [t.name, t.memo].filter(Boolean).join(" — ") || t.trntype;
-      const id = await insertBankTransaction(account.id, t.dtposted, t.trnamt, desc, key, batchId);
-      if (id > 0) imported++; else skipped++;
+    const statements = splitStatements(text);
+    let imported = 0, skipped = 0, autoMatched = 0;
+    let anyTxns = false;
+    for (const st of statements) {
+      const transactions = parseOFX(st.text);
+      if (transactions.length === 0) continue;
+      anyTxns = true;
+      const account = accounts.find((a) => a.account_last4 === last4(st.acctid));
+      if (!account) {
+        return { imported, skipped, autoMatched, error: `No bank account matches account ending "${last4(st.acctid)}" in this file` };
+      }
+      const existing = await getExistingDedupKeys(account.id).catch(() => new Set<string>());
+      const batchId = await createImportBatch(account.id, filename);
+      let imp = 0, skp = 0;
+      for (const t of transactions) {
+        const key = buildDedupKey(t.fitid, t.dtposted, t.trnamt);
+        if (existing.has(key) || existing.has(`date-amt-${t.dtposted}-${t.trnamt}`)) { skp++; continue; }
+        const desc = [t.name, t.memo].filter(Boolean).join(" — ") || t.trntype;
+        const id = await insertBankTransaction(account.id, t.dtposted, t.trnamt, desc, key, batchId);
+        if (id > 0) imp++; else skp++;
+      }
+      await finalizeImportBatch(batchId, imp, skp);
+      imported += imp; skipped += skp;
+      const bal = parseOFXBalance(st.text);
+      if (bal) await storeOfxBalance(account.id, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
+      if (imp > 0) {
+        try {
+          const matchResult = await applyRulesToPending(account.id, false);
+          autoMatched += matchResult.matched;
+        } catch { /* non-fatal */ }
+      }
     }
-    await finalizeImportBatch(batchId, imported, skipped);
-    const bal = parseOFXBalance(text);
-    if (bal) await storeOfxBalance(account.id, bal.balanceDate, bal.balanceAmount).catch(() => undefined);
-    let autoMatched = 0;
+    if (!anyTxns) return { imported: 0, skipped: 0, autoMatched: 0, error: "No transactions found" };
     if (imported > 0) {
-      try {
-        const matchResult = await applyRulesToPending(account.id, false);
-        autoMatched = matchResult.matched;
-      } catch { /* non-fatal */ }
       try {
         const transferResult = await matchReserveTransfers(false);
         autoMatched += transferResult.matched;
@@ -268,6 +277,12 @@ export function OFXInboxScreen() {
   const [importingAll, setImportingAll] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<InboxFile>(files, {
+    name: (f) => f.name,
+    size: (f) => f.size,
+    mtime: (f) => f.mtimeMs,
+  });
 
   const refresh = useCallback(async () => {
     if (!isTauri()) return;
@@ -434,14 +449,14 @@ export function OFXInboxScreen() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">File</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Size</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Modified</th>
+                  <SortableTh label="File" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Size" col="size" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                  <SortableTh label="Modified" col="mtime" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {files.map((f) => (
+                {sorted.map((f) => (
                   <tr key={f.name} className="hover:bg-gray-50">
                     <td className="px-4 py-2 font-mono text-xs text-gray-700">{f.name}</td>
                     <td className="px-4 py-2 text-right text-xs text-gray-500">{fmt(f.size)}</td>

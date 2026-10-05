@@ -16,6 +16,8 @@ import { homeDir } from "@tauri-apps/api/path";
 import { getDb } from "../lib/db";
 import { loadOwnerLedger, loadOwnerDetails } from "../lib/ownerLedgerData";
 import { PageLayout } from "../components/PageLayout";
+import { useTableSort } from "../lib/useTableSort";
+import { SortableTh } from "../components/SortableTh";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -197,6 +199,16 @@ export function PublishStatementsScreen() {
   const anyStarted = done + errors + inFlight > 0;
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  const { sorted: sortedLots, sortKey, sortDir, toggleSort } = useTableSort(lots, {
+    lot: (l) => l.lot_number,
+    owner: (l) => l.owner_name,
+    status: (l) => statuses[l.lot_number]?.phase ?? "idle",
+    key: (l) => {
+      const st = statuses[l.lot_number];
+      return st && st.phase === "done" ? st.key : "";
+    },
+  });
+
   return (
     <PageLayout title="Publish Statements" subtitle="Generate Owner Ledger PDFs and push to S3 for homeowner access.">
       <div className="space-y-5">
@@ -277,10 +289,10 @@ export function PublishStatementsScreen() {
           <table className="w-full text-[11px]">
             <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr className="bg-slate-800 text-white">
-                <th className="px-3 py-2 text-left text-[10px] font-semibold">Lot</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold">Owner</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold w-32">Status</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold">S3 Key</th>
+                <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+                <SortableTh label="Owner" col="owner" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
+                <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700 w-32" />
+                <SortableTh label="S3 Key" col="key" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="!text-white hover:!bg-slate-700" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -290,7 +302,7 @@ export function PublishStatementsScreen() {
               {!loadingLots && total === 0 && (
                 <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No active lots found.</td></tr>
               )}
-              {lots.map((lot) => {
+              {sortedLots.map((lot) => {
                 const s = statuses[lot.lot_number] ?? { phase: "idle" };
                 return (
                   <tr key={lot.lot_number}>

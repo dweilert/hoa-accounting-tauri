@@ -1,5 +1,11 @@
-import { useState, useEffect } from "react";
-import { Outlet, NavLink, Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Outlet, NavLink, Link, useNavigate } from "react-router-dom";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {
+  canPopout, currentWindowLabel, isPopoutWindow,
+  DB_CHANGED_EVENT, POPOUT_RETURN_EVENT,
+} from "../lib/popout";
 import { useAuth, useCurrentUser } from "../contexts/AuthContext";
 import { NavHistoryProvider } from "../lib/navHistory";
 import { getHoaSettings } from "../repositories/setupRepo";
@@ -138,6 +144,54 @@ export function AppShell() {
     );
   }, []);
 
+  const popout = isPopoutWindow();
+  const navigate = useNavigate();
+  const [outletKey, setOutletKey] = useState(0);
+  const staleFromOtherWindow = useRef(false);
+
+  useEffect(() => {
+    if (!canPopout()) return;
+    const me = currentWindowLabel();
+    const unlisteners: Promise<UnlistenFn>[] = [];
+    unlisteners.push(
+      listen<{ from: string }>(DB_CHANGED_EVENT, (e) => {
+        if (e.payload.from !== me) staleFromOtherWindow.current = true;
+      })
+    );
+    if (!popout) {
+      unlisteners.push(
+        listen<{ path: string }>(POPOUT_RETURN_EVENT, (e) => {
+          navigate(e.payload.path);
+          const w = getCurrentWebviewWindow();
+          void w.unminimize();
+          void w.setFocus();
+        })
+      );
+    }
+    const onFocus = () => {
+      if (staleFromOtherWindow.current) {
+        staleFromOtherWindow.current = false;
+        setOutletKey((k) => k + 1);
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      unlisteners.forEach((p) => void p.then((f) => f()));
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [popout, navigate]);
+
+  if (popout) {
+    return (
+      <div className="h-screen overflow-y-auto">
+        <NavHistoryProvider>
+          <ErrorBoundary>
+            <Outlet key={outletKey} />
+          </ErrorBoundary>
+        </NavHistoryProvider>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
@@ -277,7 +331,7 @@ export function AppShell() {
           <div className="flex-1 overflow-y-auto">
             <NavHistoryProvider>
               <ErrorBoundary>
-                <Outlet />
+                <Outlet key={outletKey} />
               </ErrorBoundary>
             </NavHistoryProvider>
           </div>

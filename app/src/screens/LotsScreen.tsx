@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/PageLayout";
+import { SortableTh } from "../components/SortableTh";
+import { useTableSort } from "../lib/useTableSort";
 import { Modal } from "../components/Modal";
 import { listLots, insertLot, updateLot, deleteLot, hasCurrentOwners } from "../repositories/lotRepo";
 import { LotFormSchema, type LotWithOwner, type LotFormValues } from "../types/lot";
@@ -113,6 +115,14 @@ export function LotsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
 
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<LotWithOwner>(lots, {
+    lot: (l) => l.lot_number,
+    address: (l) => l.street_address_1,
+    city: (l) => [l.city, l.state, l.postal_code].filter(Boolean).join(", "),
+    owners: (l) => l.owner_names,
+    status: (l) => (l.active_flag ? "Active" : "Inactive"),
+  });
+
   const load = useCallback(async () => {
     try { setLots(await listLots()); }
     catch (e) { setError(String(e)); }
@@ -165,11 +175,11 @@ export function LotsScreen() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot #</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Address</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">City / State</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Current Owner(s)</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Status</th>
+                <SortableTh label="Lot #" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Address" col="address" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="City / State" col="city" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Current Owner(s)" col="owners" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Status" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -181,7 +191,7 @@ export function LotsScreen() {
                   </td>
                 </tr>
               )}
-              {lots.map((lot) => (
+              {sorted.map((lot) => (
                 <tr key={lot.id} className={lot.active_flag ? "" : "opacity-50"}>
                   <td className="px-4 py-2 font-semibold text-blue-600 hover:underline cursor-pointer" onClick={() => navigate(`/lots/${lot.id}`, { state: { from: "/lots", fromLabel: "Lots" } })}>{lot.lot_number}</td>
                   <td className="px-4 py-2 text-gray-700">

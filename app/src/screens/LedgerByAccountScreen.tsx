@@ -3,6 +3,8 @@ import { getDb } from "../lib/db";
 import { listBankAccounts } from "../repositories/bankAccountRepo";
 import type { BankAccount } from "../types/bankAccount";
 import { PageLayout } from "../components/PageLayout";
+import { SortableTh } from "../components/SortableTh";
+import { useTableSort } from "../lib/useTableSort";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -110,6 +112,15 @@ export function LedgerByAccountScreen() {
 
   useEffect(() => { if (selectedId) void load(); }, [load, selectedId]);
 
+  const { sorted, sortKey, sortDir, toggleSort } = useTableSort<LedgerRow>(rows, {
+    date: (r) => r.txn_date,
+    type: (r) => r.source_type,
+    description: (r) => r.description,
+    lot: (r) => r.lot_number,
+    amount: (r) => r.amount,
+    balance: (r) => r.running_balance,
+  });
+
   const SOURCE_LABELS: Record<string, string> = {
     PAYMENT: "Payment",
     BILL_PAYMENT: "Bill Payment",
@@ -156,12 +167,12 @@ export function LedgerByAccountScreen() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Date</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Type</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Description</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Lot</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Amount</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">Balance</th>
+                  <SortableTh label="Date" col="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Description" col="description" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Lot" col="lot" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Amount" col="amount" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
+                  <SortableTh label="Balance" col="balance" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -172,7 +183,7 @@ export function LedgerByAccountScreen() {
                     </td>
                   </tr>
                 )}
-                {rows.map((r, i) => (
+                {sorted.map((r, i) => (
                   <tr key={i}>
                     <td className="px-4 py-2 text-gray-600">{r.txn_date}</td>
                     <td className="px-4 py-2">
